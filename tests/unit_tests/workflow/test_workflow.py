@@ -21,6 +21,7 @@ from alphadia.workflow.optimizers.automatic import (
     AutomaticMobilityOptimizer,
     AutomaticMS1Optimizer,
     AutomaticMS2Optimizer,
+    AutomaticOptimizer,
     AutomaticRTOptimizer,
 )
 from alphadia.workflow.optimizers.targeted import (
@@ -727,15 +728,70 @@ def test_automatic_optimizer_keeps_current_value_on_empty_history():
     # given
     workflow = create_workflow_instance()
     ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
-    ms2_error_before = workflow.optimization_manager.ms2_error
+    # a value distinct from the initial parameter, so the assertion cannot hold trivially
+    workflow.optimization_manager.update(ms2_error=42.0)
     classifier_version_before = workflow.optimization_manager.classifier_version
 
     # when
     ms2_optimizer._update_workflow()
 
     # then
-    assert workflow.optimization_manager.ms2_error == ms2_error_before
+    assert workflow.optimization_manager.ms2_error == 42.0
     assert workflow.optimization_manager.classifier_version == classifier_version_before
+
+
+def test_automatic_optimizer_step_does_not_propose_parameter_without_measurement():
+    """Tests that a round with no measurement leaves the search parameter unchanged.
+
+    Proposing from an empty frame calibrates the parameter to zero, which would make
+    every later search extract nothing.
+    """
+    # given
+    workflow = create_workflow_instance()
+    ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
+    workflow.optimization_manager.update(ms2_error=42.0)
+
+    # when
+    ms2_optimizer.step(pd.DataFrame(), pd.DataFrame())
+
+    # then
+    assert ms2_optimizer.history_df.empty
+    assert workflow.optimization_manager.ms2_error == 42.0
+
+
+def test_automatic_optimizer_plot_does_not_raise_on_empty_history():
+    """Tests that plotting an optimizer that recorded nothing warns instead of raising."""
+    # given
+    workflow = create_workflow_instance()
+    ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
+
+    # when
+    ms2_optimizer.plot()
+
+    # then
+    assert ms2_optimizer.history_df.empty
+
+
+def test_automatic_optimizer_requires_a_declared_feature():
+    """Tests that a subclass forgetting to declare its feature fails at construction."""
+
+    # given
+    class FeaturelessOptimizer(AutomaticOptimizer):
+        pass
+
+    # when / then
+    with pytest.raises(
+        NotImplementedError, match="must declare a class-level _feature"
+    ):
+        FeaturelessOptimizer(
+            100,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+        )
 
 
 def test_automatic_optimizer_proceeds_with_insufficient_precursors_on_empty_batch():

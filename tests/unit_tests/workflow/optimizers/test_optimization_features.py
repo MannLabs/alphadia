@@ -81,6 +81,21 @@ def test_mean_isotope_intensity_correlation_returns_none_for_empty_precursors():
     assert value is None
 
 
+def test_mean_isotope_intensity_correlation_returns_none_for_all_nan_column():
+    """Tests that an all-NaN column yields None rather than a NaN that propagates silently."""
+    # given
+    feature = MeanIsotopeIntensityCorrelation()
+    precursors_df = pd.DataFrame(
+        {"isotope_intensity_correlation": [np.nan, np.nan, np.nan]}
+    )
+
+    # when
+    value = feature.measure(precursors_df, pd.DataFrame(), _optlock(2000))
+
+    # then
+    assert value is None
+
+
 def test_feature_names():
     """Tests that the features keep the history column names used before the refactor."""
     # given / when / then

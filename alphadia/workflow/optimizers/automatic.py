@@ -42,6 +42,14 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         See base class for other parameters.
 
         """
+        # Fail here rather than minutes into the first search: without the abstract
+        # _get_feature_value, a subclass that forgets to declare its feature would
+        # otherwise raise deep inside the first optimization round.
+        if not hasattr(self, "_feature"):
+            raise NotImplementedError(
+                f"{type(self).__name__} must declare a class-level _feature."
+            )
+
         super().__init__(
             config, optimization_manager, calibration_manager, fdr_manager, reporter
         )
@@ -105,7 +113,11 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             verbosity="progress",
         )
 
-        self._update_history(precursors_df, fragments_df)
+        if not self._update_history(precursors_df, fragments_df):
+            # Without a measurement there is nothing to converge on, and the empty frame
+            # would calibrate the next parameter to zero or NaN, making every later
+            # search extract nothing. Leave the parameter as it is.
+            return
 
         if self._just_converged:
             self.has_converged = True
@@ -148,6 +160,13 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
 
     def plot(self):
         """Plot the value of the feature used to assess optimization progress against the parameter value, for each value tested."""
+        if self.history_df.empty:
+            self._reporter.log_string(
+                f"{self.parameter_name}: no measurement recorded, nothing to plot.",
+                verbosity="warning",
+            )
+            return
+
         fig, ax = plt.subplots()
 
         ax.vlines(
@@ -204,16 +223,15 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             ).ci(df, self.update_percentile_range)
         )
 
-    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """This method updates the history dataframe with relevant values.
+    def _update_history(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ) -> bool:
+        """See base class.
 
-        Parameters
-        ----------
-        precursors_df: pd.DataFrame
-            The filtered precursor dataframe for the search.
-
-        fragments_df: pd.DataFrame
-            The filtered fragment dataframe for the search.
+        Returns
+        -------
+        bool
+            True if a measurement was recorded, False if this round admitted none.
 
         """
         feature_value = self._feature.measure(
@@ -225,11 +243,11 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         # limits in plot() non-finite instead of raising.
         if feature_value is None:
             self._reporter.log_string(
-                f"{self.parameter_name}: batch {self._optlock.batch_idx} extracted nothing; "
-                f"no {self._feature.name} recorded for this round.",
+                f"{self.parameter_name}: {self._feature.name} is undefined for batch "
+                f"{self._optlock.batch_idx}; no measurement recorded for this round.",
                 verbosity="warning",
             )
-            return
+            return False
 
         new_row = pd.DataFrame(
             [
@@ -247,6 +265,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             ]
         )
         self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
+        return True
 
     @property
     def _batch_substantially_bigger(self):

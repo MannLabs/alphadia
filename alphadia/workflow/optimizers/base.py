@@ -93,7 +93,9 @@ class BaseOptimizer(ABC):
         """
 
     @abstractmethod
-    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+    def _update_history(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ) -> bool:
         """This method updates the history dataframe with relevant values.
 
         Parameters
@@ -103,5 +105,10 @@ class BaseOptimizer(ABC):
 
         fragments_df: pd.DataFrame
             The filtered fragment dataframe for the search.
+
+        Returns
+        -------
+        bool
+            True if a measurement was recorded, False otherwise.
 
         """

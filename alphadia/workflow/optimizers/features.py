@@ -82,4 +82,10 @@ class MeanIsotopeIntensityCorrelation(OptimizationFeature):
         """See base class."""
         if precursors_df.empty:
             return None
-        return precursors_df["isotope_intensity_correlation"].mean()
+
+        # An all-NaN column is as unmeasurable as an empty frame, and pandas reports
+        # both as NaN rather than raising.
+        mean_correlation = precursors_df["isotope_intensity_correlation"].mean()
+        if pd.isna(mean_correlation):
+            return None
+        return float(mean_correlation)
