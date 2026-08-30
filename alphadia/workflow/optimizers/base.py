@@ -7,13 +7,14 @@ from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.optimizers.features import OptimizationFeature
 
 
 class BaseOptimizer(ABC):
     parameter_name: str | None
     _estimator_name: str | None
     _estimator_group_name: str | None
-    _feature_name: str | None
+    _feature: OptimizationFeature
 
     def __init__(
         self,
