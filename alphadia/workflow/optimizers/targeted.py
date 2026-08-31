@@ -132,8 +132,11 @@ class TargetedOptimizer(BaseOptimizer, ABC):
     def _update_workflow(self):
         pass
 
-    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        pass
+    def _update_history(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ) -> bool:
+        """See base class. A targeted optimizer does not keep a history."""
+        return False
 
 
 class TargetedRTOptimizer(TargetedOptimizer):

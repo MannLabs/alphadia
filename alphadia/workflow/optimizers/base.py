@@ -7,13 +7,14 @@ from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.optimizers.features import OptimizationFeature
 
 
 class BaseOptimizer(ABC):
     parameter_name: str | None
     _estimator_name: str | None
     _estimator_group_name: str | None
-    _feature_name: str | None
+    _feature: OptimizationFeature
 
     def __init__(
         self,
@@ -92,7 +93,9 @@ class BaseOptimizer(ABC):
         """
 
     @abstractmethod
-    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+    def _update_history(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ) -> bool:
         """This method updates the history dataframe with relevant values.
 
         Parameters
@@ -102,5 +105,10 @@ class BaseOptimizer(ABC):
 
         fragments_df: pd.DataFrame
             The filtered fragment dataframe for the search.
+
+        Returns
+        -------
+        bool
+            True if this method recorded a measurement, False if it did not.
 
         """

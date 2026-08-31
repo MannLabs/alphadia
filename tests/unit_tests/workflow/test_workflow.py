@@ -689,6 +689,107 @@ def test_automatic_mobility_optimizer():
     assert workflow.optimization_manager.classifier_version == 2
 
 
+def _create_ms2_optimizer_with_empty_batch(workflow):
+    """Make an MS2 optimizer with an optlock that has no elution group.
+
+    This is the state after a batch that extracted nothing.
+    """
+    workflow._optimization_handler._optlock.total_elution_groups = 0
+
+    return AutomaticMS2Optimizer(
+        100,
+        workflow.config,
+        workflow.optimization_manager,
+        workflow.calibration_manager,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
+        workflow.reporter,
+    )
+
+
+def test_automatic_optimizer_records_no_history_row_for_empty_batch():
+    """Test that a round with no measurement adds no row to the history."""
+    # given
+    workflow = create_workflow_instance()
+    ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
+
+    # when
+    with patch.object(workflow.reporter, "log_string") as mock_log_string:
+        ms2_optimizer._update_history(pd.DataFrame(), pd.DataFrame())
+
+    # then
+    assert ms2_optimizer.history_df.empty
+    assert any(
+        call.kwargs.get("verbosity") == "warning"
+        for call in mock_log_string.call_args_list
+    )
+
+
+def test_automatic_optimizer_keeps_current_value_on_empty_history():
+    """Test that an update from an empty history does not change the optimization manager."""
+    # given
+    workflow = create_workflow_instance()
+    ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
+    # use a value that is different from the initial parameter. Then the assertion
+    # cannot become true by accident.
+    workflow.optimization_manager.update(ms2_error=42.0)
+    classifier_version_before = workflow.optimization_manager.classifier_version
+
+    # when
+    ms2_optimizer._update_workflow()
+
+    # then
+    assert workflow.optimization_manager.ms2_error == 42.0
+    assert workflow.optimization_manager.classifier_version == classifier_version_before
+
+
+def test_automatic_optimizer_step_does_not_propose_parameter_without_measurement():
+    """Test that a round with no measurement keeps the search parameter unchanged.
+
+    A proposal from an empty frame calibrates the parameter to zero. Then all
+    subsequent searches find nothing.
+    """
+    # given
+    workflow = create_workflow_instance()
+    ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
+    workflow.optimization_manager.update(ms2_error=42.0)
+
+    # when
+    ms2_optimizer.step(pd.DataFrame(), pd.DataFrame())
+
+    # then
+    assert ms2_optimizer.history_df.empty
+    assert workflow.optimization_manager.ms2_error == 42.0
+
+
+def test_automatic_optimizer_plot_does_not_raise_on_empty_history():
+    """Test that plot() gives a warning and no error if there is no measurement."""
+    # given
+    workflow = create_workflow_instance()
+    ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
+
+    # when
+    ms2_optimizer.plot()
+
+    # then
+    assert ms2_optimizer.history_df.empty
+
+
+def test_automatic_optimizer_proceeds_with_insufficient_precursors_on_empty_batch():
+    """Test that the recovery path continues after a batch that extracted nothing."""
+    # given
+    workflow = create_workflow_instance()
+    ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
+    ms2_error_before = workflow.optimization_manager.ms2_error
+
+    # when
+    ms2_optimizer.proceed_with_insufficient_precursors(pd.DataFrame(), pd.DataFrame())
+
+    # then
+    assert ms2_optimizer.history_df.empty
+    assert workflow.optimization_manager.ms2_error == ms2_error_before
+
+
 def test_targeted_ms2_optimizer():
     workflow = create_workflow_instance()
 
