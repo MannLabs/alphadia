@@ -4,6 +4,7 @@ import os
 import pandas as pd
 
 from alphadia.constants.keys import (
+    CHANNEL_RUN_COLUMN_TEMPLATE,
     INTERNAL_TO_OUTPUT_MAPPING,
     NormalizationMethods,
     QuantificationLevelKey,
@@ -19,6 +20,182 @@ from alphadia.outputtransform.quantification.quant_builder import (
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
+
+
+def create_quant_level_configs(config: dict) -> list[LFQOutputConfig]:
+    """Create quantification level configurations based on settings.
+
+    Uses output keys for intensity columns to ensure consistent
+    output column naming in user-facing files.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary with quantification settings
+
+    Returns
+    -------
+    list[LFQOutputConfig]
+        List of quantification level configurations
+    """
+    return [
+        LFQOutputConfig(
+            quant_level=QuantificationLevelKey.PRECURSOR,
+            level_name=QuantificationLevelName.PRECURSOR,
+            intensity_column="precursor_lfq_intensity",
+            aggregation_components=[
+                QuantificationLevelName.PROTEIN,
+                "sequence",
+                "mods",
+                "mod_sites",
+                "charge",
+            ],
+            should_process=config["search_output"]["precursor_level_lfq"],
+            save_fragments=config["search_output"]["save_fragment_quant_matrix"],
+            normalization_method=config["search_output"]["normalization_method"],
+        ),
+        LFQOutputConfig(
+            quant_level=QuantificationLevelKey.PEPTIDE,
+            level_name=QuantificationLevelName.PEPTIDE,
+            intensity_column="peptide_lfq_intensity",
+            aggregation_components=[
+                QuantificationLevelName.PROTEIN,
+                "sequence",
+                "mods",
+                "mod_sites",
+            ],
+            should_process=config["search_output"]["peptide_level_lfq"],
+            save_fragments=config["search_output"]["save_fragment_quant_matrix"],
+            normalization_method=config["search_output"]["normalization_method"],
+        ),
+        LFQOutputConfig(
+            quant_level=QuantificationLevelKey.PROTEIN,
+            level_name=QuantificationLevelName.PROTEIN,
+            intensity_column="pg_lfq_intensity",
+            aggregation_components=[
+                QuantificationLevelName.PROTEIN,
+            ],
+            should_process=True,
+            normalization_method=config["search_output"]["normalization_method"],
+        ),
+    ]
+
+
+def merge_channel_lfq_results(
+    lfq_results_per_channel: list[tuple[int | None, dict[str, pd.DataFrame]]],
+    config: dict,
+    run_names: list[str],
+) -> dict[str, pd.DataFrame]:
+    """Merge per-channel quantification results into a single matrix per level.
+
+    Run columns are renamed to `<run>.channel_<channel>`, so that a single matrix
+    holds all run/channel combinations as columns. A channel of `None` denotes a
+    non-multiplexed search, whose run columns keep their plain names.
+
+    Parameters
+    ----------
+    lfq_results_per_channel : list[tuple[int | None, dict[str, pd.DataFrame]]]
+        Channel and its quantification results for each level
+    config : dict
+        Configuration dictionary with quantification settings
+    run_names : list[str]
+        Names of the runs, i.e. the columns to rename
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        Merged quantification results for each level
+    """
+    merged_lfq_results = {}
+
+    for quantlevel_config in create_quant_level_configs(config):
+        channel_dfs = []
+        for channel, lfq_results in lfq_results_per_channel:
+            lfq_df = lfq_results.get(quantlevel_config.level_name)
+            if lfq_df is None or lfq_df.empty:
+                continue
+
+            channel_columns = (
+                {}
+                if channel is None
+                else {
+                    run: CHANNEL_RUN_COLUMN_TEMPLATE.format(run=run, channel=channel)
+                    for run in run_names
+                    if run in lfq_df.columns
+                }
+            )
+            channel_dfs.append(lfq_df.rename(columns=channel_columns))
+
+        if not channel_dfs:
+            continue
+
+        if len(channel_dfs) == 1:
+            merged_lfq_results[quantlevel_config.level_name] = channel_dfs[0]
+            continue
+
+        # a row is only quantified in the columns of its own channel, so collapsing
+        # on the level key picks the single non-nan value for every column
+        merged_lfq_results[quantlevel_config.level_name] = (
+            pd.concat(channel_dfs, ignore_index=True)
+            .groupby(quantlevel_config.quant_level, as_index=False, sort=False)
+            .first()
+        )
+
+    return merged_lfq_results
+
+
+def _apply_output_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert internal column names to output names for output.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe with internal column names
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with output column names applied
+    """
+    return df.rename(columns=INTERNAL_TO_OUTPUT_MAPPING)
+
+
+def save_lfq_results(
+    lfq_results: dict[str, pd.DataFrame],
+    output_folder: str,
+    config: dict,
+    file_format: str = "parquet",
+) -> None:
+    """Save quantification results to disk with output column names.
+
+    Parameters
+    ----------
+    lfq_results : dict[str, pd.DataFrame]
+        Dictionary with quantification results for each level
+    output_folder : str
+        Output folder path
+    config : dict
+        Configuration dictionary with quantification settings
+    file_format : str, default='parquet'
+        File format for output files
+    """
+    from alphadia.outputtransform.utils import write_df
+
+    for quantlevel_config in create_quant_level_configs(config):
+        if not quantlevel_config.should_process:
+            continue
+
+        lfq_df = lfq_results.get(quantlevel_config.level_name)
+        if lfq_df is None or lfq_df.empty:
+            continue
+
+        logger.info(f"Writing {quantlevel_config.level_name} output to disk")
+
+        write_df(
+            _apply_output_names(lfq_df),
+            os.path.join(output_folder, f"{quantlevel_config.level_name}.matrix"),
+            file_format=file_format,
+        )
 
 
 class QuantOutputBuilder:
@@ -98,7 +275,7 @@ class QuantOutputBuilder:
             logger.warning("No fragment data found, skipping quantification")
             return {}, self.psm_df
 
-        quantlevel_configs = self._create_quant_level_configs()
+        quantlevel_configs = create_quant_level_configs(self.config)
         lfq_results = {}
 
         for quantlevel_config in quantlevel_configs:
@@ -126,69 +303,6 @@ class QuantOutputBuilder:
         )
 
         return lfq_results, psm_df_with_quant
-
-    def _create_quant_level_configs(self) -> list[LFQOutputConfig]:
-        """Create quantification level configurations based on settings.
-
-        Uses output keys for intensity columns to ensure consistent
-        output column naming in user-facing files.
-
-        Returns
-        -------
-        list[LFQOutputConfig]
-            List of quantification level configurations
-        """
-        return [
-            LFQOutputConfig(
-                quant_level=QuantificationLevelKey.PRECURSOR,
-                level_name=QuantificationLevelName.PRECURSOR,
-                intensity_column="precursor_lfq_intensity",
-                aggregation_components=[
-                    QuantificationLevelName.PROTEIN,
-                    "sequence",
-                    "mods",
-                    "mod_sites",
-                    "charge",
-                ],
-                should_process=self.config["search_output"]["precursor_level_lfq"],
-                save_fragments=self.config["search_output"][
-                    "save_fragment_quant_matrix"
-                ],
-                normalization_method=self.config["search_output"][
-                    "normalization_method"
-                ],
-            ),
-            LFQOutputConfig(
-                quant_level=QuantificationLevelKey.PEPTIDE,
-                level_name=QuantificationLevelName.PEPTIDE,
-                intensity_column="peptide_lfq_intensity",
-                aggregation_components=[
-                    QuantificationLevelName.PROTEIN,
-                    "sequence",
-                    "mods",
-                    "mod_sites",
-                ],
-                should_process=self.config["search_output"]["peptide_level_lfq"],
-                save_fragments=self.config["search_output"][
-                    "save_fragment_quant_matrix"
-                ],
-                normalization_method=self.config["search_output"][
-                    "normalization_method"
-                ],
-            ),
-            LFQOutputConfig(
-                quant_level=QuantificationLevelKey.PROTEIN,
-                level_name=QuantificationLevelName.PROTEIN,
-                intensity_column="pg_lfq_intensity",
-                aggregation_components=[
-                    QuantificationLevelName.PROTEIN,
-                ],
-                should_process=True,
-                normalization_method=self.config["search_output"][
-                    "normalization_method"
-                ],
-            ),
-        ]
 
     def _annotate_quant_df(
         self,
@@ -267,60 +381,6 @@ class QuantOutputBuilder:
             )
         return lfq_df
 
-    def _apply_output_names(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Convert internal column names to output names for output.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Dataframe with internal column names
-
-        Returns
-        -------
-        pd.DataFrame
-            Dataframe with output column names applied
-        """
-        return df.rename(columns=INTERNAL_TO_OUTPUT_MAPPING)
-
-    def save_results(
-        self,
-        lfq_results: dict[str, pd.DataFrame],
-        output_folder: str,
-        file_format: str = "parquet",
-    ) -> None:
-        """Save quantification results to disk with output column names.
-
-        Parameters
-        ----------
-        lfq_results : dict[str, pd.DataFrame]
-            Dictionary with quantification results for each level
-        output_folder : str
-            Output folder path
-        file_format : str, default='parquet'
-            File format for output files
-        """
-        from alphadia.outputtransform.utils import write_df
-
-        quantlevel_configs = self._create_quant_level_configs()
-
-        for config in quantlevel_configs:
-            if not config.should_process:
-                continue
-
-            lfq_df = lfq_results.get(config.level_name)
-            if lfq_df is None or lfq_df.empty:
-                continue
-
-            logger.info(f"Writing {config.level_name} output to disk")
-
-            lfq_df_output = self._apply_output_names(lfq_df)
-
-            write_df(
-                lfq_df_output,
-                os.path.join(output_folder, f"{config.level_name}.matrix"),
-                file_format=file_format,
-            )
-
     def save_fragment_matrices(
         self,
         feature_dfs_dict: dict[str, pd.DataFrame],
@@ -340,7 +400,7 @@ class QuantOutputBuilder:
         """
         from alphadia.outputtransform.utils import write_df
 
-        quantlevel_configs = self._create_quant_level_configs()
+        quantlevel_configs = create_quant_level_configs(self.config)
 
         for config in quantlevel_configs:
             if not config.save_fragments:
@@ -361,7 +421,7 @@ class QuantOutputBuilder:
                 f"Writing fragment quantity matrix to disk, filtered on {config.level_name}"
             )
 
-            group_intensity_df_output = self._apply_output_names(group_intensity_df)
+            group_intensity_df_output = _apply_output_names(group_intensity_df)
 
             write_df(
                 group_intensity_df_output,

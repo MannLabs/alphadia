@@ -25,6 +25,10 @@ from alphadia.outputtransform.outputaccumulator import (
 )
 from alphadia.outputtransform.protein_fdr import perform_protein_fdr
 from alphadia.outputtransform.quantification import QuantOutputBuilder
+from alphadia.outputtransform.quantification.quant_output_builder import (
+    merge_channel_lfq_results,
+    save_lfq_results,
+)
 from alphadia.outputtransform.utils import (
     apply_output_column_names,
     apply_protein_inference,
@@ -450,26 +454,53 @@ class SearchPlanOutput:
         save: bool
             Save the precursor table to disk
         """
-        quant_output_builder = QuantOutputBuilder(psm_df, self.config)
-        lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
+
+        if self.config["multiplexing"]["enabled"]:
+            channels = get_channels_from_config(self.config)
+        else:
+            # a single nameless channel, run columns keep their plain names
+            channels = [None]
+
+        lfq_results_per_channel = []
+        psm_dfs_with_quant = []
+
+        for channel in channels:
+            channel_psm_df = (
+                psm_df if channel is None else psm_df[psm_df["channel"] == channel]
+            )
+
+            quant_output_builder = QuantOutputBuilder(channel_psm_df, self.config)
+            lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
+
+            lfq_results_per_channel.append((channel, lfq_results))
+            psm_dfs_with_quant.append(psm_df_with_quant)
+
+        merged_lfq_results = merge_channel_lfq_results(
+            lfq_results_per_channel,
+            self.config,
+            run_names=[os.path.basename(folder) for folder in folder_list],
+        )
 
         if save:
+            if merged_lfq_results:
+                save_lfq_results(
+                    merged_lfq_results,
+                    self.output_folder,
+                    self.config,
+                    file_format=self.config["search_output"]["file_format"],
+                )
+
             logger.info("Writing psm output to disk")
-            psm_df_output = apply_output_column_names(psm_df_with_quant)
+            psm_df_output = apply_output_column_names(
+                pd.concat(psm_dfs_with_quant, ignore_index=True)
+            )
             write_df(
                 psm_df_output,
                 os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
                 file_format=self.config["search_output"]["file_format"],
             )
 
-            if lfq_results:
-                quant_output_builder.save_results(
-                    lfq_results,
-                    self.output_folder,
-                    file_format=self.config["search_output"]["file_format"],
-                )
-
-        return lfq_results
+        return merged_lfq_results
 
     def _build_mbr_library(
         self,

@@ -108,6 +108,10 @@ class QuantificationLevelKey(metaclass=ConstantsClass):
     PROTEIN = "pg"
 
 
+# Template for run columns in quantification matrices of multiplexed searches
+CHANNEL_RUN_COLUMN_TEMPLATE = "{run}.channel_{channel}"
+
+
 class NormalizationMethods(metaclass=ConstantsClass):
     """String constants for LFQ methods."""
 

@@ -5,7 +5,11 @@ import tempfile
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia.constants.keys import InferenceStrategy, NormalizationMethods
+from alphadia.constants.keys import (
+    InferenceStrategy,
+    NormalizationMethods,
+    ProteinGroupOutputCols,
+)
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
 )
@@ -176,6 +180,129 @@ def test_search_plan_output_integration():
 
     protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
     assert all(col in protein_df.columns for col in run_columns)
+
+    shutil.rmtree(temp_folder)
+
+
+def test_search_plan_output_multiplexed():
+    """Integration test for SearchPlanOutput.build() with multiplexing enabled.
+
+    Tests that when multiplexing is enabled, a single matrix file is produced with one
+    column per run/channel combination, and the combined precursors.parquet is written.
+    """
+    # given
+    run_columns = ["run_0", "run_1", "run_2"]
+
+    config = {
+        "general": {
+            "thread_count": 8,
+            "save_figures": False,
+            "save_mbr_library": False,
+        },
+        "transfer_library": {"enabled": False},
+        "transfer_learning": {"enabled": False},
+        "search": {"channel_filter": "0,4"},
+        "fdr": {
+            "fdr": 0.01,
+            "inference_strategy": InferenceStrategy.HEURISTIC,
+            "group_level": "proteins",
+            "keep_decoys": False,
+        },
+        "search_output": {
+            "precursor_level_lfq": True,
+            "peptide_level_lfq": True,
+            "min_k_fragments": 3,
+            "min_correlation": 0.25,
+            "num_samples_quadratic": 50,
+            "min_nonnan": 1,
+            "save_fragment_quant_matrix": False,
+            "file_format": "parquet",
+            "normalization_method": NormalizationMethods.DIRECTLFQ,
+            "normalize_directlfq": True,
+        },
+        "multiplexing": {
+            "enabled": True,
+            "target_channels": "0,4",
+            "decoy_channel": 12,
+        },
+        "search_initial": {
+            "ms1_tolerance": 4,
+            "ms2_tolerance": 7,
+            "rt_tolerance": 200,
+            "mobility_tolerance": 0.04,
+            "num_candidates": 1,
+        },
+        "optimization_manager": {
+            "fwhm_rt": 2.75,
+            "fwhm_mobility": 2,
+            "score_cutoff": 50,
+        },
+    }
+
+    temp_folder = os.path.join(tempfile.gettempdir(), "alphadia_mux")
+    os.makedirs(temp_folder, exist_ok=True)
+    quant_path = os.path.join(temp_folder, QUANT_FOLDER_NAME)
+    os.makedirs(quant_path, exist_ok=True)
+    raw_folders = [os.path.join(quant_path, run) for run in run_columns]
+
+    psm_base_df = mock_precursor_df(n_precursor=100)
+    fragment_base_df = mock_fragment_df(n_precursor=200)
+
+    for i, raw_folder in enumerate(raw_folders):
+        os.makedirs(raw_folder, exist_ok=True)
+
+        psm_df = psm_base_df.sample(50)
+        psm_df["run"] = os.path.basename(raw_folder)
+        # Assign channels: first half channel 0, second half channel 4
+        psm_df["channel"] = [0] * 25 + [4] * 25
+
+        frag_df = fragment_base_df[
+            fragment_base_df["precursor_idx"].isin(psm_df["precursor_idx"])
+        ]
+
+        frag_df.to_parquet(os.path.join(raw_folder, "frag.parquet"), index=False)
+        psm_df.to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
+
+        optimization_manager = OptimizationManager(
+            config,
+            path=os.path.join(
+                raw_folder, PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME
+            ),
+        )
+        timing_manager = TimingManager(
+            path=os.path.join(
+                raw_folder, PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME
+            )
+        )
+
+        if i == 2:
+            pass
+        else:
+            optimization_manager.update(ms2_error=6)
+            optimization_manager.save()
+            timing_manager.set_start_time("extraction")
+            timing_manager.set_end_time("extraction")
+            timing_manager.save()
+
+    # when
+    SearchPlanOutput(config, temp_folder).build(raw_folders, None)
+
+    # then
+    # a single matrix file holds one column per run/channel combination
+    pg_matrix_path = os.path.join(temp_folder, "pg.matrix.parquet")
+    assert os.path.exists(pg_matrix_path)
+    pg_matrix_df = pd.read_parquet(pg_matrix_path)
+    assert set(pg_matrix_df.columns) == {ProteinGroupOutputCols.NAME} | {
+        f"{run}.channel_{channel}" for run in run_columns for channel in (0, 4)
+    }
+
+    # Combined precursors file should exist
+    precursors_path = os.path.join(
+        temp_folder, f"{SearchPlanOutput.PRECURSOR_OUTPUT}.parquet"
+    )
+    assert os.path.exists(precursors_path)
+    psm_df = pd.read_parquet(precursors_path)
+    assert psm_df["raw.name"].nunique() == 3
 
     shutil.rmtree(temp_folder)
 
