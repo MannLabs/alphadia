@@ -14,6 +14,9 @@ from alphadia.search.jitclasses.alpharaw_jit import AlphaRawJIT
 
 DEFAULT_VALUE_NO_MOBILITY = 1e-6
 
+# Root group name under which alpharaw stores an MSData_Base object.
+ALPHARAW_HDF_GROUP = "ms_data"
+
 logger = logging.getLogger()
 
 
