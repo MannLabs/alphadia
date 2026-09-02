@@ -521,7 +521,7 @@ class LightGBMClassifier(Classifier):
 
     def __init__(  # noqa: PLR0913 # Too many arguments
         self,
-        n_estimators: int = 300,
+        n_estimators: int = 2000,
         learning_rate: float = 0.05,
         num_leaves: int = 31,
         min_child_samples: int = 100,
@@ -530,7 +530,7 @@ class LightGBMClassifier(Classifier):
         reg_lambda: float = 1.0,
         *,
         early_stopping_rounds: int = 20,
-        validation_fraction: float = 0.2,
+        validation_fraction: float = 0.1,
         num_threads: int = 1,
         random_state: int | None = None,
     ):
@@ -538,7 +538,7 @@ class LightGBMClassifier(Classifier):
 
         Parameters
         ----------
-        n_estimators : int, default=300
+        n_estimators : int, default=2000
             Maximum number of boosting rounds (trees); early stopping usually uses fewer.
 
         learning_rate : float, default=0.05
@@ -562,7 +562,7 @@ class LightGBMClassifier(Classifier):
         early_stopping_rounds : int, default=20
             Stop boosting when the held-out loss has not improved for this many rounds.
 
-        validation_fraction : float, default=0.2
+        validation_fraction : float, default=0.1
             Fraction of the samples held out from each fit to drive early stopping.
 
         num_threads : int, default=1
@@ -628,20 +628,26 @@ class LightGBMClassifier(Classifier):
             test_size=self.validation_fraction,
             random_state=int(self._np_rng.integers(0, 1_000_000)),
         )
-
-        # Always train a fresh booster: continuing a boosted ensemble would stack trees on top of
-        # the previous FDR round, unlike the MLP which just keeps training the same weights.
-        self._booster = lgb.train(
+        tuning_booster = lgb.train(
             params,
             lgb.Dataset(x_train, label=y_train),
             num_boost_round=self.n_estimators,
             valid_sets=[lgb.Dataset(x_valid, label=y_valid)],
             callbacks=[lgb.early_stopping(self.early_stopping_rounds, verbose=False)],
         )
+        n_trees = tuning_booster.best_iteration
+
+        # The held-out PSMs are only needed to find the tree count, so the model that scores the
+        # run is refit on all of them: at 1% FDR the ranking of the marginal PSMs decides the
+        # identifications, and those are the ones a smaller training set gets wrong.
+        # Always train a fresh booster: continuing a boosted ensemble would stack trees on top of
+        # the previous FDR round, unlike the MLP which just keeps training the same weights.
+        self._booster = lgb.train(
+            params, lgb.Dataset(x, label=y), num_boost_round=n_trees
+        )
 
         logger.info(
-            f"LightGBM fit - samples: {len(x):,}, "
-            f"trees: {self._booster.best_iteration}/{self.n_estimators}"
+            f"LightGBM fit - samples: {len(x):,}, trees: {n_trees}/{self.n_estimators}"
         )
 
     def reset(self) -> None:
