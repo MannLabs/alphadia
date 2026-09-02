@@ -20,9 +20,11 @@ logger = logging.getLogger()
 _LGBM_FIXED_PARAMS = {
     "objective": "binary",
     "verbose": -1,
-    "bagging_freq": 1,
     "force_row_wise": True,
 }
+_LGBM_BAGGING_STRATEGY = "bagging"
+# resample the rows for every tree rather than every n-th one
+_LGBM_BAGGING_FREQ = 1
 _LGBM_PROBA_THRESHOLD = 0.5
 _LGBM_MODEL_STR_KEY = "model_str"
 
@@ -536,12 +538,16 @@ class LightGBMClassifier(Classifier):
         self,
         n_estimators: int = 2000,
         final_n_estimators: int = 3000,
-        learning_rate: float = 0.1,
+        learning_rate_start: float = 0.15,
+        learning_rate_end: float = 0.03,
+        learning_rate_decay_rounds: int = 1600,
         num_leaves: int = 31,
         min_child_samples: int = 100,
         subsample: float = 0.8,
         colsample_bytree: float = 0.8,
         reg_lambda: float = 1.0,
+        max_bin: int = 123,
+        data_sample_strategy: str = "goss",
         *,
         early_stopping_rounds: int = 20,
         validation_fraction: float = 0.1,
@@ -560,8 +566,15 @@ class LightGBMClassifier(Classifier):
         final_n_estimators : int, default=3000
             Maximum number of boosting rounds (trees) in the final round.
 
-        learning_rate : float, default=0.1
-            Shrinkage rate applied to each tree.
+        learning_rate_start : float, default=0.15
+            Shrinkage rate applied to the first tree.
+
+        learning_rate_end : float, default=0.03
+            Shrinkage rate the schedule decays to, and holds at afterwards.
+
+        learning_rate_decay_rounds : int, default=1600
+            Number of boosting rounds the decay from `learning_rate_start` to
+            `learning_rate_end` is spread over.
 
         num_leaves : int, default=31
             Maximum number of leaves per tree.
@@ -577,6 +590,13 @@ class LightGBMClassifier(Classifier):
 
         reg_lambda : float, default=1.0
             L2 regularization.
+
+        max_bin : int, default=123
+            Maximum number of histogram bins a feature is discretized into.
+
+        data_sample_strategy : str, default="goss"
+            How rows are sampled for each tree, either "goss" or "bagging". Only
+            "bagging" uses `subsample`.
 
         early_stopping_rounds : int, default=20
             Stop boosting when the held-out loss has not improved for this many rounds.
@@ -596,12 +616,16 @@ class LightGBMClassifier(Classifier):
         """
         self.n_estimators = n_estimators
         self.final_n_estimators = final_n_estimators
-        self.learning_rate = learning_rate
+        self.learning_rate_start = learning_rate_start
+        self.learning_rate_end = learning_rate_end
+        self.learning_rate_decay_rounds = learning_rate_decay_rounds
         self.num_leaves = num_leaves
         self.min_child_samples = min_child_samples
         self.subsample = subsample
         self.colsample_bytree = colsample_bytree
         self.reg_lambda = reg_lambda
+        self.max_bin = max_bin
+        self.data_sample_strategy = data_sample_strategy
         self.early_stopping_rounds = early_stopping_rounds
         self.validation_fraction = validation_fraction
         self.final_validation_fraction = final_validation_fraction
@@ -614,6 +638,20 @@ class LightGBMClassifier(Classifier):
     def fitted(self) -> bool:
         """Return whether the classifier has been fitted."""
         return self._booster is not None
+
+    def _learning_rate_at(self, iteration: int) -> float:
+        """Return the shrinkage rate the given boosting round is trained with.
+
+        Decays geometrically from `learning_rate_start` to `learning_rate_end` over
+        `learning_rate_decay_rounds` rounds, then holds at `learning_rate_end`.
+        """
+        if iteration >= self.learning_rate_decay_rounds:
+            return self.learning_rate_end
+
+        decay = self.learning_rate_end / self.learning_rate_start
+        return self.learning_rate_start * decay ** (
+            iteration / self.learning_rate_decay_rounds
+        )
 
     def fit(self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False) -> None:
         """Fit the classifier to the data.
@@ -635,17 +673,25 @@ class LightGBMClassifier(Classifier):
             y = y[:, 1]
 
         params = {
-            "learning_rate": self.learning_rate,
+            # the reset_parameter callback overrides this from the second round on
+            "learning_rate": self.learning_rate_start,
             "num_leaves": self.num_leaves,
             "min_data_in_leaf": self.min_child_samples,
-            "bagging_fraction": self.subsample,
             "feature_fraction": self.colsample_bytree,
             "lambda_l2": self.reg_lambda,
+            "max_bin": self.max_bin,
+            "data_sample_strategy": self.data_sample_strategy,
             "num_threads": self.num_threads,
             # a new seed per fit so that a reset and refit after a collapse gives a different model
             "seed": int(self._np_rng.integers(0, 1_000_000)),
             **_LGBM_FIXED_PARAMS,
         }
+
+        # LightGBM refuses to start when bagging parameters are present under GOSS,
+        # which picks its own rows by gradient magnitude.
+        if self.data_sample_strategy == _LGBM_BAGGING_STRATEGY:
+            params["bagging_fraction"] = self.subsample
+            params["bagging_freq"] = _LGBM_BAGGING_FREQ
 
         # The final round scores far more candidates than the optimization rounds, so it gets a
         # bigger tree budget and gives up less data to the held-out split.
@@ -672,7 +718,10 @@ class LightGBMClassifier(Classifier):
             lgb.Dataset(x_train, label=y_train),
             num_boost_round=max_trees,
             valid_sets=[lgb.Dataset(x_valid, label=y_valid)],
-            callbacks=[lgb.early_stopping(self.early_stopping_rounds, verbose=False)],
+            callbacks=[
+                lgb.reset_parameter(learning_rate=self._learning_rate_at),
+                lgb.early_stopping(self.early_stopping_rounds, verbose=False),
+            ],
         )
         n_trees = self._booster.best_iteration
 
@@ -735,12 +784,16 @@ class LightGBMClassifier(Classifier):
         state_dict = {
             "n_estimators": self.n_estimators,
             "final_n_estimators": self.final_n_estimators,
-            "learning_rate": self.learning_rate,
+            "learning_rate_start": self.learning_rate_start,
+            "learning_rate_end": self.learning_rate_end,
+            "learning_rate_decay_rounds": self.learning_rate_decay_rounds,
             "num_leaves": self.num_leaves,
             "min_child_samples": self.min_child_samples,
             "subsample": self.subsample,
             "colsample_bytree": self.colsample_bytree,
             "reg_lambda": self.reg_lambda,
+            "max_bin": self.max_bin,
+            "data_sample_strategy": self.data_sample_strategy,
             "early_stopping_rounds": self.early_stopping_rounds,
             "validation_fraction": self.validation_fraction,
             "final_validation_fraction": self.final_validation_fraction,

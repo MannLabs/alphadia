@@ -316,7 +316,12 @@ fdr:
     n_estimators: 2000
     # maximum number of boosting rounds (trees) in the final round
     final_n_estimators: 3000
-    learning_rate: 0.1
+    # shrinkage rate of the first tree
+    learning_rate_start: 0.15
+    # shrinkage rate the schedule decays to, and holds at afterwards
+    learning_rate_end: 0.03
+    # number of boosting rounds the decay from start to end is spread over
+    learning_rate_decay_rounds: 1600
     # maximum number of leaves per tree
     num_leaves: 31
     # minimum number of PSMs per leaf
@@ -327,6 +332,10 @@ fdr:
     colsample_bytree: 0.8
     # L2 regularization
     reg_lambda: 1.0
+    # maximum number of histogram bins a feature is discretized into
+    max_bin: 123
+    # how rows are sampled for each tree, either "goss" or "bagging"; only "bagging" uses subsample
+    data_sample_strategy: "goss"
     # boosting stops when the held-out logloss has not improved for this many rounds
     early_stopping_rounds: 20
     # fraction of PSMs held out from an optimization fit to drive early stopping

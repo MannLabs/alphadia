@@ -313,6 +313,30 @@ def test_lightgbm_state_dict_roundtrip():
     assert new_classifier.to_state_dict()["validation_fraction"] == 0.1  # noqa: PLR2004
     assert new_classifier.to_state_dict()["final_n_estimators"] == 3000  # noqa: PLR2004
     assert new_classifier.to_state_dict()["final_validation_fraction"] == 0.075  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["max_bin"] == 123  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["data_sample_strategy"] == "goss"
+    assert new_classifier.to_state_dict()["learning_rate_start"] == 0.15  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["learning_rate_end"] == 0.03  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["learning_rate_decay_rounds"] == 1600  # noqa: PLR2004
+
+
+def test_lightgbm_learning_rate_schedule_decays_between_the_endpoints():
+    # Given: a classifier with a short decay horizon
+    classifier = LightGBMClassifier(
+        learning_rate_start=0.15,
+        learning_rate_end=0.03,
+        learning_rate_decay_rounds=100,
+    )
+
+    # When / Then: the rate starts high, decays monotonically and holds at the floor
+    rates = [classifier._learning_rate_at(i) for i in range(120)]  # noqa: SLF001
+    assert rates[0] == 0.15  # noqa: PLR2004
+    assert all(
+        later <= earlier for earlier, later in zip(rates, rates[1:], strict=False)
+    )
+    assert rates[100] == 0.03  # noqa: PLR2004
+    assert rates[119] == 0.03  # noqa: PLR2004
+    assert 0.03 < rates[50] < 0.15  # noqa: PLR2004
 
 
 def _gen_weak_signal_data() -> tuple[np.ndarray, np.ndarray]:
