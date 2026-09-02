@@ -311,6 +311,8 @@ def test_lightgbm_state_dict_roundtrip():
     assert np.allclose(classifier.predict_proba(x), new_classifier.predict_proba(x))
     assert new_classifier.to_state_dict()["early_stopping_rounds"] == 20  # noqa: PLR2004
     assert new_classifier.to_state_dict()["validation_fraction"] == 0.1  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["final_n_estimators"] == 3000  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["final_validation_fraction"] == 0.075  # noqa: PLR2004
 
 
 def _gen_weak_signal_data() -> tuple[np.ndarray, np.ndarray]:
@@ -324,6 +326,7 @@ def _gen_weak_signal_data() -> tuple[np.ndarray, np.ndarray]:
 def _get_early_stopping_classifier() -> LightGBMClassifier:
     return LightGBMClassifier(
         n_estimators=200,
+        final_n_estimators=300,
         early_stopping_rounds=5,
         min_child_samples=5,
         num_threads=1,
@@ -343,21 +346,22 @@ def test_lightgbm_early_stopping_uses_fewer_trees_than_the_maximum():
     assert 0 < classifier._booster.num_trees() < 200  # noqa: PLR2004, SLF001
 
 
-def test_lightgbm_final_fit_refits_with_the_early_stopped_tree_count():
+def test_lightgbm_final_fit_uses_the_final_round_budget():
     # Given: the same data fitted as an optimization round and as the final round
     x, y = _gen_weak_signal_data()
 
-    tuning_only = _get_early_stopping_classifier()
-    tuning_only.fit(x, y)
+    optimization = _get_early_stopping_classifier()
+    optimization.fit(x, y)
 
     final = _get_early_stopping_classifier()
     final.fit(x, y, is_final=True)
 
-    # Then: the refit uses the tree count early stopping chose ...
-    assert final._booster.num_trees() == tuning_only._booster.best_iteration  # noqa: SLF001
+    # Then: both stop early, each within its own budget ...
+    assert 0 < optimization._booster.num_trees() < 200  # noqa: PLR2004, SLF001
+    assert 0 < final._booster.num_trees() < 300  # noqa: PLR2004, SLF001
 
-    # ... but is a different model, having also seen the PSMs held out for early stopping
-    assert not np.allclose(final.predict_proba(x), tuning_only.predict_proba(x))
+    # ... and the final round trains on more data, giving a different model
+    assert not np.allclose(final.predict_proba(x), optimization.predict_proba(x))
 
 
 def test_lightgbm_from_state_dict_without_model_stays_unfitted():

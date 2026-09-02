@@ -535,7 +535,8 @@ class LightGBMClassifier(Classifier):
     def __init__(  # noqa: PLR0913 # Too many arguments
         self,
         n_estimators: int = 2000,
-        learning_rate: float = 0.05,
+        final_n_estimators: int = 3000,
+        learning_rate: float = 0.1,
         num_leaves: int = 31,
         min_child_samples: int = 100,
         subsample: float = 0.8,
@@ -544,6 +545,7 @@ class LightGBMClassifier(Classifier):
         *,
         early_stopping_rounds: int = 20,
         validation_fraction: float = 0.1,
+        final_validation_fraction: float = 0.075,
         num_threads: int = 1,
         random_state: int | None = None,
     ):
@@ -552,9 +554,13 @@ class LightGBMClassifier(Classifier):
         Parameters
         ----------
         n_estimators : int, default=2000
-            Maximum number of boosting rounds (trees); early stopping usually uses fewer.
+            Maximum number of boosting rounds (trees) in the optimization rounds; early
+            stopping usually uses fewer.
 
-        learning_rate : float, default=0.05
+        final_n_estimators : int, default=3000
+            Maximum number of boosting rounds (trees) in the final round.
+
+        learning_rate : float, default=0.1
             Shrinkage rate applied to each tree.
 
         num_leaves : int, default=31
@@ -576,7 +582,10 @@ class LightGBMClassifier(Classifier):
             Stop boosting when the held-out loss has not improved for this many rounds.
 
         validation_fraction : float, default=0.1
-            Fraction of the samples held out from each fit to drive early stopping.
+            Fraction of the samples held out from an optimization fit to drive early stopping.
+
+        final_validation_fraction : float, default=0.075
+            Fraction of the samples held out from the final fit to drive early stopping.
 
         num_threads : int, default=1
             Number of threads used for training and prediction.
@@ -586,6 +595,7 @@ class LightGBMClassifier(Classifier):
 
         """
         self.n_estimators = n_estimators
+        self.final_n_estimators = final_n_estimators
         self.learning_rate = learning_rate
         self.num_leaves = num_leaves
         self.min_child_samples = min_child_samples
@@ -594,6 +604,7 @@ class LightGBMClassifier(Classifier):
         self.reg_lambda = reg_lambda
         self.early_stopping_rounds = early_stopping_rounds
         self.validation_fraction = validation_fraction
+        self.final_validation_fraction = final_validation_fraction
         self.num_threads = num_threads
 
         self._booster: lgb.Booster | None = None
@@ -616,8 +627,8 @@ class LightGBMClassifier(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         is_final : bool, default=False
-            Whether to refit on all samples once early stopping has chosen the number
-            of trees.
+            Whether to use the final round's tree budget and held-out fraction instead of
+            the optimization round's.
 
         """
         if y.ndim == 2:  # noqa: PLR2004
@@ -636,37 +647,38 @@ class LightGBMClassifier(Classifier):
             **_LGBM_FIXED_PARAMS,
         }
 
+        # The final round scores far more candidates than the optimization rounds, so it gets a
+        # bigger tree budget and gives up less data to the held-out split.
+        max_trees = self.final_n_estimators if is_final else self.n_estimators
+        validation_fraction = (
+            self.final_validation_fraction if is_final else self.validation_fraction
+        )
+
         # Boosting has no natural stopping point (unlike the MLP's fixed epoch count), so a held-out
-        # split decides how many trees the current PSM set supports: small calibration batches would
-        # otherwise be memorized by the full number of rounds.
+        # split decides how many trees the current PSM set supports. It also keeps the model from
+        # memorizing the PSMs it scores, which would push the training decoys below the q-value
+        # cutoff and inflate the reported identifications.
         x_train, x_valid, y_train, y_valid, *_ = train_test_split_(
             x,
             y,
-            test_size=self.validation_fraction,
+            test_size=validation_fraction,
             random_state=int(self._np_rng.integers(0, 1_000_000)),
         )
+
         # Always train a fresh booster: continuing a boosted ensemble would stack trees on top of
         # the previous FDR round, unlike the MLP which just keeps training the same weights.
         self._booster = lgb.train(
             params,
             lgb.Dataset(x_train, label=y_train),
-            num_boost_round=self.n_estimators,
+            num_boost_round=max_trees,
             valid_sets=[lgb.Dataset(x_valid, label=y_valid)],
             callbacks=[lgb.early_stopping(self.early_stopping_rounds, verbose=False)],
         )
         n_trees = self._booster.best_iteration
 
-        # Only the reported scores are worth a second pass over the data: the optimization rounds
-        # merely steer the tolerances and the confident precursor set, so the PSMs held out there
-        # cost nothing.
-        if is_final:
-            self._booster = lgb.train(
-                params, lgb.Dataset(x, label=y), num_boost_round=n_trees
-            )
-
         logger.info(
             f"LightGBM fit - samples: {len(x):,}, "
-            f"trees: {n_trees}/{self.n_estimators}, refit: {is_final}"
+            f"trees: {n_trees}/{max_trees}, final: {is_final}"
         )
 
     def reset(self) -> None:
@@ -722,6 +734,7 @@ class LightGBMClassifier(Classifier):
         """
         state_dict = {
             "n_estimators": self.n_estimators,
+            "final_n_estimators": self.final_n_estimators,
             "learning_rate": self.learning_rate,
             "num_leaves": self.num_leaves,
             "min_child_samples": self.min_child_samples,
@@ -730,6 +743,7 @@ class LightGBMClassifier(Classifier):
             "reg_lambda": self.reg_lambda,
             "early_stopping_rounds": self.early_stopping_rounds,
             "validation_fraction": self.validation_fraction,
+            "final_validation_fraction": self.final_validation_fraction,
             "num_threads": self.num_threads,
         }
 
