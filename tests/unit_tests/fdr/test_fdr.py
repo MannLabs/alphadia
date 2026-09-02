@@ -3,10 +3,15 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 
 from alphadia.fdr import fdr
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    Classifier,
+    LightGBMClassifier,
+)
 
 
 def test_keep_best():
@@ -263,3 +268,112 @@ def test_perform_fdr_stops_after_max_reinits():
     # Then: perform_fdr stops after the maximum number of retries
     assert classifier.reset_count == fdr._MAX_FDR_CLASSIFIER_REINITS
     assert psm_df["proba"].std() == 0.0
+
+
+def _get_lightgbm_classifier() -> LightGBMClassifier:
+    return LightGBMClassifier(
+        n_estimators=20, min_child_samples=5, num_threads=1, random_state=0
+    )
+
+
+def test_lightgbm_fit_predict():
+    # Given: separable data and an unfitted classifier
+    x, y = gen_data_np()
+    classifier = _get_lightgbm_classifier()
+
+    # When: the classifier is fitted
+    classifier.fit(x, y)
+
+    # Then: it is fitted, predicts the classes and returns proper probabilities
+    assert classifier.fitted is True
+    assert np.mean(classifier.predict(x) == y) > 0.95  # noqa: PLR2004
+
+    y_proba = classifier.predict_proba(x)
+    assert y_proba.shape == (len(x), 2)
+    assert np.allclose(y_proba.sum(axis=1), 1.0)
+
+
+def test_lightgbm_state_dict_roundtrip():
+    # Given: a fitted classifier saved to disk
+    x, y = gen_data_np()
+    classifier = _get_lightgbm_classifier()
+    classifier.fit(x, y)
+
+    path = os.path.join(tempfile.gettempdir(), "test_lightgbm_save.pth")
+    torch.save(classifier.to_state_dict(), path)
+
+    # When: a new classifier is loaded from the state dict
+    new_classifier = LightGBMClassifier()
+    new_classifier.from_state_dict(torch.load(path, weights_only=False))
+
+    # Then: it is fitted and predicts the same probabilities
+    assert new_classifier.fitted is True
+    assert np.allclose(classifier.predict_proba(x), new_classifier.predict_proba(x))
+
+
+def test_lightgbm_reset():
+    # Given: a fitted classifier
+    x, y = gen_data_np()
+    classifier = _get_lightgbm_classifier()
+    classifier.fit(x, y)
+
+    # When: the classifier is reset
+    classifier.reset()
+
+    # Then: it is unfitted and cannot predict until it is fitted again
+    assert classifier.fitted is False
+    with pytest.raises(ValueError, match="has not been fitted"):
+        classifier.predict_proba(x)
+
+    classifier.fit(x, y)
+    assert classifier.fitted is True
+
+
+def test_lightgbm_from_state_dict_without_model_stays_unfitted():
+    # Given: a state dict of a different classifier type
+    state_dict = BinaryClassifierLegacyNewBatching().to_state_dict()
+    classifier = LightGBMClassifier()
+
+    # When: it is loaded into the lightgbm classifier
+    classifier.from_state_dict(state_dict)
+
+    # Then: the classifier stays unfitted
+    assert classifier.fitted is False
+
+
+def test_lightgbm_predict_before_fit_raises():
+    x, _ = gen_data_np()
+    classifier = LightGBMClassifier()
+
+    with pytest.raises(ValueError, match="has not been fitted"):
+        classifier.predict(x)
+
+
+def test_perform_fdr_lightgbm_separates_targets_and_decoys():
+    # Given: targets and decoys with a separable feature
+    n_samples = 200
+    target_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(n_samples),
+            "decoy": 0,
+            "feature": np.linspace(0.0, 1.0, n_samples),
+        }
+    )
+    decoy_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(n_samples, 2 * n_samples),
+            "decoy": 1,
+            "feature": np.linspace(1.0, 2.0, n_samples),
+        }
+    )
+
+    # When: perform_fdr runs with the lightgbm classifier
+    psm_df = fdr.perform_fdr(
+        _get_lightgbm_classifier(), ["feature"], target_df, decoy_df, random_state=0
+    )
+
+    # Then: targets get lower decoy probabilities and q-values than decoys
+    target_psms = psm_df[psm_df["_decoy"] == 0]
+    decoy_psms = psm_df[psm_df["_decoy"] == 1]
+    assert target_psms["proba"].median() < decoy_psms["proba"].median()
+    assert target_psms["qval"].median() < decoy_psms["qval"].median()
