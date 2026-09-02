@@ -478,9 +478,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         assert (
             x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
-        assert (
-            x.shape[1] == self.input_dim
-        ), "Input data must have the same number of features as the fitted classifier."
+        assert x.shape[1] == self.input_dim, (
+            "Input data must have the same number of features as the fitted classifier."
+        )
 
         assert self.network is not None, "Network must be initialized after fitting"
         self.network.eval()
@@ -507,9 +507,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         assert (
             x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
-        assert (
-            x.shape[1] == self.input_dim
-        ), "Input data must have the same number of features as the fitted classifier."
+        assert x.shape[1] == self.input_dim, (
+            "Input data must have the same number of features as the fitted classifier."
+        )
 
         assert self.network is not None, "Network must be initialized after fitting"
         self.network.eval()
@@ -529,6 +529,8 @@ class LightGBMClassifier(Classifier):
         colsample_bytree: float = 0.8,
         reg_lambda: float = 1.0,
         *,
+        early_stopping_rounds: int = 20,
+        validation_fraction: float = 0.2,
         num_threads: int = 1,
         random_state: int | None = None,
     ):
@@ -537,7 +539,7 @@ class LightGBMClassifier(Classifier):
         Parameters
         ----------
         n_estimators : int, default=300
-            Number of boosting rounds (trees).
+            Maximum number of boosting rounds (trees); early stopping usually uses fewer.
 
         learning_rate : float, default=0.05
             Shrinkage rate applied to each tree.
@@ -557,6 +559,12 @@ class LightGBMClassifier(Classifier):
         reg_lambda : float, default=1.0
             L2 regularization.
 
+        early_stopping_rounds : int, default=20
+            Stop boosting when the held-out loss has not improved for this many rounds.
+
+        validation_fraction : float, default=0.2
+            Fraction of the samples held out from each fit to drive early stopping.
+
         num_threads : int, default=1
             Number of threads used for training and prediction.
 
@@ -571,6 +579,8 @@ class LightGBMClassifier(Classifier):
         self.subsample = subsample
         self.colsample_bytree = colsample_bytree
         self.reg_lambda = reg_lambda
+        self.early_stopping_rounds = early_stopping_rounds
+        self.validation_fraction = validation_fraction
         self.num_threads = num_threads
 
         self._booster: lgb.Booster | None = None
@@ -609,10 +619,29 @@ class LightGBMClassifier(Classifier):
             **_LGBM_FIXED_PARAMS,
         }
 
+        # Boosting has no natural stopping point (unlike the MLP's fixed epoch count), so a held-out
+        # split decides how many trees the current PSM set supports: small calibration batches would
+        # otherwise be memorized by the full number of rounds.
+        x_train, x_valid, y_train, y_valid, *_ = train_test_split_(
+            x,
+            y,
+            test_size=self.validation_fraction,
+            random_state=int(self._np_rng.integers(0, 1_000_000)),
+        )
+
         # Always train a fresh booster: continuing a boosted ensemble would stack trees on top of
         # the previous FDR round, unlike the MLP which just keeps training the same weights.
         self._booster = lgb.train(
-            params, lgb.Dataset(x, label=y), num_boost_round=self.n_estimators
+            params,
+            lgb.Dataset(x_train, label=y_train),
+            num_boost_round=self.n_estimators,
+            valid_sets=[lgb.Dataset(x_valid, label=y_valid)],
+            callbacks=[lgb.early_stopping(self.early_stopping_rounds, verbose=False)],
+        )
+
+        logger.info(
+            f"LightGBM fit - samples: {len(x):,}, "
+            f"trees: {self._booster.best_iteration}/{self.n_estimators}"
         )
 
     def reset(self) -> None:
@@ -674,6 +703,8 @@ class LightGBMClassifier(Classifier):
             "subsample": self.subsample,
             "colsample_bytree": self.colsample_bytree,
             "reg_lambda": self.reg_lambda,
+            "early_stopping_rounds": self.early_stopping_rounds,
+            "validation_fraction": self.validation_fraction,
             "num_threads": self.num_threads,
         }
 

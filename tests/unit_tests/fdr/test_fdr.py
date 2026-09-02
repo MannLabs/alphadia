@@ -309,6 +309,24 @@ def test_lightgbm_state_dict_roundtrip():
     # Then: it is fitted and predicts the same probabilities
     assert new_classifier.fitted is True
     assert np.allclose(classifier.predict_proba(x), new_classifier.predict_proba(x))
+    assert new_classifier.to_state_dict()["early_stopping_rounds"] == 20  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["validation_fraction"] == 0.2  # noqa: PLR2004
+
+
+def test_lightgbm_early_stopping_uses_fewer_trees_on_noise():
+    # Given: features without any signal for the labels
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(2000, 5))
+    y = rng.integers(0, 2, size=2000)
+    classifier = LightGBMClassifier(
+        n_estimators=200, early_stopping_rounds=5, num_threads=1, random_state=0
+    )
+
+    # When: the classifier is fitted
+    classifier.fit(x, y)
+
+    # Then: boosting stops well before the maximum number of trees
+    assert 0 < classifier._booster.best_iteration < 200  # noqa: PLR2004, SLF001
 
 
 def test_lightgbm_reset():

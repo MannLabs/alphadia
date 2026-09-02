@@ -312,7 +312,7 @@ fdr:
   classifier: "mlp"
   # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"
   lightgbm:
-    # number of boosting rounds (trees)
+    # maximum number of boosting rounds (trees); early stopping usually uses fewer
     n_estimators: 300
     learning_rate: 0.05
     # maximum number of leaves per tree
@@ -325,6 +325,10 @@ fdr:
     colsample_bytree: 0.8
     # L2 regularization
     reg_lambda: 1.0
+    # boosting stops when the held-out logloss has not improved for this many rounds
+    early_stopping_rounds: 20
+    # fraction of PSMs held out from each fit to drive early stopping
+    validation_fraction: 0.2
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
