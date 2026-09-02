@@ -442,6 +442,17 @@
                     "default": true,
                     "description": "If enabled, the hyperparameters of the neural network like the batch size and learning rate will be tuned.",
                     "type": "boolean"
+                },
+                {
+                    "id": "classifier",
+                    "name": "FDR Classifier",
+                    "default": "mlp",
+                    "description": "Classifier used for target-decoy scoring. 'mlp' uses a feed forward neural network, 'lightgbm' uses gradient boosted decision trees.",
+                    "type": "dropdown",
+                    "options": [
+                        "mlp",
+                        "lightgbm"
+                    ]
                 }
             ]
         },

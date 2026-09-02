@@ -308,6 +308,23 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
+  # classifier used for target-decoy scoring: "mlp" (neural network) or "lightgbm" (gradient boosting)
+  classifier: "mlp"
+  # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"
+  lightgbm:
+    # number of boosting rounds (trees)
+    n_estimators: 300
+    learning_rate: 0.05
+    # maximum number of leaves per tree
+    num_leaves: 31
+    # minimum number of PSMs per leaf
+    min_child_samples: 100
+    # fraction of PSMs sampled for each tree
+    subsample: 0.8
+    # fraction of features sampled for each tree
+    colsample_bytree: 0.8
+    # L2 regularization
+    reg_lambda: 1.0
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

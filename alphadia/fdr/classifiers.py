@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Any
 
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import torch
@@ -15,6 +16,15 @@ from tqdm import tqdm
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
+
+_LGBM_FIXED_PARAMS = {
+    "objective": "binary",
+    "verbose": -1,
+    "bagging_freq": 1,
+    "force_row_wise": True,
+}
+_LGBM_PROBA_THRESHOLD = 0.5
+_LGBM_MODEL_STR_KEY = "model_str"
 
 
 class Classifier(ABC):
@@ -504,6 +514,187 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         assert self.network is not None, "Network must be initialized after fitting"
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
+
+
+class LightGBMClassifier(Classifier):
+    """Binary classifier using LightGBM gradient boosted decision trees."""
+
+    def __init__(  # noqa: PLR0913 # Too many arguments
+        self,
+        n_estimators: int = 300,
+        learning_rate: float = 0.05,
+        num_leaves: int = 31,
+        min_child_samples: int = 100,
+        subsample: float = 0.8,
+        colsample_bytree: float = 0.8,
+        reg_lambda: float = 1.0,
+        *,
+        num_threads: int = 1,
+        random_state: int | None = None,
+    ):
+        """Binary classifier using LightGBM gradient boosted decision trees.
+
+        Parameters
+        ----------
+        n_estimators : int, default=300
+            Number of boosting rounds (trees).
+
+        learning_rate : float, default=0.05
+            Shrinkage rate applied to each tree.
+
+        num_leaves : int, default=31
+            Maximum number of leaves per tree.
+
+        min_child_samples : int, default=100
+            Minimum number of samples per leaf.
+
+        subsample : float, default=0.8
+            Fraction of samples used for each tree.
+
+        colsample_bytree : float, default=0.8
+            Fraction of features used for each tree.
+
+        reg_lambda : float, default=1.0
+            L2 regularization.
+
+        num_threads : int, default=1
+            Number of threads used for training and prediction.
+
+        random_state : int, optional
+            Random seed for reproducibility.
+
+        """
+        self.n_estimators = n_estimators
+        self.learning_rate = learning_rate
+        self.num_leaves = num_leaves
+        self.min_child_samples = min_child_samples
+        self.subsample = subsample
+        self.colsample_bytree = colsample_bytree
+        self.reg_lambda = reg_lambda
+        self.num_threads = num_threads
+
+        self._booster: lgb.Booster | None = None
+        self._np_rng = np.random.default_rng(seed=random_state)
+
+    @property
+    def fitted(self) -> bool:
+        """Return whether the classifier has been fitted."""
+        return self._booster is not None
+
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+        """Fit the classifier to the data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Training data of shape (n_samples, n_features).
+
+        y : np.ndarray, dtype=int
+            Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        """
+        if y.ndim == 2:  # noqa: PLR2004
+            y = y[:, 1]
+
+        params = {
+            "learning_rate": self.learning_rate,
+            "num_leaves": self.num_leaves,
+            "min_data_in_leaf": self.min_child_samples,
+            "bagging_fraction": self.subsample,
+            "feature_fraction": self.colsample_bytree,
+            "lambda_l2": self.reg_lambda,
+            "num_threads": self.num_threads,
+            # a new seed per fit so that a reset and refit after a collapse gives a different model
+            "seed": int(self._np_rng.integers(0, 1_000_000)),
+            **_LGBM_FIXED_PARAMS,
+        }
+
+        # Always train a fresh booster: continuing a boosted ensemble would stack trees on top of
+        # the previous FDR round, unlike the MLP which just keeps training the same weights.
+        self._booster = lgb.train(
+            params, lgb.Dataset(x, label=y), num_boost_round=self.n_estimators
+        )
+
+    def reset(self) -> None:
+        """Set the classifier back to an unfitted state."""
+        self._booster = None
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class of the data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        y : np.ndarray, dtype=int
+            Predicted class of shape (n_samples,).
+
+        """
+        return (self.predict_proba(x)[:, 1] > _LGBM_PROBA_THRESHOLD).astype(int)
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class probabilities of the data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        y : np.ndarray, dtype=float
+            Predicted class probabilities of shape (n_samples, n_classes).
+
+        """
+        if self._booster is None:
+            raise ValueError("Classifier has not been fitted yet.")
+
+        proba_positive = np.asarray(
+            self._booster.predict(x, num_threads=self.num_threads)
+        )
+        return np.stack([1 - proba_positive, proba_positive], axis=1)
+
+    def to_state_dict(self) -> dict:
+        """Save the state of the classifier as a dictionary.
+
+        Returns
+        -------
+        dict : dict
+            Dictionary containing the state of the classifier.
+
+        """
+        state_dict = {
+            "n_estimators": self.n_estimators,
+            "learning_rate": self.learning_rate,
+            "num_leaves": self.num_leaves,
+            "min_child_samples": self.min_child_samples,
+            "subsample": self.subsample,
+            "colsample_bytree": self.colsample_bytree,
+            "reg_lambda": self.reg_lambda,
+            "num_threads": self.num_threads,
+        }
+
+        if self._booster is not None:
+            state_dict[_LGBM_MODEL_STR_KEY] = self._booster.model_to_string()
+
+        return state_dict
+
+    def from_state_dict(self, state_dict: dict) -> None:
+        """Load the state of the classifier from a dictionary.
+
+        Parameters
+        ----------
+        state_dict : dict
+            Dictionary containing the state of the classifier.
+
+        """
+        # The classifier store on disk can hold state dicts of other classifier types (e.g. the
+        # shipped MLP weights); those leave this classifier unfitted, like the MLP ignores foreign dicts.
+        if _LGBM_MODEL_STR_KEY in state_dict:
+            self._booster = lgb.Booster(model_str=state_dict[_LGBM_MODEL_STR_KEY])
 
 
 class FeedForwardNN(nn.Module):
