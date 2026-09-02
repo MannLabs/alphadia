@@ -547,9 +547,9 @@ class LightGBMClassifier(Classifier):
         colsample_bytree: float = 0.8,
         reg_lambda: float = 1.0,
         max_bin: int = 123,
-        data_sample_strategy: str = "goss",
+        data_sample_strategy: str = "bagging",
         *,
-        early_stopping_rounds: int = 20,
+        early_stopping_rounds: int = 50,
         validation_fraction: float = 0.1,
         final_validation_fraction: float = 0.075,
         num_threads: int = 1,
@@ -594,11 +594,11 @@ class LightGBMClassifier(Classifier):
         max_bin : int, default=123
             Maximum number of histogram bins a feature is discretized into.
 
-        data_sample_strategy : str, default="goss"
+        data_sample_strategy : str, default="bagging"
             How rows are sampled for each tree, either "goss" or "bagging". Only
             "bagging" uses `subsample`.
 
-        early_stopping_rounds : int, default=20
+        early_stopping_rounds : int, default=50
             Stop boosting when the held-out loss has not improved for this many rounds.
 
         validation_fraction : float, default=0.1

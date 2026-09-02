@@ -335,9 +335,9 @@ fdr:
     # maximum number of histogram bins a feature is discretized into
     max_bin: 123
     # how rows are sampled for each tree, either "goss" or "bagging"; only "bagging" uses subsample
-    data_sample_strategy: "goss"
+    data_sample_strategy: "bagging"
     # boosting stops when the held-out logloss has not improved for this many rounds
-    early_stopping_rounds: 20
+    early_stopping_rounds: 50
     # fraction of PSMs held out from an optimization fit to drive early stopping
     validation_fraction: 0.1
     # fraction of PSMs held out from the final fit to drive early stopping
