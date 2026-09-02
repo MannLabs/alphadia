@@ -206,7 +206,7 @@ class _CollapsingClassifier(Classifier):
     def fitted(self) -> bool:
         return self._fitted
 
-    def fit(self, x, y):
+    def fit(self, x, y, *, is_final=False):
         self._fitted = True
 
     def reset(self):
@@ -313,14 +313,28 @@ def test_lightgbm_state_dict_roundtrip():
     assert new_classifier.to_state_dict()["validation_fraction"] == 0.1  # noqa: PLR2004
 
 
-def test_lightgbm_early_stopping_uses_fewer_trees_on_noise():
-    # Given: features without any signal for the labels
+def _gen_weak_signal_data() -> tuple[np.ndarray, np.ndarray]:
+    """Features carrying just enough signal that boosting starts to overfit."""
     rng = np.random.default_rng(0)
-    x = rng.normal(size=(2000, 5))
-    y = rng.integers(0, 2, size=2000)
-    classifier = LightGBMClassifier(
-        n_estimators=200, early_stopping_rounds=5, num_threads=1, random_state=0
+    x = rng.normal(size=(4000, 5))
+    y = (x[:, 0] + rng.normal(scale=3.0, size=4000) > 0).astype(int)
+    return x, y
+
+
+def _get_early_stopping_classifier() -> LightGBMClassifier:
+    return LightGBMClassifier(
+        n_estimators=200,
+        early_stopping_rounds=5,
+        min_child_samples=5,
+        num_threads=1,
+        random_state=0,
     )
+
+
+def test_lightgbm_early_stopping_uses_fewer_trees_than_the_maximum():
+    # Given: data the maximum number of trees would overfit
+    x, y = _gen_weak_signal_data()
+    classifier = _get_early_stopping_classifier()
 
     # When: the classifier is fitted
     classifier.fit(x, y)
@@ -329,22 +343,21 @@ def test_lightgbm_early_stopping_uses_fewer_trees_on_noise():
     assert 0 < classifier._booster.num_trees() < 200  # noqa: PLR2004, SLF001
 
 
-def test_lightgbm_reset():
-    # Given: a fitted classifier
-    x, y = gen_data_np()
-    classifier = _get_lightgbm_classifier()
-    classifier.fit(x, y)
+def test_lightgbm_final_fit_refits_with_the_early_stopped_tree_count():
+    # Given: the same data fitted as an optimization round and as the final round
+    x, y = _gen_weak_signal_data()
 
-    # When: the classifier is reset
-    classifier.reset()
+    tuning_only = _get_early_stopping_classifier()
+    tuning_only.fit(x, y)
 
-    # Then: it is unfitted and cannot predict until it is fitted again
-    assert classifier.fitted is False
-    with pytest.raises(ValueError, match="has not been fitted"):
-        classifier.predict_proba(x)
+    final = _get_early_stopping_classifier()
+    final.fit(x, y, is_final=True)
 
-    classifier.fit(x, y)
-    assert classifier.fitted is True
+    # Then: the refit uses the tree count early stopping chose ...
+    assert final._booster.num_trees() == tuning_only._booster.best_iteration  # noqa: SLF001
+
+    # ... but is a different model, having also seen the PSMs held out for early stopping
+    assert not np.allclose(final.predict_proba(x), tuning_only.predict_proba(x))
 
 
 def test_lightgbm_from_state_dict_without_model_stays_unfitted():

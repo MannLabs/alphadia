@@ -230,6 +230,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 competitive=self._config["fdr"]["competitive_scoring"],
                 df_fragments=fragments_df,
                 version=self.optimization_manager.classifier_version,
+                is_final=True,
             )
 
             precursor_df = precursor_df[
@@ -257,7 +258,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
             candidates_fdr_df, precursor_fdr_df = (
                 extraction_handler.perform_fdr_and_filter_candidates(
-                    precursor_w_features_df, candidates_df
+                    precursor_w_features_df, candidates_df, is_final=True
                 )
             )
 

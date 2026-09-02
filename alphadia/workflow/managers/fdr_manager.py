@@ -110,6 +110,8 @@ class FDRManager(BaseManager):
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
+        *,
+        is_final: bool = False,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -127,6 +129,9 @@ class FDRManager(BaseManager):
             Channel to use for decoy competition if decoy_strategy is "channel". Defaults to -1, which means no decoy channel is used.
         version: int
             Version of the classifier to use. If -1, uses the latest version. Defaults to -1.
+        is_final: bool
+            Whether this is the FDR round whose scores are reported, rather than one of the
+            optimization rounds. Defaults to False.
 
         Notes
         -----
@@ -173,6 +178,7 @@ class FDRManager(BaseManager):
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
+                is_final=is_final,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -196,6 +202,7 @@ class FDRManager(BaseManager):
                         dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
                         random_state=random_state,
+                        is_final=is_final,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
@@ -216,6 +223,7 @@ class FDRManager(BaseManager):
                         group_channels=False,
                         figure_path=self.figure_path,
                         random_state=random_state,
+                        is_final=is_final,
                     )
                 )
 

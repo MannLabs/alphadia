@@ -43,7 +43,7 @@ class Classifier(ABC):
         """Return whether the classifier has been fitted."""
 
     @abstractmethod
-    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+    def fit(self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False) -> None:
         """Fit the classifier to the data.
 
         Parameters
@@ -53,6 +53,10 @@ class Classifier(ABC):
 
         y : np.ndarray, dtype=int
             Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        is_final : bool, default=False
+            Whether this is the fit whose scores are reported, rather than one of the
+            optimization rounds. Implementations may spend more effort on it.
 
         """
 
@@ -334,7 +338,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             values.clear()
 
     @manage_torch_threads(max_threads=2)
-    def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements
+    def fit(  # noqa: PLR0915 # Too many statements
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        *,
+        is_final: bool = False,  # noqa: ARG002 # part of the Classifier interface
+    ) -> None:
         """Fit the classifier to the data.
 
         Parameters
@@ -344,6 +354,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         y : np.ndarray, dtype=int
             Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        is_final : bool, default=False
+            Unused: the network is trained the same way in every FDR round.
 
         """
         if self.experimental_hyperparameter_tuning:
@@ -591,7 +604,7 @@ class LightGBMClassifier(Classifier):
         """Return whether the classifier has been fitted."""
         return self._booster is not None
 
-    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+    def fit(self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False) -> None:
         """Fit the classifier to the data.
 
         Parameters
@@ -601,6 +614,10 @@ class LightGBMClassifier(Classifier):
 
         y : np.ndarray, dtype=int
             Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        is_final : bool, default=False
+            Whether to refit on all samples once early stopping has chosen the number
+            of trees.
 
         """
         if y.ndim == 2:  # noqa: PLR2004
@@ -628,26 +645,28 @@ class LightGBMClassifier(Classifier):
             test_size=self.validation_fraction,
             random_state=int(self._np_rng.integers(0, 1_000_000)),
         )
-        tuning_booster = lgb.train(
+        # Always train a fresh booster: continuing a boosted ensemble would stack trees on top of
+        # the previous FDR round, unlike the MLP which just keeps training the same weights.
+        self._booster = lgb.train(
             params,
             lgb.Dataset(x_train, label=y_train),
             num_boost_round=self.n_estimators,
             valid_sets=[lgb.Dataset(x_valid, label=y_valid)],
             callbacks=[lgb.early_stopping(self.early_stopping_rounds, verbose=False)],
         )
-        n_trees = tuning_booster.best_iteration
+        n_trees = self._booster.best_iteration
 
-        # The held-out PSMs are only needed to find the tree count, so the model that scores the
-        # run is refit on all of them: at 1% FDR the ranking of the marginal PSMs decides the
-        # identifications, and those are the ones a smaller training set gets wrong.
-        # Always train a fresh booster: continuing a boosted ensemble would stack trees on top of
-        # the previous FDR round, unlike the MLP which just keeps training the same weights.
-        self._booster = lgb.train(
-            params, lgb.Dataset(x, label=y), num_boost_round=n_trees
-        )
+        # Only the reported scores are worth a second pass over the data: the optimization rounds
+        # merely steer the tolerances and the confident precursor set, so the PSMs held out there
+        # cost nothing.
+        if is_final:
+            self._booster = lgb.train(
+                params, lgb.Dataset(x, label=y), num_boost_round=n_trees
+            )
 
         logger.info(
-            f"LightGBM fit - samples: {len(x):,}, trees: {n_trees}/{self.n_estimators}"
+            f"LightGBM fit - samples: {len(x):,}, "
+            f"trees: {n_trees}/{self.n_estimators}, refit: {is_final}"
         )
 
     def reset(self) -> None:
