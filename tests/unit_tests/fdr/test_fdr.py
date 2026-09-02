@@ -313,7 +313,7 @@ def test_lightgbm_state_dict_roundtrip():
     assert new_classifier.to_state_dict()["validation_fraction"] == 0.1  # noqa: PLR2004
     assert new_classifier.to_state_dict()["final_n_estimators"] == 3000  # noqa: PLR2004
     assert new_classifier.to_state_dict()["final_validation_fraction"] == 0.075  # noqa: PLR2004
-    assert new_classifier.to_state_dict()["max_bin"] == 123  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["max_bin"] == 63  # noqa: PLR2004
     assert new_classifier.to_state_dict()["data_sample_strategy"] == "bagging"
     assert new_classifier.to_state_dict()["learning_rate_start"] == 0.15  # noqa: PLR2004
     assert new_classifier.to_state_dict()["learning_rate_end"] == 0.03  # noqa: PLR2004

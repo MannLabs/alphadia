@@ -546,7 +546,7 @@ class LightGBMClassifier(Classifier):
         subsample: float = 0.8,
         colsample_bytree: float = 0.8,
         reg_lambda: float = 1.0,
-        max_bin: int = 123,
+        max_bin: int = 63,
         data_sample_strategy: str = "bagging",
         *,
         early_stopping_rounds: int = 50,
@@ -591,7 +591,7 @@ class LightGBMClassifier(Classifier):
         reg_lambda : float, default=1.0
             L2 regularization.
 
-        max_bin : int, default=123
+        max_bin : int, default=63
             Maximum number of histogram bins a feature is discretized into.
 
         data_sample_strategy : str, default="bagging"
