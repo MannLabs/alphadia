@@ -23,7 +23,7 @@ _LGBM_FIXED_PARAMS = {
     "force_row_wise": True,
 }
 _LGBM_BAGGING_STRATEGY = "bagging"
-# resample the rows for every tree rather than every n-th one
+# resample rows for every tree, not every n-th
 _LGBM_BAGGING_FREQ = 1
 _LGBM_PROBA_THRESHOLD = 0.5
 _LGBM_MODEL_STR_KEY = "model_str"
@@ -682,28 +682,23 @@ class LightGBMClassifier(Classifier):
             "max_bin": self.max_bin,
             "data_sample_strategy": self.data_sample_strategy,
             "num_threads": self.num_threads,
-            # a new seed per fit so that a reset and refit after a collapse gives a different model
+            # a new seed per fit, so a refit after a collapse gives a different model
             "seed": int(self._np_rng.integers(0, 1_000_000)),
             **_LGBM_FIXED_PARAMS,
         }
 
-        # LightGBM refuses to start when bagging parameters are present under GOSS,
-        # which picks its own rows by gradient magnitude.
+        # GOSS picks its own rows and LightGBM refuses to start alongside bagging parameters
         if self.data_sample_strategy == _LGBM_BAGGING_STRATEGY:
             params["bagging_fraction"] = self.subsample
             params["bagging_freq"] = _LGBM_BAGGING_FREQ
 
-        # The final round scores far more candidates than the optimization rounds, so it gets a
-        # bigger tree budget and gives up less data to the held-out split.
         max_trees = self.final_n_estimators if is_final else self.n_estimators
         validation_fraction = (
             self.final_validation_fraction if is_final else self.validation_fraction
         )
 
-        # Boosting has no natural stopping point (unlike the MLP's fixed epoch count), so a held-out
-        # split decides how many trees the current PSM set supports. It also keeps the model from
-        # memorizing the PSMs it scores, which would push the training decoys below the q-value
-        # cutoff and inflate the reported identifications.
+        # Boosting has no natural stopping point, so a held-out split decides how many trees the
+        # PSM set supports. Overfitting the scored PSMs would inflate the reported identifications.
         x_train, x_valid, y_train, y_valid, *_ = train_test_split_(
             x,
             y,
@@ -711,8 +706,7 @@ class LightGBMClassifier(Classifier):
             random_state=int(self._np_rng.integers(0, 1_000_000)),
         )
 
-        # Always train a fresh booster: continuing a boosted ensemble would stack trees on top of
-        # the previous FDR round, unlike the MLP which just keeps training the same weights.
+        # A fresh booster every fit: continuing would stack trees on top of the previous FDR round
         self._booster = lgb.train(
             params,
             lgb.Dataset(x_train, label=y_train),
@@ -814,8 +808,7 @@ class LightGBMClassifier(Classifier):
             Dictionary containing the state of the classifier.
 
         """
-        # The classifier store on disk can hold state dicts of other classifier types (e.g. the
-        # shipped MLP weights); those leave this classifier unfitted, like the MLP ignores foreign dicts.
+        # the classifier store on disk can hold state dicts of other classifier types
         if _LGBM_MODEL_STR_KEY in state_dict:
             self._booster = lgb.Booster(model_str=state_dict[_LGBM_MODEL_STR_KEY])
 
