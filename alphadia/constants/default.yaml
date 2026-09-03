@@ -315,7 +315,7 @@ fdr:
     # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer
     n_estimators: 2000
     # maximum number of boosting rounds (trees) in the final round
-    final_n_estimators: 3000
+    final_n_estimators: 4000
     # shrinkage rate of the first tree
     learning_rate_start: 0.18
     # shrinkage rate the schedule decays to, and holds at afterwards
