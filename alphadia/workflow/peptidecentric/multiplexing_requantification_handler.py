@@ -144,6 +144,7 @@ class MultiplexingRequantificationHandler:
             decoy_strategy="channel",
             competitive=self._config["multiplexing"]["competitive_scoring"],
             decoy_channel=decoy_channel,
+            is_final=True,
         )
 
         return psm_df

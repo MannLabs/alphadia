@@ -309,14 +309,14 @@ def test_lightgbm_state_dict_roundtrip():
     # Then: it is fitted and predicts the same probabilities
     assert new_classifier.fitted is True
     assert np.allclose(classifier.predict_proba(x), new_classifier.predict_proba(x))
-    assert new_classifier.to_state_dict()["early_stopping_rounds"] == 50  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["early_stopping_rounds"] == 30  # noqa: PLR2004
     assert new_classifier.to_state_dict()["validation_fraction"] == 0.1  # noqa: PLR2004
-    assert new_classifier.to_state_dict()["final_n_estimators"] == 3000  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["final_n_estimators"] == 4000  # noqa: PLR2004
     assert new_classifier.to_state_dict()["final_validation_fraction"] == 0.075  # noqa: PLR2004
-    assert new_classifier.to_state_dict()["max_bin"] == 63  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["max_bin"] == 128  # noqa: PLR2004
     assert new_classifier.to_state_dict()["data_sample_strategy"] == "bagging"
-    assert new_classifier.to_state_dict()["learning_rate_start"] == 0.15  # noqa: PLR2004
-    assert new_classifier.to_state_dict()["learning_rate_end"] == 0.03  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["learning_rate_start"] == 0.18  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["learning_rate_end"] == 0.09  # noqa: PLR2004
     assert new_classifier.to_state_dict()["learning_rate_decay_rounds"] == 1600  # noqa: PLR2004
 
 
