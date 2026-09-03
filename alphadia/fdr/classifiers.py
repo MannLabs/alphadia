@@ -537,19 +537,19 @@ class LightGBMClassifier(Classifier):
     def __init__(  # noqa: PLR0913 # Too many arguments
         self,
         n_estimators: int = 2000,
-        final_n_estimators: int = 3000,
-        learning_rate_start: float = 0.15,
-        learning_rate_end: float = 0.03,
+        final_n_estimators: int = 4000,
+        learning_rate_start: float = 0.18,
+        learning_rate_end: float = 0.09,
         learning_rate_decay_rounds: int = 1600,
         num_leaves: int = 31,
         min_child_samples: int = 100,
         subsample: float = 0.8,
         colsample_bytree: float = 0.8,
         reg_lambda: float = 1.0,
-        max_bin: int = 63,
+        max_bin: int = 128,
         data_sample_strategy: str = "bagging",
         *,
-        early_stopping_rounds: int = 50,
+        early_stopping_rounds: int = 30,
         validation_fraction: float = 0.1,
         final_validation_fraction: float = 0.075,
         num_threads: int = 1,
@@ -563,13 +563,13 @@ class LightGBMClassifier(Classifier):
             Maximum number of boosting rounds (trees) in the optimization rounds; early
             stopping usually uses fewer.
 
-        final_n_estimators : int, default=3000
+        final_n_estimators : int, default=4000
             Maximum number of boosting rounds (trees) in the final round.
 
-        learning_rate_start : float, default=0.15
+        learning_rate_start : float, default=0.18
             Shrinkage rate applied to the first tree.
 
-        learning_rate_end : float, default=0.03
+        learning_rate_end : float, default=0.09
             Shrinkage rate the schedule decays to, and holds at afterwards.
 
         learning_rate_decay_rounds : int, default=1600
@@ -591,14 +591,14 @@ class LightGBMClassifier(Classifier):
         reg_lambda : float, default=1.0
             L2 regularization.
 
-        max_bin : int, default=63
+        max_bin : int, default=128
             Maximum number of histogram bins a feature is discretized into.
 
         data_sample_strategy : str, default="bagging"
             How rows are sampled for each tree, either "goss" or "bagging". Only
             "bagging" uses `subsample`.
 
-        early_stopping_rounds : int, default=50
+        early_stopping_rounds : int, default=30
             Stop boosting when the held-out loss has not improved for this many rounds.
 
         validation_fraction : float, default=0.1
