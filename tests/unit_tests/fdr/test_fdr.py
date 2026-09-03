@@ -3,10 +3,15 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 
 from alphadia.fdr import fdr
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    Classifier,
+    LightGBMClassifier,
+)
 
 
 def test_keep_best():
@@ -201,7 +206,7 @@ class _CollapsingClassifier(Classifier):
     def fitted(self) -> bool:
         return self._fitted
 
-    def fit(self, x, y):
+    def fit(self, x, y, *, is_final=False):
         self._fitted = True
 
     def reset(self):
@@ -263,3 +268,171 @@ def test_perform_fdr_stops_after_max_reinits():
     # Then: perform_fdr stops after the maximum number of retries
     assert classifier.reset_count == fdr._MAX_FDR_CLASSIFIER_REINITS
     assert psm_df["proba"].std() == 0.0
+
+
+def _get_lightgbm_classifier() -> LightGBMClassifier:
+    return LightGBMClassifier(
+        n_estimators=20, min_child_samples=5, num_threads=1, random_state=0
+    )
+
+
+def test_lightgbm_fit_predict():
+    # Given: separable data and an unfitted classifier
+    x, y = gen_data_np()
+    classifier = _get_lightgbm_classifier()
+
+    # When: the classifier is fitted
+    classifier.fit(x, y)
+
+    # Then: it is fitted, predicts the classes and returns proper probabilities
+    assert classifier.fitted is True
+    assert np.mean(classifier.predict(x) == y) > 0.95  # noqa: PLR2004
+
+    y_proba = classifier.predict_proba(x)
+    assert y_proba.shape == (len(x), 2)
+    assert np.allclose(y_proba.sum(axis=1), 1.0)
+
+
+def test_lightgbm_state_dict_roundtrip():
+    # Given: a fitted classifier saved to disk
+    x, y = gen_data_np()
+    classifier = _get_lightgbm_classifier()
+    classifier.fit(x, y)
+
+    path = os.path.join(tempfile.gettempdir(), "test_lightgbm_save.pth")
+    torch.save(classifier.to_state_dict(), path)
+
+    # When: a new classifier is loaded from the state dict
+    new_classifier = LightGBMClassifier()
+    new_classifier.from_state_dict(torch.load(path, weights_only=False))
+
+    # Then: it is fitted and predicts the same probabilities
+    assert new_classifier.fitted is True
+    assert np.allclose(classifier.predict_proba(x), new_classifier.predict_proba(x))
+    assert new_classifier.to_state_dict()["early_stopping_rounds"] == 30  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["validation_fraction"] == 0.1  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["final_n_estimators"] == 4000  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["final_validation_fraction"] == 0.075  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["max_bin"] == 128  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["data_sample_strategy"] == "bagging"
+    assert new_classifier.to_state_dict()["learning_rate_start"] == 0.18  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["learning_rate_end"] == 0.09  # noqa: PLR2004
+    assert new_classifier.to_state_dict()["learning_rate_decay_rounds"] == 1600  # noqa: PLR2004
+
+
+def test_lightgbm_learning_rate_schedule_decays_between_the_endpoints():
+    # Given: a classifier with a short decay horizon
+    classifier = LightGBMClassifier(
+        learning_rate_start=0.15,
+        learning_rate_end=0.03,
+        learning_rate_decay_rounds=100,
+    )
+
+    # When / Then: the rate starts high, decays monotonically and holds at the floor
+    rates = [classifier._learning_rate_at(i) for i in range(120)]  # noqa: SLF001
+    assert rates[0] == 0.15  # noqa: PLR2004
+    assert all(
+        later <= earlier for earlier, later in zip(rates, rates[1:], strict=False)
+    )
+    assert rates[100] == 0.03  # noqa: PLR2004
+    assert rates[119] == 0.03  # noqa: PLR2004
+    assert 0.03 < rates[50] < 0.15  # noqa: PLR2004
+
+
+def _gen_weak_signal_data() -> tuple[np.ndarray, np.ndarray]:
+    """Features carrying just enough signal that boosting starts to overfit."""
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(4000, 5))
+    y = (x[:, 0] + rng.normal(scale=3.0, size=4000) > 0).astype(int)
+    return x, y
+
+
+def _get_early_stopping_classifier() -> LightGBMClassifier:
+    return LightGBMClassifier(
+        n_estimators=200,
+        final_n_estimators=300,
+        early_stopping_rounds=5,
+        min_child_samples=5,
+        num_threads=1,
+        random_state=0,
+    )
+
+
+def test_lightgbm_early_stopping_uses_fewer_trees_than_the_maximum():
+    # Given: data the maximum number of trees would overfit
+    x, y = _gen_weak_signal_data()
+    classifier = _get_early_stopping_classifier()
+
+    # When: the classifier is fitted
+    classifier.fit(x, y)
+
+    # Then: boosting stops well before the maximum number of trees
+    assert 0 < classifier._booster.num_trees() < 200  # noqa: PLR2004, SLF001
+
+
+def test_lightgbm_final_fit_uses_the_final_round_budget():
+    # Given: the same data fitted as an optimization round and as the final round
+    x, y = _gen_weak_signal_data()
+
+    optimization = _get_early_stopping_classifier()
+    optimization.fit(x, y)
+
+    final = _get_early_stopping_classifier()
+    final.fit(x, y, is_final=True)
+
+    # Then: both stop early, each within its own budget ...
+    assert 0 < optimization._booster.num_trees() < 200  # noqa: PLR2004, SLF001
+    assert 0 < final._booster.num_trees() < 300  # noqa: PLR2004, SLF001
+
+    # ... and the final round trains on more data, giving a different model
+    assert not np.allclose(final.predict_proba(x), optimization.predict_proba(x))
+
+
+def test_lightgbm_from_state_dict_without_model_stays_unfitted():
+    # Given: a state dict of a different classifier type
+    state_dict = BinaryClassifierLegacyNewBatching().to_state_dict()
+    classifier = LightGBMClassifier()
+
+    # When: it is loaded into the lightgbm classifier
+    classifier.from_state_dict(state_dict)
+
+    # Then: the classifier stays unfitted
+    assert classifier.fitted is False
+
+
+def test_lightgbm_predict_before_fit_raises():
+    x, _ = gen_data_np()
+    classifier = LightGBMClassifier()
+
+    with pytest.raises(ValueError, match="has not been fitted"):
+        classifier.predict(x)
+
+
+def test_perform_fdr_lightgbm_separates_targets_and_decoys():
+    # Given: targets and decoys with a separable feature
+    n_samples = 200
+    target_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(n_samples),
+            "decoy": 0,
+            "feature": np.linspace(0.0, 1.0, n_samples),
+        }
+    )
+    decoy_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(n_samples, 2 * n_samples),
+            "decoy": 1,
+            "feature": np.linspace(1.0, 2.0, n_samples),
+        }
+    )
+
+    # When: perform_fdr runs with the lightgbm classifier
+    psm_df = fdr.perform_fdr(
+        _get_lightgbm_classifier(), ["feature"], target_df, decoy_df, random_state=0
+    )
+
+    # Then: targets get lower decoy probabilities and q-values than decoys
+    target_psms = psm_df[psm_df["_decoy"] == 0]
+    decoy_psms = psm_df[psm_df["_decoy"] == 1]
+    assert target_psms["proba"].median() < decoy_psms["proba"].median()
+    assert target_psms["qval"].median() < decoy_psms["qval"].median()

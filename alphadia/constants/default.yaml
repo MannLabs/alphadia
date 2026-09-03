@@ -308,6 +308,40 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
+  # classifier used for target-decoy scoring: "mlp" (neural network) or "lightgbm" (gradient boosting)
+  classifier: "mlp"
+  # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"
+  lightgbm:
+    # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer
+    n_estimators: 2000
+    # maximum number of boosting rounds (trees) in the final round
+    final_n_estimators: 4000
+    # shrinkage rate of the first tree
+    learning_rate_start: 0.18
+    # shrinkage rate the schedule decays to, and holds at afterwards
+    learning_rate_end: 0.08
+    # number of boosting rounds the decay from start to end is spread over
+    learning_rate_decay_rounds: 300
+    # maximum number of leaves per tree
+    num_leaves: 31
+    # minimum number of PSMs per leaf
+    min_child_samples: 100
+    # fraction of PSMs sampled for each tree
+    subsample: 0.8
+    # fraction of features sampled for each tree
+    colsample_bytree: 0.8
+    # L2 regularization
+    reg_lambda: 1.0
+    # maximum number of histogram bins a feature is discretized into
+    max_bin: 128
+    # how rows are sampled for each tree, either "goss" or "bagging"; only "bagging" uses subsample
+    data_sample_strategy: "bagging"
+    # boosting stops when the held-out logloss has not improved for this many rounds
+    early_stopping_rounds: 30
+    # fraction of PSMs held out from an optimization fit to drive early stopping
+    validation_fraction: 0.1
+    # fraction of PSMs held out from the final fit to drive early stopping
+    final_validation_fraction: 0.075
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

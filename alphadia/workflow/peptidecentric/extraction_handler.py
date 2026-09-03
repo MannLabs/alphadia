@@ -268,7 +268,11 @@ class ExtractionHandler(ABC):
         raise NotImplementedError()
 
     def perform_fdr_and_filter_candidates(
-        self, features_df: pd.DataFrame, candidates_df: pd.DataFrame
+        self,
+        features_df: pd.DataFrame,
+        candidates_df: pd.DataFrame,
+        *,
+        is_final: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -281,6 +285,10 @@ class ExtractionHandler(ABC):
 
         candidates_df : pd.DataFrame
             DataFrame with candidates
+
+        is_final : bool, default=False
+            Whether this is the FDR round whose scores are reported, rather than one of
+            the optimization rounds.
 
         Returns
         -------
@@ -671,6 +679,8 @@ class NgExtractionHandler(ExtractionHandler):
         self,
         features_df: pd.DataFrame,
         candidates_df: pd.DataFrame,
+        *,
+        is_final: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -691,6 +701,7 @@ class NgExtractionHandler(ExtractionHandler):
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=None,  # TODO: support fragments_df,
             version=self._optimization_manager.classifier_version,
+            is_final=is_final,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]

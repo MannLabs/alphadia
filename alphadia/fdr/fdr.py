@@ -41,6 +41,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    is_final: bool = False,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -80,6 +81,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     random_state : int, optional
         The random state for train-test split reproducibility.
+
+    is_final : bool, default=False
+        Whether this is the FDR round whose scores are reported, rather than one of the
+        optimization rounds.
 
     Returns
     -------
@@ -137,7 +142,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         psm_df["proba"] = 1.0
         return psm_df
 
-    classifier.fit(X_train, y_train)
+    classifier.fit(X_train, y_train, is_final=is_final)
 
     psm_df = pd.concat([df_target, df_decoy])
     psm_df["_decoy"] = y
@@ -167,7 +172,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
         classifier.reset()
-        classifier.fit(X_train, y_train)
+        classifier.fit(X_train, y_train, is_final=is_final)
         predicted_proba = classifier.predict_proba(X)[:, 1]
 
     if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
