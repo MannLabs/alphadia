@@ -319,9 +319,9 @@ fdr:
     # shrinkage rate of the first tree
     learning_rate_start: 0.18
     # shrinkage rate the schedule decays to, and holds at afterwards
-    learning_rate_end: 0.09
+    learning_rate_end: 0.08
     # number of boosting rounds the decay from start to end is spread over
-    learning_rate_decay_rounds: 1600
+    learning_rate_decay_rounds: 300
     # maximum number of leaves per tree
     num_leaves: 31
     # minimum number of PSMs per leaf
