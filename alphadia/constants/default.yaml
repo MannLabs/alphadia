@@ -333,7 +333,7 @@ fdr:
     # L2 regularization
     reg_lambda: 1.0
     # maximum number of histogram bins a feature is discretized into
-    max_bin: 63
+    max_bin: 128
     # how rows are sampled for each tree, either "goss" or "bagging"; only "bagging" uses subsample
     data_sample_strategy: "bagging"
     # boosting stops when the held-out logloss has not improved for this many rounds
