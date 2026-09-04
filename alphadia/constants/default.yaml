@@ -320,6 +320,8 @@ fdr:
   # "quantile" replaces every feature by its rank in the training distribution, mapped to a standard
   # normal score. This keeps extreme values inside the range the network was trained on.
   feature_transform: quantile
+  # write the unfiltered FDR feature matrix and the classifier feature importances to the quant folder, for offline feature analysis
+  save_feature_matrix: false
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
