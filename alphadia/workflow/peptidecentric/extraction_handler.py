@@ -277,6 +277,7 @@ class ExtractionHandler(ABC):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
+        is_final: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -302,6 +303,8 @@ class ExtractionHandler(ABC):
 
         warm_start_epochs : int, optional
             Training epochs if the classifier continues from stored weights, see `FDRManager.fit_predict`.
+        is_final : bool, default=False
+            Whether this is the reported FDR round.
 
         Returns
         -------
@@ -705,6 +708,7 @@ class NgExtractionHandler(ExtractionHandler):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
+        is_final: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -747,6 +751,7 @@ class NgExtractionHandler(ExtractionHandler):
             fragment_provider=quantified_fragments if df_fragments is None else None,
             version=self._optimization_manager.classifier_version,
             warm_start_epochs=warm_start_epochs,
+            is_final=is_final,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
