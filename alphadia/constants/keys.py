@@ -82,6 +82,8 @@ class SearchStepFiles(metaclass=ConstantsClass):
     PSM_FILE_NAME = "psm.parquet"
     FRAG_FILE_NAME = "frag.parquet"
     FRAG_TRANSFER_FILE_NAME = "frag.transfer.parquet"
+    FDR_FEATURES_FILE_NAME = "fdr_features.parquet"
+    FDR_FEATURE_IMPORTANCE_FILE_NAME = "fdr_feature_importance.json"
 
 
 class InferenceStrategy(metaclass=ConstantsClass):

@@ -728,6 +728,25 @@ class LightGBMClassifier(Classifier):
         """Set the classifier back to an unfitted state."""
         self._booster = None
 
+    def feature_importance(self) -> dict[str, list[float]]:
+        """Return the importance of each feature, in the column order the classifier was fitted on.
+
+        Returns
+        -------
+        importance : dict[str, list[float]]
+            Total split gain under `"gain"` and number of splits under `"split"`.
+
+        """
+        if self._booster is None:
+            raise ValueError("Classifier has not been fitted yet.")
+
+        return {
+            importance_type: self._booster.feature_importance(
+                importance_type=importance_type
+            ).tolist()
+            for importance_type in ("gain", "split")
+        }
+
     def predict(self, x: np.ndarray) -> np.ndarray:
         """Predict the class of the data.
 

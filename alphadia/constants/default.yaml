@@ -308,6 +308,8 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
+  # write the unfiltered FDR feature matrix and the classifier feature importances to the quant folder, for offline feature analysis
+  save_feature_matrix: false
   # classifier used for target-decoy scoring: "mlp" (neural network) or "lightgbm" (gradient boosting)
   classifier: "mlp"
   # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"

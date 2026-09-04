@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from collections import defaultdict
@@ -10,12 +11,23 @@ import torch
 import xxhash
 
 import alphadia
+from alphadia.constants.keys import SearchStepFiles
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
+
+# identity and grouping columns kept alongside the features, so that the dumped matrix
+# alone is enough to reproduce target-decoy competition offline
+_FEATURE_MATRIX_ID_COLUMNS = [
+    "precursor_idx",
+    "elution_group_idx",
+    "channel",
+    "decoy",
+    "rank",
+]
 
 
 def get_group_columns(competitive: bool, group_channels: bool) -> list[str]:
@@ -59,6 +71,7 @@ class FDRManager(BaseManager):
         config: Config,
         dia_cycle: None | np.ndarray = None,
         path: None | str = None,
+        feature_matrix_path: None | str = None,
         load_from_file: bool = True,
         random_state: int | None = None,
         **kwargs,
@@ -77,6 +90,9 @@ class FDRManager(BaseManager):
             DIA cycle information, if applicable. If None, no DIA cycle information is used.
         path : str, optional
             Path to the manager pickle on disk.
+        feature_matrix_path : str, optional
+            Directory to write the feature matrix and the feature importances to. If
+            None, neither is written.
         load_from_file : bool, optional
             If True, the manager will be loaded from file if it exists.
         random_state: int, optional
@@ -97,6 +113,9 @@ class FDRManager(BaseManager):
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
+
+        self._feature_matrix_path = feature_matrix_path
+        self._feature_importances = []
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -137,7 +156,8 @@ class FDRManager(BaseManager):
         -----
             The classifier_hash must be identical for every call of fit_predict for self._current_version to give the right index in self.classifier_store.
         """
-        available_columns = list(
+        # sorted so that the column order the classifier is fitted on is reproducible across runs
+        available_columns = sorted(
             set(features_df.columns).intersection(set(self.feature_columns))
         )
 
@@ -235,9 +255,62 @@ class FDRManager(BaseManager):
         self._current_version += 1
         self.classifier_store[column_hash(available_columns)].append(classifier)
 
+        self._save_feature_matrix(
+            features_df, available_columns, classifier, is_final=is_final
+        )
+
         self.save()
 
         return psm_df
+
+    def _save_feature_matrix(
+        self,
+        features_df: pd.DataFrame,
+        available_columns: list[str],
+        classifier: Classifier,
+        *,
+        is_final: bool,
+    ) -> None:
+        """Write the feature matrix and the classifier's feature importances for offline analysis.
+
+        The importances are written on every round so that their evolution over the
+        optimization rounds is visible; the matrix itself only on the final round, as it
+        is orders of magnitude larger.
+        """
+        if self._feature_matrix_path is None:
+            return
+
+        if hasattr(classifier, "feature_importance"):
+            importance_path = os.path.join(
+                self._feature_matrix_path,
+                SearchStepFiles.FDR_FEATURE_IMPORTANCE_FILE_NAME,
+            )
+            self._feature_importances.append(
+                {
+                    "version": self._current_version,
+                    "is_final": is_final,
+                    "columns": available_columns,
+                    **classifier.feature_importance(),
+                }
+            )
+            with open(importance_path, "w") as file:
+                json.dump(self._feature_importances, file)
+
+        if not is_final:
+            return
+
+        dump_columns = available_columns + [
+            column for column in _FEATURE_MATRIX_ID_COLUMNS if column in features_df
+        ]
+        matrix_path = os.path.join(
+            self._feature_matrix_path, SearchStepFiles.FDR_FEATURES_FILE_NAME
+        )
+        features_df[dump_columns].to_parquet(matrix_path, index=False)
+
+        self.reporter.log_string(
+            f"Saved FDR feature matrix ({len(features_df):,} rows, "
+            f"{len(available_columns)} features) to {matrix_path}"
+        )
 
     def _check_valid_input(
         self,
