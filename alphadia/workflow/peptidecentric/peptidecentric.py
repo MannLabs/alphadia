@@ -14,6 +14,7 @@ from alphadia.fdr.classifiers import (
     Classifier,
     LightGBMClassifier,
 )
+from alphadia.fdr.prefilter import CascadePrefilter
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -101,6 +102,54 @@ def _get_classifier_base(
     raise ValueError(f"Unknown FDR classifier: {classifier_name}")
 
 
+def _get_prefilter(
+    config: Config,
+    feature_columns: list[str],
+    random_state: int | None = None,
+) -> CascadePrefilter | None:
+    """Creates the stage-1 prefilter, or None if the configuration disables it.
+
+    Parameters
+    ----------
+    config : Config
+        The workflow configuration, read for the prefilter settings and the lightgbm
+        hyperparameters the stage-1 model shares with the lightgbm classifier.
+
+    feature_columns : list[str]
+        Feature columns the extraction backend provides.
+
+    random_state : int | None, optional
+        Random state for reproducibility. Default is None.
+
+    Returns
+    -------
+    CascadePrefilter | None
+        The prefilter, or None if disabled.
+    """
+    config_prefilter = config["fdr"]["prefilter"]
+    if not config_prefilter["enabled"]:
+        return None
+
+    stage1_classifier = LightGBMClassifier(
+        **{
+            **config["fdr"]["lightgbm"],
+            "n_estimators": config_prefilter["n_estimators"],
+            "final_n_estimators": config_prefilter["final_n_estimators"],
+        },
+        num_threads=config["general"]["thread_count"],
+        random_state=random_state,
+    )
+    return CascadePrefilter(
+        feature_columns=_apply_feature_subset(
+            feature_columns, config_prefilter["feature_subset"]
+        ),
+        classifier=stage1_classifier,
+        q_value_threshold=config_prefilter["q_value_threshold"],
+        n_folds=config_prefilter["n_folds"],
+        random_state=random_state,
+    )
+
+
 class PeptideCentricWorkflow(base.WorkflowBase):
     def __init__(
         self,
@@ -146,11 +195,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.reporter.log_string(
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
+        backend_feature_columns = (
+            get_feature_names()
+            if self._config["search"]["extraction_backend"] == "rust"
+            else feature_columns
+        )
         self._fdr_manager = FDRManager(
             feature_columns=_apply_feature_subset(
-                get_feature_names()
-                if self._config["search"]["extraction_backend"] == "rust"
-                else feature_columns,
+                backend_feature_columns,
                 self._config["fdr"]["feature_subset"],
             ),
             classifier_base=_get_classifier_base(
@@ -164,6 +216,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self._config["fdr"]["save_feature_matrix"]
             else None,
             random_state=self._random_state_fdr_manager,
+            prefilter=_get_prefilter(
+                self.config,
+                backend_feature_columns,
+                random_state=self._random_state_fdr_classifier,
+            ),
         )
 
         init_spectral_library(
