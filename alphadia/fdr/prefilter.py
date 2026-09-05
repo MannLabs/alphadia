@@ -28,6 +28,10 @@ class CascadePrefilter:
     has not seen its label. A model that has seen the labels memorizes false targets as
     targets and decoys as decoys, so it would pass false targets preferentially and break
     the target-decoy symmetry the downstream FDR estimate relies on.
+
+    Only the final FDR round is gated. The optimization rounds are cheap, and the
+    optimization lock, the calibration and the score cutoff are all derived from the PSMs
+    they accept, so a gate there changes which candidates the final round sees at all.
     """
 
     def __init__(  # noqa: PLR0913 # Too many arguments
@@ -89,7 +93,8 @@ class CascadePrefilter:
             Decoy labels of shape (n_samples,), 1 for decoys.
 
         is_final : bool, default=False
-            Whether this is the FDR round whose scores are reported.
+            Whether this is the FDR round whose scores are reported. Other rounds are
+            not gated.
 
         Returns
         -------
@@ -104,7 +109,7 @@ class CascadePrefilter:
         n_psms = len(psm_df)
         keep_all = np.ones(n_psms, dtype=bool), np.zeros(n_psms)
 
-        if n_psms < self.min_psms:
+        if not is_final or n_psms < self.min_psms:
             return keep_all
 
         x = psm_df[self.feature_columns].to_numpy()

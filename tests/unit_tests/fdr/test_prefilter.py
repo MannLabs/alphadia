@@ -40,7 +40,11 @@ def _get_prefilter(q_value_threshold: float, min_psms: int = 0) -> CascadePrefil
     return CascadePrefilter(
         feature_columns=["feature"],
         classifier=LightGBMClassifier(
-            n_estimators=20, min_child_samples=5, num_threads=1, random_state=0
+            n_estimators=20,
+            final_n_estimators=20,
+            min_child_samples=5,
+            num_threads=1,
+            random_state=0,
         ),
         q_value_threshold=q_value_threshold,
         n_folds=2,
@@ -56,7 +60,9 @@ def test_prefilter_keeps_the_confident_targets_and_drops_decoy_like_psms():
     y = psm_df["decoy"].to_numpy()
 
     # When: the prefilter gates the PSMs
-    keep, stage1_proba = _get_prefilter(q_value_threshold=0.2).select(psm_df, y)
+    keep, stage1_proba = _get_prefilter(q_value_threshold=0.2).select(
+        psm_df, y, is_final=True
+    )
 
     # Then: the good targets pass, most decoys do not, and every PSM has a stage-1 score
     good_targets = (psm_df["feature"] < 1.0).to_numpy()
@@ -65,6 +71,22 @@ def test_prefilter_keeps_the_confident_targets_and_drops_decoy_like_psms():
     assert 0.0 < keep.mean() < 1.0
     assert stage1_proba.shape == (len(psm_df),)
     assert stage1_proba[good_targets].mean() < stage1_proba[y == 1].mean()
+
+
+def test_prefilter_passes_everything_in_optimization_rounds():
+    # Given: PSMs of an optimization round
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    psm_df = pd.concat([target_df, decoy_df]).reset_index(drop=True)
+    y = psm_df["decoy"].to_numpy()
+
+    # When: the prefilter gates the PSMs of a round that is not the final one
+    keep, stage1_proba = _get_prefilter(q_value_threshold=0.2).select(
+        psm_df, y, is_final=False
+    )
+
+    # Then: nothing is dropped
+    assert keep.all()
+    assert not stage1_proba.any()
 
 
 def test_prefilter_passes_everything_below_min_psms():
@@ -76,7 +98,7 @@ def test_prefilter_passes_everything_below_min_psms():
     # When: the prefilter gates the PSMs
     keep, stage1_proba = _get_prefilter(
         q_value_threshold=0.2, min_psms=len(psm_df) + 1
-    ).select(psm_df, y)
+    ).select(psm_df, y, is_final=True)
 
     # Then: nothing is dropped and no stage-1 model was fitted
     assert keep.all()
@@ -88,7 +110,11 @@ def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
     target_df, decoy_df = _gen_target_decoy_dfs()
     prefilter = _get_prefilter(q_value_threshold=0.2)
     classifier = LightGBMClassifier(
-        n_estimators=20, min_child_samples=5, num_threads=1, random_state=0
+        n_estimators=20,
+        final_n_estimators=20,
+        min_child_samples=5,
+        num_threads=1,
+        random_state=0,
     )
 
     # When: perform_fdr runs with the prefilter
@@ -99,6 +125,7 @@ def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
         decoy_df.copy(),
         competitive=True,
         random_state=0,
+        is_final=True,
         prefilter=prefilter,
     )
 
@@ -118,13 +145,18 @@ def test_perform_fdr_with_prefilter_matches_the_unfiltered_identifications():
     def _ids(prefilter):
         psm_df = fdr.perform_fdr(
             LightGBMClassifier(
-                n_estimators=20, min_child_samples=5, num_threads=1, random_state=0
+                n_estimators=20,
+                final_n_estimators=20,
+                min_child_samples=5,
+                num_threads=1,
+                random_state=0,
             ),
             ["feature", "noise"],
             target_df.copy(),
             decoy_df.copy(),
             competitive=True,
             random_state=0,
+            is_final=True,
             prefilter=prefilter,
         )
         return int(((psm_df["_decoy"] == 0) & (psm_df["qval"] <= 0.05)).sum())
