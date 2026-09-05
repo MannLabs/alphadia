@@ -333,9 +333,9 @@ fdr:
   # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"
   lightgbm:
     # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer
-    n_estimators: 200
+    n_estimators: 400
     # maximum number of boosting rounds (trees) in the final round
-    final_n_estimators: 400
+    final_n_estimators: 800
     # shrinkage rate of the first tree
     learning_rate_start: 0.16
     # shrinkage rate the schedule decays to, and holds at afterwards
