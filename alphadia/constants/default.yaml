@@ -313,13 +313,29 @@ fdr:
   # classifier used for target-decoy scoring: "mlp" (neural network) or "lightgbm" (gradient boosting)
   classifier: "mlp"
   # restrict the classifier to these feature columns; empty means every feature the extraction backend provides
-  feature_subset: []
+  feature_subset: 
+    - idf_hyperscore
+    - num_over_0
+    - log10_b_ion_intensity
+    - num_profiles_filtered
+    - log10_y_ion_intensity
+    - idf_xic_dot_product
+    - idf_intensity_dot_product
+    - delta_rt
+    - hyperscore_inverse_mass_error
+    - intensity_cosine_library
+    - naa
+    - rt_observed
+    - num_fragments
+    - weighted_mass_error
+    - spectral_entropy
+    - weighted_mean_correlation
   # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"
   lightgbm:
     # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer
-    n_estimators: 2000
+    n_estimators: 200
     # maximum number of boosting rounds (trees) in the final round
-    final_n_estimators: 4000
+    final_n_estimators: 400
     # shrinkage rate of the first tree
     learning_rate_start: 0.16
     # shrinkage rate the schedule decays to, and holds at afterwards
