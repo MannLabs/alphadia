@@ -349,7 +349,7 @@ fdr:
   # a small cross-fitted lightgbm model scores every PSM before the classifier; only PSMs below its q-value threshold
   # are passed on to the classifier, the rest are ranked behind them by their stage-1 score
   prefilter:
-    enabled: false
+    enabled: true
     # stage-1 q-value above which a PSM is not passed on to the classifier
     q_value_threshold: 0.2
     # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
@@ -357,9 +357,9 @@ fdr:
     # maximum number of boosting rounds (trees) of the stage-1 model in the optimization rounds
     n_estimators: 200
     # maximum number of boosting rounds (trees) of the stage-1 model in the final round
-    final_n_estimators: 400
+    final_n_estimators: 200
     # fit each fold's stage-1 model on at most this many PSMs of the other folds; null fits on all of them
-    max_train_psms: null
+    max_train_psms: 1000000
     # features of the stage-1 model; the remaining hyperparameters are shared with fdr.lightgbm
     feature_subset:
       - idf_hyperscore
