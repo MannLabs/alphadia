@@ -323,8 +323,22 @@ def get_q_values(
     target_values = 1 - df[decoy_column].to_numpy()
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
-    fdr_values = (
-        decoy_cumsum / target_cumsum
-    )  # TODO: RuntimeWarning: divide by zero encountered in divide
+    fdr_values = np.divide(
+        decoy_cumsum,
+        target_cumsum,
+        out=np.ones(len(df), dtype=float),
+        where=target_cumsum > 0,
+    )
+
+    # The sort above puts every target of a tied-score block ahead of every decoy, so a
+    # running ratio taken mid-block sees only the targets and reads far too low. With
+    # many features the scores are near-continuous and blocks are 2-3 PSMs wide, but a
+    # small feature subset emits few distinct probabilities and a single block can hold
+    # most of the data, which collapses the q-values. Charge every member of a block the
+    # ratio as it stands once the whole block is accepted.
+    scores = df[score_column].to_numpy()
+    block_end = np.searchsorted(scores, scores, side="right") - 1
+    fdr_values = fdr_values[block_end]
+
     df[qval_column] = _fdr_to_q_values(fdr_values)
     return df

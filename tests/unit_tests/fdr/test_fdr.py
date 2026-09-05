@@ -114,6 +114,30 @@ def test_get_q_values():
     )
 
 
+def test_get_q_values_ties_share_a_q_value():
+    """A tied-score block must not be credited with its targets-first ordering.
+
+    The sort puts all four targets of the 0.5 block ahead of both its decoys, so a
+    running ratio taken mid-block sees no decoys at all and reads 0. Every member of
+    the block is accepted or rejected together, so all six must carry the ratio as it
+    stands once the block is through: 2 decoys / 5 targets. The lone 0.1 target is a
+    block of its own and keeps its own ratio.
+    """
+    test_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2, 3, 4, 5, 6],
+            "proba": [0.1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+            "_decoy": [0, 0, 0, 0, 0, 1, 1],
+        }
+    )
+
+    test_df = fdr.get_q_values(test_df, "proba", "_decoy")
+
+    assert np.allclose(
+        test_df["qval"].values, np.array([0.0, *[2 / 5] * 6])
+    )
+
+
 def gen_data_np(
     n_features=10,
     n_samples=10000,

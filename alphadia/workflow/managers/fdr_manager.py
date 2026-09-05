@@ -28,6 +28,13 @@ _FEATURE_MATRIX_ID_COLUMNS = [
     "decoy",
     "rank",
 ]
+# per-precursor strings, written to a side file rather than repeated on every candidate
+# row. Entrapment scoring keys off `genes` -- these carry the species suffix that
+# `proteins` (bare accessions) does not -- plus the sequence for the iso-leucine
+# shared-peptide exclusion. The run's own precursor_idx is the only usable key: alphadia
+# re-indexes precursors after decoy generation, so the on-disk library's index does not
+# join.
+_PRECURSOR_META_COLUMNS = ["precursor_idx", "genes", "sequence"]
 
 
 def get_group_columns(competitive: bool, group_channels: bool) -> list[str]:
@@ -306,6 +313,17 @@ class FDRManager(BaseManager):
             self._feature_matrix_path, SearchStepFiles.FDR_FEATURES_FILE_NAME
         )
         features_df[dump_columns].to_parquet(matrix_path, index=False)
+
+        if all(column in features_df for column in _PRECURSOR_META_COLUMNS):
+            features_df[_PRECURSOR_META_COLUMNS].drop_duplicates(
+                subset="precursor_idx"
+            ).to_parquet(
+                os.path.join(
+                    self._feature_matrix_path,
+                    SearchStepFiles.FDR_PRECURSOR_META_FILE_NAME,
+                ),
+                index=False,
+            )
 
         self.reporter.log_string(
             f"Saved FDR feature matrix ({len(features_df):,} rows, "

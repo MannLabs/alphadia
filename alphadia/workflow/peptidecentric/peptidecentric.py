@@ -37,6 +37,26 @@ from alphadia.workflow.peptidecentric.utils import (
 )
 
 
+def _apply_feature_subset(
+    feature_columns: list[str], feature_subset: list[str]
+) -> list[str]:
+    """Restrict the classifier's feature columns to `feature_subset`.
+
+    An unknown name is an error rather than a silent no-op: a typo would quietly shrink
+    the feature set and show up only as an unexplained drop in identifications.
+    """
+    if not feature_subset:
+        return feature_columns
+
+    if unknown := sorted(set(feature_subset) - set(feature_columns)):
+        raise ValueError(
+            f"fdr.feature_subset names features the extraction backend does not "
+            f"provide: {unknown}"
+        )
+
+    return [column for column in feature_columns if column in set(feature_subset)]
+
+
 def _get_classifier_base(
     config: Config,
     random_state: int | None = None,
@@ -127,9 +147,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
         self._fdr_manager = FDRManager(
-            feature_columns=get_feature_names()
-            if self._config["search"]["extraction_backend"] == "rust"
-            else feature_columns,
+            feature_columns=_apply_feature_subset(
+                get_feature_names()
+                if self._config["search"]["extraction_backend"] == "rust"
+                else feature_columns,
+                self._config["fdr"]["feature_subset"],
+            ),
             classifier_base=_get_classifier_base(
                 self.config,
                 random_state=self._random_state_fdr_classifier,

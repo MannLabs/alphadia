@@ -312,6 +312,8 @@ fdr:
   save_feature_matrix: false
   # classifier used for target-decoy scoring: "mlp" (neural network) or "lightgbm" (gradient boosting)
   classifier: "mlp"
+  # restrict the classifier to these feature columns; empty means every feature the extraction backend provides
+  feature_subset: []
   # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"
   lightgbm:
     # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer
