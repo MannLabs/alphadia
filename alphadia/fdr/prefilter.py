@@ -37,6 +37,7 @@ class CascadePrefilter:
         q_value_threshold: float,
         n_folds: int = 2,
         min_psms: int = _MIN_PSMS,
+        max_train_psms: int | None = None,
         random_state: int | None = None,
     ):
         """Gate candidates on a small cross-fitted LightGBM model.
@@ -58,14 +59,19 @@ class CascadePrefilter:
         min_psms : int, default=100000
             Below this many PSMs every candidate is passed on unfiltered.
 
+        max_train_psms : int, optional
+            Fit each fold's model on at most this many randomly drawn PSMs of the other
+            folds. None fits on all of them.
+
         random_state : int, optional
-            Seed of the fold assignment.
+            Seed of the fold assignment and the training subsample.
 
         """
         self.feature_columns = feature_columns
         self.q_value_threshold = q_value_threshold
         self.n_folds = n_folds
         self.min_psms = min_psms
+        self.max_train_psms = max_train_psms
         self._classifier = classifier
         self._np_rng = np.random.default_rng(seed=random_state)
 
@@ -108,8 +114,9 @@ class CascadePrefilter:
         try:
             for fold_idx in range(self.n_folds):
                 in_fold = fold == fold_idx
+                train_idx = self._training_rows(np.flatnonzero(~in_fold))
                 classifier = deepcopy(self._classifier)
-                classifier.fit(x[~in_fold], y[~in_fold], is_final=is_final)
+                classifier.fit(x[train_idx], y[train_idx], is_final=is_final)
                 stage1_proba[in_fold] = classifier.predict_proba(x[in_fold])[:, 1]
         except TooFewPSMError:
             logger.warning(
@@ -135,3 +142,12 @@ class CascadePrefilter:
         )
 
         return keep, stage1_proba
+
+    def _training_rows(self, candidates: np.ndarray) -> np.ndarray:
+        """Rows one fold's model is fitted on.
+
+        A coarse ranking does not need every row, and the fit cost is linear in them.
+        """
+        if self.max_train_psms is None or len(candidates) <= self.max_train_psms:
+            return candidates
+        return self._np_rng.choice(candidates, self.max_train_psms, replace=False)
