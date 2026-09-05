@@ -330,6 +330,14 @@ fdr:
     - weighted_mass_error
     - spectral_entropy
     - weighted_mean_correlation
+    - mass_error_std
+    - mass_error_mean_signed
+    - score
+    - mass_error_max_abs
+    - correlation_iqr
+    - longest_b_series
+    - num_over_0_rank_0_5
+    - fwhm_rt
   # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"
   lightgbm:
     # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer
