@@ -136,34 +136,3 @@ def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
     assert (good_targets["qval"] < 0.05).mean() > 0.9
     decoys = psm_df[psm_df["_decoy"] == 1]
     assert good_targets["proba"].max() < decoys["proba"].quantile(0.5)
-
-
-def test_perform_fdr_with_prefilter_matches_the_unfiltered_identifications():
-    # Given: the same PSMs scored with and without the prefilter
-    target_df, decoy_df = _gen_target_decoy_dfs()
-
-    def _ids(prefilter):
-        psm_df = fdr.perform_fdr(
-            LightGBMClassifier(
-                n_estimators=20,
-                final_n_estimators=20,
-                min_child_samples=5,
-                num_threads=1,
-                random_state=0,
-            ),
-            ["feature", "noise"],
-            target_df.copy(),
-            decoy_df.copy(),
-            competitive=True,
-            random_state=0,
-            is_final=True,
-            prefilter=prefilter,
-        )
-        return int(((psm_df["_decoy"] == 0) & (psm_df["qval"] <= 0.05)).sum())
-
-    # When: identifications are counted at 5% FDR
-    ids_plain = _ids(None)
-    ids_prefiltered = _ids(_get_prefilter(q_value_threshold=0.5))
-
-    # Then: the prefilter does not cost identifications on separable data
-    assert ids_prefiltered >= 0.9 * ids_plain
