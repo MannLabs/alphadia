@@ -395,7 +395,7 @@ fdr:
   # during training and counts only that share in the FDR estimate. Optionally, after a first fit on every target, only the
   # targets below train_fdr are kept as positives and the classifier is refitted on them
   semisupervised:
-    enabled: false
+    enabled: true
     # "cross_fitted" or "hidden_decoys"
     method: "cross_fitted"
     # number of folds of the cross-fitted method; a target and its decoy always share a fold
