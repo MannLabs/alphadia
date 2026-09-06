@@ -920,6 +920,9 @@ class EnsembleClassifier(Classifier):
         }
 
     def from_state_dict(self, state_dict: dict) -> None:
+        # the classifier store on disk can hold state dicts of other classifier types
+        if _ENSEMBLE_MEMBERS_KEY not in state_dict:
+            return
         for member, member_state in zip(
             self.members, state_dict[_ENSEMBLE_MEMBERS_KEY], strict=True
         ):

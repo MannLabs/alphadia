@@ -507,6 +507,14 @@ def test_ensemble_state_dict_round_trip():
     np.testing.assert_allclose(restored.predict_proba(x), ensemble.predict_proba(x))
 
 
+def test_ensemble_ignores_a_state_dict_of_another_classifier_type():
+    ensemble = _two_member_ensemble()
+
+    ensemble.from_state_dict({"model_str": "not an ensemble"})
+
+    assert not ensemble.fitted
+
+
 def test_ensemble_reset_resets_every_member():
     x, y = _separable_data()
     ensemble = _two_member_ensemble()
