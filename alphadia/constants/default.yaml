@@ -349,7 +349,7 @@ fdr:
   # a small cross-fitted lightgbm model scores every PSM before the classifier; only PSMs below its q-value threshold
   # are passed on to the classifier, the rest are ranked behind them by their stage-1 score
   prefilter:
-    enabled: false
+    enabled: true
     # stage-1 q-value above which a PSM is not passed on to the classifier
     q_value_threshold: 0.2
     # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
