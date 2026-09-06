@@ -108,6 +108,7 @@ def test_get_trainer_reads_the_configuration():
                 "hidden_decoy_fraction": 0.25,
                 "train_fdr": 0.05,
                 "n_iterations": 3,
+                "max_negative_ratio": 2.5,
             }
         }
     }
@@ -118,4 +119,5 @@ def test_get_trainer_reads_the_configuration():
     assert trainer.hidden_decoy_fraction == 0.25
     assert trainer.train_fdr == 0.05
     assert trainer.n_iterations == 3
+    assert trainer.max_negative_ratio == 2.5
     assert trainer.decoy_weight == 4

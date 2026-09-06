@@ -401,6 +401,8 @@ fdr:
     train_fdr: 0.01
     # number of refits after the first fit
     n_iterations: 5
+    # cap on the training decoys per positive in a refit, drawn at random anew for every refit; null fits on all of them
+    max_negative_ratio: null
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

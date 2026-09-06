@@ -58,6 +58,7 @@ class HiddenDecoyTrainer:
         hidden_decoy_fraction: float = 0.5,
         train_fdr: float = 0.01,
         n_iterations: int = 5,
+        max_negative_ratio: float | None = None,
         min_positives: int = _MIN_POSITIVES,
         random_state: int | None = None,
     ):
@@ -75,6 +76,10 @@ class HiddenDecoyTrainer:
         n_iterations : int, default=5
             Number of refits after the first fit on every pseudo-target.
 
+        max_negative_ratio : float, optional
+            Cap on the training decoys per positive in a refit, drawn at random anew
+            for every refit. None fits every refit on all training decoys.
+
         min_positives : int, default=1000
             Below this many positives no refit is made and the previous model is kept.
 
@@ -88,6 +93,7 @@ class HiddenDecoyTrainer:
         self.hidden_decoy_fraction = hidden_decoy_fraction
         self.train_fdr = train_fdr
         self.n_iterations = n_iterations
+        self.max_negative_ratio = max_negative_ratio
         self.min_positives = min_positives
         self._np_rng = np.random.default_rng(seed=random_state)
 
@@ -188,7 +194,7 @@ class HiddenDecoyTrainer:
         )
 
         for iteration in range(self.n_iterations + 1):
-            train_idx = np.flatnonzero(positives | ~pseudo_target)
+            train_idx = self._training_rows(positives, pseudo_target, iteration)
             classifier.fit(x[train_idx], y_fit[train_idx], is_final=is_final)
             proba = classifier.predict_proba(x)[:, 1]
 
@@ -216,6 +222,21 @@ class HiddenDecoyTrainer:
         return TrainingResult(
             proba=proba, train_idx=train_idx, y_train=y_fit[train_idx]
         )
+
+    def _training_rows(
+        self, positives: np.ndarray, pseudo_target: np.ndarray, iteration: int
+    ) -> np.ndarray:
+        """Rows of one fit: the positives and the training decoys, capped in a refit.
+
+        A refit's positives are few against the decoys, which drowns them for a network
+        trained on a fixed number of epochs; the first fit sees every PSM regardless.
+        """
+        negatives = np.flatnonzero(~pseudo_target)
+        if iteration > 0 and self.max_negative_ratio is not None:
+            n_max = int(self.max_negative_ratio * positives.sum())
+            if len(negatives) > n_max:
+                negatives = self._np_rng.choice(negatives, n_max, replace=False)
+        return np.sort(np.concatenate([np.flatnonzero(positives), negatives]))
 
     def _select_positives(
         self,

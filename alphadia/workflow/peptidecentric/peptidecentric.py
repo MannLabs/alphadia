@@ -181,6 +181,7 @@ def _get_trainer(
         hidden_decoy_fraction=config_trainer["hidden_decoy_fraction"],
         train_fdr=config_trainer["train_fdr"],
         n_iterations=config_trainer["n_iterations"],
+        max_negative_ratio=config_trainer["max_negative_ratio"],
         random_state=random_state,
     )
 

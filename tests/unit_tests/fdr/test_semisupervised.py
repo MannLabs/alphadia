@@ -99,6 +99,37 @@ def test_fit_predict_keeps_only_confident_pseudo_targets_as_positives():
     assert result.proba[psm_df["is_true"]].mean() < result.proba[y == 1].mean()
 
 
+def test_fit_predict_caps_the_training_decoys_of_a_refit():
+    # Given: a cap of two training decoys per positive
+    psm_df = _gen_psms()
+    y = psm_df["decoy"].to_numpy()
+    x = psm_df[["feature", "noise"]].to_numpy()
+    trainer = HiddenDecoyTrainer(
+        hidden_decoy_fraction=0.5,
+        train_fdr=0.01,
+        n_iterations=1,
+        max_negative_ratio=2.0,
+        min_positives=100,
+        random_state=0,
+    )
+    is_hidden = trainer.assign_hidden(y, psm_df["precursor_idx"].to_numpy())
+
+    # When: the classifier is refitted once
+    result = trainer.fit_predict(
+        _classifier(),
+        x,
+        y,
+        is_hidden,
+        psm_df["elution_group_idx"].to_numpy(),
+        psm_df["precursor_idx"].to_numpy(),
+    )
+
+    # Then: the refit saw exactly twice as many training decoys as positives
+    n_positives = int((result.y_train == 0).sum())
+    assert int((result.y_train == 1).sum()) == 2 * n_positives
+    assert n_positives < int((~is_hidden & (y == 1)).sum()) / 2
+
+
 def test_fit_predict_scores_hidden_decoys_like_false_targets():
     # Given: false targets drawn from the decoy distribution
     psm_df = _gen_psms()
