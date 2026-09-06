@@ -59,7 +59,7 @@ library_loading:
   # how decoy sequences are derived from the targets when the library has none: "diann" mutates the second and the
   # second-to-last residue, "pseudo_reverse" reverses all but the last residue, "shuffle" permutes all but the first and
   # the last residue. Decoys keep the target's predicted retention time, mobility and fragment intensities
-  decoy_type: diann
+  decoy_type: pseudo_reverse
 
 library_prediction:
   # Basic parameters
