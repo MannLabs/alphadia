@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +14,10 @@ from alphadia.workflow.managers.calibration_manager import (
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.optimizers.base import BaseOptimizer
+from alphadia.workflow.optimizers.features import (
+    MeanIsotopeIntensityCorrelation,
+    PrecursorProportionDetected,
+)
 from alphadia.workflow.optimizers.optimization_lock import OptimizationLock
 
 
@@ -101,7 +105,11 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             verbosity="progress",
         )
 
-        self._update_history(precursors_df, fragments_df)
+        if not self._update_history(precursors_df, fragments_df):
+            # Without a measurement there is no value to converge on. Also, an empty
+            # frame calibrates the next parameter to zero or NaN. Then all subsequent
+            # searches find nothing. Thus keep the parameter at its current value.
+            return
 
         if self._just_converged:
             self.has_converged = True
@@ -144,12 +152,19 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
 
     def plot(self):
         """Plot the value of the feature used to assess optimization progress against the parameter value, for each value tested."""
+        if self.history_df.empty:
+            self._reporter.log_string(
+                f"{self.parameter_name}: there is no measurement to plot.",
+                verbosity="warning",
+            )
+            return
+
         fig, ax = plt.subplots()
 
         ax.vlines(
             x=self._optimization_manager.__dict__[self.parameter_name],
             ymin=0,
-            ymax=self.history_df.loc[self._find_index_of_optimum(), self._feature_name],
+            ymax=self.history_df.loc[self._find_index_of_optimum(), self._feature.name],
             color="red",
             zorder=0,
             label=f"Optimal {self.parameter_name}",
@@ -159,16 +174,16 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         sorted_history_df = self.history_df.sort_values("parameter")
         ax.plot(
             sorted_history_df["parameter"],
-            sorted_history_df[self._feature_name],
+            sorted_history_df[self._feature.name],
         )
         ax.scatter(
             self.history_df["parameter"],
-            self.history_df[self._feature_name],
+            self.history_df[self._feature.name],
         )
 
         ax.set_xlabel(self.parameter_name)
         ax.xaxis.set_inverted(True)
-        ax.set_ylim(bottom=0, top=self.history_df[self._feature_name].max() * 1.1)
+        ax.set_ylim(bottom=0, top=self.history_df[self._feature.name].max() * 1.1)
         ax.legend(loc="upper left")
 
         plt.show()
@@ -200,27 +215,41 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             ).ci(df, self.update_percentile_range)
         )
 
-    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """This method updates the history dataframe with relevant values.
+    def _update_history(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ) -> bool:
+        """See base class.
 
-        Parameters
-        ----------
-        precursors_df: pd.DataFrame
-            The filtered precursor dataframe for the search.
-
-        fragments_df: pd.DataFrame
-            The filtered fragment dataframe for the search.
+        Returns
+        -------
+        bool
+            True if this method recorded a measurement, False if it did not.
 
         """
+        feature_value = self._feature.measure(
+            precursors_df, fragments_df, self._optlock
+        )
+
+        # A round with no measurement is different from a measurement of zero. A
+        # substitute value of zero makes the relative calculations in _just_converged
+        # and the axis limits in plot() infinite or NaN. The code does not raise an
+        # error and the fault stays hidden.
+        if feature_value is None:
+            self._reporter.log_string(
+                f"{self.parameter_name}: {self._feature.name} has no definition for "
+                f"batch {self._optlock.batch_idx}. No measurement was recorded for "
+                f"this round.",
+                verbosity="warning",
+            )
+            return False
+
         new_row = pd.DataFrame(
             [
                 {
                     "parameter": self._optimization_manager.__dict__[
                         self.parameter_name
                     ],
-                    self._feature_name: self._get_feature_value(
-                        precursors_df, fragments_df
-                    ),
+                    self._feature.name: feature_value,
                     "classifier_version": self._fdr_manager.current_version,  # TODO: only we need from fdr_manager
                     "score_cutoff": self._optimization_manager.score_cutoff,
                     "fwhm_rt": self._optimization_manager.fwhm_rt,
@@ -230,6 +259,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             ]
         )
         self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
+        return True
 
     @property
     def _batch_substantially_bigger(self):
@@ -269,7 +299,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         if len(self.history_df) < 3:
             return False
 
-        feature_history = self.history_df[self._feature_name]
+        feature_history = self.history_df[self._feature.name]
         last_feature_value = feature_history.iloc[-1]
         second_last_feature_value = feature_history.iloc[-2]
         third_last_feature_value = feature_history.iloc[-3]
@@ -339,24 +369,24 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             return self.history_df.index[0]
 
         if self._favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
-            maximum_feature_value = self.history_df[self._feature_name].max()
+            maximum_feature_value = self.history_df[self._feature.name].max()
             threshold = (
                 maximum_feature_value
                 - self._maximum_decrease_from_maximum * np.abs(maximum_feature_value)
             )
 
             rows_within_thresh_of_max = self.history_df[
-                self.history_df[self._feature_name] > threshold
+                self.history_df[self._feature.name] > threshold
             ]
 
             if rows_within_thresh_of_max.empty:
                 # If no rows meet the threshold, return the index of the max feature value
-                return self.history_df[self._feature_name].idxmax()
+                return self.history_df[self._feature.name].idxmax()
             else:
                 return rows_within_thresh_of_max["parameter"].idxmin()
 
         else:
-            return self.history_df[self._feature_name].idxmax()
+            return self.history_df[self._feature.name].idxmax()
 
     def _update_workflow(self):
         """Updates the optimization manager with the results of the optimization, namely:
@@ -368,6 +398,13 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         at the optimal parameter. Also updates the optlock with the batch index at the optimum.
 
         """
+        if self.history_df.empty:
+            self._reporter.log_string(
+                f"{self.parameter_name}: no round gave a measurement. The current value stays.",
+                verbosity="warning",
+            )
+            return
+
         index_of_optimum = self._find_index_of_optimum()
 
         optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
@@ -396,26 +433,10 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         # The time impact of this is negligible and the benefits can be significant.
         self._optlock.batch_idx = batch_index_at_optimum
 
-    @abstractmethod
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        """Each parameter is optimized according to a particular feature. This method gets the value of that feature for a given round of optimization.
-
-        Parameters
-        ----------
-
-        precursors_df: pd.DataFrame
-            The precursor dataframe for the search
-
-        fragments_df: pd.DataFrame
-            The fragment dataframe for the search
-
-
-        """
-
 
 class AutomaticRTOptimizer(AutomaticOptimizer):
+    _feature = PrecursorProportionDetected()
+
     def __init__(
         self,
         initial_parameter: float,
@@ -430,7 +451,6 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.parameter_name = "rt_error"
         self._estimator_group_name = CalibrationGroups.PRECURSOR
         self._estimator_name = CalibrationEstimators.RT
-        self._feature_name = "precursor_proportion_detected"
         super().__init__(
             initial_parameter,
             config,
@@ -441,13 +461,10 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
             reporter,
         )
 
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        return len(precursors_df) / self._optlock.total_elution_groups
-
 
 class AutomaticMS2Optimizer(AutomaticOptimizer):
+    _feature = PrecursorProportionDetected()
+
     def __init__(
         self,
         initial_parameter: float,
@@ -462,7 +479,6 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.parameter_name = "ms2_error"
         self._estimator_group_name = CalibrationGroups.FRAGMENT
         self._estimator_name = CalibrationEstimators.MZ
-        self._feature_name = "precursor_proportion_detected"
         super().__init__(
             initial_parameter,
             config,
@@ -473,13 +489,10 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
             reporter,
         )
 
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        return len(precursors_df) / self._optlock.total_elution_groups
-
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
+    _feature = MeanIsotopeIntensityCorrelation()
+
     def __init__(
         self,
         initial_parameter: float,
@@ -494,7 +507,6 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         self.parameter_name = "ms1_error"
         self._estimator_group_name = CalibrationGroups.PRECURSOR
         self._estimator_name = CalibrationEstimators.MZ
-        self._feature_name = "mean_isotope_intensity_correlation"
         super().__init__(
             initial_parameter,
             config,
@@ -505,13 +517,10 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
             reporter,
         )
 
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        return precursors_df["isotope_intensity_correlation"].mean()
-
 
 class AutomaticMobilityOptimizer(AutomaticOptimizer):
+    _feature = PrecursorProportionDetected()
+
     def __init__(
         self,
         initial_parameter: float,
@@ -526,7 +535,6 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         self.parameter_name = "mobility_error"
         self._estimator_group_name = CalibrationGroups.PRECURSOR
         self._estimator_name = CalibrationEstimators.MOBILITY
-        self._feature_name = "precursor_proportion_detected"
         super().__init__(
             initial_parameter,
             config,
@@ -536,8 +544,3 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
             optlock,
             reporter,
         )
-
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        return len(precursors_df) / self._optlock.total_elution_groups

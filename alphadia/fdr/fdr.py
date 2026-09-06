@@ -15,6 +15,7 @@ from alphadia.fragcomp.fragcomp import compete_for_fragments
 
 if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
+    from alphadia.fdr.prefilter import CascadePrefilter
 
 max_dia_cycle_shape = 2
 
@@ -25,6 +26,10 @@ logger = logging.getLogger()
 _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
+
+# Fraction of the gap between the worst scored PSM and 1.0 left empty above the scored
+# PSMs, so a dropped PSM with stage-1 probability 0 still ranks strictly behind them.
+_DROPPED_PROBA_OFFSET = 0.5
 
 
 @manage_torch_threads(max_threads=2)
@@ -41,6 +46,8 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    is_final: bool = False,
+    prefilter: CascadePrefilter | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -80,6 +87,14 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     random_state : int, optional
         The random state for train-test split reproducibility.
+
+    is_final : bool, default=False
+        Whether this is the FDR round whose scores are reported, rather than one of the
+        optimization rounds.
+
+    prefilter : CascadePrefilter, default=None
+        Gate that decides which PSMs the classifier is fitted on and scores. PSMs it
+        drops are ranked behind every scored PSM, in the order of its own scores.
 
     Returns
     -------
@@ -124,23 +139,31 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
+    psm_df = pd.concat([df_target, df_decoy])
+    psm_df["_decoy"] = y
+
+    if prefilter is None:
+        keep = np.ones(len(X), dtype=bool)
+        X_kept = X
+    else:
+        keep, stage1_proba = prefilter.select(psm_df, y, is_final=is_final)
+        X_kept = X[keep]
+        if prefilter.reset_classifier and not keep.all():
+            classifier.reset()
+
     try:
         X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-            X, y, test_size=0.2, random_state=random_state
+            X_kept, y[keep], test_size=0.2, random_state=random_state
         )
     except TooFewPSMError:
         logger.warning(
             "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
         )
-        psm_df = pd.concat([df_target, df_decoy])
         psm_df["qval"] = 1.0
         psm_df["proba"] = 1.0
         return psm_df
 
-    classifier.fit(X_train, y_train)
-
-    psm_df = pd.concat([df_target, df_decoy])
-    psm_df["_decoy"] = y
+    classifier.fit(X_train, y_train, is_final=is_final)
 
     if competitive:
         group_columns = (
@@ -151,7 +174,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     else:
         group_columns = ["precursor_idx"]
 
-    predicted_proba = classifier.predict_proba(X)[:, 1]
+    predicted_proba = classifier.predict_proba(X_kept)[:, 1]
 
     # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
     n_reinit = 0
@@ -167,8 +190,8 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
         classifier.reset()
-        classifier.fit(X_train, y_train)
-        predicted_proba = classifier.predict_proba(X)[:, 1]
+        classifier.fit(X_train, y_train, is_final=is_final)
+        predicted_proba = classifier.predict_proba(X_kept)[:, 1]
 
     if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
         logger.warning(
@@ -176,7 +199,18 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             "separation failed and q-values will not filter PSMs."
         )
 
-    psm_df["proba"] = predicted_proba
+    proba = np.empty(len(X))
+    proba[keep] = predicted_proba
+    if prefilter is not None:
+        # Dropped PSMs never reach the FDR threshold, so their exact scores do not matter,
+        # only that every one of them ranks behind every scored PSM. Spreading them by
+        # their stage-1 score keeps them distinct, so a tied block cannot form in the tail.
+        worst_kept = predicted_proba.max()
+        proba[~keep] = worst_kept + (1 - worst_kept) * (
+            _DROPPED_PROBA_OFFSET + (1 - _DROPPED_PROBA_OFFSET) * stage1_proba[~keep]
+        )
+
+    psm_df["proba"] = proba
     psm_df.sort_values(
         ["proba", "precursor_idx"], ascending=True, inplace=True
     )  # last sort to break ties
@@ -318,8 +352,22 @@ def get_q_values(
     target_values = 1 - df[decoy_column].to_numpy()
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
-    fdr_values = (
-        decoy_cumsum / target_cumsum
-    )  # TODO: RuntimeWarning: divide by zero encountered in divide
+    fdr_values = np.divide(
+        decoy_cumsum,
+        target_cumsum,
+        out=np.ones(len(df), dtype=float),
+        where=target_cumsum > 0,
+    )
+
+    # The sort above puts every target of a tied-score block ahead of every decoy, so a
+    # running ratio taken mid-block sees only the targets and reads far too low. With
+    # many features the scores are near-continuous and blocks are 2-3 PSMs wide, but a
+    # small feature subset emits few distinct probabilities and a single block can hold
+    # most of the data, which collapses the q-values. Charge every member of a block the
+    # ratio as it stands once the whole block is accepted.
+    scores = df[score_column].to_numpy()
+    block_end = np.searchsorted(scores, scores, side="right") - 1
+    fdr_values = fdr_values[block_end]
+
     df[qval_column] = _fdr_to_q_values(fdr_values)
     return df

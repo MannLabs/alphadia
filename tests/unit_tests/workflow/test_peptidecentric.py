@@ -6,7 +6,10 @@ import pandas as pd
 import pytest
 
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
-from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.peptidecentric import (
+    PeptideCentricWorkflow,
+    _apply_feature_subset,
+)
 
 
 @pytest.fixture
@@ -72,3 +75,18 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         ),
         check_like=True,
     )
+
+
+def test_apply_feature_subset_empty_keeps_all():
+    columns = ["a", "b", "c"]
+
+    assert _apply_feature_subset(columns, []) == columns
+
+
+def test_apply_feature_subset_preserves_backend_order():
+    assert _apply_feature_subset(["a", "b", "c"], ["c", "a"]) == ["a", "c"]
+
+
+def test_apply_feature_subset_rejects_unknown_feature():
+    with pytest.raises(ValueError, match="does not.*provide|not provide"):
+        _apply_feature_subset(["a", "b"], ["a", "typo"])

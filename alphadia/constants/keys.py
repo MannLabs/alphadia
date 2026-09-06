@@ -82,6 +82,9 @@ class SearchStepFiles(metaclass=ConstantsClass):
     PSM_FILE_NAME = "psm.parquet"
     FRAG_FILE_NAME = "frag.parquet"
     FRAG_TRANSFER_FILE_NAME = "frag.transfer.parquet"
+    FDR_FEATURES_FILE_NAME = "fdr_features.parquet"
+    FDR_FEATURE_IMPORTANCE_FILE_NAME = "fdr_feature_importance.json"
+    FDR_PRECURSOR_META_FILE_NAME = "fdr_precursor_meta.parquet"
 
 
 class InferenceStrategy(metaclass=ConstantsClass):
@@ -90,6 +93,13 @@ class InferenceStrategy(metaclass=ConstantsClass):
     LIBRARY = "library"
     MAXIMUM_PARSIMONY = "maximum_parsimony"
     HEURISTIC = "heuristic"
+
+
+class FdrClassifier(metaclass=ConstantsClass):
+    """String constants for the FDR classifier types."""
+
+    MLP = "mlp"
+    LIGHTGBM = "lightgbm"
 
 
 class QuantificationLevelName(metaclass=ConstantsClass):

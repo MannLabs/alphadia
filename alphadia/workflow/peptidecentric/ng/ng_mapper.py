@@ -177,6 +177,8 @@ def to_features_df(
                 "elution_group_idx",
                 "channel",
                 "proteins",
+                "genes",
+                "sequence",
             ]
         ],
         on="precursor_idx",

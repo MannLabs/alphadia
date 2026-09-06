@@ -308,6 +308,88 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
+  # write the unfiltered FDR feature matrix and the classifier feature importances to the quant folder, for offline feature analysis
+  save_feature_matrix: false
+  # classifier used for target-decoy scoring: "mlp" (neural network) or "lightgbm" (gradient boosting)
+  classifier: "mlp"
+  # restrict the classifier to these feature columns; empty means every feature the extraction backend provides
+  feature_subset: []
+  # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"
+  lightgbm:
+    # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer
+    n_estimators: 2000
+    # maximum number of boosting rounds (trees) in the final round
+    final_n_estimators: 4000
+    # shrinkage rate of the first tree
+    learning_rate_start: 0.16
+    # shrinkage rate the schedule decays to, and holds at afterwards
+    learning_rate_end: 0.08
+    # number of boosting rounds the decay from start to end is spread over
+    learning_rate_decay_rounds: 900
+    # maximum number of leaves per tree
+    num_leaves: 31
+    # minimum number of PSMs per leaf
+    min_child_samples: 100
+    # fraction of PSMs sampled for each tree
+    subsample: 0.8
+    # fraction of features sampled for each tree
+    colsample_bytree: 0.8
+    # L2 regularization
+    reg_lambda: 1.0
+    # maximum number of histogram bins a feature is discretized into
+    max_bin: 128
+    # how rows are sampled for each tree, either "goss" or "bagging"; only "bagging" uses subsample
+    data_sample_strategy: "bagging"
+    # boosting stops when the held-out logloss has not improved for this many rounds
+    early_stopping_rounds: 30
+    # fraction of PSMs held out from an optimization fit to drive early stopping
+    validation_fraction: 0.1
+    # fraction of PSMs held out from the final fit to drive early stopping
+    final_validation_fraction: 0.075
+  # a small cross-fitted lightgbm model scores every PSM before the classifier; only PSMs below its q-value threshold
+  # are passed on to the classifier, the rest are ranked behind them by their stage-1 score
+  prefilter:
+    enabled: false
+    # stage-1 q-value above which a PSM is not passed on to the classifier
+    q_value_threshold: 0.2
+    # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
+    n_folds: 2
+    # maximum number of boosting rounds (trees) of the stage-1 model in the optimization rounds
+    n_estimators: 200
+    # maximum number of boosting rounds (trees) of the stage-1 model in the final round
+    final_n_estimators: 200
+    # fit each fold's stage-1 model on at most this many PSMs of the other folds; null fits on all of them
+    max_train_psms: 1000000
+    # gate only the final FDR round and leave the optimization rounds untouched
+    final_round_only: false
+    # reset the classifier before it is fitted on the gated PSMs, instead of warm-starting it from the earlier rounds
+    reset_classifier: false
+    # features of the stage-1 model; the remaining hyperparameters are shared with fdr.lightgbm
+    feature_subset:
+      - idf_hyperscore
+      - num_over_0
+      - log10_b_ion_intensity
+      - num_profiles_filtered
+      - log10_y_ion_intensity
+      - idf_xic_dot_product
+      - idf_intensity_dot_product
+      - delta_rt
+      - hyperscore_inverse_mass_error
+      - intensity_cosine_library
+      - naa
+      - rt_observed
+      - num_fragments
+      - weighted_mass_error
+      - spectral_entropy
+      - weighted_mean_correlation
+      - mass_error_std
+      - mass_error_mean_signed
+      - score
+      - mass_error_max_abs
+      - correlation_iqr
+      - longest_b_series
+      - num_over_0_rank_0_5
+      - fwhm_rt
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
