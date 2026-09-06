@@ -148,6 +148,8 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     else:
         keep, stage1_proba = prefilter.select(psm_df, y, is_final=is_final)
         X_kept = X[keep]
+        if prefilter.reset_classifier and not keep.all():
+            classifier.reset()
 
     try:
         X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(

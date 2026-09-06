@@ -147,6 +147,7 @@ def _get_prefilter(
         q_value_threshold=config_prefilter["q_value_threshold"],
         n_folds=config_prefilter["n_folds"],
         max_train_psms=config_prefilter["max_train_psms"],
+        reset_classifier=config_prefilter["reset_classifier"],
         random_state=random_state,
     )
 

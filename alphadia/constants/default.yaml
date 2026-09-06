@@ -360,6 +360,8 @@ fdr:
     final_n_estimators: 400
     # fit each fold's stage-1 model on at most this many PSMs of the other folds; null fits on all of them
     max_train_psms: null
+    # reset the classifier before it is fitted on the gated PSMs, instead of warm-starting it from the earlier rounds
+    reset_classifier: false
     # features of the stage-1 model; the remaining hyperparameters are shared with fdr.lightgbm
     feature_subset:
       - idf_hyperscore

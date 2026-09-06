@@ -136,3 +136,35 @@ def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
     assert (good_targets["qval"] < 0.05).mean() > 0.9
     decoys = psm_df[psm_df["_decoy"] == 1]
     assert good_targets["proba"].max() < decoys["proba"].quantile(0.5)
+
+
+def test_perform_fdr_resets_the_classifier_when_the_prefilter_asks_for_it():
+    # Given: a fitted classifier and a prefilter that asks for a fresh start
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    classifier = LightGBMClassifier(
+        n_estimators=20,
+        final_n_estimators=20,
+        min_child_samples=5,
+        num_threads=1,
+        random_state=0,
+    )
+    classifier.fit(target_df[["feature", "noise"]].to_numpy(), np.zeros(len(target_df)))
+    prefilter = _get_prefilter(q_value_threshold=0.5)
+    prefilter.reset_classifier = True
+    reset_calls = []
+    classifier.reset = lambda: reset_calls.append(True)  # type: ignore[method-assign]
+
+    # When: perform_fdr runs with the prefilter
+    fdr.perform_fdr(
+        classifier,
+        ["feature", "noise"],
+        target_df.copy(),
+        decoy_df.copy(),
+        competitive=True,
+        random_state=0,
+        is_final=True,
+        prefilter=prefilter,
+    )
+
+    # Then: the classifier was reset once before the fit
+    assert reset_calls == [True]

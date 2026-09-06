@@ -42,6 +42,7 @@ class CascadePrefilter:
         n_folds: int = 2,
         min_psms: int = _MIN_PSMS,
         max_train_psms: int | None = None,
+        reset_classifier: bool = False,
         random_state: int | None = None,
     ):
         """Gate candidates on a small cross-fitted LightGBM model.
@@ -67,6 +68,11 @@ class CascadePrefilter:
             Fit each fold's model on at most this many randomly drawn PSMs of the other
             folds. None fits on all of them.
 
+        reset_classifier : bool, default=False
+            Whether the classifier is reset before it is fitted on the gated PSMs. A
+            classifier warm-started on every PSM of the earlier rounds has to re-adapt to
+            the far harder gated set within one fit; a fresh start avoids that.
+
         random_state : int, optional
             Seed of the fold assignment and the training subsample.
 
@@ -76,6 +82,7 @@ class CascadePrefilter:
         self.n_folds = n_folds
         self.min_psms = min_psms
         self.max_train_psms = max_train_psms
+        self.reset_classifier = reset_classifier
         self._classifier = classifier
         self._np_rng = np.random.default_rng(seed=random_state)
 
