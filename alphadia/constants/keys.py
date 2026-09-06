@@ -95,6 +95,14 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
+class DecoyType(metaclass=ConstantsClass):
+    """String constants for the decoy generation methods."""
+
+    DIANN = "diann"
+    PSEUDO_REVERSE = "pseudo_reverse"
+    SHUFFLE = "shuffle"
+
+
 class FdrTrainingMethod(metaclass=ConstantsClass):
     """String constants for the semi-supervised FDR training methods."""
 

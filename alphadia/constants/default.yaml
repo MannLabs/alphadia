@@ -56,6 +56,10 @@ library_loading:
   # whether to drop decoys from the library during loading
   # set to true to allow FASTA annotation of libraries that already contain decoys
   drop_decoys: false
+  # how decoy sequences are derived from the targets when the library has none: "diann" mutates the second and the
+  # second-to-last residue, "pseudo_reverse" reverses all but the last residue, "shuffle" permutes all but the first and
+  # the last residue. Decoys keep the target's predicted retention time, mobility and fragment intensities
+  decoy_type: diann
 
 library_prediction:
   # Basic parameters

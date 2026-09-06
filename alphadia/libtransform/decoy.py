@@ -1,23 +1,57 @@
 import logging
+import random
+import zlib
 
 import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.decoy import decoy_lib_provider
+from alphabase.spectral_library.decoy import BaseDecoyGenerator, decoy_lib_provider
 
+from alphadia.constants.keys import DecoyType
 from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
 
+# A shuffle that reproduces the target is retried this often before it is given up on;
+# alphabase drops decoys identical to a target afterwards anyway.
+_MAX_SHUFFLE_ATTEMPTS = 10
+
+
+class ShuffleDecoyGenerator(BaseDecoyGenerator):
+    """Shuffle the residues between the fixed first and last one.
+
+    Reversal and DIA-NN's two-residue mutation keep most of the target's local sequence
+    context, so the decoy's fragment series still resemble a real peptide's. A shuffle
+    destroys that context. The permutation is seeded by the sequence, so a decoy is the
+    same in every process and every run.
+    """
+
+    def _decoy(self, sequence: str) -> str:
+        if len(sequence) < 4:  # noqa: PLR2004
+            return sequence
+        rng = random.Random(zlib.crc32(sequence.encode()))
+        inner = list(sequence[1:-1])
+        for _ in range(_MAX_SHUFFLE_ATTEMPTS):
+            rng.shuffle(inner)
+            decoy = sequence[0] + "".join(inner) + sequence[-1]
+            if decoy != sequence:
+                break
+        return decoy
+
+
+decoy_lib_provider.register(DecoyType.SHUFFLE, ShuffleDecoyGenerator)  # ty: ignore[invalid-argument-type] # alphabase's annotation names the instance, the registry holds classes
+
 
 class DecoyGenerator(ProcessingStep):
-    def __init__(self, decoy_type: str = "diann", mp_process_num: int = 8) -> None:
+    def __init__(
+        self, decoy_type: str = DecoyType.DIANN, mp_process_num: int = 8
+    ) -> None:
         """Generate decoys for the spectral library.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
 
         Parameters
         ----------
         decoy_type : str, optional
-            Type of decoys to generate. Currently only `pseudo_reverse` and `diann` are supported. Default is `diann`.
+            Type of decoys to generate: `diann` (default), `pseudo_reverse` or `shuffle`.
 
         """
         super().__init__()

@@ -201,3 +201,27 @@ def test_precursor_initializer_keep_decoys():
 
     assert len(result.precursor_df) == 4
     assert result.precursor_df["decoy"].sum() == 2
+
+
+def test_shuffle_decoy_keeps_the_termini_and_the_composition():
+    from alphadia.libtransform.decoy import ShuffleDecoyGenerator
+
+    generator = ShuffleDecoyGenerator()
+    sequence = "ACDEFGHIKLMNPQRSTVWY"
+
+    decoy = generator._decoy(sequence)
+
+    assert decoy != sequence
+    assert decoy[0] == sequence[0]
+    assert decoy[-1] == sequence[-1]
+    assert sorted(decoy) == sorted(sequence)
+    # seeded by the sequence, so every process derives the same decoy
+    assert ShuffleDecoyGenerator()._decoy(sequence) == decoy
+
+
+def test_shuffle_decoy_is_registered_with_alphabase():
+    from alphabase.spectral_library.decoy import decoy_lib_provider
+
+    from alphadia.libtransform import decoy  # noqa: F401 # registers on import
+
+    assert "shuffle" in decoy_lib_provider.decoy_dict
