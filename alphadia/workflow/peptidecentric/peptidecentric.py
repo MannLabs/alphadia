@@ -8,14 +8,18 @@ try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 except ImportError:
     pass
-from alphadia.constants.keys import FdrClassifier
+from alphadia.constants.keys import FdrClassifier, FdrTrainingMethod
 from alphadia.fdr.classifiers import (
     BinaryClassifierLegacyNewBatching,
     Classifier,
     LightGBMClassifier,
 )
 from alphadia.fdr.prefilter import CascadePrefilter
-from alphadia.fdr.semisupervised import HiddenDecoyTrainer
+from alphadia.fdr.semisupervised import (
+    CrossFittedTrainer,
+    HiddenDecoyTrainer,
+    SelfTrainer,
+)
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -157,7 +161,7 @@ def _get_prefilter(
 def _get_trainer(
     config: Config,
     random_state: int | None = None,
-) -> HiddenDecoyTrainer | None:
+) -> SelfTrainer | None:
     """Creates the semi-supervised trainer, or None if the configuration disables it.
 
     Parameters
@@ -170,20 +174,28 @@ def _get_trainer(
 
     Returns
     -------
-    HiddenDecoyTrainer | None
+    SelfTrainer | None
         The trainer, or None if disabled.
     """
     config_trainer = config["fdr"]["semisupervised"]
     if not config_trainer["enabled"]:
         return None
 
-    return HiddenDecoyTrainer(
-        hidden_decoy_fraction=config_trainer["hidden_decoy_fraction"],
-        train_fdr=config_trainer["train_fdr"],
-        n_iterations=config_trainer["n_iterations"],
-        max_negative_ratio=config_trainer["max_negative_ratio"],
-        random_state=random_state,
-    )
+    shared = {
+        "train_fdr": config_trainer["train_fdr"],
+        "n_iterations": config_trainer["n_iterations"],
+        "max_negative_ratio": config_trainer["max_negative_ratio"],
+        "random_state": random_state,
+    }
+    method = config_trainer["method"]
+    if method == FdrTrainingMethod.HIDDEN_DECOYS:
+        return HiddenDecoyTrainer(
+            hidden_decoy_fraction=config_trainer["hidden_decoy_fraction"], **shared
+        )
+    if method == FdrTrainingMethod.CROSS_FITTED:
+        return CrossFittedTrainer(n_folds=config_trainer["n_folds"], **shared)
+
+    raise ValueError(f"Unknown FDR training method: {method}")
 
 
 class PeptideCentricWorkflow(base.WorkflowBase):

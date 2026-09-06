@@ -17,7 +17,7 @@ from alphadia.fragcomp.fragcomp import compete_for_fragments
 if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
     from alphadia.fdr.prefilter import CascadePrefilter
-    from alphadia.fdr.semisupervised import HiddenDecoyTrainer, TrainingResult
+    from alphadia.fdr.semisupervised import SelfTrainer, TrainingResult
 
 max_dia_cycle_shape = 2
 
@@ -52,7 +52,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     random_state: int | None = None,
     is_final: bool = False,
     prefilter: CascadePrefilter | None = None,
-    trainer: HiddenDecoyTrainer | None = None,
+    trainer: SelfTrainer | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -101,10 +101,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         Gate that decides which PSMs the classifier is fitted on and scores. PSMs it
         drops are ranked behind every scored PSM, in the order of its own scores.
 
-    trainer : HiddenDecoyTrainer, default=None
-        Fits the classifier of the final round by self-training and hides a share of
-        the decoys from it; only that share is counted in the q-values. None fits the
-        classifier on every PSM and counts every decoy.
+    trainer : SelfTrainer, default=None
+        Fits the classifier of the final round so that the decoy count stays honest,
+        by cross-fitting or by hiding a share of the decoys, and decides the weight of
+        every decoy in the q-values. None fits the classifier on every PSM and counts
+        every decoy.
 
     Returns
     -------
@@ -172,11 +173,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     decoy_weight_column = None
     if trainer is not None and is_final:
-        # The optimization rounds saw the hidden decoys labelled as decoys; a warm start
-        # would score them differently from the false targets they stand for.
+        # The optimization rounds fitted the classifier on PSMs of this round; a warm
+        # start would carry what it memorized about them into the honest fit.
         classifier.reset()
         precursor_idx = psm_df["precursor_idx"].to_numpy()
-        is_hidden = trainer.assign_hidden(y, precursor_idx)
+        decoy_weight = trainer.prepare(y, precursor_idx)
         competition_group = psm_df.groupby(group_columns).ngroup().to_numpy()
         results: list[TrainingResult] = []
 
@@ -186,7 +187,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
                     classifier,
                     X_kept,
                     y[keep],
-                    is_hidden[keep],
+                    decoy_weight[keep],
                     competition_group[keep],
                     precursor_idx[keep],
                     is_final=is_final,
@@ -200,7 +201,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         idxs_test = np.setdiff1d(np.arange(len(X_kept)), idxs_train)
         y_test = y[keep][idxs_test]
 
-        psm_df[_DECOY_WEIGHT_COLUMN] = np.where(is_hidden, trainer.decoy_weight, 0.0)
+        psm_df[_DECOY_WEIGHT_COLUMN] = decoy_weight
         decoy_weight_column = _DECOY_WEIGHT_COLUMN
     else:
         try:

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from alphadia.fdr.semisupervised import HiddenDecoyTrainer
+from alphadia.fdr.semisupervised import CrossFittedTrainer, HiddenDecoyTrainer
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import (
     PeptideCentricWorkflow,
@@ -105,6 +105,7 @@ def test_get_trainer_reads_the_configuration():
         "fdr": {
             "semisupervised": {
                 "enabled": True,
+                "method": "hidden_decoys",
                 "hidden_decoy_fraction": 0.25,
                 "train_fdr": 0.05,
                 "n_iterations": 3,
@@ -121,3 +122,41 @@ def test_get_trainer_reads_the_configuration():
     assert trainer.n_iterations == 3
     assert trainer.max_negative_ratio == 2.5
     assert trainer.decoy_weight == 4
+
+
+def test_get_trainer_builds_the_cross_fitted_trainer():
+    config = {
+        "fdr": {
+            "semisupervised": {
+                "enabled": True,
+                "method": "cross_fitted",
+                "n_folds": 4,
+                "train_fdr": 0.01,
+                "n_iterations": 0,
+                "max_negative_ratio": None,
+            }
+        }
+    }
+
+    trainer = _get_trainer(config, random_state=1)
+
+    assert isinstance(trainer, CrossFittedTrainer)
+    assert trainer.n_folds == 4
+    assert trainer.n_iterations == 0
+
+
+def test_get_trainer_rejects_an_unknown_method():
+    config = {
+        "fdr": {
+            "semisupervised": {
+                "enabled": True,
+                "method": "typo",
+                "train_fdr": 0.01,
+                "n_iterations": 0,
+                "max_negative_ratio": None,
+            }
+        }
+    }
+
+    with pytest.raises(ValueError, match="Unknown FDR training method"):
+        _get_trainer(config)

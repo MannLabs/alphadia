@@ -95,6 +95,13 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
+class FdrTrainingMethod(metaclass=ConstantsClass):
+    """String constants for the semi-supervised FDR training methods."""
+
+    HIDDEN_DECOYS = "hidden_decoys"
+    CROSS_FITTED = "cross_fitted"
+
+
 class FdrClassifier(metaclass=ConstantsClass):
     """String constants for the FDR classifier types."""
 

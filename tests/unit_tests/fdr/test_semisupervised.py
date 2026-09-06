@@ -4,7 +4,7 @@ import pytest
 
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import LightGBMClassifier
-from alphadia.fdr.semisupervised import HiddenDecoyTrainer
+from alphadia.fdr.semisupervised import CrossFittedTrainer, HiddenDecoyTrainer
 
 N_CANDIDATES = 3
 
@@ -50,14 +50,15 @@ def _classifier() -> LightGBMClassifier:
     )
 
 
-def test_assign_hidden_hides_whole_decoy_precursors_only():
+def test_prepare_hides_whole_decoy_precursors_only():
     # Given: candidates of target and decoy precursors
     psm_df = _gen_psms()
     y = psm_df["decoy"].to_numpy()
     trainer = HiddenDecoyTrainer(hidden_decoy_fraction=0.5, random_state=0)
 
     # When: the hidden share is drawn
-    is_hidden = trainer.assign_hidden(y, psm_df["precursor_idx"].to_numpy())
+    decoy_weight = trainer.prepare(y, psm_df["precursor_idx"].to_numpy())
+    is_hidden = decoy_weight > 0
 
     # Then: no target is hidden, about half of the decoys are, and a precursor is hidden as a whole
     assert not is_hidden[y == 0].any()
@@ -78,14 +79,15 @@ def test_fit_predict_keeps_only_confident_pseudo_targets_as_positives():
         min_positives=100,
         random_state=0,
     )
-    is_hidden = trainer.assign_hidden(y, psm_df["precursor_idx"].to_numpy())
+    decoy_weight = trainer.prepare(y, psm_df["precursor_idx"].to_numpy())
+    is_hidden = decoy_weight > 0
 
     # When: the classifier is self-trained
     result = trainer.fit_predict(
         _classifier(),
         x,
         y,
-        is_hidden,
+        decoy_weight,
         psm_df["elution_group_idx"].to_numpy(),
         psm_df["precursor_idx"].to_numpy(),
         is_final=True,
@@ -112,14 +114,15 @@ def test_fit_predict_caps_the_training_decoys_of_a_refit():
         min_positives=100,
         random_state=0,
     )
-    is_hidden = trainer.assign_hidden(y, psm_df["precursor_idx"].to_numpy())
+    decoy_weight = trainer.prepare(y, psm_df["precursor_idx"].to_numpy())
+    is_hidden = decoy_weight > 0
 
     # When: the classifier is refitted once
     result = trainer.fit_predict(
         _classifier(),
         x,
         y,
-        is_hidden,
+        decoy_weight,
         psm_df["elution_group_idx"].to_numpy(),
         psm_df["precursor_idx"].to_numpy(),
     )
@@ -142,14 +145,15 @@ def test_fit_predict_scores_hidden_decoys_like_false_targets():
         min_positives=100,
         random_state=0,
     )
-    is_hidden = trainer.assign_hidden(y, psm_df["precursor_idx"].to_numpy())
+    decoy_weight = trainer.prepare(y, psm_df["precursor_idx"].to_numpy())
+    is_hidden = decoy_weight > 0
 
     # When: the classifier is self-trained
     result = trainer.fit_predict(
         _classifier(),
         x,
         y,
-        is_hidden,
+        decoy_weight,
         psm_df["elution_group_idx"].to_numpy(),
         psm_df["precursor_idx"].to_numpy(),
         is_final=True,
@@ -175,14 +179,15 @@ def test_fit_predict_keeps_the_previous_model_when_too_few_positives(caplog):
         min_positives=int(psm_df["is_true"].sum()) + 1,
         random_state=0,
     )
-    is_hidden = trainer.assign_hidden(y, psm_df["precursor_idx"].to_numpy())
+    decoy_weight = trainer.prepare(y, psm_df["precursor_idx"].to_numpy())
+    is_hidden = decoy_weight > 0
 
     # When: the classifier is self-trained
     result = trainer.fit_predict(
         _classifier(),
         x,
         y,
-        is_hidden,
+        decoy_weight,
         psm_df["elution_group_idx"].to_numpy(),
         psm_df["precursor_idx"].to_numpy(),
     )
@@ -280,3 +285,77 @@ def test_perform_fdr_ignores_the_trainer_in_optimization_rounds():
 
     # Then: the results are identical
     pd.testing.assert_frame_equal(with_trainer, without_trainer)
+
+
+def test_prepare_of_the_hidden_trainer_weights_hidden_decoys_by_their_share():
+    psm_df = _gen_psms()
+    y = psm_df["decoy"].to_numpy()
+    trainer = HiddenDecoyTrainer(hidden_decoy_fraction=0.25, random_state=0)
+
+    decoy_weight = trainer.prepare(y, psm_df["precursor_idx"].to_numpy())
+
+    assert set(np.unique(decoy_weight)) == {0.0, 4.0}
+    assert not decoy_weight[y == 0].any()
+
+
+def test_cross_fitted_prepare_counts_every_decoy_once():
+    psm_df = _gen_psms()
+    y = psm_df["decoy"].to_numpy()
+    trainer = CrossFittedTrainer(n_folds=3, random_state=0)
+
+    decoy_weight = trainer.prepare(y, psm_df["precursor_idx"].to_numpy())
+
+    np.testing.assert_array_equal(decoy_weight, y == 1)
+
+
+def test_cross_fitted_fit_predict_scores_every_row_out_of_fold():
+    psm_df = _gen_psms()
+    y = psm_df["decoy"].to_numpy()
+    x = psm_df[["feature", "noise"]].to_numpy()
+    classifier = _classifier()
+    trainer = CrossFittedTrainer(n_folds=3, random_state=0)
+
+    decoy_weight = trainer.prepare(y, psm_df["precursor_idx"].to_numpy())
+    result = trainer.fit_predict(
+        classifier,
+        x,
+        y,
+        decoy_weight,
+        psm_df["elution_group_idx"].to_numpy(),
+        psm_df["precursor_idx"].to_numpy(),
+    )
+
+    assert result.proba.shape == (len(y),)
+    assert classifier.fitted
+    # the last fold's model was fitted on every row of the other two folds
+    assert 0.6 < len(result.train_idx) / len(y) < 0.73
+    is_true = psm_df["is_true"].to_numpy()
+    assert (result.proba[is_true] < 0.5).mean() > 0.8
+    assert result.proba[is_true].mean() < result.proba[y == 1].mean()
+
+
+def test_cross_fitted_needs_two_folds():
+    with pytest.raises(ValueError, match="n_folds"):
+        CrossFittedTrainer(n_folds=1)
+
+
+def test_perform_fdr_with_a_cross_fitted_trainer_reports_the_true_precursors():
+    psm_df = _gen_psms()
+    trainer = CrossFittedTrainer(n_folds=2, random_state=0)
+
+    result = fdr.perform_fdr(
+        _classifier(),
+        ["feature", "noise"],
+        psm_df[psm_df["decoy"] == 0].copy(),
+        psm_df[psm_df["decoy"] == 1].copy(),
+        competitive=True,
+        random_state=0,
+        is_final=True,
+        trainer=trainer,
+    )
+
+    accepted = result[(result["_decoy"] == 0) & (result["qval"] <= 0.05)]
+    n_true = psm_df["is_true"].sum()
+    assert "_decoy_weight" not in result.columns
+    assert len(accepted) > 0.8 * n_true
+    assert accepted["is_true"].mean() > 0.9

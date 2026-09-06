@@ -390,17 +390,22 @@ fdr:
       - longest_b_series
       - num_over_0_rank_0_5
       - fwhm_rt
-  # semi-supervised training of the final round's classifier: after a first fit on every target, only the targets below
-  # train_fdr are kept as positives and the classifier is refitted on them; a random share of the decoys is hidden among the
-  # targets during training and is the only share counted in the FDR estimate, so the refits cannot bias it
+  # training of the final round's classifier that keeps the decoy count of the FDR estimate honest. "cross_fitted" scores
+  # every PSM with a model fitted on the other folds; "hidden_decoys" hides a random share of the decoys among the targets
+  # during training and counts only that share in the FDR estimate. Optionally, after a first fit on every target, only the
+  # targets below train_fdr are kept as positives and the classifier is refitted on them
   semisupervised:
     enabled: false
-    # share of the decoy precursors hidden from the classifier; each hidden decoy counts 1/share in the FDR estimate
+    # "cross_fitted" or "hidden_decoys"
+    method: "cross_fitted"
+    # number of folds of the cross-fitted method; a target and its decoy always share a fold
+    n_folds: 3
+    # share of the decoy precursors hidden from the classifier in the hidden_decoys method; each counts 1/share in the estimate
     hidden_decoy_fraction: 0.5
     # q-value below which a target is kept as a positive example in a refit
     train_fdr: 0.01
-    # number of refits after the first fit
-    n_iterations: 5
+    # number of refits after the first fit; 0 fits once on every target
+    n_iterations: 0
     # cap on the training decoys per positive in a refit, drawn at random anew for every refit; null fits on all of them
     max_negative_ratio: null
 
