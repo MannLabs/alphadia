@@ -63,7 +63,7 @@ library_loading:
   # re-predict the decoys' retention time, mobility and fragment intensities for the decoy sequence with
   # alphaPeptDeep (settings from library_prediction) instead of keeping the target's; costs the prediction of
   # half the library
-  predict_decoys: false
+  predict_decoys: true
 
 library_prediction:
   # Basic parameters
