@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -16,6 +17,7 @@ from alphadia.fragcomp.fragcomp import compete_for_fragments
 if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
     from alphadia.fdr.prefilter import CascadePrefilter
+    from alphadia.fdr.semisupervised import HiddenDecoyTrainer, TrainingResult
 
 max_dia_cycle_shape = 2
 
@@ -30,6 +32,8 @@ _MAX_FDR_CLASSIFIER_REINITS = 3
 # Fraction of the gap between the worst scored PSM and 1.0 left empty above the scored
 # PSMs, so a dropped PSM with stage-1 probability 0 still ranks strictly behind them.
 _DROPPED_PROBA_OFFSET = 0.5
+
+_DECOY_WEIGHT_COLUMN = "_decoy_weight"
 
 
 @manage_torch_threads(max_threads=2)
@@ -48,6 +52,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     random_state: int | None = None,
     is_final: bool = False,
     prefilter: CascadePrefilter | None = None,
+    trainer: HiddenDecoyTrainer | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -96,6 +101,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         Gate that decides which PSMs the classifier is fitted on and scores. PSMs it
         drops are ranked behind every scored PSM, in the order of its own scores.
 
+    trainer : HiddenDecoyTrainer, default=None
+        Fits the classifier of the final round by self-training and hides a share of
+        the decoys from it; only that share is counted in the q-values. None fits the
+        classifier on every PSM and counts every decoy.
+
     Returns
     -------
     psm_df : pd.DataFrame
@@ -142,29 +152,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     psm_df = pd.concat([df_target, df_decoy])
     psm_df["_decoy"] = y
 
-    if prefilter is None:
-        keep = np.ones(len(X), dtype=bool)
-        X_kept = X
-    else:
-        keep, stage1_proba = prefilter.select(psm_df, y, is_final=is_final)
-        X_kept = X[keep]
-        if prefilter.reset_classifier and not keep.all():
-            classifier.reset()
-
-    try:
-        X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-            X_kept, y[keep], test_size=0.2, random_state=random_state
-        )
-    except TooFewPSMError:
-        logger.warning(
-            "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
-        )
-        psm_df["qval"] = 1.0
-        psm_df["proba"] = 1.0
-        return psm_df
-
-    classifier.fit(X_train, y_train, is_final=is_final)
-
     if competitive:
         group_columns = (
             ["elution_group_idx", "channel"]
@@ -174,30 +161,65 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     else:
         group_columns = ["precursor_idx"]
 
-    predicted_proba = classifier.predict_proba(X_kept)[:, 1]
+    if prefilter is None:
+        keep = np.ones(len(X), dtype=bool)
+        X_kept = X
+    else:
+        keep, stage1_proba = prefilter.select(psm_df, y, is_final=is_final)
+        X_kept = X[keep]
+        if prefilter.reset_classifier and not keep.all():
+            classifier.reset()
 
-    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
-    n_reinit = 0
-    while (
-        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
-        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
-    ):
-        n_reinit += 1
-        logger.warning(
-            f"FDR classifier collapsed to a near-constant probability "
-            f"({np.unique(predicted_proba).size} unique value(s) over "
-            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
-            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
-        )
+    decoy_weight_column = None
+    if trainer is not None and is_final:
+        # The optimization rounds saw the hidden decoys labelled as decoys; a warm start
+        # would score them differently from the false targets they stand for.
         classifier.reset()
-        classifier.fit(X_train, y_train, is_final=is_final)
-        predicted_proba = classifier.predict_proba(X_kept)[:, 1]
+        precursor_idx = psm_df["precursor_idx"].to_numpy()
+        is_hidden = trainer.assign_hidden(y, precursor_idx)
+        competition_group = psm_df.groupby(group_columns).ngroup().to_numpy()
+        results: list[TrainingResult] = []
 
-    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
-        logger.warning(
-            "FDR classifier produced a near-constant probability; target/decoy "
-            "separation failed and q-values will not filter PSMs."
-        )
+        def fit_and_score() -> np.ndarray:
+            results.append(
+                trainer.fit_predict(
+                    classifier,
+                    X_kept,
+                    y[keep],
+                    is_hidden[keep],
+                    competition_group[keep],
+                    precursor_idx[keep],
+                    is_final=is_final,
+                )
+            )
+            return results[-1].proba
+
+        predicted_proba = _fit_until_separated(fit_and_score, classifier)
+
+        idxs_train, y_train = results[-1].train_idx, results[-1].y_train
+        idxs_test = np.setdiff1d(np.arange(len(X_kept)), idxs_train)
+        y_test = y[keep][idxs_test]
+
+        psm_df[_DECOY_WEIGHT_COLUMN] = np.where(is_hidden, trainer.decoy_weight, 0.0)
+        decoy_weight_column = _DECOY_WEIGHT_COLUMN
+    else:
+        try:
+            X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
+                X_kept, y[keep], test_size=0.2, random_state=random_state
+            )
+        except TooFewPSMError:
+            logger.warning(
+                "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
+            )
+            psm_df["qval"] = 1.0
+            psm_df["proba"] = 1.0
+            return psm_df
+
+        def fit_and_score() -> np.ndarray:
+            classifier.fit(X_train, y_train, is_final=is_final)
+            return classifier.predict_proba(X_kept)[:, 1]
+
+        predicted_proba = _fit_until_separated(fit_and_score, classifier)
 
     proba = np.empty(len(X))
     proba[keep] = predicted_proba
@@ -215,7 +237,9 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         ["proba", "precursor_idx"], ascending=True, inplace=True
     )  # last sort to break ties
 
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+    psm_df = get_q_values(
+        psm_df, "proba", "_decoy", decoy_weight_column=decoy_weight_column
+    )
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
@@ -235,7 +259,12 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             )
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+    psm_df = get_q_values(
+        psm_df, "proba", "_decoy", decoy_weight_column=decoy_weight_column
+    )
+
+    if decoy_weight_column is not None:
+        psm_df.drop(columns=[decoy_weight_column], inplace=True)
 
     if figure_path is not None:
         plot_fdr(
@@ -248,6 +277,39 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
 
     return psm_df
+
+
+def _fit_until_separated(
+    fit_and_score: Callable[[], np.ndarray], classifier: Classifier
+) -> np.ndarray:
+    """Fit and score, starting over from fresh weights while the scores are near-constant.
+
+    A collapse is usually an unlucky set of start weights, so a new fit recovers it.
+    """
+    predicted_proba = fit_and_score()
+
+    n_reinit = 0
+    while (
+        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
+    ):
+        n_reinit += 1
+        logger.warning(
+            f"FDR classifier collapsed to a near-constant probability "
+            f"({np.unique(predicted_proba).size} unique value(s) over "
+            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
+            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+        )
+        classifier.reset()
+        predicted_proba = fit_and_score()
+
+    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
+        logger.warning(
+            "FDR classifier produced a near-constant probability; target/decoy "
+            "separation failed and q-values will not filter PSMs."
+        )
+
+    return predicted_proba
 
 
 def keep_best(
@@ -315,6 +377,7 @@ def get_q_values(
     decoy_column: str = "_decoy",
     qval_column: str = "qval",
     extra_sort_columns: list[str] | None = None,
+    decoy_weight_column: str | None = None,
 ) -> pd.DataFrame:
     """Calculates q-values for a dataframe containing PSMs.
 
@@ -337,6 +400,10 @@ def get_q_values(
     extra_sort_columns : list[str], default=['precursor_idx']
         Additional columns to sort by after score_column and decoy_column to break ties.
 
+    decoy_weight_column : str, optional
+        Column holding the weight each PSM adds to the decoy count, zero for targets.
+        None counts every decoy once.
+
     Returns
     -------
     pd.DataFrame
@@ -350,7 +417,11 @@ def get_q_values(
         [score_column, decoy_column, *extra_sort_columns], ascending=True
     )  # last sort to break ties
     target_values = 1 - df[decoy_column].to_numpy()
-    decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
+    decoy_cumsum = np.cumsum(
+        df[decoy_column if decoy_weight_column is None else decoy_weight_column]
+        .to_numpy()
+        .astype(float)
+    )
     target_cumsum = np.cumsum(target_values)
     fdr_values = np.divide(
         decoy_cumsum,

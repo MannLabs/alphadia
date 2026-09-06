@@ -5,10 +5,12 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from alphadia.fdr.semisupervised import HiddenDecoyTrainer
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import (
     PeptideCentricWorkflow,
     _apply_feature_subset,
+    _get_trainer,
 )
 
 
@@ -90,3 +92,30 @@ def test_apply_feature_subset_preserves_backend_order():
 def test_apply_feature_subset_rejects_unknown_feature():
     with pytest.raises(ValueError, match="does not.*provide|not provide"):
         _apply_feature_subset(["a", "b"], ["a", "typo"])
+
+
+def test_get_trainer_is_none_when_disabled():
+    config = {"fdr": {"semisupervised": {"enabled": False}}}
+
+    assert _get_trainer(config) is None
+
+
+def test_get_trainer_reads_the_configuration():
+    config = {
+        "fdr": {
+            "semisupervised": {
+                "enabled": True,
+                "hidden_decoy_fraction": 0.25,
+                "train_fdr": 0.05,
+                "n_iterations": 3,
+            }
+        }
+    }
+
+    trainer = _get_trainer(config, random_state=1)
+
+    assert isinstance(trainer, HiddenDecoyTrainer)
+    assert trainer.hidden_decoy_fraction == 0.25
+    assert trainer.train_fdr == 0.05
+    assert trainer.n_iterations == 3
+    assert trainer.decoy_weight == 4

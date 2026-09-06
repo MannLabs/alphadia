@@ -15,6 +15,7 @@ from alphadia.constants.keys import SearchStepFiles
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
 from alphadia.fdr.prefilter import CascadePrefilter
+from alphadia.fdr.semisupervised import HiddenDecoyTrainer
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -83,6 +84,7 @@ class FDRManager(BaseManager):
         load_from_file: bool = True,
         random_state: int | None = None,
         prefilter: CascadePrefilter | None = None,
+        trainer: HiddenDecoyTrainer | None = None,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -109,6 +111,10 @@ class FDRManager(BaseManager):
         prefilter : CascadePrefilter, optional
             Gate applied in front of the classifier in every FDR round. If None, the
             classifier is fitted on and scores every PSM.
+        trainer : HiddenDecoyTrainer, optional
+            Semi-supervised training of the final round's classifier, with a hidden
+            decoy share for the FDR estimate. If None, the classifier is fitted on every
+            PSM and every decoy is counted.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
@@ -129,6 +135,7 @@ class FDRManager(BaseManager):
         self._feature_matrix_path = feature_matrix_path
         self._feature_importances = []
         self._prefilter = prefilter
+        self._trainer = trainer
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -213,6 +220,7 @@ class FDRManager(BaseManager):
                 random_state=random_state,
                 is_final=is_final,
                 prefilter=self._prefilter,
+                trainer=self._trainer,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -238,6 +246,7 @@ class FDRManager(BaseManager):
                         random_state=random_state,
                         is_final=is_final,
                         prefilter=self._prefilter,
+                        trainer=self._trainer,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
@@ -260,6 +269,7 @@ class FDRManager(BaseManager):
                         random_state=random_state,
                         is_final=is_final,
                         prefilter=self._prefilter,
+                        trainer=self._trainer,
                     )
                 )
 

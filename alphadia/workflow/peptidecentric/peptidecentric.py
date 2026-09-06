@@ -15,6 +15,7 @@ from alphadia.fdr.classifiers import (
     LightGBMClassifier,
 )
 from alphadia.fdr.prefilter import CascadePrefilter
+from alphadia.fdr.semisupervised import HiddenDecoyTrainer
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -153,6 +154,37 @@ def _get_prefilter(
     )
 
 
+def _get_trainer(
+    config: Config,
+    random_state: int | None = None,
+) -> HiddenDecoyTrainer | None:
+    """Creates the semi-supervised trainer, or None if the configuration disables it.
+
+    Parameters
+    ----------
+    config : Config
+        The workflow configuration, read for the semi-supervised training settings.
+
+    random_state : int | None, optional
+        Random state for reproducibility. Default is None.
+
+    Returns
+    -------
+    HiddenDecoyTrainer | None
+        The trainer, or None if disabled.
+    """
+    config_trainer = config["fdr"]["semisupervised"]
+    if not config_trainer["enabled"]:
+        return None
+
+    return HiddenDecoyTrainer(
+        hidden_decoy_fraction=config_trainer["hidden_decoy_fraction"],
+        train_fdr=config_trainer["train_fdr"],
+        n_iterations=config_trainer["n_iterations"],
+        random_state=random_state,
+    )
+
+
 class PeptideCentricWorkflow(base.WorkflowBase):
     def __init__(
         self,
@@ -222,6 +254,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             prefilter=_get_prefilter(
                 self.config,
                 backend_feature_columns,
+                random_state=self._random_state_fdr_classifier,
+            ),
+            trainer=_get_trainer(
+                self.config,
                 random_state=self._random_state_fdr_classifier,
             ),
         )
