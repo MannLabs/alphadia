@@ -115,6 +115,7 @@ class FdrClassifier(metaclass=ConstantsClass):
 
     MLP = "mlp"
     LIGHTGBM = "lightgbm"
+    ENSEMBLE = "ensemble"
 
 
 class QuantificationLevelName(metaclass=ConstantsClass):

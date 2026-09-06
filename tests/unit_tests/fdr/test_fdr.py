@@ -10,6 +10,7 @@ from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import (
     BinaryClassifierLegacyNewBatching,
     Classifier,
+    EnsembleClassifier,
     LightGBMClassifier,
 )
 
@@ -133,9 +134,7 @@ def test_get_q_values_ties_share_a_q_value():
 
     test_df = fdr.get_q_values(test_df, "proba", "_decoy")
 
-    assert np.allclose(
-        test_df["qval"].values, np.array([0.0, *[2 / 5] * 6])
-    )
+    assert np.allclose(test_df["qval"].values, np.array([0.0, *[2 / 5] * 6]))
 
 
 def gen_data_np(
@@ -460,3 +459,67 @@ def test_perform_fdr_lightgbm_separates_targets_and_decoys():
     decoy_psms = psm_df[psm_df["_decoy"] == 1]
     assert target_psms["proba"].median() < decoy_psms["proba"].median()
     assert target_psms["qval"].median() < decoy_psms["qval"].median()
+
+
+def _two_member_ensemble() -> EnsembleClassifier:
+    return EnsembleClassifier(
+        [
+            LightGBMClassifier(n_estimators=20, final_n_estimators=20, random_state=0),
+            LightGBMClassifier(n_estimators=20, final_n_estimators=20, random_state=1),
+        ]
+    )
+
+
+def test_ensemble_is_fitted_once_all_members_are():
+    x, y = _separable_data()
+    ensemble = _two_member_ensemble()
+    assert not ensemble.fitted
+
+    ensemble.members[0].fit(x, y)
+    assert not ensemble.fitted
+
+    ensemble.fit(x, y, is_final=True)
+    assert ensemble.fitted
+    assert all(member.fitted for member in ensemble.members)
+
+
+def test_ensemble_averages_the_member_probabilities():
+    x, y = _separable_data()
+    ensemble = _two_member_ensemble()
+    ensemble.fit(x, y)
+
+    expected = np.mean([m.predict_proba(x) for m in ensemble.members], axis=0)
+
+    np.testing.assert_allclose(ensemble.predict_proba(x), expected)
+    np.testing.assert_array_equal(ensemble.predict(x), np.argmax(expected, axis=1))
+    assert (ensemble.predict(x) == y).mean() > 0.9
+
+
+def test_ensemble_state_dict_round_trip():
+    x, y = _separable_data()
+    ensemble = _two_member_ensemble()
+    ensemble.fit(x, y)
+
+    restored = _two_member_ensemble()
+    restored.from_state_dict(ensemble.to_state_dict())
+
+    assert restored.fitted
+    np.testing.assert_allclose(restored.predict_proba(x), ensemble.predict_proba(x))
+
+
+def test_ensemble_reset_resets_every_member():
+    x, y = _separable_data()
+    ensemble = _two_member_ensemble()
+    ensemble.fit(x, y)
+
+    ensemble.reset()
+
+    assert not ensemble.fitted
+    assert not any(member.fitted for member in ensemble.members)
+
+
+def _separable_data() -> tuple[np.ndarray, np.ndarray]:
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(600, 3)).astype(np.float32)
+    y = (x[:, 0] + 0.5 * x[:, 1] > 0).astype(int)
+    return x, y

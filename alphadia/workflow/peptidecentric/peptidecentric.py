@@ -12,6 +12,7 @@ from alphadia.constants.keys import FdrClassifier, FdrTrainingMethod
 from alphadia.fdr.classifiers import (
     BinaryClassifierLegacyNewBatching,
     Classifier,
+    EnsembleClassifier,
     LightGBMClassifier,
 )
 from alphadia.fdr.prefilter import CascadePrefilter
@@ -82,29 +83,48 @@ def _get_classifier_base(
     Classifier
         The classifier selected by the configuration.
     """
-    config_fdr = config["fdr"]
-    classifier_name = config_fdr["classifier"]
+    classifier_name = config["fdr"]["classifier"]
 
     if classifier_name == FdrClassifier.MLP:
-        return BinaryClassifierLegacyNewBatching(
-            test_size=0.001,
-            batch_size=5000,
-            learning_rate=0.001,
-            epochs=10,
-            experimental_hyperparameter_tuning=config_fdr[
-                "enable_nn_hyperparameter_tuning"
-            ],
-            random_state=random_state,
-        )
+        return _get_mlp_classifier(config, random_state)
 
     if classifier_name == FdrClassifier.LIGHTGBM:
-        return LightGBMClassifier(
-            **config_fdr["lightgbm"],
-            num_threads=config["general"]["thread_count"],
-            random_state=random_state,
+        return _get_lightgbm_classifier(config, random_state)
+
+    if classifier_name == FdrClassifier.ENSEMBLE:
+        return EnsembleClassifier(
+            [
+                _get_mlp_classifier(config, random_state),
+                _get_lightgbm_classifier(config, random_state),
+            ]
         )
 
     raise ValueError(f"Unknown FDR classifier: {classifier_name}")
+
+
+def _get_mlp_classifier(
+    config: Config, random_state: int | None
+) -> BinaryClassifierLegacyNewBatching:
+    return BinaryClassifierLegacyNewBatching(
+        test_size=0.001,
+        batch_size=5000,
+        learning_rate=0.001,
+        epochs=10,
+        experimental_hyperparameter_tuning=config["fdr"][
+            "enable_nn_hyperparameter_tuning"
+        ],
+        random_state=random_state,
+    )
+
+
+def _get_lightgbm_classifier(
+    config: Config, random_state: int | None
+) -> LightGBMClassifier:
+    return LightGBMClassifier(
+        **config["fdr"]["lightgbm"],
+        num_threads=config["general"]["thread_count"],
+        random_state=random_state,
+    )
 
 
 def _get_prefilter(

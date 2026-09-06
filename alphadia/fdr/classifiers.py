@@ -872,3 +872,55 @@ class FeedForwardNN(nn.Module):
     def forward(self, x: Any) -> Any:  # noqa: ANN401
         """Forward pass through the network."""
         return self.fc_layers(x)
+
+
+_ENSEMBLE_MEMBERS_KEY = "members"
+
+
+class EnsembleClassifier(Classifier):
+    """Averages the class probabilities of several classifiers.
+
+    Every member is fitted on the same data; the ensemble is fitted once all members are.
+    Members of different families (a neural network and gradient boosting, say) make
+    different mistakes on the same candidates, which is what the average removes.
+    """
+
+    def __init__(self, members: list[Classifier]):
+        """Initialize the ensemble.
+
+        Parameters
+        ----------
+        members : list[Classifier]
+            The classifiers whose probabilities are averaged, unfitted.
+
+        """
+        self.members = members
+
+    @property
+    def fitted(self) -> bool:
+        return all(member.fitted for member in self.members)
+
+    def fit(self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False) -> None:
+        for member in self.members:
+            member.fit(x, y, is_final=is_final)
+
+    def reset(self) -> None:
+        for member in self.members:
+            member.reset()
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        return np.argmax(self.predict_proba(x), axis=1)
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        return np.mean([member.predict_proba(x) for member in self.members], axis=0)
+
+    def to_state_dict(self) -> dict:
+        return {
+            _ENSEMBLE_MEMBERS_KEY: [member.to_state_dict() for member in self.members]
+        }
+
+    def from_state_dict(self, state_dict: dict) -> None:
+        for member, member_state in zip(
+            self.members, state_dict[_ENSEMBLE_MEMBERS_KEY], strict=True
+        ):
+            member.from_state_dict(member_state)

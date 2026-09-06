@@ -314,7 +314,8 @@ fdr:
   enable_nn_hyperparameter_tuning: true
   # write the unfiltered FDR feature matrix and the classifier feature importances to the quant folder, for offline feature analysis
   save_feature_matrix: false
-  # classifier used for target-decoy scoring: "mlp" (neural network) or "lightgbm" (gradient boosting)
+  # classifier used for target-decoy scoring: "mlp" (neural network), "lightgbm" (gradient boosting)
+  # or "ensemble" (both, probabilities averaged; the two make different mistakes)
   classifier: "mlp"
   # restrict the classifier to these feature columns; empty means every feature the extraction backend provides
   feature_subset: []

@@ -5,11 +5,17 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    EnsembleClassifier,
+    LightGBMClassifier,
+)
 from alphadia.fdr.semisupervised import CrossFittedTrainer, HiddenDecoyTrainer
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import (
     PeptideCentricWorkflow,
     _apply_feature_subset,
+    _get_classifier_base,
     _get_trainer,
 )
 
@@ -160,3 +166,29 @@ def test_get_trainer_rejects_an_unknown_method():
 
     with pytest.raises(ValueError, match="Unknown FDR training method"):
         _get_trainer(config)
+
+
+def _classifier_config(name: str) -> dict:
+    return {
+        "general": {"thread_count": 2},
+        "fdr": {
+            "classifier": name,
+            "enable_nn_hyperparameter_tuning": False,
+            "lightgbm": {"n_estimators": 10, "final_n_estimators": 10},
+        },
+    }
+
+
+def test_get_classifier_builds_the_ensemble_of_both_families():
+    classifier = _get_classifier_base(_classifier_config("ensemble"), random_state=1)
+
+    assert isinstance(classifier, EnsembleClassifier)
+    assert isinstance(classifier.members[0], BinaryClassifierLegacyNewBatching)
+    assert isinstance(classifier.members[1], LightGBMClassifier)
+    assert classifier.members[1].n_estimators == 10
+    assert classifier.members[1].num_threads == 2
+
+
+def test_get_classifier_rejects_an_unknown_name():
+    with pytest.raises(ValueError, match="Unknown FDR classifier"):
+        _get_classifier_base(_classifier_config("forest"))
