@@ -2,9 +2,10 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+import pytest
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.libtransform.base import ProcessingPipeline
+from alphadia.libtransform.base import ProcessingPipeline, ProcessingStep
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.flatten import (
     FlattenLibrary,
@@ -19,6 +20,7 @@ from alphadia.libtransform.harmonize import (
 )
 from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
+from alphadia.libtransform.prediction import DecoyPrediction
 
 
 def test_library_transform():
@@ -225,3 +227,87 @@ def test_shuffle_decoy_is_registered_with_alphabase():
     from alphadia.libtransform import decoy  # noqa: F401 # registers on import
 
     assert "shuffle" in decoy_lib_provider.decoy_dict
+
+
+class _ConstantPrediction(ProcessingStep):
+    """Stands in for peptdeep: every intensity becomes one, every rt_pred one half."""
+
+    def __init__(self, drop_first: bool = False):
+        super().__init__()
+        self.drop_first = drop_first
+
+    def validate(self, input: SpecLibBase) -> bool:
+        return True
+
+    def forward(self, input: SpecLibBase) -> SpecLibBase:
+        if self.drop_first:
+            input._precursor_df = input.precursor_df.iloc[1:].copy()
+            input.remove_unused_fragments()
+        input._fragment_intensity_df = pd.DataFrame(
+            1.0,
+            index=input.fragment_mz_df.index,
+            columns=input.fragment_mz_df.columns,
+        )
+        input._precursor_df["rt_pred"] = 0.5
+        return input
+
+
+def _library_with_decoys() -> SpecLibBase:
+    precursor_df = pd.DataFrame(
+        {
+            "sequence": ["PEPTIDEK", "ANOTHERPEPTIDER"],
+            "mods": ["", ""],
+            "mod_sites": ["", ""],
+            "charge": [2, 3],
+            "decoy": [0, 0],
+            "rt_pred": [0.1, 0.2],
+        }
+    )
+    precursor_df["nAA"] = precursor_df["sequence"].str.len()
+    precursor_df["precursor_idx"] = np.arange(len(precursor_df))
+    precursor_df["elution_group_idx"] = np.arange(len(precursor_df))
+    precursor_df["channel"] = 0
+    library = SpecLibBase()
+    library.precursor_df = precursor_df
+    library.calc_precursor_mz()
+    library.calc_fragment_mz_df()
+    library._fragment_intensity_df = pd.DataFrame(
+        0.2, index=library.fragment_mz_df.index, columns=library.fragment_mz_df.columns
+    )
+    return DecoyGenerator(decoy_type="diann", mp_process_num=1)(library)
+
+
+def test_decoy_prediction_replaces_only_the_decoys():
+    library = _library_with_decoys()
+    n_targets = int((library.precursor_df["decoy"] == 0).sum())
+    n_decoys = int((library.precursor_df["decoy"] == 1).sum())
+    assert n_decoys == n_targets
+
+    result = DecoyPrediction(_ConstantPrediction())(library)
+
+    df = result.precursor_df
+    assert (df["decoy"] == 0).sum() == n_targets
+    assert (df["decoy"] == 1).sum() == n_decoys
+    assert df.loc[df["decoy"] == 0, "rt_pred"].tolist() == [0.1, 0.2]
+    assert (df.loc[df["decoy"] == 1, "rt_pred"] == 0.5).all()
+    for _, row in df.iterrows():
+        intensities = result.fragment_intensity_df.iloc[
+            row["frag_start_idx"] : row["frag_stop_idx"]
+        ]
+        assert len(intensities) == row["nAA"] - 1
+        assert (intensities == (1.0 if row["decoy"] else 0.2)).all().all()
+    assert len(result.fragment_mz_df) == len(result.fragment_intensity_df)
+
+
+def test_decoy_prediction_rejects_a_prediction_that_drops_decoys():
+    library = _library_with_decoys()
+
+    with pytest.raises(ValueError, match="dropped 1 decoys"):
+        DecoyPrediction(_ConstantPrediction(drop_first=True)).forward(library)
+
+
+def test_decoy_prediction_needs_decoys():
+    library = _library_with_decoys()
+    library._precursor_df = library.precursor_df[library.precursor_df["decoy"] == 0]
+
+    assert not DecoyPrediction(_ConstantPrediction()).validate(library)

@@ -60,6 +60,10 @@ library_loading:
   # second-to-last residue, "pseudo_reverse" reverses all but the last residue, "shuffle" permutes all but the first and
   # the last residue. Decoys keep the target's predicted retention time, mobility and fragment intensities
   decoy_type: diann
+  # re-predict the decoys' retention time, mobility and fragment intensities for the decoy sequence with
+  # alphaPeptDeep (settings from library_prediction) instead of keeping the target's; costs the prediction of
+  # half the library
+  predict_decoys: false
 
 library_prediction:
   # Basic parameters

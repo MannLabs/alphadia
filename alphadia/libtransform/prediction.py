@@ -1,6 +1,7 @@
 import logging
 import os
 
+import numpy as np
 from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
 from peptdeep.pretrained_models import ModelManager
@@ -183,3 +184,65 @@ class PeptDeepPrediction(ProcessingStep):
             input._precursor_df = res["precursor_df"]
 
         return input
+
+
+_PREDICTED_DFS = ["_precursor_df", "_fragment_mz_df", "_fragment_intensity_df"]
+
+
+class DecoyPrediction(ProcessingStep):
+    def __init__(self, prediction: PeptDeepPrediction) -> None:
+        """Re-predict the decoys' properties for their own sequence.
+
+        A generated decoy keeps its target's predicted retention time, mobility and
+        fragment intensities; only the sequence changes. This step predicts them for the
+        decoy sequence instead, so that a decoy carries the spectrum a peptide of its
+        sequence would give, as a false target does.
+
+        Parameters
+        ----------
+        prediction : PeptDeepPrediction
+            The prediction step applied to the decoy part of the library.
+
+        """
+        super().__init__()
+        self.prediction = prediction
+
+    def validate(self, input: SpecLibBase) -> bool:
+        """Validate that the input is a `SpecLibBase` object with decoys."""
+        valid = isinstance(input, SpecLibBase) and "decoy" in input.precursor_df.columns
+        if valid and not (input.precursor_df["decoy"] == 1).any():
+            logger.error("Input library has no decoys to predict")
+            valid = False
+        return valid
+
+    def forward(self, input: SpecLibBase) -> SpecLibBase:
+        """Predict the decoys' properties and reassemble the library."""
+        is_decoy = (input.precursor_df["decoy"] == 1).to_numpy()
+        targets = _subset(input, ~is_decoy)
+        decoys = _subset(input, is_decoy)
+        n_decoys = len(decoys.precursor_df)
+
+        logger.info(f"Predicting the properties of {n_decoys:,} decoys")
+        decoys = self.prediction(decoys)
+
+        n_dropped = n_decoys - len(decoys.precursor_df)
+        if n_dropped:
+            raise ValueError(
+                f"Prediction dropped {n_dropped} decoys, the library would no longer be paired"
+            )
+        missing = set(targets.charged_frag_types) - set(decoys.charged_frag_types)
+        if missing:
+            raise ValueError(
+                f"The library's fragment types {sorted(missing)} are not predicted, "
+                "adjust library_prediction.fragment_types and max_fragment_charge"
+            )
+
+        targets.append(decoys, dfs_to_append=_PREDICTED_DFS)
+        return targets
+
+
+def _subset(library: SpecLibBase, mask: np.ndarray) -> SpecLibBase:
+    subset = library.copy()
+    subset._precursor_df = library.precursor_df[mask].copy()
+    subset.remove_unused_fragments()
+    return subset

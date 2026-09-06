@@ -17,7 +17,7 @@ from alphadia.constants.keys import (
     SearchStepFiles,
 )
 from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
-from alphadia.libtransform.base import ProcessingPipeline
+from alphadia.libtransform.base import ProcessingPipeline, ProcessingStep
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
 from alphadia.libtransform.flatten import (
@@ -33,7 +33,7 @@ from alphadia.libtransform.harmonize import (
 )
 from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
-from alphadia.libtransform.prediction import PeptDeepPrediction
+from alphadia.libtransform.prediction import DecoyPrediction, PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.utils import expand_path
@@ -254,6 +254,25 @@ class SearchStep:
 
             modification.add_new_modifications(new_modifications)
 
+    def _get_peptdeep_prediction(self, *, predict_charge: bool) -> PeptDeepPrediction:
+        general_config = self.config["general"]
+        prediction_config = self.config["library_prediction"]
+        return PeptDeepPrediction(
+            use_gpu=general_config["use_gpu"],
+            fragment_mz=prediction_config["fragment_mz"],
+            nce=prediction_config["nce"],
+            instrument=prediction_config["instrument"],
+            mp_process_num=general_config["thread_count"],
+            peptdeep_model_path=prediction_config[
+                ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH
+            ],
+            peptdeep_model_type=prediction_config["peptdeep_model_type"],
+            fragment_types=prediction_config["fragment_types"],
+            max_fragment_charge=prediction_config["max_fragment_charge"],
+            predict_charge=predict_charge,
+            min_charge_probability=prediction_config["min_charge_probability"],
+        )
+
     def load_library(self):
         """Load or build spectral library as configured.
 
@@ -317,24 +336,9 @@ class SearchStep:
 
         if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
-
-            pept_deep_prediction = PeptDeepPrediction(
-                use_gpu=general_config["use_gpu"],
-                fragment_mz=prediction_config["fragment_mz"],
-                nce=prediction_config["nce"],
-                instrument=prediction_config["instrument"],
-                mp_process_num=thread_count,
-                peptdeep_model_path=prediction_config[
-                    ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH
-                ],
-                peptdeep_model_type=prediction_config["peptdeep_model_type"],
-                fragment_types=prediction_config["fragment_types"],
-                max_fragment_charge=prediction_config["max_fragment_charge"],
-                predict_charge=prediction_config["predict_charge"],
-                min_charge_probability=prediction_config["min_charge_probability"],
-            )
-
-            spectral_library = pept_deep_prediction(spectral_library)
+            spectral_library = self._get_peptdeep_prediction(
+                predict_charge=prediction_config["predict_charge"]
+            )(spectral_library)
 
         # 3. import library and harmonize
         harmonize_pipeline = ProcessingPipeline(
@@ -364,23 +368,29 @@ class SearchStep:
 
         # 4. prepare library for search
         # This part is always performed, even if a fully compliant library is provided
-        prepare_pipeline = ProcessingPipeline(
-            [
-                DecoyGenerator(
-                    decoy_type=self.config["library_loading"]["decoy_type"],
-                    mp_process_num=thread_count,
+        prepare_steps: list[ProcessingStep] = [
+            DecoyGenerator(
+                decoy_type=self.config["library_loading"]["decoy_type"],
+                mp_process_num=thread_count,
+            )
+        ]
+        if self.config["library_loading"]["predict_decoys"]:
+            # charge prediction would add or drop decoys and unpair the library
+            prepare_steps.append(
+                DecoyPrediction(self._get_peptdeep_prediction(predict_charge=False))
+            )
+        prepare_steps += [
+            FlattenLibrary(
+                max(
+                    self.config["search"]["top_k_fragments_selection"],
+                    self.config["search"]["top_k_fragments_scoring"],
                 ),
-                FlattenLibrary(
-                    max(
-                        self.config["search"]["top_k_fragments_selection"],
-                        self.config["search"]["top_k_fragments_scoring"],
-                    ),
-                    self.config["search"]["min_fragment_intensity"],
-                ),
-                InitFlatColumns(),
-                LogFlatLibraryStats(),
-            ]
-        )
+                self.config["search"]["min_fragment_intensity"],
+            ),
+            InitFlatColumns(),
+            LogFlatLibraryStats(),
+        ]
+        prepare_pipeline = ProcessingPipeline(prepare_steps)
 
         self.spectral_library = prepare_pipeline(spectral_library)
 
