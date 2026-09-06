@@ -29,9 +29,10 @@ class CascadePrefilter:
     targets and decoys as decoys, so it would pass false targets preferentially and break
     the target-decoy symmetry the downstream FDR estimate relies on.
 
-    Only the final FDR round is gated. The optimization rounds are cheap, and the
-    optimization lock, the calibration and the score cutoff are all derived from the PSMs
-    they accept, so a gate there changes which candidates the final round sees at all.
+    The optimization rounds can be left ungated. They are cheap, and the optimization
+    lock, the calibration and the score cutoff are derived from the PSMs they accept; on
+    the other hand a classifier that is warm-started on gated PSMs in every round adapts
+    to the gated distribution, which a single gated fit at the end does not achieve.
     """
 
     def __init__(  # noqa: PLR0913 # Too many arguments
@@ -42,6 +43,7 @@ class CascadePrefilter:
         n_folds: int = 2,
         min_psms: int = _MIN_PSMS,
         max_train_psms: int | None = None,
+        final_round_only: bool = False,
         reset_classifier: bool = False,
         random_state: int | None = None,
     ):
@@ -68,6 +70,10 @@ class CascadePrefilter:
             Fit each fold's model on at most this many randomly drawn PSMs of the other
             folds. None fits on all of them.
 
+        final_round_only : bool, default=False
+            Whether to gate only the final FDR round and pass every PSM on in the
+            optimization rounds.
+
         reset_classifier : bool, default=False
             Whether the classifier is reset before it is fitted on the gated PSMs. A
             classifier warm-started on every PSM of the earlier rounds has to re-adapt to
@@ -82,6 +88,7 @@ class CascadePrefilter:
         self.n_folds = n_folds
         self.min_psms = min_psms
         self.max_train_psms = max_train_psms
+        self.final_round_only = final_round_only
         self.reset_classifier = reset_classifier
         self._classifier = classifier
         self._np_rng = np.random.default_rng(seed=random_state)
@@ -100,8 +107,7 @@ class CascadePrefilter:
             Decoy labels of shape (n_samples,), 1 for decoys.
 
         is_final : bool, default=False
-            Whether this is the FDR round whose scores are reported. Other rounds are
-            not gated.
+            Whether this is the FDR round whose scores are reported.
 
         Returns
         -------
@@ -116,7 +122,7 @@ class CascadePrefilter:
         n_psms = len(psm_df)
         keep_all = np.ones(n_psms, dtype=bool), np.zeros(n_psms)
 
-        if not is_final or n_psms < self.min_psms:
+        if (self.final_round_only and not is_final) or n_psms < self.min_psms:
             return keep_all
 
         x = psm_df[self.feature_columns].to_numpy()

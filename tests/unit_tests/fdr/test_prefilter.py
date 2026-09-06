@@ -73,16 +73,16 @@ def test_prefilter_keeps_the_confident_targets_and_drops_decoy_like_psms():
     assert stage1_proba[good_targets].mean() < stage1_proba[y == 1].mean()
 
 
-def test_prefilter_passes_everything_in_optimization_rounds():
-    # Given: PSMs of an optimization round
+def test_prefilter_passes_everything_in_optimization_rounds_when_asked_to():
+    # Given: PSMs of an optimization round and a prefilter restricted to the final round
     target_df, decoy_df = _gen_target_decoy_dfs()
     psm_df = pd.concat([target_df, decoy_df]).reset_index(drop=True)
     y = psm_df["decoy"].to_numpy()
+    prefilter = _get_prefilter(q_value_threshold=0.2)
+    prefilter.final_round_only = True
 
     # When: the prefilter gates the PSMs of a round that is not the final one
-    keep, stage1_proba = _get_prefilter(q_value_threshold=0.2).select(
-        psm_df, y, is_final=False
-    )
+    keep, stage1_proba = prefilter.select(psm_df, y, is_final=False)
 
     # Then: nothing is dropped
     assert keep.all()
