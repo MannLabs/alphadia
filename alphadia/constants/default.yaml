@@ -348,7 +348,7 @@ fdr:
   prefilter:
     enabled: true
     # stage-1 q-value above which a PSM is not passed on to the classifier
-    q_value_threshold: 0.2
+    q_value_threshold: 0.5
     # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
     n_folds: 2
     # maximum number of boosting rounds (trees) of the stage-1 model in the optimization rounds
