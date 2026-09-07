@@ -5,8 +5,12 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from alphadia.fdr.classifiers import LightGBMClassifier
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
-from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.peptidecentric import (
+    PeptideCentricWorkflow,
+    _get_classifier_base,
+)
 
 
 @pytest.fixture
@@ -72,3 +76,27 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         ),
         check_like=True,
     )
+
+
+def _classifier_config(name: str) -> dict:
+    return {
+        "general": {"thread_count": 2},
+        "fdr": {
+            "classifier": name,
+            "enable_nn_hyperparameter_tuning": False,
+            "lightgbm": {"n_estimators": 10, "final_n_estimators": 10},
+        },
+    }
+
+
+def test_get_classifier_reads_the_lightgbm_configuration():
+    classifier = _get_classifier_base(_classifier_config("lightgbm"), random_state=1)
+
+    assert isinstance(classifier, LightGBMClassifier)
+    assert classifier.n_estimators == 10
+    assert classifier.num_threads == 2
+
+
+def test_get_classifier_rejects_an_unknown_name():
+    with pytest.raises(ValueError, match="Unknown FDR classifier"):
+        _get_classifier_base(_classifier_config("forest"))

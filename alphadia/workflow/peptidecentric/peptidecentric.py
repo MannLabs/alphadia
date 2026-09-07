@@ -8,7 +8,12 @@ try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 except ImportError:
     pass
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.constants.keys import FdrClassifier
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    Classifier,
+    LightGBMClassifier,
+)
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -33,31 +38,56 @@ from alphadia.workflow.peptidecentric.utils import (
 
 
 def _get_classifier_base(
-    enable_nn_hyperparameter_tuning: bool = False,
+    config: Config,
     random_state: int | None = None,
-) -> BinaryClassifierLegacyNewBatching:
+) -> Classifier:
     """Creates and returns a classifier base instance.
 
     Parameters
     ----------
-    enable_nn_hyperparameter_tuning: bool, optional
-        If True, uses hyperparameter tuning for the neural network.
-        If False (default), uses default hyperparameters for the neural network.
+    config : Config
+        The workflow configuration, read for the classifier type and its hyperparameters.
 
     random_state : int | None, optional
         Random state for reproducibility. Default is None.
 
     Returns
     -------
-    BinaryClassifierLegacyNewBatching
-        Neural network
+    Classifier
+        The classifier selected by the configuration.
     """
+    classifier_name = config["fdr"]["classifier"]
+
+    if classifier_name == FdrClassifier.MLP:
+        return _get_mlp_classifier(config, random_state)
+
+    if classifier_name == FdrClassifier.LIGHTGBM:
+        return _get_lightgbm_classifier(config, random_state)
+
+    raise ValueError(f"Unknown FDR classifier: {classifier_name}")
+
+
+def _get_mlp_classifier(
+    config: Config, random_state: int | None
+) -> BinaryClassifierLegacyNewBatching:
     return BinaryClassifierLegacyNewBatching(
         test_size=0.001,
         batch_size=5000,
         learning_rate=0.001,
         epochs=10,
-        experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
+        experimental_hyperparameter_tuning=config["fdr"][
+            "enable_nn_hyperparameter_tuning"
+        ],
+        random_state=random_state,
+    )
+
+
+def _get_lightgbm_classifier(
+    config: Config, random_state: int | None
+) -> LightGBMClassifier:
+    return LightGBMClassifier(
+        **config["fdr"]["lightgbm"],
+        num_threads=config["general"]["thread_count"],
         random_state=random_state,
     )
 
@@ -107,15 +137,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.reporter.log_string(
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
-        config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
             feature_columns=get_feature_names()
             if self._config["search"]["extraction_backend"] == "rust"
             else feature_columns,
             classifier_base=_get_classifier_base(
-                enable_nn_hyperparameter_tuning=config_fdr[
-                    "enable_nn_hyperparameter_tuning"
-                ],
+                self.config,
                 random_state=self._random_state_fdr_classifier,
             ),
             dia_cycle=self.dia_data.cycle,
@@ -214,6 +241,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 competitive=self._config["fdr"]["competitive_scoring"],
                 df_fragments=fragments_df,
                 version=self.optimization_manager.classifier_version,
+                is_final=True,
             )
 
             precursor_df = precursor_df[
@@ -241,7 +269,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
             candidates_fdr_df, precursor_fdr_df = (
                 extraction_handler.perform_fdr_and_filter_candidates(
-                    precursor_w_features_df, candidates_df
+                    precursor_w_features_df, candidates_df, is_final=True
                 )
             )
 

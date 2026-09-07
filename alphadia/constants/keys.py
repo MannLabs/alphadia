@@ -92,6 +92,13 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
+class FdrClassifier(metaclass=ConstantsClass):
+    """String constants for the FDR classifier types."""
+
+    MLP = "mlp"
+    LIGHTGBM = "lightgbm"
+
+
 class QuantificationLevelName(metaclass=ConstantsClass):
     """String constants for accessing the quantification level."""
 

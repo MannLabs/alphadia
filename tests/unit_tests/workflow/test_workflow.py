@@ -10,7 +10,10 @@ import pandas as pd
 import pytest
 
 from alphadia.calibration.estimator import CalibrationEstimator
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    LightGBMClassifier,
+)
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
@@ -267,6 +270,9 @@ def test_optimization_manager_fit():
 FDR_TEST_BASE_CLASSIFIER = BinaryClassifierLegacyNewBatching(
     test_size=0.001, batch_size=2, learning_rate=0.001, epochs=1
 )
+FDR_TEST_LIGHTGBM_CLASSIFIER = LightGBMClassifier(
+    n_estimators=5, min_child_samples=2, num_threads=1, random_state=0
+)
 FDR_TEST_FEATURES = ["feature_a", "feature_b"]
 
 
@@ -294,10 +300,13 @@ def test_fdr_manager():
     assert fdr_manager.classifier_base == FDR_TEST_BASE_CLASSIFIER
 
 
-def test_fdr_manager_fit_predict():
+@pytest.mark.parametrize(
+    "classifier_base", [FDR_TEST_BASE_CLASSIFIER, FDR_TEST_LIGHTGBM_CLASSIFIER]
+)
+def test_fdr_manager_fit_predict(classifier_base):
     fdr_manager = FDRManager(
         feature_columns=FDR_TEST_FEATURES,
-        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        classifier_base=classifier_base,
         config={
             "search": {"compete_for_fragments": False},
         },
@@ -333,7 +342,7 @@ def test_fdr_manager_fit_predict():
 
     fdr_manager_new = FDRManager(
         feature_columns=FDR_TEST_FEATURES,
-        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        classifier_base=classifier_base,
         config=MagicMock(),
     )
     fdr_manager_new.load_classifier_store(tempfile.tempdir)
@@ -344,6 +353,39 @@ def test_fdr_manager_fit_predict():
     assert fdr_manager_new.get_classifier(FDR_TEST_FEATURES).fitted is True
 
     os.remove(temp_path)
+
+
+def _load_default_config() -> Config:
+    config_base_path = os.path.join(
+        Path(__file__).parent, "..", "..", "..", "alphadia", "constants", "default.yaml"
+    )
+    config = Config()
+    config.from_yaml(config_base_path)
+    return config
+
+
+@pytest.mark.parametrize(
+    ("classifier_name", "expected_type"),
+    [
+        ("mlp", BinaryClassifierLegacyNewBatching),
+        ("lightgbm", LightGBMClassifier),
+    ],
+)
+def test_get_classifier_base(classifier_name, expected_type):
+    config = _load_default_config()
+    config.update([Config({"fdr": {"classifier": classifier_name}})])
+
+    classifier = _get_classifier_base(config, random_state=0)
+
+    assert isinstance(classifier, expected_type)
+
+
+def test_get_classifier_base_unknown_raises():
+    config = _load_default_config()
+    config.update([Config({"fdr": {"classifier": "unknown"}})])
+
+    with pytest.raises(ValueError, match="Unknown FDR classifier"):
+        _get_classifier_base(config)
 
 
 def create_workflow_instance():
@@ -390,11 +432,7 @@ def create_workflow_instance():
 
     workflow._fdr_manager = FDRManager(
         feature_columns=feature_columns,
-        classifier_base=_get_classifier_base(
-            enable_nn_hyperparameter_tuning=workflow.config["fdr"][
-                "enable_nn_hyperparameter_tuning"
-            ],
-        ),
+        classifier_base=_get_classifier_base(workflow.config),
         config=MagicMock(),
         figure_path=workflow._figure_path,
     )
