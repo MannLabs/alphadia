@@ -413,8 +413,10 @@ fdr:
     hidden_decoy_fraction: 0.5
     # q-value below which a target is kept as a positive example in a refit
     train_fdr: 0.01
-    # number of refits after the first fit; 0 fits once on every target
-    n_iterations: 0
+    # number of refits after the first fit; 0 fits once on every target. Only worth more
+    # than 0 behind the prefilter: it purifies the positive class the refit selects from,
+    # and on the full candidate set a refit turns conservative and loses identifications
+    n_iterations: 2
     # cap on the training decoys per positive in a refit, drawn at random anew for every refit; null fits on all of them
     max_negative_ratio: null
 
