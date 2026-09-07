@@ -118,6 +118,71 @@ def test_fit_predict_keeps_the_previous_model_when_too_few_positives(caplog):
     assert "keeping the model after 0 refit(s)" in caplog.text
 
 
+class _FlakyClassifier(LightGBMClassifier):
+    """Scores every PSM alike after its first fit, until reset; healthy afterwards.
+
+    Stands in for a network whose start weights left it degenerate: within the fold the
+    ranking is gone, and only a fit from fresh weights recovers it.
+    """
+
+    broken_fits_left = 0
+
+    def fit(self, x, y, *, is_final=False):
+        super().fit(x, y, is_final=is_final)
+        if _FlakyClassifier.broken_fits_left > 0:
+            _FlakyClassifier.broken_fits_left -= 1
+            self.broken = True
+
+    def reset(self):
+        super().reset()
+        self.broken = False
+
+    def predict_proba(self, x):
+        proba = super().predict_proba(x)
+        if getattr(self, "broken", False):
+            proba[:, 1] = 0.9
+            proba[:, 0] = 0.1
+        return proba
+
+
+def _flaky_classifier() -> _FlakyClassifier:
+    return _FlakyClassifier(
+        n_estimators=30,
+        final_n_estimators=30,
+        min_child_samples=5,
+        num_threads=1,
+        random_state=0,
+    )
+
+
+def test_fit_predict_refits_a_fold_whose_model_came_out_degenerate(caplog):
+    # Given: a classifier whose very first fit, the first fold's, scores its fold flat, on
+    # enough PSMs for the fold cuts of a healthy run to agree
+    psm_df = _gen_psms(n_precursors=4000)
+    _FlakyClassifier.broken_fits_left = 1
+    healthy = _fit_predict(CrossFittedTrainer(n_folds=3, random_state=0), psm_df)
+
+    # When: the folds are fitted
+    result = _fit_predict(
+        CrossFittedTrainer(n_folds=3, random_state=0), psm_df, _flaky_classifier()
+    )
+
+    # Then: the fold is refitted from fresh weights and scores as well as a healthy run
+    assert "refitting it from fresh weights" in caplog.text
+    assert _FlakyClassifier.broken_fits_left == 0
+    true_rows = psm_df["is_true"].to_numpy()
+    assert (result.proba[true_rows] < 0.5).mean() > 0.95
+    assert np.corrcoef(result.proba, healthy.proba)[0, 1] > 0.9
+
+
+def test_fit_predict_leaves_healthy_folds_alone(caplog):
+    psm_df = _gen_psms(n_precursors=4000)
+
+    _fit_predict(CrossFittedTrainer(n_folds=3, random_state=0), psm_df)
+
+    assert "refitting it from fresh weights" not in caplog.text
+
+
 def test_cross_fitted_needs_two_folds():
     with pytest.raises(ValueError, match="n_folds"):
         CrossFittedTrainer(n_folds=1)

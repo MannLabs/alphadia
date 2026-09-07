@@ -27,6 +27,15 @@ logger = logging.getLogger()
 # Below this many positives a refit would fit noise; the previous model is kept instead.
 _MIN_POSITIVES = 1_000
 
+# The folds are drawn at random, so every fold's model should identify about the same
+# number of its fold's targets. A fold whose model came out degenerate (an unlucky set of
+# start weights, a network that stopped responding to most features) identifies far fewer
+# and drags the whole run down by its share; on the cluster such a run ended at two thirds
+# of its siblings' identifications with nothing else in the log to show for it. Such a
+# fold is refitted from fresh weights.
+_MIN_FOLD_IDENTIFICATION_SHARE = 0.5
+_MAX_FOLD_REFITS = 2
+
 _MIN_FOLDS = 2
 
 _COMPETITION_GROUP_COLUMN = "_competition_group"
@@ -49,7 +58,9 @@ class CrossFittedTrainer:
     The first fit of a fold takes every target of the other folds as a positive example
     and their decoys as negatives. Each refit keeps only the targets below `train_fdr`,
     estimated against the decoys after target-decoy competition, and fits on them against
-    all decoys. The classifier is warm-started from one refit to the next.
+    all decoys. The classifier is warm-started from one refit to the next. A fold whose
+    model identifies far fewer of its targets than the other folds' models do is fitted
+    again from fresh weights.
     """
 
     def __init__(
@@ -136,28 +147,71 @@ class CrossFittedTrainer:
             f"({int(is_target.sum()):,} targets, {int((~is_target).sum()):,} decoys)"
         )
 
+        # the passed classifier ends up as the last fold's model, the one that is stored
+        fold_classifiers = [deepcopy(classifier) for _ in range(self.n_folds - 1)] + [
+            classifier
+        ]
         proba = np.empty(len(y))
-        for fold_idx in range(self.n_folds):
+
+        def fit_fold(fold_idx: int) -> TrainingResult:
             in_fold = fold == fold_idx
             train_idx = np.flatnonzero(~in_fold)
-            fold_classifier = (
-                classifier if fold_idx == self.n_folds - 1 else deepcopy(classifier)
-            )
             result = self._self_train(
-                fold_classifier,
+                fold_classifiers[fold_idx],
                 x[train_idx],
                 is_target[train_idx],
                 competition_group[train_idx],
                 precursor_idx[train_idx],
                 is_final=is_final,
             )
-            proba[in_fold] = fold_classifier.predict_proba(x[in_fold])[:, 1]
+            proba[in_fold] = fold_classifiers[fold_idx].predict_proba(x[in_fold])[:, 1]
+            return TrainingResult(
+                proba=result.proba,
+                train_idx=train_idx[result.train_idx],
+                y_train=result.y_train,
+            )
+
+        results = [fit_fold(fold_idx) for fold_idx in range(self.n_folds)]
+
+        for _ in range(_MAX_FOLD_REFITS):
+            weak_folds = self._weak_folds(
+                proba, is_target, competition_group, precursor_idx, fold
+            )
+            if len(weak_folds) == 0:
+                break
+            for fold_idx in weak_folds:
+                fold_classifiers[fold_idx].reset()
+                results[fold_idx] = fit_fold(fold_idx)
 
         return TrainingResult(
             proba=proba,
-            train_idx=train_idx[result.train_idx],
-            y_train=result.y_train,
+            train_idx=results[-1].train_idx,
+            y_train=results[-1].y_train,
         )
+
+    def _weak_folds(
+        self,
+        proba: np.ndarray,
+        is_target: np.ndarray,
+        competition_group: np.ndarray,
+        precursor_idx: np.ndarray,
+        fold: np.ndarray,
+    ) -> np.ndarray:
+        """Folds whose model identifies far fewer of its targets than the best fold's does."""
+        identified = self._select_positives(
+            proba, is_target, competition_group, precursor_idx
+        )
+        per_fold = np.bincount(fold[identified], minlength=self.n_folds)
+        weak = np.flatnonzero(
+            per_fold < _MIN_FOLD_IDENTIFICATION_SHARE * per_fold.max()
+        )
+        for fold_idx in weak:
+            logger.warning(
+                f"Fold {fold_idx} identifies {per_fold[fold_idx]:,} targets below "
+                f"train_fdr {self.train_fdr}, the best fold {per_fold.max():,}; "
+                f"refitting it from fresh weights"
+            )
+        return weak
 
     def _self_train(  # noqa: PLR0913 # Too many arguments
         self,
