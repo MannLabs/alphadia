@@ -202,6 +202,8 @@ class CrossFittedTrainer:
             proba, is_target, competition_group, precursor_idx
         )
         per_fold = np.bincount(fold[identified], minlength=self.n_folds)
+        counts = ", ".join(f"{n:,}" for n in per_fold)
+        logger.info(f"Targets below train_fdr {self.train_fdr} per fold: {counts}")
         weak = np.flatnonzero(
             per_fold < _MIN_FOLD_IDENTIFICATION_SHARE * per_fold.max()
         )
