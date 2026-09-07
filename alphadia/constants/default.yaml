@@ -320,7 +320,7 @@ fdr:
   save_feature_matrix: false
   # classifier used for target-decoy scoring: "mlp" (neural network), "lightgbm" (gradient boosting)
   # or "ensemble" (both, probabilities averaged; the two make different mistakes)
-  classifier: "mlp"
+  classifier: "lightgbm"
   # restrict the classifier to these feature columns; empty means every feature the extraction backend provides
   feature_subset: []
   # hyperparameters of the lightgbm classifier, only used if classifier is "lightgbm"
@@ -358,7 +358,7 @@ fdr:
   # a small cross-fitted lightgbm model scores every PSM before the classifier; only PSMs below its q-value threshold
   # are passed on to the classifier, the rest are ranked behind them by their stage-1 score
   prefilter:
-    enabled: false
+    enabled: true
     # stage-1 q-value above which a PSM is not passed on to the classifier
     q_value_threshold: 0.2
     # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
@@ -404,7 +404,7 @@ fdr:
   # during training and counts only that share in the FDR estimate. Optionally, after a first fit on every target, only the
   # targets below train_fdr are kept as positives and the classifier is refitted on them
   semisupervised:
-    enabled: false
+    enabled: true
     # "cross_fitted" or "hidden_decoys"
     method: "cross_fitted"
     # number of folds of the cross-fitted method; a target and its decoy always share a fold
@@ -414,7 +414,7 @@ fdr:
     # q-value below which a target is kept as a positive example in a refit
     train_fdr: 0.01
     # number of refits after the first fit; 0 fits once on every target
-    n_iterations: 0
+    n_iterations: 2
     # cap on the training decoys per positive in a refit, drawn at random anew for every refit; null fits on all of them
     max_negative_ratio: null
 
