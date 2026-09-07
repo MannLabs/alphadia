@@ -16,6 +16,7 @@ from alphadia.fragcomp.fragcomp import compete_for_fragments
 
 if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
+    from alphadia.fdr.cross_fitting import CrossFittedTrainer, TrainingResult
     from alphadia.fdr.prefilter import CascadePrefilter
 
 max_dia_cycle_shape = 2
@@ -49,6 +50,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     random_state: int | None = None,
     is_final: bool = False,
     prefilter: CascadePrefilter | None = None,
+    trainer: CrossFittedTrainer | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -96,6 +98,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     prefilter : CascadePrefilter, default=None
         Gate that decides which PSMs the classifier is fitted on and scores. PSMs it
         drops are ranked behind every scored PSM, in the order of its own scores.
+
+    trainer : CrossFittedTrainer, default=None
+        Fits the classifier in the final round instead of a plain fit on a random split.
+        The optimization rounds keep the plain fit, as their scores only steer the
+        calibration.
 
     Returns
     -------
@@ -158,23 +165,50 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         keep, stage1_proba = prefilter.select(psm_df, y, is_final=is_final)
     x_kept = X[keep]
 
-    try:
-        X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-            x_kept, y[keep], test_size=0.2, random_state=random_state
-        )
-    except TooFewPSMError:
-        logger.warning(
-            "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
-        )
-        psm_df["qval"] = 1.0
-        psm_df["proba"] = 1.0
-        return psm_df
+    if trainer is not None and is_final:
+        # The optimization rounds fitted the classifier on PSMs of this round; a warm
+        # start would carry what it memorized about them into the out-of-fold fit.
+        classifier.reset()
+        precursor_idx = psm_df["precursor_idx"].to_numpy()
+        competition_group = psm_df.groupby(group_columns).ngroup().to_numpy()
+        results: list[TrainingResult] = []
 
-    def fit_and_score() -> np.ndarray:
-        classifier.fit(X_train, y_train, is_final=is_final)
-        return classifier.predict_proba(x_kept)[:, 1]
+        def fit_and_score() -> np.ndarray:
+            results.append(
+                trainer.fit_predict(
+                    classifier,
+                    x_kept,
+                    y[keep],
+                    competition_group[keep],
+                    precursor_idx[keep],
+                    is_final=is_final,
+                )
+            )
+            return results[-1].proba
 
-    predicted_proba = _fit_until_separated(fit_and_score, classifier)
+        predicted_proba = _fit_until_separated(fit_and_score, classifier)
+
+        idxs_train, y_train = results[-1].train_idx, results[-1].y_train
+        idxs_test = np.setdiff1d(np.arange(len(x_kept)), idxs_train)
+        y_test = y[keep][idxs_test]
+    else:
+        try:
+            X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
+                x_kept, y[keep], test_size=0.2, random_state=random_state
+            )
+        except TooFewPSMError:
+            logger.warning(
+                "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
+            )
+            psm_df["qval"] = 1.0
+            psm_df["proba"] = 1.0
+            return psm_df
+
+        def fit_and_score() -> np.ndarray:
+            classifier.fit(X_train, y_train, is_final=is_final)
+            return classifier.predict_proba(x_kept)[:, 1]
+
+        predicted_proba = _fit_until_separated(fit_and_score, classifier)
 
     proba = np.empty(len(X))
     proba[keep] = predicted_proba

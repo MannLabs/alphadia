@@ -382,6 +382,17 @@ fdr:
       - longest_b_series
       - num_over_0_rank_0_5
       - fwhm_rt
+  # the final classifier is fitted per fold and every PSM is scored by a model that never saw it; each refit keeps
+  # only the targets below train_fdr as positive examples (Percolator-style self-training)
+  cross_fitting:
+    enabled: true
+    # number of folds; every fold costs one fit per refit
+    n_folds: 3
+    # q-value below which a target is kept as a positive example in a refit
+    train_fdr: 0.01
+    # number of refits after the first fit on every target; refits pay off only behind the prefilter, which purifies
+    # the positive class - without it the strict cut selects from a pool that is almost entirely false targets
+    n_refits: 2
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

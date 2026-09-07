@@ -6,12 +6,14 @@ import pandas as pd
 import pytest
 
 from alphadia.fdr.classifiers import LightGBMClassifier
+from alphadia.fdr.cross_fitting import CrossFittedTrainer
 from alphadia.fdr.prefilter import CascadePrefilter
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import (
     PeptideCentricWorkflow,
     _get_classifier_base,
     _get_prefilter,
+    _get_trainer,
 )
 
 
@@ -148,3 +150,29 @@ def test_get_prefilter_uses_every_feature_for_an_empty_subset():
 def test_get_prefilter_rejects_an_unknown_feature():
     with pytest.raises(ValueError, match="does not provide"):
         _get_prefilter(_prefilter_config(["a", "typo"]), ["a", "b"])
+
+
+def _cross_fitting_config(enabled: bool = True) -> dict:
+    return {
+        "fdr": {
+            "cross_fitting": {
+                "enabled": enabled,
+                "n_folds": 4,
+                "train_fdr": 0.02,
+                "n_refits": 3,
+            }
+        }
+    }
+
+
+def test_get_trainer_is_none_when_disabled():
+    assert _get_trainer(_cross_fitting_config(enabled=False)) is None
+
+
+def test_get_trainer_reads_the_configuration():
+    trainer = _get_trainer(_cross_fitting_config(), random_state=1)
+
+    assert isinstance(trainer, CrossFittedTrainer)
+    assert trainer.n_folds == 4
+    assert trainer.train_fdr == 0.02
+    assert trainer.n_refits == 3

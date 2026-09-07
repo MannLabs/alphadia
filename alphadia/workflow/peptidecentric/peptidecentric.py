@@ -14,6 +14,7 @@ from alphadia.fdr.classifiers import (
     Classifier,
     LightGBMClassifier,
 )
+from alphadia.fdr.cross_fitting import CrossFittedTrainer
 from alphadia.fdr.prefilter import CascadePrefilter
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -163,6 +164,38 @@ def _prefilter_features(
     return [column for column in feature_columns if column in set(feature_subset)]
 
 
+def _get_trainer(
+    config: Config,
+    random_state: int | None = None,
+) -> CrossFittedTrainer | None:
+    """Creates the cross-fitted trainer, or None if the configuration disables it.
+
+    Parameters
+    ----------
+    config : Config
+        The workflow configuration, read for the cross-fitting settings.
+
+    random_state : int | None, optional
+        Random state for reproducibility. Default is None.
+
+    Returns
+    -------
+    CrossFittedTrainer | None
+        The trainer, or None if disabled.
+
+    """
+    config_trainer = config["fdr"]["cross_fitting"]
+    if not config_trainer["enabled"]:
+        return None
+
+    return CrossFittedTrainer(
+        n_folds=config_trainer["n_folds"],
+        train_fdr=config_trainer["train_fdr"],
+        n_refits=config_trainer["n_refits"],
+        random_state=random_state,
+    )
+
+
 class PeptideCentricWorkflow(base.WorkflowBase):
     def __init__(
         self,
@@ -227,6 +260,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 self.config,
                 backend_feature_columns,
                 random_state=self._random_state_fdr_classifier,
+            ),
+            trainer=_get_trainer(
+                self.config, random_state=self._random_state_fdr_classifier
             ),
         )
 
