@@ -313,8 +313,8 @@ fdr:
   classifier: "ensemble"
   # members of the ensemble classifier; every member is fitted from its own seed
   ensemble:
-    n_mlp: 1
-    n_lightgbm: 1
+    n_mlp: 2
+    n_lightgbm: 2
   # hyperparameters of the mlp classifier
   mlp:
     # sizes of the hidden layers
