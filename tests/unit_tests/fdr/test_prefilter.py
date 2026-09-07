@@ -5,6 +5,7 @@ import pandas as pd
 
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import LightGBMClassifier
+from alphadia.fdr.cross_fitting import CrossFittedTrainer
 from alphadia.fdr.prefilter import CascadePrefilter
 
 
@@ -166,7 +167,9 @@ def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
 
 
 def test_perform_fdr_with_prefilter_reports_the_recall_check(caplog):
-    # Given: separable targets and decoys and a gate that keeps the confident half
+    # Given: separable targets and decoys, a gate with room behind the confident ones and
+    # the cross-fitted final round, whose false identifications do not pile up on the
+    # scored rows the way a plain fit's do
     caplog.set_level(logging.INFO)
     target_df, decoy_df = _gen_target_decoy_dfs(n_samples=2000)
 
@@ -178,24 +181,26 @@ def test_perform_fdr_with_prefilter_reports_the_recall_check(caplog):
         decoy_df,
         competitive=True,
         is_final=True,
-        prefilter=_get_prefilter(q_value_threshold=0.2),
+        prefilter=_get_prefilter(q_value_threshold=0.5),
+        trainer=CrossFittedTrainer(n_folds=2, random_state=0),
     )
 
-    # Then: the identifications are checked against the gate's cut and the helper
-    # column does not leak into the result
+    # Then: the identifications are checked against the gate's cut, the cut holds and
+    # the helper column does not leak into the result
     assert "Prefilter recall check" in caplog.text
+    assert "widening the cut" not in caplog.text
     assert "_stage1_rank" not in psm_df.columns
 
 
-def test_perform_fdr_with_prefilter_warns_when_the_identifications_crowd_the_cut(
+def test_perform_fdr_with_prefilter_widens_the_cut_when_the_identifications_crowd_it(
     caplog,
 ):
     # Given: a gate whose floor cuts right through the confident targets
+    caplog.set_level(logging.INFO)
     target_df, decoy_df = _gen_target_decoy_dfs(n_samples=2000)
 
-    # When: the FDR is computed behind a gate that keeps fewer PSMs than there are
-    # confident targets
-    fdr.perform_fdr(
+    # When: the FDR is computed in the final round behind that gate
+    psm_df = fdr.perform_fdr(
         _get_classifier(),
         ["feature", "noise"],
         target_df,
@@ -205,5 +210,31 @@ def test_perform_fdr_with_prefilter_warns_when_the_identifications_crowd_the_cut
         prefilter=_get_prefilter(q_value_threshold=0.0, min_kept_psms=500),
     )
 
-    # Then: the recall check warns
-    assert "may be cutting into the identifications" in caplog.text
+    # Then: the cut is widened once and the confident targets are identified after all
+    assert "widening the cut to stage-1 q-value <= 0.5" in caplog.text
+    assert caplog.text.count("Prefilter kept") == 2
+    good_targets = psm_df[(psm_df["_decoy"] == 0) & (psm_df["feature"] < 1.0)]
+    assert (good_targets["qval"] < 0.05).mean() > 0.9
+
+
+def test_perform_fdr_with_prefilter_leaves_the_cut_alone_in_optimization_rounds(
+    caplog,
+):
+    # Given: the same truncating gate, in a round whose scores only steer the calibration
+    caplog.set_level(logging.INFO)
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=2000)
+
+    # When: the FDR is computed in an optimization round
+    fdr.perform_fdr(
+        _get_classifier(),
+        ["feature", "noise"],
+        target_df,
+        decoy_df,
+        competitive=True,
+        is_final=False,
+        prefilter=_get_prefilter(q_value_threshold=0.0, min_kept_psms=500),
+    )
+
+    # Then: neither the check nor the widening runs
+    assert "Prefilter recall check" not in caplog.text
+    assert caplog.text.count("Prefilter kept") == 1

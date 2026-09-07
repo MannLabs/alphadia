@@ -60,6 +60,7 @@ class CascadePrefilter:
 
         q_value_threshold : float
             Candidates whose stage-1 q-value exceeds this are not passed to the classifier.
+            The final FDR round widens the cut once when the identifications crowd it.
 
         n_folds : int, default=2
             Number of cross-fitting folds.
@@ -137,7 +138,41 @@ class CascadePrefilter:
             )
             return keep_all
 
-        precursor_idx = psm_df["precursor_idx"].to_numpy()
+        keep = self.keep_from_scores(
+            stage1_proba, y, psm_df["precursor_idx"].to_numpy(), self.q_value_threshold
+        )
+        return keep, stage1_proba
+
+    def keep_from_scores(
+        self,
+        stage1_proba: np.ndarray,
+        y: np.ndarray,
+        precursor_idx: np.ndarray,
+        q_value_threshold: float,
+    ) -> np.ndarray:
+        """Cut the stage-1 ranking at a q-value threshold, never below the floor.
+
+        Parameters
+        ----------
+        stage1_proba : np.ndarray, dtype=float
+            Out-of-fold stage-1 decoy probability of every candidate.
+
+        y : np.ndarray, dtype=int
+            Decoy labels of shape (n_samples,), 1 for decoys.
+
+        precursor_idx : np.ndarray
+            Precursor index of every candidate, used to break score ties.
+
+        q_value_threshold : float
+            Candidates whose stage-1 q-value exceeds this are not kept.
+
+        Returns
+        -------
+        np.ndarray, dtype=bool
+            True for candidates the classifier should be fitted on and score.
+
+        """
+        n_psms = len(y)
         q_values = (
             get_q_values(
                 pd.DataFrame(
@@ -147,7 +182,7 @@ class CascadePrefilter:
             .sort_index()
             .to_numpy()
         )
-        n_below_threshold = int((q_values <= self.q_value_threshold).sum())
+        n_below_threshold = int((q_values <= q_value_threshold).sum())
         n_keep = min(max(n_below_threshold, self.min_kept_psms), n_psms)
 
         # the same order get_q_values ranks by, so the q-value set is a prefix of it
@@ -162,11 +197,10 @@ class CascadePrefilter:
         )
         logger.info(
             f"Prefilter kept {n_keep:,} of {n_psms:,} PSMs ({100 * n_keep / n_psms:.1f}%) "
-            f"at stage-1 q-value <= {self.q_value_threshold}{floor_note}: "
+            f"at stage-1 q-value <= {q_value_threshold}{floor_note}: "
             f"{int(((y == 0) & keep).sum()):,} targets, {int(((y == 1) & keep).sum()):,} decoys"
         )
-
-        return keep, stage1_proba
+        return keep
 
     def _training_rows(self, candidates: np.ndarray) -> np.ndarray:
         """Rows one fold's model is fitted on.

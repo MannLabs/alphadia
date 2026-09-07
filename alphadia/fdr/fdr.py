@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -35,18 +36,33 @@ _MAX_FDR_CLASSIFIER_REINITS = 3
 # PSMs, so a dropped PSM with stage-1 probability 0 still ranks strictly behind them.
 _DROPPED_PROBA_OFFSET = 0.5
 
-# The prefilter is checked against the identifications it let through: the share of them
-# that sit in the worst-ranked tenth of what it kept. A gate with margin sees the
-# identification density die out well before its cut (0.1 % on HeLa at the shipped
-# threshold); one that truncates the identifications is still dense at the cut (2.4 % at a
-# threshold that costs 1 % of the identifications on the same data).
+# The prefilter is judged by the identifications it let through: the share of them that
+# sit in the worst-ranked tenth of what it kept. A gate with margin sees the
+# identification density die out well before its cut; one that truncates the
+# identifications is still dense at the cut. Final rounds on HeLa, with and without an
+# entrapment library, land at 0.08-0.46 % under the shipped threshold, while plasma lands
+# at 0.69-1.28 % and gains 21 % identifications once the cut is widened to the threshold
+# below. Only the final round is judged: the optimization rounds identify a few thousand
+# PSMs and their share is noise.
 _RECALL_CHECK_FDR = 0.01
 _RECALL_CHECK_TAIL_FRACTION = 0.1
-_RECALL_WARN_TAIL_SHARE = 0.01
+_RECALL_WIDEN_TAIL_SHARE = 0.005
+_WIDE_Q_VALUE_THRESHOLD = 0.5
+
+
+@dataclass
+class _Fit:
+    """Scores of the kept PSMs and the split the classifier was fitted on."""
+
+    proba: np.ndarray
+    train_idx: np.ndarray
+    test_idx: np.ndarray
+    y_train: np.ndarray
+    y_test: np.ndarray
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
+def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many arguments, too many statements
     classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -108,9 +124,9 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     prefilter : CascadePrefilter, default=None
         Gate that decides which PSMs the classifier is fitted on and scores. PSMs it
-        drops are ranked behind every scored PSM, in the order of its own scores. The
-        identifications are checked against the gate's cut afterwards, and a warning is
-        logged when they crowd it.
+        drops are ranked behind every scored PSM, in the order of its own scores. When
+        the final round's identifications crowd the gate's cut, the cut is widened once
+        and the classifier refitted on the wider set.
 
     trainer : CrossFittedTrainer, default=None
         Fits the classifier in the final round instead of a plain fit on a random split.
@@ -174,6 +190,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     if prefilter is None:
         keep = np.ones(len(X), dtype=bool)
+        stage1_proba = np.zeros(len(X))
     else:
         keep, stage1_proba = prefilter.select(psm_df, y, is_final=is_final)
         # the kept PSMs are a prefix of this order, see CascadePrefilter.select
@@ -181,135 +198,150 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         stage1_rank = np.empty(len(X), dtype=np.int64)
         stage1_rank[stage1_order] = np.arange(len(X))
         psm_df[_STAGE1_RANK_COLUMN] = stage1_rank
-    x_kept = X[keep]
 
-    if trainer is not None and is_final:
-        # The optimization rounds fitted the classifier on PSMs of this round; a warm
-        # start would carry what it memorized about them into the out-of-fold fit.
-        classifier.reset()
-        precursor_idx = psm_df["precursor_idx"].to_numpy()
-        competition_group = psm_df.groupby(group_columns).ngroup().to_numpy()
-        results: list[TrainingResult] = []
+    precursor_idx = psm_df["precursor_idx"].to_numpy()
+    cross_fitted = trainer is not None and is_final
+    competition_group = (
+        psm_df.groupby(group_columns).ngroup().to_numpy() if cross_fitted else None
+    )
 
-        def fit_and_score() -> np.ndarray:
-            results.append(
-                trainer.fit_predict(
-                    classifier,
-                    x_kept,
-                    y[keep],
-                    competition_group[keep],
-                    precursor_idx[keep],
-                    is_final=is_final,
+    def fit(keep: np.ndarray) -> _Fit:
+        x_kept = X[keep]
+
+        if cross_fitted:
+            # The optimization rounds fitted the classifier on PSMs of this round; a
+            # warm start would carry what it memorized about them into the out-of-fold
+            # fit.
+            classifier.reset()
+            results: list[TrainingResult] = []
+
+            def fit_and_score() -> np.ndarray:
+                results.append(
+                    trainer.fit_predict(
+                        classifier,
+                        x_kept,
+                        y[keep],
+                        competition_group[keep],
+                        precursor_idx[keep],
+                        is_final=is_final,
+                    )
                 )
-            )
-            return results[-1].proba
+                return results[-1].proba
 
-        predicted_proba = _fit_until_separated(fit_and_score, classifier)
+            proba = _fit_until_separated(fit_and_score, classifier)
+            train_idx, y_train = results[-1].train_idx, results[-1].y_train
+            test_idx = np.setdiff1d(np.arange(len(x_kept)), train_idx)
+            return _Fit(proba, train_idx, test_idx, y_train, y[keep][test_idx])
 
-        idxs_train, y_train = results[-1].train_idx, results[-1].y_train
-        idxs_test = np.setdiff1d(np.arange(len(x_kept)), idxs_train)
-        y_test = y[keep][idxs_test]
-    else:
-        try:
-            X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-                x_kept, y[keep], test_size=0.2, random_state=random_state
-            )
-        except TooFewPSMError:
-            logger.warning(
-                "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
-            )
-            psm_df["qval"] = 1.0
-            psm_df["proba"] = 1.0
-            return psm_df.drop(columns=_STAGE1_RANK_COLUMN, errors="ignore")
+        X_train, _, y_train, y_test, train_idx, test_idx = train_test_split_(
+            x_kept, y[keep], test_size=0.2, random_state=random_state
+        )
 
         def fit_and_score() -> np.ndarray:
             classifier.fit(X_train, y_train, is_final=is_final)
             return classifier.predict_proba(x_kept)[:, 1]
 
-        predicted_proba = _fit_until_separated(fit_and_score, classifier)
+        proba = _fit_until_separated(fit_and_score, classifier)
+        return _Fit(proba, train_idx, test_idx, y_train, y_test)
 
-    proba = np.empty(len(X))
-    proba[keep] = predicted_proba
-    if prefilter is not None:
-        # Dropped PSMs never reach the FDR threshold, so their exact scores do not matter,
-        # only that every one of them ranks behind every scored PSM. Spreading them by
-        # their stage-1 score keeps them distinct, so a tied block cannot form in the tail.
-        worst_kept = predicted_proba.max()
-        proba[~keep] = worst_kept + (1 - worst_kept) * (
-            _DROPPED_PROBA_OFFSET + (1 - _DROPPED_PROBA_OFFSET) * stage1_proba[~keep]
-        )
-
-    psm_df["proba"] = proba
-    psm_df.sort_values(
-        ["proba", "precursor_idx"], ascending=True, inplace=True
-    )  # last sort to break ties
-
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
-
-    if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
-        # use a FDR of 10% as starting point
-        # if there are no PSMs with a FDR < 10% use all PSMs
-        start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
-        if start_idx == 0:
-            start_idx = len(psm_df)
-
-        # make sure fragments are not reused
-        if df_fragments is not None:
-            if dia_cycle is None:
-                raise ValueError(
-                    "dia_cycle must be provided if df_fragments is provided"
-                )
-            psm_df = compete_for_fragments(
-                psm_df.iloc[:start_idx], df_fragments, dia_cycle
+    def score(fit_result: _Fit, keep: np.ndarray) -> pd.DataFrame:
+        proba = np.empty(len(X))
+        proba[keep] = fit_result.proba
+        if prefilter is not None:
+            # Dropped PSMs never reach the FDR threshold, so their exact scores do not
+            # matter, only that every one of them ranks behind every scored PSM.
+            # Spreading them by their stage-1 score keeps them distinct, so a tied block
+            # cannot form in the tail.
+            worst_kept = fit_result.proba.max()
+            proba[~keep] = worst_kept + (1 - worst_kept) * (
+                _DROPPED_PROBA_OFFSET
+                + (1 - _DROPPED_PROBA_OFFSET) * stage1_proba[~keep]
             )
+        psm_df["proba"] = proba
 
-    psm_df = keep_best(psm_df, group_columns=group_columns)
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+        scored_df = get_q_values(psm_df, "proba", "_decoy")
 
-    if prefilter is not None and not keep.all():
-        _check_prefilter_recall(psm_df, int(keep.sum()))
-    psm_df = psm_df.drop(columns=_STAGE1_RANK_COLUMN, errors="ignore")
+        if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
+            # use a FDR of 10% as starting point
+            # if there are no PSMs with a FDR < 10% use all PSMs
+            start_idx = scored_df["qval"].searchsorted(fdr_heuristic, side="left")
+            if start_idx == 0:
+                start_idx = len(scored_df)
+
+            # make sure fragments are not reused
+            if df_fragments is not None:
+                if dia_cycle is None:
+                    raise ValueError(
+                        "dia_cycle must be provided if df_fragments is provided"
+                    )
+                scored_df = compete_for_fragments(
+                    scored_df.iloc[:start_idx], df_fragments, dia_cycle
+                )
+
+        scored_df = keep_best(scored_df, group_columns=group_columns)
+        return get_q_values(scored_df, "proba", "_decoy")
+
+    try:
+        fit_result = fit(keep)
+    except TooFewPSMError:
+        logger.warning(
+            "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
+        )
+        psm_df["qval"] = 1.0
+        psm_df["proba"] = 1.0
+        return psm_df.drop(columns=_STAGE1_RANK_COLUMN, errors="ignore")
+
+    scored_df = score(fit_result, keep)
+
+    if prefilter is not None and is_final and not keep.all():
+        tail_share = _prefilter_tail_share(scored_df, int(keep.sum()))
+        if tail_share > _RECALL_WIDEN_TAIL_SHARE:
+            logger.warning(
+                f"{100 * tail_share:.2f}% of the identifications sit in the worst "
+                f"{_RECALL_CHECK_TAIL_FRACTION:.0%} of the PSMs the prefilter kept, "
+                f"widening the cut to stage-1 q-value <= {_WIDE_Q_VALUE_THRESHOLD} "
+                f"and refitting"
+            )
+            keep = prefilter.keep_from_scores(
+                stage1_proba, y, precursor_idx, _WIDE_Q_VALUE_THRESHOLD
+            )
+            fit_result = fit(keep)
+            scored_df = score(fit_result, keep)
+            tail_share = _prefilter_tail_share(scored_df, int(keep.sum()))
+        logger.info(
+            f"Prefilter recall check: {100 * tail_share:.2f}% of the identifications at "
+            f"{_RECALL_CHECK_FDR:.0%} FDR sit in the worst "
+            f"{_RECALL_CHECK_TAIL_FRACTION:.0%} of the PSMs the prefilter kept"
+        )
+    scored_df = scored_df.drop(columns=_STAGE1_RANK_COLUMN, errors="ignore")
 
     if figure_path is not None:
         plot_fdr(
-            y_train,
-            y_test,
-            predicted_proba[idxs_train],
-            predicted_proba[idxs_test],
-            psm_df["qval"],
+            fit_result.y_train,
+            fit_result.y_test,
+            fit_result.proba[fit_result.train_idx],
+            fit_result.proba[fit_result.test_idx],
+            scored_df["qval"],
             figure_path=figure_path,
         )
 
-    return psm_df
+    return scored_df
 
 
-def _check_prefilter_recall(psm_df: pd.DataFrame, n_kept: int) -> None:
-    """Log how close the identifications come to the prefilter's cut.
+def _prefilter_tail_share(psm_df: pd.DataFrame, n_kept: int) -> float:
+    """Share of the identifications that sit in the worst-ranked tail of the kept PSMs.
 
     A gate cannot be told from inside whether it dropped PSMs the classifier would have
     identified; this is the next best thing: identifications that fill the tail of what
     it kept mean the density was still high where it stopped.
     """
     identified = psm_df[(psm_df["_decoy"] == 0) & (psm_df["qval"] <= _RECALL_CHECK_FDR)]
-    n_tail = int(
-        (
-            identified[_STAGE1_RANK_COLUMN]
-            >= (1 - _RECALL_CHECK_TAIL_FRACTION) * n_kept
-        ).sum()
+    if len(identified) == 0:
+        return 0.0
+    in_tail = (
+        identified[_STAGE1_RANK_COLUMN] >= (1 - _RECALL_CHECK_TAIL_FRACTION) * n_kept
     )
-    share = n_tail / len(identified) if len(identified) else 0.0
-    message = (
-        f"Prefilter recall check: {n_tail:,} of {len(identified):,} identifications at "
-        f"{_RECALL_CHECK_FDR:.0%} FDR ({100 * share:.2f}%) sit in the worst "
-        f"{_RECALL_CHECK_TAIL_FRACTION:.0%} of the PSMs the prefilter kept"
-    )
-    if share > _RECALL_WARN_TAIL_SHARE:
-        logger.warning(
-            f"{message}; the prefilter may be cutting into the identifications, "
-            f"consider raising fdr.prefilter.q_value_threshold"
-        )
-    else:
-        logger.info(message)
+    return float(in_tail.mean())
 
 
 def _fit_until_separated(

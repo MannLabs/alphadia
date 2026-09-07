@@ -347,7 +347,8 @@ fdr:
   # are passed on to the classifier, the rest are ranked behind them by their stage-1 score
   prefilter:
     enabled: true
-    # stage-1 q-value above which a PSM is not passed on to the classifier
+    # stage-1 q-value above which a PSM is not passed on to the classifier; the final round widens the cut to 0.5 once
+    # when the identifications crowd it, which happens on low-identification samples such as plasma
     q_value_threshold: 0.2
     # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
     n_folds: 2
