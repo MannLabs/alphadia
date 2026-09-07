@@ -12,6 +12,7 @@ import xxhash
 import alphadia
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
+from alphadia.fdr.prefilter import CascadePrefilter
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -61,6 +62,7 @@ class FDRManager(BaseManager):
         path: None | str = None,
         load_from_file: bool = True,
         random_state: int | None = None,
+        prefilter: CascadePrefilter | None = None,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -81,6 +83,9 @@ class FDRManager(BaseManager):
             If True, the manager will be loaded from file if it exists.
         random_state: int, optional
             Random state for reproducibility.
+        prefilter : CascadePrefilter, optional
+            Gate applied in front of the classifier in every FDR round. If None, the
+            classifier is fitted on and scores every PSM.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
@@ -97,6 +102,7 @@ class FDRManager(BaseManager):
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
+        self._prefilter = prefilter
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -180,6 +186,7 @@ class FDRManager(BaseManager):
                 figure_path=self.figure_path,
                 random_state=random_state,
                 is_final=is_final,
+                prefilter=self._prefilter,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -204,6 +211,7 @@ class FDRManager(BaseManager):
                         figure_path=self.figure_path,
                         random_state=random_state,
                         is_final=is_final,
+                        prefilter=self._prefilter,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
@@ -225,6 +233,7 @@ class FDRManager(BaseManager):
                         figure_path=self.figure_path,
                         random_state=random_state,
                         is_final=is_final,
+                        prefilter=self._prefilter,
                     )
                 )
 

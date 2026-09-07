@@ -6,10 +6,12 @@ import pandas as pd
 import pytest
 
 from alphadia.fdr.classifiers import LightGBMClassifier
+from alphadia.fdr.prefilter import CascadePrefilter
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import (
     PeptideCentricWorkflow,
     _get_classifier_base,
+    _get_prefilter,
 )
 
 
@@ -100,3 +102,49 @@ def test_get_classifier_reads_the_lightgbm_configuration():
 def test_get_classifier_rejects_an_unknown_name():
     with pytest.raises(ValueError, match="Unknown FDR classifier"):
         _get_classifier_base(_classifier_config("forest"))
+
+
+def _prefilter_config(feature_subset: list[str], enabled: bool = True) -> dict:
+    return {
+        "general": {"thread_count": 2},
+        "fdr": {
+            "lightgbm": {"n_estimators": 10, "final_n_estimators": 10},
+            "prefilter": {
+                "enabled": enabled,
+                "q_value_threshold": 0.3,
+                "n_folds": 3,
+                "n_estimators": 20,
+                "final_n_estimators": 40,
+                "max_train_psms": 1000,
+                "feature_subset": feature_subset,
+            },
+        },
+    }
+
+
+def test_get_prefilter_is_none_when_disabled():
+    assert _get_prefilter(_prefilter_config(["a"], enabled=False), ["a", "b"]) is None
+
+
+def test_get_prefilter_reads_the_configuration_and_keeps_the_backend_order():
+    prefilter = _get_prefilter(_prefilter_config(["c", "a"]), ["a", "b", "c"])
+
+    assert isinstance(prefilter, CascadePrefilter)
+    assert prefilter.feature_columns == ["a", "c"]
+    assert prefilter.q_value_threshold == 0.3
+    assert prefilter.n_folds == 3
+    assert prefilter.max_train_psms == 1000
+    assert prefilter._classifier.n_estimators == 20
+    assert prefilter._classifier.final_n_estimators == 40
+    assert prefilter._classifier.num_threads == 2
+
+
+def test_get_prefilter_uses_every_feature_for_an_empty_subset():
+    prefilter = _get_prefilter(_prefilter_config([]), ["a", "b"])
+
+    assert prefilter.feature_columns == ["a", "b"]
+
+
+def test_get_prefilter_rejects_an_unknown_feature():
+    with pytest.raises(ValueError, match="does not provide"):
+        _get_prefilter(_prefilter_config(["a", "typo"]), ["a", "b"])

@@ -342,6 +342,46 @@ fdr:
     validation_fraction: 0.1
     # fraction of PSMs held out from the final fit to drive early stopping
     final_validation_fraction: 0.075
+  # a small cross-fitted lightgbm model scores every PSM before the classifier; only PSMs below its q-value threshold
+  # are passed on to the classifier, the rest are ranked behind them by their stage-1 score
+  prefilter:
+    enabled: true
+    # stage-1 q-value above which a PSM is not passed on to the classifier
+    q_value_threshold: 0.2
+    # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
+    n_folds: 2
+    # maximum number of boosting rounds (trees) of the stage-1 model in the optimization rounds
+    n_estimators: 200
+    # maximum number of boosting rounds (trees) of the stage-1 model in the final round
+    final_n_estimators: 200
+    # fit each fold's stage-1 model on at most this many PSMs of the other folds; null fits on all of them
+    max_train_psms: 1000000
+    # features of the stage-1 model; the remaining hyperparameters are shared with fdr.lightgbm
+    feature_subset:
+      - idf_hyperscore
+      - num_over_0
+      - log10_b_ion_intensity
+      - num_profiles_filtered
+      - log10_y_ion_intensity
+      - idf_xic_dot_product
+      - idf_intensity_dot_product
+      - delta_rt
+      - hyperscore_inverse_mass_error
+      - intensity_cosine_library
+      - naa
+      - rt_observed
+      - num_fragments
+      - weighted_mass_error
+      - spectral_entropy
+      - weighted_mean_correlation
+      - mass_error_std
+      - mass_error_mean_signed
+      - score
+      - mass_error_max_abs
+      - correlation_iqr
+      - longest_b_series
+      - num_over_0_rank_0_5
+      - fwhm_rt
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

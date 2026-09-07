@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -15,6 +16,7 @@ from alphadia.fragcomp.fragcomp import compete_for_fragments
 
 if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
+    from alphadia.fdr.prefilter import CascadePrefilter
 
 max_dia_cycle_shape = 2
 
@@ -25,6 +27,10 @@ logger = logging.getLogger()
 _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
+
+# Fraction of the gap between the worst scored PSM and 1.0 left empty above the scored
+# PSMs, so a dropped PSM with stage-1 probability 0 still ranks strictly behind them.
+_DROPPED_PROBA_OFFSET = 0.5
 
 
 @manage_torch_threads(max_threads=2)
@@ -42,6 +48,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
     is_final: bool = False,
+    prefilter: CascadePrefilter | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -86,6 +93,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         Whether this is the FDR round whose scores are reported, rather than one of the
         optimization rounds.
 
+    prefilter : CascadePrefilter, default=None
+        Gate that decides which PSMs the classifier is fitted on and scores. PSMs it
+        drops are ranked behind every scored PSM, in the order of its own scores.
+
     Returns
     -------
     psm_df : pd.DataFrame
@@ -129,21 +140,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
-    try:
-        X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-            X, y, test_size=0.2, random_state=random_state
-        )
-    except TooFewPSMError:
-        logger.warning(
-            "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
-        )
-        psm_df = pd.concat([df_target, df_decoy])
-        psm_df["qval"] = 1.0
-        psm_df["proba"] = 1.0
-        return psm_df
-
-    classifier.fit(X_train, y_train, is_final=is_final)
-
     psm_df = pd.concat([df_target, df_decoy])
     psm_df["_decoy"] = y
 
@@ -156,32 +152,42 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     else:
         group_columns = ["precursor_idx"]
 
-    predicted_proba = classifier.predict_proba(X)[:, 1]
+    if prefilter is None:
+        keep = np.ones(len(X), dtype=bool)
+    else:
+        keep, stage1_proba = prefilter.select(psm_df, y, is_final=is_final)
+    x_kept = X[keep]
 
-    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
-    n_reinit = 0
-    while (
-        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
-        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
-    ):
-        n_reinit += 1
-        logger.warning(
-            f"FDR classifier collapsed to a near-constant probability "
-            f"({np.unique(predicted_proba).size} unique value(s) over "
-            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
-            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+    try:
+        X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
+            x_kept, y[keep], test_size=0.2, random_state=random_state
         )
-        classifier.reset()
+    except TooFewPSMError:
+        logger.warning(
+            "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
+        )
+        psm_df["qval"] = 1.0
+        psm_df["proba"] = 1.0
+        return psm_df
+
+    def fit_and_score() -> np.ndarray:
         classifier.fit(X_train, y_train, is_final=is_final)
-        predicted_proba = classifier.predict_proba(X)[:, 1]
+        return classifier.predict_proba(x_kept)[:, 1]
 
-    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
-        logger.warning(
-            "FDR classifier produced a near-constant probability; target/decoy "
-            "separation failed and q-values will not filter PSMs."
+    predicted_proba = _fit_until_separated(fit_and_score, classifier)
+
+    proba = np.empty(len(X))
+    proba[keep] = predicted_proba
+    if prefilter is not None:
+        # Dropped PSMs never reach the FDR threshold, so their exact scores do not matter,
+        # only that every one of them ranks behind every scored PSM. Spreading them by
+        # their stage-1 score keeps them distinct, so a tied block cannot form in the tail.
+        worst_kept = predicted_proba.max()
+        proba[~keep] = worst_kept + (1 - worst_kept) * (
+            _DROPPED_PROBA_OFFSET + (1 - _DROPPED_PROBA_OFFSET) * stage1_proba[~keep]
         )
 
-    psm_df["proba"] = predicted_proba
+    psm_df["proba"] = proba
     psm_df.sort_values(
         ["proba", "precursor_idx"], ascending=True, inplace=True
     )  # last sort to break ties
@@ -219,6 +225,39 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
 
     return psm_df
+
+
+def _fit_until_separated(
+    fit_and_score: Callable[[], np.ndarray], classifier: Classifier
+) -> np.ndarray:
+    """Fit and score, starting over from fresh weights while the scores are near-constant.
+
+    A collapse is usually an unlucky set of start weights, so a new fit recovers it.
+    """
+    predicted_proba = fit_and_score()
+
+    n_reinit = 0
+    while (
+        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
+    ):
+        n_reinit += 1
+        logger.warning(
+            f"FDR classifier collapsed to a near-constant probability "
+            f"({np.unique(predicted_proba).size} unique value(s) over "
+            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
+            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+        )
+        classifier.reset()
+        predicted_proba = fit_and_score()
+
+    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
+        logger.warning(
+            "FDR classifier produced a near-constant probability; target/decoy "
+            "separation failed and q-values will not filter PSMs."
+        )
+
+    return predicted_proba
 
 
 def keep_best(
