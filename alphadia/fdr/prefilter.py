@@ -16,11 +16,12 @@ logger = logging.getLogger()
 # trained on too few rows to be trusted with the decision which candidates it never sees.
 _MIN_PSMS = 100_000
 
-# A gate that admits fewer PSMs than this has found no confident population at all: on a
-# low-identification sample the stage-1 model separates nothing, so its q-values leave
-# almost everything behind and the classifier is left with too few rows to be fitted on
-# (LightGBM aborts outright, finding no feature it can bin). The gate abstains instead.
-_MIN_KEPT_PSMS = 1_000
+# The gate never passes on fewer PSMs than this. On a low-identification sample the
+# stage-1 q-values leave almost everything behind and the classifier would be fitted on a
+# few hundred rows (LightGBM aborts outright, finding no feature it can bin). The q-value
+# set is a prefix of the stage-1 ranking, so the cut is simply extended down that ranking
+# until the floor is reached, which is the same as relaxing the q-value threshold.
+_MIN_KEPT_PSMS = 2_000
 
 
 class CascadePrefilter:
@@ -66,9 +67,9 @@ class CascadePrefilter:
         min_psms : int, default=100000
             Below this many PSMs every candidate is passed on unfiltered.
 
-        min_kept_psms : int, default=1000
-            If the gate would keep fewer PSMs than this, every candidate is passed on
-            unfiltered instead.
+        min_kept_psms : int, default=2000
+            The gate keeps at least this many candidates, extending the cut down the
+            stage-1 ranking when the q-value threshold alone would keep fewer.
 
         max_train_psms : int, optional
             Fit each fold's model on at most this many randomly drawn PSMs of the other
@@ -136,29 +137,32 @@ class CascadePrefilter:
             )
             return keep_all
 
-        q_values = get_q_values(
-            pd.DataFrame(
-                {
-                    "proba": stage1_proba,
-                    "_decoy": y,
-                    "precursor_idx": psm_df["precursor_idx"].to_numpy(),
-                }
-            )
-        )["qval"].sort_index()
-        keep = (q_values <= self.q_value_threshold).to_numpy()
+        precursor_idx = psm_df["precursor_idx"].to_numpy()
+        q_values = (
+            get_q_values(
+                pd.DataFrame(
+                    {"proba": stage1_proba, "_decoy": y, "precursor_idx": precursor_idx}
+                )
+            )["qval"]
+            .sort_index()
+            .to_numpy()
+        )
+        n_below_threshold = int((q_values <= self.q_value_threshold).sum())
+        n_keep = min(max(n_below_threshold, self.min_kept_psms), n_psms)
 
-        n_kept = int(keep.sum())
-        if n_kept < self.min_kept_psms:
-            logger.warning(
-                f"Prefilter kept only {n_kept:,} of {n_psms:,} PSMs at stage-1 q-value "
-                f"<= {self.q_value_threshold}, too few to fit the classifier on; "
-                f"passing all PSMs on"
-            )
-            return keep_all
+        # the same order get_q_values ranks by, so the q-value set is a prefix of it
+        order = np.lexsort((precursor_idx, y, stage1_proba))
+        keep = np.zeros(n_psms, dtype=bool)
+        keep[order[:n_keep]] = True
 
+        floor_note = (
+            f", raised from {n_below_threshold:,} to the floor of {self.min_kept_psms:,}"
+            if n_keep > n_below_threshold
+            else ""
+        )
         logger.info(
-            f"Prefilter kept {keep.sum():,} of {n_psms:,} PSMs "
-            f"({100 * keep.mean():.1f}%) at stage-1 q-value <= {self.q_value_threshold}: "
+            f"Prefilter kept {n_keep:,} of {n_psms:,} PSMs ({100 * n_keep / n_psms:.1f}%) "
+            f"at stage-1 q-value <= {self.q_value_threshold}{floor_note}: "
             f"{int(((y == 0) & keep).sum()):,} targets, {int(((y == 1) & keep).sum()):,} decoys"
         )
 

@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import pandas as pd
 
@@ -80,21 +82,24 @@ def test_prefilter_keeps_the_confident_targets_and_drops_decoy_like_psms():
     assert stage1_proba[good_targets].mean() < stage1_proba[y == 1].mean()
 
 
-def test_prefilter_passes_everything_when_it_would_keep_too_few_psms(caplog):
-    # Given: a gate that keeps far fewer PSMs than the classifier needs
+def test_prefilter_extends_the_cut_to_the_floor_when_the_threshold_keeps_too_few(
+    caplog,
+):
+    # Given: a q-value threshold no PSM reaches, and a floor of 300 PSMs
+    caplog.set_level(logging.INFO)
     target_df, decoy_df = _gen_target_decoy_dfs()
     psm_df = pd.concat([target_df, decoy_df]).reset_index(drop=True)
     y = psm_df["decoy"].to_numpy()
 
     # When: the prefilter gates the PSMs
     keep, stage1_proba = _get_prefilter(
-        q_value_threshold=0.2, min_kept_psms=len(psm_df)
+        q_value_threshold=0.0, min_kept_psms=300
     ).select(psm_df, y, is_final=True)
 
-    # Then: it abstains rather than handing on a training set that cannot be fitted
-    assert keep.all()
-    assert not stage1_proba.any()
-    assert "too few to fit the classifier on" in caplog.text
+    # Then: exactly the 300 best-ranked PSMs are kept
+    assert keep.sum() == 300
+    assert stage1_proba[keep].max() <= stage1_proba[~keep].min()
+    assert "raised from" in caplog.text
 
 
 def test_prefilter_passes_everything_below_min_psms():
