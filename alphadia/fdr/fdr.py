@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 max_dia_cycle_shape = 2
 
+_STAGE1_RANK_COLUMN = "_stage1_rank"
+
 logger = logging.getLogger()
 
 # Below this standard deviation the probability is almost constant. The classifier then
@@ -32,6 +34,15 @@ _MAX_FDR_CLASSIFIER_REINITS = 3
 # Fraction of the gap between the worst scored PSM and 1.0 left empty above the scored
 # PSMs, so a dropped PSM with stage-1 probability 0 still ranks strictly behind them.
 _DROPPED_PROBA_OFFSET = 0.5
+
+# The prefilter is checked against the identifications it let through: the share of them
+# that sit in the worst-ranked tenth of what it kept. A gate with margin sees the
+# identification density die out well before its cut (0.1 % on HeLa at the shipped
+# threshold); one that truncates the identifications is still dense at the cut (2.4 % at a
+# threshold that costs 1 % of the identifications on the same data).
+_RECALL_CHECK_FDR = 0.01
+_RECALL_CHECK_TAIL_FRACTION = 0.1
+_RECALL_WARN_TAIL_SHARE = 0.01
 
 
 @manage_torch_threads(max_threads=2)
@@ -97,7 +108,9 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     prefilter : CascadePrefilter, default=None
         Gate that decides which PSMs the classifier is fitted on and scores. PSMs it
-        drops are ranked behind every scored PSM, in the order of its own scores.
+        drops are ranked behind every scored PSM, in the order of its own scores. The
+        identifications are checked against the gate's cut afterwards, and a warning is
+        logged when they crowd it.
 
     trainer : CrossFittedTrainer, default=None
         Fits the classifier in the final round instead of a plain fit on a random split.
@@ -163,6 +176,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         keep = np.ones(len(X), dtype=bool)
     else:
         keep, stage1_proba = prefilter.select(psm_df, y, is_final=is_final)
+        # the kept PSMs are a prefix of this order, see CascadePrefilter.select
+        stage1_order = np.lexsort((psm_df["precursor_idx"].to_numpy(), y, stage1_proba))
+        stage1_rank = np.empty(len(X), dtype=np.int64)
+        stage1_rank[stage1_order] = np.arange(len(X))
+        psm_df[_STAGE1_RANK_COLUMN] = stage1_rank
     x_kept = X[keep]
 
     if trainer is not None and is_final:
@@ -202,7 +220,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             )
             psm_df["qval"] = 1.0
             psm_df["proba"] = 1.0
-            return psm_df
+            return psm_df.drop(columns=_STAGE1_RANK_COLUMN, errors="ignore")
 
         def fit_and_score() -> np.ndarray:
             classifier.fit(X_train, y_train, is_final=is_final)
@@ -248,6 +266,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
+    if prefilter is not None and not keep.all():
+        _check_prefilter_recall(psm_df, int(keep.sum()))
+    psm_df = psm_df.drop(columns=_STAGE1_RANK_COLUMN, errors="ignore")
+
     if figure_path is not None:
         plot_fdr(
             y_train,
@@ -259,6 +281,35 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
 
     return psm_df
+
+
+def _check_prefilter_recall(psm_df: pd.DataFrame, n_kept: int) -> None:
+    """Log how close the identifications come to the prefilter's cut.
+
+    A gate cannot be told from inside whether it dropped PSMs the classifier would have
+    identified; this is the next best thing: identifications that fill the tail of what
+    it kept mean the density was still high where it stopped.
+    """
+    identified = psm_df[(psm_df["_decoy"] == 0) & (psm_df["qval"] <= _RECALL_CHECK_FDR)]
+    n_tail = int(
+        (
+            identified[_STAGE1_RANK_COLUMN]
+            >= (1 - _RECALL_CHECK_TAIL_FRACTION) * n_kept
+        ).sum()
+    )
+    share = n_tail / len(identified) if len(identified) else 0.0
+    message = (
+        f"Prefilter recall check: {n_tail:,} of {len(identified):,} identifications at "
+        f"{_RECALL_CHECK_FDR:.0%} FDR ({100 * share:.2f}%) sit in the worst "
+        f"{_RECALL_CHECK_TAIL_FRACTION:.0%} of the PSMs the prefilter kept"
+    )
+    if share > _RECALL_WARN_TAIL_SHARE:
+        logger.warning(
+            f"{message}; the prefilter may be cutting into the identifications, "
+            f"consider raising fdr.prefilter.q_value_threshold"
+        )
+    else:
+        logger.info(message)
 
 
 def _fit_until_separated(

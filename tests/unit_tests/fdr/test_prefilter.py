@@ -163,3 +163,47 @@ def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
     assert (good_targets["qval"] < 0.05).mean() > 0.9
     decoys = psm_df[psm_df["_decoy"] == 1]
     assert good_targets["proba"].max() < decoys["proba"].quantile(0.5)
+
+
+def test_perform_fdr_with_prefilter_reports_the_recall_check(caplog):
+    # Given: separable targets and decoys and a gate that keeps the confident half
+    caplog.set_level(logging.INFO)
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=2000)
+
+    # When: the FDR is computed behind the prefilter
+    psm_df = fdr.perform_fdr(
+        _get_classifier(),
+        ["feature", "noise"],
+        target_df,
+        decoy_df,
+        competitive=True,
+        is_final=True,
+        prefilter=_get_prefilter(q_value_threshold=0.2),
+    )
+
+    # Then: the identifications are checked against the gate's cut and the helper
+    # column does not leak into the result
+    assert "Prefilter recall check" in caplog.text
+    assert "_stage1_rank" not in psm_df.columns
+
+
+def test_perform_fdr_with_prefilter_warns_when_the_identifications_crowd_the_cut(
+    caplog,
+):
+    # Given: a gate whose floor cuts right through the confident targets
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=2000)
+
+    # When: the FDR is computed behind a gate that keeps fewer PSMs than there are
+    # confident targets
+    fdr.perform_fdr(
+        _get_classifier(),
+        ["feature", "noise"],
+        target_df,
+        decoy_df,
+        competitive=True,
+        is_final=True,
+        prefilter=_get_prefilter(q_value_threshold=0.0, min_kept_psms=500),
+    )
+
+    # Then: the recall check warns
+    assert "may be cutting into the identifications" in caplog.text
