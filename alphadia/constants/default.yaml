@@ -313,8 +313,8 @@ fdr:
   classifier: "ensemble"
   # members of the ensemble classifier; every member is fitted from its own seed
   ensemble:
-    n_mlp: 1
-    n_lightgbm: 1
+    n_mlp: 0
+    n_lightgbm: 3
   # hyperparameters of the mlp classifier
   mlp:
     # sizes of the hidden layers
@@ -324,7 +324,7 @@ fdr:
     # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer
     n_estimators: 2000
     # maximum number of boosting rounds (trees) in the final round
-    final_n_estimators: 4000
+    final_n_estimators: 1500
     # shrinkage rate of the first tree
     learning_rate_start: 0.16
     # shrinkage rate the schedule decays to, and holds at afterwards
@@ -332,7 +332,7 @@ fdr:
     # number of boosting rounds the decay from start to end is spread over
     learning_rate_decay_rounds: 900
     # maximum number of leaves per tree
-    num_leaves: 31
+    num_leaves: 15
     # minimum number of PSMs per leaf
     min_child_samples: 100
     # fraction of PSMs sampled for each tree
