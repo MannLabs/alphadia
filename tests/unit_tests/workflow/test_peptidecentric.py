@@ -92,6 +92,8 @@ def _classifier_config(name: str) -> dict:
         "fdr": {
             "classifier": name,
             "enable_nn_hyperparameter_tuning": False,
+            "ensemble": {"n_mlp": 1, "n_lightgbm": 2},
+            "mlp": {"layers": [8, 4]},
             "lightgbm": {"n_estimators": 10, "final_n_estimators": 10},
         },
     }
@@ -105,14 +107,19 @@ def test_get_classifier_reads_the_lightgbm_configuration():
     assert classifier.num_threads == 2
 
 
-def test_get_classifier_builds_the_ensemble_of_both_families():
+def test_get_classifier_builds_the_configured_ensemble_members():
     classifier = _get_classifier_base(_classifier_config("ensemble"), random_state=1)
 
     assert isinstance(classifier, EnsembleClassifier)
     assert isinstance(classifier.members[0], BinaryClassifierLegacyNewBatching)
+    assert classifier.members[0].layers == [8, 4]
     assert isinstance(classifier.members[1], LightGBMClassifier)
+    assert isinstance(classifier.members[2], LightGBMClassifier)
     assert classifier.members[1].n_estimators == 10
     assert classifier.members[1].num_threads == 2
+    assert classifier.members[1]._np_rng.integers(1_000_000) != classifier.members[
+        2
+    ]._np_rng.integers(1_000_000)
 
 
 def test_get_classifier_rejects_an_unknown_name():

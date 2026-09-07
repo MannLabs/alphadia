@@ -309,8 +309,16 @@ fdr:
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
   # classifier scoring the candidates: mlp (feed forward neural network), lightgbm (gradient boosted trees) or
-  # ensemble (mean of both probabilities; the two families make different mistakes, which the mean removes)
+  # ensemble (mean of the members' probabilities; the two families make different mistakes, which the mean removes)
   classifier: "ensemble"
+  # members of the ensemble classifier; every member is fitted from its own seed
+  ensemble:
+    n_mlp: 1
+    n_lightgbm: 1
+  # hyperparameters of the mlp classifier
+  mlp:
+    # sizes of the hidden layers
+    layers: [100, 50, 20, 5]
   # hyperparameters of the lightgbm classifier
   lightgbm:
     # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer

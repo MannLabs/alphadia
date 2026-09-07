@@ -68,11 +68,17 @@ def _get_classifier_base(
     if classifier_name == FdrClassifier.LIGHTGBM:
         return _get_lightgbm_classifier(config, random_state)
     if classifier_name == FdrClassifier.ENSEMBLE:
+        n_mlp = config["fdr"]["ensemble"]["n_mlp"]
+        n_lightgbm = config["fdr"]["ensemble"]["n_lightgbm"]
+        # members of one family fitted from the same seed would be the same model
+        seeds = (
+            [None] * (n_mlp + n_lightgbm)
+            if random_state is None
+            else range(random_state, random_state + n_mlp + n_lightgbm)
+        )
         return EnsembleClassifier(
-            [
-                _get_mlp_classifier(config, random_state),
-                _get_lightgbm_classifier(config, random_state),
-            ]
+            [_get_mlp_classifier(config, seed) for seed in seeds[:n_mlp]]
+            + [_get_lightgbm_classifier(config, seed) for seed in seeds[n_mlp:]]
         )
 
     raise ValueError(f"Unknown FDR classifier: {classifier_name}")
@@ -86,6 +92,7 @@ def _get_mlp_classifier(
         batch_size=5000,
         learning_rate=0.001,
         epochs=10,
+        layers=config["fdr"]["mlp"]["layers"],
         experimental_hyperparameter_tuning=config["fdr"][
             "enable_nn_hyperparameter_tuning"
         ],
