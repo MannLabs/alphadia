@@ -446,12 +446,13 @@
                 {
                     "id": "classifier",
                     "name": "FDR Classifier",
-                    "default": "mlp",
-                    "description": "Classifier used for target-decoy scoring. 'mlp' uses a feed forward neural network, 'lightgbm' uses gradient boosted decision trees.",
+                    "default": "ensemble",
+                    "description": "Classifier used for target-decoy scoring. 'mlp' uses a feed forward neural network, 'lightgbm' uses gradient boosted decision trees, 'ensemble' averages the probabilities of both.",
                     "type": "dropdown",
                     "options": [
                         "mlp",
-                        "lightgbm"
+                        "lightgbm",
+                        "ensemble"
                     ]
                 }
             ]

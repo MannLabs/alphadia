@@ -12,6 +12,7 @@ import pytest
 from alphadia.calibration.estimator import CalibrationEstimator
 from alphadia.fdr.classifiers import (
     BinaryClassifierLegacyNewBatching,
+    EnsembleClassifier,
     LightGBMClassifier,
 )
 from alphadia.reporting import reporting
@@ -369,6 +370,7 @@ def _load_default_config() -> Config:
     [
         ("mlp", BinaryClassifierLegacyNewBatching),
         ("lightgbm", LightGBMClassifier),
+        ("ensemble", EnsembleClassifier),
     ],
 )
 def test_get_classifier_base(classifier_name, expected_type):

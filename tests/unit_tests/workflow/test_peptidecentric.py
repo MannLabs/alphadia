@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from alphadia.fdr.classifiers import LightGBMClassifier
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    EnsembleClassifier,
+    LightGBMClassifier,
+)
 from alphadia.fdr.cross_fitting import CrossFittedTrainer
 from alphadia.fdr.prefilter import CascadePrefilter
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
@@ -99,6 +103,16 @@ def test_get_classifier_reads_the_lightgbm_configuration():
     assert isinstance(classifier, LightGBMClassifier)
     assert classifier.n_estimators == 10
     assert classifier.num_threads == 2
+
+
+def test_get_classifier_builds_the_ensemble_of_both_families():
+    classifier = _get_classifier_base(_classifier_config("ensemble"), random_state=1)
+
+    assert isinstance(classifier, EnsembleClassifier)
+    assert isinstance(classifier.members[0], BinaryClassifierLegacyNewBatching)
+    assert isinstance(classifier.members[1], LightGBMClassifier)
+    assert classifier.members[1].n_estimators == 10
+    assert classifier.members[1].num_threads == 2
 
 
 def test_get_classifier_rejects_an_unknown_name():

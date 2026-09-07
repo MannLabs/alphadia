@@ -12,6 +12,7 @@ from alphadia.constants.keys import FdrClassifier
 from alphadia.fdr.classifiers import (
     BinaryClassifierLegacyNewBatching,
     Classifier,
+    EnsembleClassifier,
     LightGBMClassifier,
 )
 from alphadia.fdr.cross_fitting import CrossFittedTrainer
@@ -57,6 +58,7 @@ def _get_classifier_base(
     -------
     Classifier
         The classifier selected by the configuration.
+
     """
     classifier_name = config["fdr"]["classifier"]
 
@@ -65,6 +67,13 @@ def _get_classifier_base(
 
     if classifier_name == FdrClassifier.LIGHTGBM:
         return _get_lightgbm_classifier(config, random_state)
+    if classifier_name == FdrClassifier.ENSEMBLE:
+        return EnsembleClassifier(
+            [
+                _get_mlp_classifier(config, random_state),
+                _get_lightgbm_classifier(config, random_state),
+            ]
+        )
 
     raise ValueError(f"Unknown FDR classifier: {classifier_name}")
 

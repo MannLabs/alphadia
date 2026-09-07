@@ -27,6 +27,7 @@ _LGBM_BAGGING_STRATEGY = "bagging"
 _LGBM_BAGGING_FREQ = 1
 _LGBM_PROBA_THRESHOLD = 0.5
 _LGBM_MODEL_STR_KEY = "model_str"
+_ENSEMBLE_MEMBERS_KEY = "members"
 
 
 class Classifier(ABC):
@@ -853,3 +854,62 @@ class FeedForwardNN(nn.Module):
     def forward(self, x: Any) -> Any:  # noqa: ANN401
         """Forward pass through the network."""
         return self.fc_layers(x)
+
+
+class EnsembleClassifier(Classifier):
+    """Averages the class probabilities of several classifiers.
+
+    Every member is fitted on the same data; the ensemble is fitted once all members are.
+    Members of different families (a neural network and gradient boosting, say) make
+    different mistakes on the same candidates, which is what the average removes.
+    """
+
+    def __init__(self, members: list[Classifier]):
+        """Initialize the ensemble.
+
+        Parameters
+        ----------
+        members : list[Classifier]
+            The classifiers whose probabilities are averaged, unfitted.
+
+        """
+        self.members = members
+
+    @property
+    def fitted(self) -> bool:
+        """Return whether every member has been fitted."""
+        return all(member.fitted for member in self.members)
+
+    def fit(self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False) -> None:
+        """Fit every member to the data."""
+        for member in self.members:
+            member.fit(x, y, is_final=is_final)
+
+    def reset(self) -> None:
+        """Set every member back to an unfitted state."""
+        for member in self.members:
+            member.reset()
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class of the data from the averaged probabilities."""
+        return np.argmax(self.predict_proba(x), axis=1)
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class probabilities of the data as the mean over the members."""
+        return np.mean([member.predict_proba(x) for member in self.members], axis=0)
+
+    def to_state_dict(self) -> dict:
+        """Save the state of every member as one dictionary."""
+        return {
+            _ENSEMBLE_MEMBERS_KEY: [member.to_state_dict() for member in self.members]
+        }
+
+    def from_state_dict(self, state_dict: dict) -> None:
+        """Load the state of every member from a dictionary written by `to_state_dict`."""
+        # the classifier store on disk can hold state dicts of other classifier types
+        if _ENSEMBLE_MEMBERS_KEY not in state_dict:
+            return
+        for member, member_state in zip(
+            self.members, state_dict[_ENSEMBLE_MEMBERS_KEY], strict=True
+        ):
+            member.from_state_dict(member_state)
