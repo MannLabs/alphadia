@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 import torch
 
-from alphadia.fdr import fdr
+from alphadia.fdr import classifiers, fdr
 from alphadia.fdr.classifiers import (
     BinaryClassifierLegacyNewBatching,
     Classifier,
@@ -258,7 +258,7 @@ class _CollapsingClassifier(Classifier):
     def predict_proba(self, x):
         if self.reset_count < self._n_collapses:
             return np.full((len(x), 2), 0.5)
-        proba = np.linspace(0.0, 1.0, len(x))
+        proba = np.clip(x[:, 0] / 2, 0.0, 1.0)
         return np.stack([1 - proba, proba], axis=1)
 
     def to_state_dict(self):
@@ -269,6 +269,7 @@ class _CollapsingClassifier(Classifier):
 
 
 def _gen_target_decoy_dfs(n_samples: int = 200):
+    """Targets and decoys separated by the single feature."""
     feature = np.linspace(0.0, 1.0, n_samples)
     target_df = pd.DataFrame(
         {
@@ -278,7 +279,7 @@ def _gen_target_decoy_dfs(n_samples: int = 200):
         }
     )
     decoy_df = target_df.assign(
-        precursor_idx=np.arange(n_samples, 2 * n_samples), decoy=1
+        precursor_idx=np.arange(n_samples, 2 * n_samples), decoy=1, feature=feature + 1
     )
     return target_df, decoy_df
 
@@ -305,8 +306,26 @@ def test_perform_fdr_stops_after_max_reinits():
     psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
 
     # Then: perform_fdr stops after the maximum number of retries
-    assert classifier.reset_count == fdr._MAX_FDR_CLASSIFIER_REINITS
+    assert classifier.reset_count == classifiers._MAX_FIT_RETRIES
     assert psm_df["proba"].std() == 0.0
+
+
+def test_ensemble_refits_a_member_that_does_not_separate(caplog):
+    # Given: an ensemble whose first member gives a constant probability once
+    member = _CollapsingClassifier(n_collapses=1)
+    ensemble = EnsembleClassifier([member, _CollapsingClassifier(n_collapses=0)])
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    x = pd.concat([target_df, decoy_df])[["feature"]].to_numpy()
+    y = np.concatenate([np.zeros(len(target_df)), np.ones(len(decoy_df))])
+
+    # When: the ensemble is fitted
+    ensemble.fit(x, y)
+
+    # Then: the member is reset and refitted, and the ensemble separates the labels
+    assert member.reset_count == 1
+    assert "does not separate targets from decoys" in caplog.text
+    proba = ensemble.predict_proba(x)[:, 1]
+    assert proba[y == 0].max() <= proba[y == 1].min()
 
 
 def _get_lightgbm_classifier() -> LightGBMClassifier:

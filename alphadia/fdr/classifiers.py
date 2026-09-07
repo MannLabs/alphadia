@@ -10,6 +10,7 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.metrics import roc_auc_score
 from torch import nn, optim
 from tqdm import tqdm
 
@@ -28,6 +29,13 @@ _LGBM_BAGGING_FREQ = 1
 _LGBM_PROBA_THRESHOLD = 0.5
 _LGBM_MODEL_STR_KEY = "model_str"
 _ENSEMBLE_MEMBERS_KEY = "members"
+
+# A fit that cannot tell its own training decoys from the targets is degenerate: an unlucky
+# set of start weights leaves the network at a constant output (AUC 0.47-0.50 on HeLa,
+# against 0.79 for a healthy fit). Inside an ensemble or a cross-fitted fold such a fit is
+# invisible in the combined scores, so every fit is checked on its own.
+_MIN_FIT_AUC = 0.55
+_MAX_FIT_RETRIES = 3
 
 
 class Classifier(ABC):
@@ -62,6 +70,41 @@ class Classifier(ABC):
             optimization rounds. Implementations may spend more effort on it.
 
         """
+
+    def fit_separating(
+        self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False
+    ) -> None:
+        """Fit, starting over from fresh weights while the fit does not separate the labels.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Training data of shape (n_samples, n_features).
+
+        y : np.ndarray, dtype=int
+            Decoy labels of shape (n_samples,), 1 for decoys.
+
+        is_final : bool, default=False
+            Passed on to `fit`.
+
+        """
+        for attempt in range(_MAX_FIT_RETRIES + 1):
+            self.fit(x, y, is_final=is_final)
+            auc = roc_auc_score(y, self.predict_proba(x)[:, 1])
+            if auc >= _MIN_FIT_AUC:
+                return
+            if attempt == _MAX_FIT_RETRIES:
+                logger.warning(
+                    f"{type(self).__name__} still does not separate targets from decoys "
+                    f"(AUC {auc:.3f} on its training data) after {attempt} retries"
+                )
+                return
+            logger.warning(
+                f"{type(self).__name__} does not separate targets from decoys (AUC "
+                f"{auc:.3f} on its training data); starting over from fresh weights "
+                f"({attempt + 1}/{_MAX_FIT_RETRIES})"
+            )
+            self.reset()
 
     @abstractmethod
     def reset(self) -> None:
@@ -881,9 +924,13 @@ class EnsembleClassifier(Classifier):
         return all(member.fitted for member in self.members)
 
     def fit(self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False) -> None:
-        """Fit every member to the data."""
+        """Fit every member to the data, each one until it separates the labels.
+
+        A member stuck at a constant output would not show in the averaged scores, it
+        would only shift them by a constant.
+        """
         for member in self.members:
-            member.fit(x, y, is_final=is_final)
+            member.fit_separating(x, y, is_final=is_final)
 
     def reset(self) -> None:
         """Set every member back to an unfitted state."""

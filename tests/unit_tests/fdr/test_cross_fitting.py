@@ -119,10 +119,11 @@ def test_fit_predict_keeps_the_previous_model_when_too_few_positives(caplog):
 
 
 class _FlakyClassifier(LightGBMClassifier):
-    """Scores every PSM alike after its first fit, until reset; healthy afterwards.
+    """Shifts its scores behind every other fold's after its first fit, until reset.
 
-    Stands in for a network whose start weights left it degenerate: within the fold the
-    ranking is gone, and only a fit from fresh weights recovers it.
+    Stands in for a fold model whose ranking is intact but whose scale is off against the
+    other folds' models, which no check on the fit itself can see; the fold contributes
+    no identifications to the merged ranking.
     """
 
     broken_fits_left = 0
@@ -140,8 +141,8 @@ class _FlakyClassifier(LightGBMClassifier):
     def predict_proba(self, x):
         proba = super().predict_proba(x)
         if getattr(self, "broken", False):
-            proba[:, 1] = 0.9
-            proba[:, 0] = 0.1
+            proba[:, 1] = 0.5 + proba[:, 1] / 2
+            proba[:, 0] = 1 - proba[:, 1]
         return proba
 
 
@@ -156,8 +157,8 @@ def _flaky_classifier() -> _FlakyClassifier:
 
 
 def test_fit_predict_refits_a_fold_whose_model_came_out_degenerate(caplog):
-    # Given: a classifier whose very first fit, the first fold's, scores its fold flat, on
-    # enough PSMs for the fold cuts of a healthy run to agree
+    # Given: a classifier whose very first fit, the first fold's, scores its fold behind
+    # the others, on enough PSMs for the fold cuts of a healthy run to agree
     psm_df = _gen_psms(n_precursors=4000)
     _FlakyClassifier.broken_fits_left = 1
     healthy = _fit_predict(CrossFittedTrainer(n_folds=3, random_state=0), psm_df)

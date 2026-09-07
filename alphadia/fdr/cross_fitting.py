@@ -231,7 +231,7 @@ class CrossFittedTrainer:
 
         for refit in range(self.n_refits + 1):
             train_idx = np.flatnonzero(positives | ~is_target)
-            classifier.fit(x[train_idx], y_fit[train_idx], is_final=is_final)
+            classifier.fit_separating(x[train_idx], y_fit[train_idx], is_final=is_final)
             proba = classifier.predict_proba(x)[:, 1]
 
             if refit == self.n_refits:

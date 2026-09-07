@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -17,7 +16,7 @@ from alphadia.fragcomp.fragcomp import compete_for_fragments
 
 if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
-    from alphadia.fdr.cross_fitting import CrossFittedTrainer, TrainingResult
+    from alphadia.fdr.cross_fitting import CrossFittedTrainer
     from alphadia.fdr.prefilter import CascadePrefilter
 
 max_dia_cycle_shape = 2
@@ -25,12 +24,6 @@ max_dia_cycle_shape = 2
 _STAGE1_RANK_COLUMN = "_stage1_rank"
 
 logger = logging.getLogger()
-
-# Below this standard deviation the probability is almost constant. The classifier then
-# cannot separate targets from decoys, and the FDR filter keeps all PSMs.
-_PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
-
-_MAX_FDR_CLASSIFIER_REINITS = 3
 
 # Fraction of the gap between the worst scored PSM and 1.0 left empty above the scored
 # PSMs, so a dropped PSM with stage-1 probability 0 still ranks strictly behind them.
@@ -213,35 +206,29 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
             # warm start would carry what it memorized about them into the out-of-fold
             # fit.
             classifier.reset()
-            results: list[TrainingResult] = []
-
-            def fit_and_score() -> np.ndarray:
-                results.append(
-                    trainer.fit_predict(
-                        classifier,
-                        x_kept,
-                        y[keep],
-                        competition_group[keep],
-                        precursor_idx[keep],
-                        is_final=is_final,
-                    )
-                )
-                return results[-1].proba
-
-            proba = _fit_until_separated(fit_and_score, classifier)
-            train_idx, y_train = results[-1].train_idx, results[-1].y_train
-            test_idx = np.setdiff1d(np.arange(len(x_kept)), train_idx)
-            return _Fit(proba, train_idx, test_idx, y_train, y[keep][test_idx])
+            result = trainer.fit_predict(
+                classifier,
+                x_kept,
+                y[keep],
+                competition_group[keep],
+                precursor_idx[keep],
+                is_final=is_final,
+            )
+            test_idx = np.setdiff1d(np.arange(len(x_kept)), result.train_idx)
+            return _Fit(
+                result.proba,
+                result.train_idx,
+                test_idx,
+                result.y_train,
+                y[keep][test_idx],
+            )
 
         X_train, _, y_train, y_test, train_idx, test_idx = train_test_split_(
             x_kept, y[keep], test_size=0.2, random_state=random_state
         )
 
-        def fit_and_score() -> np.ndarray:
-            classifier.fit(X_train, y_train, is_final=is_final)
-            return classifier.predict_proba(x_kept)[:, 1]
-
-        proba = _fit_until_separated(fit_and_score, classifier)
+        classifier.fit_separating(X_train, y_train, is_final=is_final)
+        proba = classifier.predict_proba(x_kept)[:, 1]
         return _Fit(proba, train_idx, test_idx, y_train, y_test)
 
     def score(fit_result: _Fit, keep: np.ndarray) -> pd.DataFrame:
@@ -342,39 +329,6 @@ def _prefilter_tail_share(psm_df: pd.DataFrame, n_kept: int) -> float:
         identified[_STAGE1_RANK_COLUMN] >= (1 - _RECALL_CHECK_TAIL_FRACTION) * n_kept
     )
     return float(in_tail.mean())
-
-
-def _fit_until_separated(
-    fit_and_score: Callable[[], np.ndarray], classifier: Classifier
-) -> np.ndarray:
-    """Fit and score, starting over from fresh weights while the scores are near-constant.
-
-    A collapse is usually an unlucky set of start weights, so a new fit recovers it.
-    """
-    predicted_proba = fit_and_score()
-
-    n_reinit = 0
-    while (
-        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
-        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
-    ):
-        n_reinit += 1
-        logger.warning(
-            f"FDR classifier collapsed to a near-constant probability "
-            f"({np.unique(predicted_proba).size} unique value(s) over "
-            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
-            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
-        )
-        classifier.reset()
-        predicted_proba = fit_and_score()
-
-    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
-        logger.warning(
-            "FDR classifier produced a near-constant probability; target/decoy "
-            "separation failed and q-values will not filter PSMs."
-        )
-
-    return predicted_proba
 
 
 def keep_best(
