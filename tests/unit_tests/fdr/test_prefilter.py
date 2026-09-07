@@ -46,13 +46,16 @@ def _get_classifier() -> LightGBMClassifier:
     )
 
 
-def _get_prefilter(q_value_threshold: float, min_psms: int = 0) -> CascadePrefilter:
+def _get_prefilter(
+    q_value_threshold: float, min_psms: int = 0, min_kept_psms: int = 1
+) -> CascadePrefilter:
     return CascadePrefilter(
         feature_columns=["feature"],
         classifier=_get_classifier(),
         q_value_threshold=q_value_threshold,
         n_folds=2,
         min_psms=min_psms,
+        min_kept_psms=min_kept_psms,
         random_state=0,
     )
 
@@ -75,6 +78,23 @@ def test_prefilter_keeps_the_confident_targets_and_drops_decoy_like_psms():
     assert 0.0 < keep.mean() < 1.0
     assert stage1_proba.shape == (len(psm_df),)
     assert stage1_proba[good_targets].mean() < stage1_proba[y == 1].mean()
+
+
+def test_prefilter_passes_everything_when_it_would_keep_too_few_psms(caplog):
+    # Given: a gate that keeps far fewer PSMs than the classifier needs
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    psm_df = pd.concat([target_df, decoy_df]).reset_index(drop=True)
+    y = psm_df["decoy"].to_numpy()
+
+    # When: the prefilter gates the PSMs
+    keep, stage1_proba = _get_prefilter(
+        q_value_threshold=0.2, min_kept_psms=len(psm_df)
+    ).select(psm_df, y, is_final=True)
+
+    # Then: it abstains rather than handing on a training set that cannot be fitted
+    assert keep.all()
+    assert not stage1_proba.any()
+    assert "too few to fit the classifier on" in caplog.text
 
 
 def test_prefilter_passes_everything_below_min_psms():

@@ -16,6 +16,12 @@ logger = logging.getLogger()
 # trained on too few rows to be trusted with the decision which candidates it never sees.
 _MIN_PSMS = 100_000
 
+# A gate that admits fewer PSMs than this has found no confident population at all: on a
+# low-identification sample the stage-1 model separates nothing, so its q-values leave
+# almost everything behind and the classifier is left with too few rows to be fitted on
+# (LightGBM aborts outright, finding no feature it can bin). The gate abstains instead.
+_MIN_KEPT_PSMS = 1_000
+
 
 class CascadePrefilter:
     """Gate candidates on a small cross-fitted LightGBM model before the classifier is fitted.
@@ -37,6 +43,7 @@ class CascadePrefilter:
         q_value_threshold: float,
         n_folds: int = 2,
         min_psms: int = _MIN_PSMS,
+        min_kept_psms: int = _MIN_KEPT_PSMS,
         max_train_psms: int | None = None,
         random_state: int | None = None,
     ):
@@ -59,6 +66,10 @@ class CascadePrefilter:
         min_psms : int, default=100000
             Below this many PSMs every candidate is passed on unfiltered.
 
+        min_kept_psms : int, default=1000
+            If the gate would keep fewer PSMs than this, every candidate is passed on
+            unfiltered instead.
+
         max_train_psms : int, optional
             Fit each fold's model on at most this many randomly drawn PSMs of the other
             folds. None fits on all of them.
@@ -71,6 +82,7 @@ class CascadePrefilter:
         self.q_value_threshold = q_value_threshold
         self.n_folds = n_folds
         self.min_psms = min_psms
+        self.min_kept_psms = min_kept_psms
         self.max_train_psms = max_train_psms
         self._classifier = classifier
         self._np_rng = np.random.default_rng(seed=random_state)
@@ -134,6 +146,15 @@ class CascadePrefilter:
             )
         )["qval"].sort_index()
         keep = (q_values <= self.q_value_threshold).to_numpy()
+
+        n_kept = int(keep.sum())
+        if n_kept < self.min_kept_psms:
+            logger.warning(
+                f"Prefilter kept only {n_kept:,} of {n_psms:,} PSMs at stage-1 q-value "
+                f"<= {self.q_value_threshold}, too few to fit the classifier on; "
+                f"passing all PSMs on"
+            )
+            return keep_all
 
         logger.info(
             f"Prefilter kept {keep.sum():,} of {n_psms:,} PSMs "
