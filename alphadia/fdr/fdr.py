@@ -185,8 +185,8 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
         keep = np.ones(len(X), dtype=bool)
         stage1_proba = np.zeros(len(X))
     else:
-        keep, stage1_proba = prefilter.select(psm_df, y, is_final=is_final)
-        # the kept PSMs are a prefix of this order, see CascadePrefilter.select
+        keep, stage1_proba, n_passed = prefilter.select(psm_df, y, is_final=is_final)
+        # the PSMs that passed the cut are a prefix of this order, see CascadePrefilter.select
         stage1_order = np.lexsort((psm_df["precursor_idx"].to_numpy(), y, stage1_proba))
         stage1_rank = np.empty(len(X), dtype=np.int64)
         stage1_rank[stage1_order] = np.arange(len(X))
@@ -281,24 +281,28 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
     scored_df = score(fit_result, keep)
 
     if prefilter is not None and is_final and not keep.all():
-        tail_share = _prefilter_tail_share(scored_df, int(keep.sum()))
+        tail_share = _prefilter_tail_share(scored_df, n_passed)
         if tail_share > _RECALL_WIDEN_TAIL_SHARE:
             logger.warning(
                 f"{100 * tail_share:.2f}% of the identifications sit in the worst "
-                f"{_RECALL_CHECK_TAIL_FRACTION:.0%} of the PSMs the prefilter kept, "
+                f"{_RECALL_CHECK_TAIL_FRACTION:.0%} of the PSMs that passed the prefilter, "
                 f"widening the cut to stage-1 q-value <= {_WIDE_Q_VALUE_THRESHOLD} "
                 f"and refitting"
             )
-            keep = prefilter.keep_from_scores(
-                stage1_proba, y, precursor_idx, _WIDE_Q_VALUE_THRESHOLD
+            keep, n_passed = prefilter.keep_from_scores(
+                stage1_proba,
+                y,
+                precursor_idx,
+                psm_df["elution_group_idx"].to_numpy(),
+                _WIDE_Q_VALUE_THRESHOLD,
             )
             fit_result = fit(keep)
             scored_df = score(fit_result, keep)
-            tail_share = _prefilter_tail_share(scored_df, int(keep.sum()))
+            tail_share = _prefilter_tail_share(scored_df, n_passed)
         logger.info(
             f"Prefilter recall check: {100 * tail_share:.2f}% of the identifications at "
             f"{_RECALL_CHECK_FDR:.0%} FDR sit in the worst "
-            f"{_RECALL_CHECK_TAIL_FRACTION:.0%} of the PSMs the prefilter kept"
+            f"{_RECALL_CHECK_TAIL_FRACTION:.0%} of the PSMs that passed the prefilter"
         )
     scored_df = scored_df.drop(columns=_STAGE1_RANK_COLUMN, errors="ignore")
 
@@ -315,18 +319,21 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
     return scored_df
 
 
-def _prefilter_tail_share(psm_df: pd.DataFrame, n_kept: int) -> float:
-    """Share of the identifications that sit in the worst-ranked tail of the kept PSMs.
+def _prefilter_tail_share(psm_df: pd.DataFrame, n_passed: int) -> float:
+    """Share of the identifications that sit in the worst-ranked tail of the PSMs that
+    passed the stage-1 cut.
 
     A gate cannot be told from inside whether it dropped PSMs the classifier would have
     identified; this is the next best thing: identifications that fill the tail of what
-    it kept mean the density was still high where it stopped.
+    passed mean the density was still high where it stopped. PSMs kept only for their
+    elution group rank behind the cut and are not part of its tail.
     """
     identified = psm_df[(psm_df["_decoy"] == 0) & (psm_df["qval"] <= _RECALL_CHECK_FDR)]
     if len(identified) == 0:
         return 0.0
-    in_tail = (
-        identified[_STAGE1_RANK_COLUMN] >= (1 - _RECALL_CHECK_TAIL_FRACTION) * n_kept
+    stage1_rank = identified[_STAGE1_RANK_COLUMN]
+    in_tail = (stage1_rank >= (1 - _RECALL_CHECK_TAIL_FRACTION) * n_passed) & (
+        stage1_rank < n_passed
     )
     return float(in_tail.mean())
 

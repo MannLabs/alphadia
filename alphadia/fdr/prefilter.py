@@ -35,6 +35,14 @@ class CascadePrefilter:
     has not seen its label. A model that has seen the labels memorizes false targets as
     targets and decoys as decoys, so it would pass false targets preferentially and break
     the target-decoy symmetry the downstream FDR estimate relies on.
+
+    Even out-of-fold, a target/decoy model passes false targets more readily than decoys
+    (decoys are not perfect copies of false targets), and on a low-input sample the kept
+    decoys then count only a fraction of the kept junk: the classifier accepts several false
+    targets per accepted decoy however fair it is. The gate therefore drops whole elution
+    groups, never single candidates: a target enters stage 2 together with its own decoy.
+    Under the null the two are exchangeable and group-level selection is symmetric in them,
+    so the kept junk stays balanced whatever the stage-1 model prefers.
     """
 
     def __init__(  # noqa: PLR0913 # Too many arguments
@@ -91,13 +99,13 @@ class CascadePrefilter:
 
     def select(
         self, psm_df: pd.DataFrame, y: np.ndarray, *, is_final: bool = False
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, int]:
         """Decide which candidates are passed on to the classifier.
 
         Parameters
         ----------
         psm_df : pd.DataFrame
-            Candidates, holding `feature_columns` and `precursor_idx`.
+            Candidates, holding `feature_columns`, `precursor_idx` and `elution_group_idx`.
 
         y : np.ndarray, dtype=int
             Decoy labels of shape (n_samples,), 1 for decoys.
@@ -114,9 +122,14 @@ class CascadePrefilter:
             Out-of-fold stage-1 decoy probability of every candidate; zeros when the
             prefilter did not run.
 
+        n_passed : int
+            Number of candidates that passed the stage-1 cut themselves; they are the
+            best-ranked `n_passed` candidates by stage-1 score, the rest of `keep` are
+            the other candidates of their elution groups.
+
         """
         n_psms = len(psm_df)
-        keep_all = np.ones(n_psms, dtype=bool), np.zeros(n_psms)
+        keep_all = np.ones(n_psms, dtype=bool), np.zeros(n_psms), n_psms
 
         if n_psms < self.min_psms:
             return keep_all
@@ -138,19 +151,25 @@ class CascadePrefilter:
             )
             return keep_all
 
-        keep = self.keep_from_scores(
-            stage1_proba, y, psm_df["precursor_idx"].to_numpy(), self.q_value_threshold
+        keep, n_passed = self.keep_from_scores(
+            stage1_proba,
+            y,
+            psm_df["precursor_idx"].to_numpy(),
+            psm_df["elution_group_idx"].to_numpy(),
+            self.q_value_threshold,
         )
-        return keep, stage1_proba
+        return keep, stage1_proba, n_passed
 
     def keep_from_scores(
         self,
         stage1_proba: np.ndarray,
         y: np.ndarray,
         precursor_idx: np.ndarray,
+        elution_group_idx: np.ndarray,
         q_value_threshold: float,
-    ) -> np.ndarray:
-        """Cut the stage-1 ranking at a q-value threshold, never below the floor.
+    ) -> tuple[np.ndarray, int]:
+        """Cut the stage-1 ranking at a q-value threshold, never below the floor, and keep
+        every candidate of the elution groups that reach the cut.
 
         Parameters
         ----------
@@ -163,13 +182,19 @@ class CascadePrefilter:
         precursor_idx : np.ndarray
             Precursor index of every candidate, used to break score ties.
 
+        elution_group_idx : np.ndarray
+            Elution group of every candidate; a group is kept whole or not at all.
+
         q_value_threshold : float
-            Candidates whose stage-1 q-value exceeds this are not kept.
+            Candidates whose stage-1 q-value exceeds this do not reach the cut.
 
         Returns
         -------
-        np.ndarray, dtype=bool
+        keep : np.ndarray, dtype=bool
             True for candidates the classifier should be fitted on and score.
+
+        n_passed : int
+            Number of candidates that reached the cut themselves.
 
         """
         n_psms = len(y)
@@ -187,8 +212,9 @@ class CascadePrefilter:
 
         # the same order get_q_values ranks by, so the q-value set is a prefix of it
         order = np.lexsort((precursor_idx, y, stage1_proba))
-        keep = np.zeros(n_psms, dtype=bool)
-        keep[order[:n_keep]] = True
+        passed = np.zeros(n_psms, dtype=bool)
+        passed[order[:n_keep]] = True
+        keep = np.isin(elution_group_idx, elution_group_idx[passed])
 
         floor_note = (
             f", raised from {n_below_threshold:,} to the floor of {self.min_kept_psms:,}"
@@ -196,11 +222,12 @@ class CascadePrefilter:
             else ""
         )
         logger.info(
-            f"Prefilter kept {n_keep:,} of {n_psms:,} PSMs ({100 * n_keep / n_psms:.1f}%) "
-            f"at stage-1 q-value <= {q_value_threshold}{floor_note}: "
-            f"{int(((y == 0) & keep).sum()):,} targets, {int(((y == 1) & keep).sum()):,} decoys"
+            f"Prefilter passed {n_keep:,} of {n_psms:,} PSMs ({100 * n_keep / n_psms:.1f}%) "
+            f"at stage-1 q-value <= {q_value_threshold}{floor_note}, kept their elution "
+            f"groups: {int(((y == 0) & keep).sum()):,} targets, "
+            f"{int(((y == 1) & keep).sum()):,} decoys"
         )
-        return keep
+        return keep, n_keep
 
     def _training_rows(self, candidates: np.ndarray) -> np.ndarray:
         """Rows one fold's model is fitted on.

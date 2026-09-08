@@ -309,7 +309,9 @@ fdr:
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
   # classifier scoring the candidates: mlp (feed forward neural network), lightgbm (gradient boosted trees) or
-  # ensemble (mean of both probabilities; the two families make different mistakes, which the mean removes)
+  # ensemble (mean of both probabilities; the two families make different mistakes, which the mean removes). In the
+  # ensemble only the mlp is fitted on every target, the trees start from the targets it finds confident: trees fitted
+  # on every target learn to tell false targets from decoys and inflate the identifications on low-input samples
   classifier: "ensemble"
   # hyperparameters of the lightgbm classifier
   lightgbm:
@@ -343,8 +345,10 @@ fdr:
     validation_fraction: 0.1
     # fraction of PSMs held out from the final fit to drive early stopping
     final_validation_fraction: 0.075
-  # a small cross-fitted lightgbm model scores every PSM before the classifier; only PSMs below its q-value threshold
-  # are passed on to the classifier, the rest are ranked behind them by their stage-1 score
+  # a small cross-fitted lightgbm model scores every PSM before the classifier; only PSMs below its q-value threshold,
+  # together with the other candidates of their elution groups (a target always enters with its own decoy, which keeps
+  # the FDR estimate honest on low-input samples), are passed on to the classifier, the rest are ranked behind them by
+  # their stage-1 score
   prefilter:
     enabled: true
     # stage-1 q-value above which a PSM is not passed on to the classifier; the final round widens the cut to 0.5 once
@@ -384,16 +388,16 @@ fdr:
       - longest_b_series
       - num_over_0_rank_0_5
       - fwhm_rt
-  # the final classifier is fitted per fold and every PSM is scored by a model that never saw it; each refit keeps
-  # only the targets below train_fdr as positive examples (Percolator-style self-training)
+  # the final classifier is fitted per fold and every PSM is scored by a model that never saw it; only the targets
+  # below train_fdr are positive examples (Percolator-style self-training), picked first by the ensemble's mlp and
+  # then by the whole ensemble in each refit
   cross_fitting:
     enabled: true
     # number of folds; every fold costs one fit per refit
     n_folds: 3
-    # q-value below which a target is kept as a positive example in a refit
+    # q-value below which a target is kept as a positive example
     train_fdr: 0.01
-    # number of refits after the first fit on every target; refits pay off only behind the prefilter, which purifies
-    # the positive class - without it the strict cut selects from a pool that is almost entirely false targets
+    # number of refits after the first fit; each one re-picks the positives with the current ensemble score
     n_refits: 2
 
 search_output:

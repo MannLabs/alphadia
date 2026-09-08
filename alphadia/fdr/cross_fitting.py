@@ -10,6 +10,14 @@ Refitting on PSMs picked by the model's own scores, and scoring the PSMs the mod
 fitted on, both bias the decoy count the FDR estimate rests on. Cross-fitting (Granholm et
 al. 2012) removes the bias: every PSM is scored by a model that was fitted on the other
 folds only.
+
+The first fit, on every target, is where the labels are worst, and not every model
+survives it: decoys are not perfect copies of false targets (the two separate with an AUC
+of about 0.6), and gradient boosted trees fitted on every target learn that difference and
+rank false targets above decoys. On a low-input sample, where most targets are false, that
+is most of what they learn and the reported FDR is off by an order of magnitude. A neural
+network fitted the same way does not pick the difference up. So only the first member of
+an ensemble is fitted on every target; it picks the positives the other members start from.
 """
 
 import logging
@@ -19,7 +27,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from alphadia.fdr.classifiers import Classifier
+from alphadia.fdr.classifiers import Classifier, EnsembleClassifier
 from alphadia.fdr.fdr import get_q_values, keep_best
 
 logger = logging.getLogger()
@@ -225,13 +233,38 @@ class CrossFittedTrainer:
         *,
         is_final: bool,
     ) -> TrainingResult:
-        """Fit by self-training on the confident targets against all decoys."""
+        """Fit by self-training on the confident targets against all decoys.
+
+        Only the first member of an ensemble is fitted on every target; the others are
+        fitted on the positives it picks, see the module docstring.
+        """
         y_fit = (~is_target).astype(float)
-        positives = is_target
+        members = (
+            classifier.members
+            if isinstance(classifier, EnsembleClassifier)
+            else [classifier]
+        )
+        teacher, students = members[0], members[1:]
+
+        teacher.fit_separating(x, y_fit, is_final=is_final)
+        positives = self._select_positives(
+            teacher.predict_proba(x)[:, 1], is_target, competition_group, precursor_idx
+        )
+        n_positives = int(positives.sum())
+        logger.info(
+            f"First fit: {n_positives:,} of {int(is_target.sum()):,} targets below "
+            f"train_fdr {self.train_fdr} are the positives"
+        )
+        if n_positives < self.min_positives:
+            logger.warning(
+                f"Only {n_positives:,} positives; fitting the other members on every target"
+            )
+            positives = is_target
 
         for refit in range(self.n_refits + 1):
             train_idx = np.flatnonzero(positives | ~is_target)
-            classifier.fit_separating(x[train_idx], y_fit[train_idx], is_final=is_final)
+            for member in students if refit == 0 else members:
+                member.fit_separating(x[train_idx], y_fit[train_idx], is_final=is_final)
             proba = classifier.predict_proba(x)[:, 1]
 
             if refit == self.n_refits:

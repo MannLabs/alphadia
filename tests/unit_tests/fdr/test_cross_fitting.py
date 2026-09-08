@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from alphadia.fdr import fdr
-from alphadia.fdr.classifiers import LightGBMClassifier
+from alphadia.fdr.classifiers import EnsembleClassifier, LightGBMClassifier
 from alphadia.fdr.cross_fitting import CrossFittedTrainer
 
 N_CANDIDATES = 3
@@ -97,6 +97,48 @@ def test_fit_predict_refits_on_the_confident_targets_against_all_decoys():
     assert y_train_true[result.y_train == 0].mean() > 0.9
     assert (result.y_train == 0).sum() < 0.2 * (y == 0).sum() / 2
     assert (result.y_train == 1).sum() == (y == 1).sum() // 2
+
+
+class _RecordingClassifier(LightGBMClassifier):
+    """LightGBM that records how many positives each of its fits saw."""
+
+    def __init__(self):
+        super().__init__(
+            n_estimators=30,
+            final_n_estimators=30,
+            min_child_samples=5,
+            num_threads=1,
+            random_state=0,
+        )
+        self.positives_per_fit = []
+
+    def fit(self, x, y, *, is_final=False):
+        self.positives_per_fit.append(int((y == 0).sum()))
+        super().fit(x, y, is_final=is_final)
+
+
+def test_fit_predict_fits_only_the_first_ensemble_member_on_every_target():
+    # Given: a two-member ensemble and one refit
+    psm_df = _gen_psms()
+    n_targets_per_fold = (psm_df["decoy"] == 0).sum() // 2
+    teacher, student = _RecordingClassifier(), _RecordingClassifier()
+    trainer = CrossFittedTrainer(
+        n_folds=2, train_fdr=0.01, n_refits=1, min_positives=100, random_state=0
+    )
+
+    # When: the ensemble is cross-fitted
+    _fit_predict(trainer, psm_df, EnsembleClassifier([teacher, student]))
+
+    # Then: the first member's first fit saw every target of its fold (folds are drawn at
+    # random, so about half of all), the second member never saw more than the confident
+    # ones, and both were refitted once on those
+    assert (
+        abs(teacher.positives_per_fit[0] - n_targets_per_fold)
+        < 0.1 * n_targets_per_fold
+    )
+    assert len(teacher.positives_per_fit) == len(student.positives_per_fit) == 2
+    assert max(student.positives_per_fit) < 0.5 * n_targets_per_fold
+    assert student.positives_per_fit[1] == teacher.positives_per_fit[1]
 
 
 def test_fit_predict_keeps_the_previous_model_when_too_few_positives(caplog):

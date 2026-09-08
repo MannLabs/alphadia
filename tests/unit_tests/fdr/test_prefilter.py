@@ -70,15 +70,20 @@ def test_prefilter_keeps_the_confident_targets_and_drops_decoy_like_psms():
     y = psm_df["decoy"].to_numpy()
 
     # When: the prefilter gates the PSMs
-    keep, stage1_proba = _get_prefilter(q_value_threshold=0.2).select(
+    keep, stage1_proba, n_passed = _get_prefilter(q_value_threshold=0.2).select(
         psm_df, y, is_final=True
     )
 
-    # Then: the good targets pass, most decoys do not, and every PSM has a stage-1 score
+    # Then: the good targets pass and bring their decoys along, the elution groups of the
+    # decoy-like targets are mostly dropped, and every PSM has a stage-1 score
     good_targets = (psm_df["feature"] < 1.0).to_numpy()
+    good_groups = psm_df["elution_group_idx"].isin(
+        psm_df.loc[good_targets, "elution_group_idx"]
+    )
     assert keep[good_targets].mean() > 0.95
-    assert keep[y == 1].mean() < 0.3
-    assert 0.0 < keep.mean() < 1.0
+    assert keep[good_groups & (y == 1)].mean() > 0.95
+    assert keep[~good_groups].mean() < 0.3
+    assert n_passed < keep.sum() < len(psm_df)
     assert stage1_proba.shape == (len(psm_df),)
     assert stage1_proba[good_targets].mean() < stage1_proba[y == 1].mean()
 
@@ -93,13 +98,15 @@ def test_prefilter_extends_the_cut_to_the_floor_when_the_threshold_keeps_too_few
     y = psm_df["decoy"].to_numpy()
 
     # When: the prefilter gates the PSMs
-    keep, stage1_proba = _get_prefilter(
+    keep, stage1_proba, n_passed = _get_prefilter(
         q_value_threshold=0.0, min_kept_psms=300
     ).select(psm_df, y, is_final=True)
 
-    # Then: exactly the 300 best-ranked PSMs are kept
-    assert keep.sum() == 300
-    assert stage1_proba[keep].max() <= stage1_proba[~keep].min()
+    # Then: exactly the 300 best-ranked PSMs pass the cut and are kept with their groups
+    stage1_order = np.lexsort((psm_df["precursor_idx"].to_numpy(), y, stage1_proba))
+    assert n_passed == 300
+    assert keep[stage1_order[:300]].all()
+    assert 300 <= keep.sum() <= 600
     assert "raised from" in caplog.text
 
 
@@ -110,12 +117,13 @@ def test_prefilter_passes_everything_below_min_psms():
     y = psm_df["decoy"].to_numpy()
 
     # When: the prefilter gates the PSMs
-    keep, stage1_proba = _get_prefilter(
+    keep, stage1_proba, n_passed = _get_prefilter(
         q_value_threshold=0.2, min_psms=len(psm_df) + 1
     ).select(psm_df, y, is_final=True)
 
     # Then: nothing is dropped and no stage-1 model was fitted
     assert keep.all()
+    assert n_passed == len(psm_df)
     assert not stage1_proba.any()
 
 
@@ -212,7 +220,7 @@ def test_perform_fdr_with_prefilter_widens_the_cut_when_the_identifications_crow
 
     # Then: the cut is widened once and the confident targets are identified after all
     assert "widening the cut to stage-1 q-value <= 0.5" in caplog.text
-    assert caplog.text.count("Prefilter kept") == 2
+    assert caplog.text.count("Prefilter passed") == 2
     good_targets = psm_df[(psm_df["_decoy"] == 0) & (psm_df["feature"] < 1.0)]
     assert (good_targets["qval"] < 0.05).mean() > 0.9
 
@@ -237,4 +245,4 @@ def test_perform_fdr_with_prefilter_leaves_the_cut_alone_in_optimization_rounds(
 
     # Then: neither the check nor the widening runs
     assert "Prefilter recall check" not in caplog.text
-    assert caplog.text.count("Prefilter kept") == 1
+    assert caplog.text.count("Prefilter passed") == 1
