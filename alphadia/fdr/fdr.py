@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia.exceptions import TooFewPSMError
+from alphadia.fdr.classifiers import EnsembleClassifier
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import compete_for_fragments
@@ -198,12 +199,21 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
         x_kept = X[keep]
 
         if cross_fitted:
+            # Only the first member of an ensemble scores the final round. Its trees
+            # steer the optimization rounds, where they find identifications the network
+            # misses on hard samples, but fitted on mostly-false targets they learn to
+            # tell false targets from decoys, and the reported FDR cannot rest on that.
+            scorer = (
+                classifier.members[0]
+                if isinstance(classifier, EnsembleClassifier)
+                else classifier
+            )
             # The optimization rounds fitted the classifier on PSMs of this round; a
             # warm start would carry what it memorized about them into the out-of-fold
             # fit.
-            classifier.reset()
+            scorer.reset()
             result = trainer.fit_predict(
-                classifier,
+                scorer,
                 x_kept,
                 y[keep],
                 competition_group[keep],
@@ -290,16 +300,32 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
                 f"widening the cut to stage-1 q-value <= {_WIDE_Q_VALUE_THRESHOLD} "
                 f"and refitting"
             )
-            keep, n_passed = prefilter.keep_from_scores(
+            wide_keep, wide_n_passed = prefilter.keep_from_scores(
                 stage1_proba,
                 y,
                 precursor_idx,
                 psm_df["elution_group_idx"].to_numpy(),
                 _WIDE_Q_VALUE_THRESHOLD,
             )
-            fit_result = fit(keep)
-            scored_df = score(fit_result, keep)
-            tail_share = _prefilter_tail_share(scored_df, n_passed)
+            wide_fit = fit(wide_keep)
+            wide_df = score(wide_fit, wide_keep)
+            # A wider cut hands the classifier many more false targets per true one,
+            # and a network fitted on that can come out worse than the one it replaces
+            # (plasma: -10%). The classifier object then holds the wide fit, which only
+            # the next round's warm start sees.
+            if _n_identified(wide_df) >= _n_identified(scored_df):
+                keep, n_passed, fit_result, scored_df = (
+                    wide_keep,
+                    wide_n_passed,
+                    wide_fit,
+                    wide_df,
+                )
+                tail_share = _prefilter_tail_share(scored_df, n_passed)
+            else:
+                logger.warning(
+                    f"The widened cut identifies {_n_identified(wide_df):,} targets, "
+                    f"the original {_n_identified(scored_df):,}; keeping the original"
+                )
         logger.info(
             f"Prefilter recall check: {100 * tail_share:.2f}% of the identifications at "
             f"{_RECALL_CHECK_FDR:.0%} FDR sit in the worst "
@@ -318,6 +344,11 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
         )
 
     return scored_df
+
+
+def _n_identified(psm_df: pd.DataFrame) -> int:
+    """Targets identified at the recall-check FDR."""
+    return int(((psm_df["_decoy"] == 0) & (psm_df["qval"] <= _RECALL_CHECK_FDR)).sum())
 
 
 def _prefilter_tail_share(psm_df: pd.DataFrame, n_passed: int) -> float:

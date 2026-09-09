@@ -288,3 +288,40 @@ def test_perform_fdr_ignores_the_trainer_in_optimization_rounds():
 
     # Then: the results are identical
     pd.testing.assert_frame_equal(with_trainer, without_trainer)
+
+
+def test_perform_fdr_final_round_scores_with_the_first_ensemble_member():
+    # Given: an ensemble of two recording members and a trainer
+    psm_df = _gen_psms()
+    first, second = _RecordingClassifier(), _RecordingClassifier()
+    kwargs = {
+        "competitive": True,
+        "group_channels": True,
+        "random_state": 0,
+        "trainer": CrossFittedTrainer(n_folds=2, min_positives=100, random_state=0),
+    }
+
+    # When: an optimization round and the final round are run
+    fdr.perform_fdr(
+        EnsembleClassifier([first, second]),
+        ["feature", "noise"],
+        psm_df[psm_df["decoy"] == 0].copy(),
+        psm_df[psm_df["decoy"] == 1].copy(),
+        is_final=False,
+        **kwargs,
+    )
+    n_fits_optimization = len(second.positives_per_fit)
+    fdr.perform_fdr(
+        EnsembleClassifier([first, second]),
+        ["feature", "noise"],
+        psm_df[psm_df["decoy"] == 0].copy(),
+        psm_df[psm_df["decoy"] == 1].copy(),
+        is_final=True,
+        **kwargs,
+    )
+
+    # Then: both members were fitted in the optimization round, only the first in the
+    # cross-fitted final round
+    assert n_fits_optimization == 1
+    assert len(second.positives_per_fit) == 1
+    assert len(first.positives_per_fit) > 1
