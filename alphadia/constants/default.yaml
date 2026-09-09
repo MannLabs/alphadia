@@ -309,7 +309,7 @@ fdr:
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
   # write the unfiltered FDR feature matrix and the classifier feature importances to the quant folder, for offline feature analysis
-  save_feature_matrix: false
+  save_feature_matrix: true
   # classifier scoring the candidates: mlp (feed forward neural network), lightgbm (gradient boosted trees) or
   # ensemble (mean of both probabilities; the final cross-fitted round is scored by its first member alone). Trees
   # learn to tell false targets from decoys and inflate the identifications on low-input samples, in the optimization
