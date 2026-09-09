@@ -312,7 +312,7 @@ fdr:
   # ensemble (mean of both probabilities; the two families make different mistakes, which the mean removes). In the
   # ensemble only the mlp is fitted on every target, the trees start from the targets it finds confident: trees fitted
   # on every target learn to tell false targets from decoys and inflate the identifications on low-input samples
-  classifier: "ensemble"
+  classifier: "mlp"
   # hyperparameters of the lightgbm classifier
   lightgbm:
     # maximum number of boosting rounds (trees) in the optimization rounds; early stopping usually uses fewer
