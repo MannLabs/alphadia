@@ -270,8 +270,14 @@ class CrossFittedTrainer:
             if refit == self.n_refits:
                 break
 
+            # the teacher alone picks the next positives: the trees rank false targets
+            # above decoys by a margin that grows with the number of decoys they see,
+            # and once they help pick their own positives the false ones snowball
             new_positives = self._select_positives(
-                proba, is_target, competition_group, precursor_idx
+                teacher.predict_proba(x)[:, 1],
+                is_target,
+                competition_group,
+                precursor_idx,
             )
             n_positives = int(new_positives.sum())
             if n_positives < self.min_positives:
