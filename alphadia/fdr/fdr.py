@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 
 from alphadia.exceptions import TooFewPSMError
-from alphadia.fdr.classifiers import EnsembleClassifier
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import compete_for_fragments
@@ -199,21 +198,12 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
         x_kept = X[keep]
 
         if cross_fitted:
-            # Only the first member of an ensemble scores the final round. Its trees
-            # steer the optimization rounds, where they find identifications the network
-            # misses on hard samples, but fitted on mostly-false targets they learn to
-            # tell false targets from decoys, and the reported FDR cannot rest on that.
-            scorer = (
-                classifier.members[0]
-                if isinstance(classifier, EnsembleClassifier)
-                else classifier
-            )
             # The optimization rounds fitted the classifier on PSMs of this round; a
             # warm start would carry what it memorized about them into the out-of-fold
             # fit.
-            scorer.reset()
+            classifier.reset()
             result = trainer.fit_predict(
-                scorer,
+                classifier,
                 x_kept,
                 y[keep],
                 competition_group[keep],
