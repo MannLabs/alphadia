@@ -25,10 +25,6 @@ _STAGE1_RANK_COLUMN = "_stage1_rank"
 
 logger = logging.getLogger()
 
-# Fraction of the gap between the worst scored PSM and 1.0 left empty above the scored
-# PSMs, so a dropped PSM with stage-1 probability 0 still ranks strictly behind them.
-_DROPPED_PROBA_OFFSET = 0.5
-
 # The prefilter is judged by the identifications it let through: the share of them that
 # sit in the worst-ranked tenth of what it kept. A gate with margin sees the
 # identification density die out well before its cut; one that truncates the
@@ -232,21 +228,9 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
         return _Fit(proba, train_idx, test_idx, y_train, y_test)
 
     def score(fit_result: _Fit, keep: np.ndarray) -> pd.DataFrame:
-        proba = np.empty(len(X))
-        proba[keep] = fit_result.proba
-        if prefilter is not None:
-            # Dropped PSMs never reach the FDR threshold, so their exact scores do not
-            # matter, only that every one of them ranks behind every scored PSM.
-            # Spreading them by their stage-1 score keeps them distinct, so a tied block
-            # cannot form in the tail.
-            worst_kept = fit_result.proba.max()
-            proba[~keep] = worst_kept + (1 - worst_kept) * (
-                _DROPPED_PROBA_OFFSET
-                + (1 - _DROPPED_PROBA_OFFSET) * stage1_proba[~keep]
-            )
-        psm_df["proba"] = proba
-
-        scored_df = get_q_values(psm_df, "proba", "_decoy")
+        scored_df = psm_df[keep].copy()
+        scored_df["proba"] = fit_result.proba
+        scored_df = get_q_values(scored_df, "proba", "_decoy")
 
         if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
             # use a FDR of 10% as starting point
@@ -265,8 +249,25 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
                     scored_df.iloc[:start_idx], df_fragments, dia_cycle
                 )
 
-        scored_df = keep_best(scored_df, group_columns=group_columns)
-        return get_q_values(scored_df, "proba", "_decoy")
+        scored_df = keep_best(
+            scored_df, group_columns=group_columns, decoy_column="_decoy"
+        )
+        scored_df = get_q_values(scored_df, "proba", "_decoy")
+        if keep.all():
+            return scored_df
+
+        # The prefilter drops whole elution groups, so a dropped PSM never competes with
+        # a scored one and the estimate can leave the dropped groups out altogether: they
+        # are not identified. Ranking them behind the scored PSMs by a shifted score
+        # instead broke down whenever the worst scored PSM sat at a probability of
+        # exactly 1.0, where the network saturates: every dropped PSM then tied at 1.0
+        # and the block's few decoys let all of them pass the FDR threshold at once.
+        dropped_df = keep_best(
+            psm_df[~keep].assign(proba=1.0, qval=1.0),
+            group_columns=group_columns,
+            decoy_column="_decoy",
+        )
+        return pd.concat([scored_df, dropped_df], ignore_index=True)
 
     try:
         fit_result = fit(keep)
@@ -342,6 +343,7 @@ def keep_best(
     df: pd.DataFrame,
     score_column: str = "proba",
     group_columns: list[str] | None = None,
+    decoy_column: str | None = None,
 ) -> pd.DataFrame:
     """Keep the best PSM for each group of PSMs with the same precursor_idx.
 
@@ -359,6 +361,10 @@ def keep_best(
     group_columns : list[str], default=['channel', 'precursor_idx']
         The columns to use for the grouping.
 
+    decoy_column : str, optional
+        The column holding the decoy labels. When given, a decoy wins a tied score
+        in its group.
+
     Returns
     -------
     pd.DataFrame
@@ -368,9 +374,15 @@ def keep_best(
     if group_columns is None:
         group_columns = ["channel", "precursor_idx"]
     df = df.reset_index(drop=True)
-    df = df.sort_values(
-        [score_column, *group_columns], ascending=True
-    )  # last sort to break ties
+    sort_columns = [score_column, *group_columns]
+    ascending = [True] * len(sort_columns)
+    if decoy_column is not None:
+        # A tie between a target and its decoy is evidence for neither. Left to the row
+        # order the target won every one, and a network that saturates the false
+        # matches at a probability of 1.0 ties most of the groups.
+        sort_columns.insert(1, decoy_column)
+        ascending.insert(1, False)
+    df = df.sort_values(sort_columns, ascending=ascending)
     df = df.groupby(group_columns).head(1)
     return df.sort_index().reset_index(drop=True)
 

@@ -88,6 +88,28 @@ def test_keep_best_2():
     pd.testing.assert_frame_equal(result_df, result_expected)
 
 
+def test_keep_best_lets_the_decoy_win_a_tie():
+    # Given: a target and its decoy tied on the score, the target listed first
+    test_df = pd.DataFrame(
+        {
+            "elution_group_idx": [0, 0, 1, 1],
+            "proba": [0.5, 0.5, 0.2, 0.9],
+            "_decoy": [0, 1, 0, 1],
+        }
+    )
+
+    # When: the best PSM per group is kept with and without the decoy tie-break
+    by_order = fdr.keep_best(test_df, group_columns=["elution_group_idx"])
+    by_decoy = fdr.keep_best(
+        test_df, group_columns=["elution_group_idx"], decoy_column="_decoy"
+    )
+
+    # Then: the row order hands the tie to the target, the tie-break to the decoy, and
+    # a group with a clear winner is unaffected
+    assert by_order["_decoy"].tolist() == [0, 0]
+    assert by_decoy["_decoy"].tolist() == [1, 0]
+
+
 def test_fdr_to_q_values():
     test_fdr = np.array([0.2, 0.1, 0.05, 0.3, 0.26, 0.25, 0.5])
 

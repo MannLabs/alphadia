@@ -149,6 +149,53 @@ def test_prefilter_fits_each_fold_on_every_row_when_uncapped():
     assert (prefilter._training_rows(candidates) == candidates).all()
 
 
+class _SaturatingClassifier(LightGBMClassifier):
+    """Scores every PSM it is not sure about at a probability of exactly 1.0, the way a
+    network saturates on the false matches."""
+
+    def predict_proba(self, x):
+        proba = super().predict_proba(x)
+        proba[:, 1] = np.where(proba[:, 1] > 0.5, 1.0, proba[:, 1])  # noqa: PLR2004
+        proba[:, 0] = 1 - proba[:, 1]
+        return proba
+
+
+def test_perform_fdr_with_prefilter_never_identifies_a_dropped_psm():
+    # Given: separable targets and decoys, a prefilter, and a classifier that saturates
+    # the worst scored PSMs at 1.0, so a dropped PSM ranked behind them by a shifted
+    # score would tie with all the others
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=2000)
+    classifier = _SaturatingClassifier(
+        n_estimators=20,
+        final_n_estimators=20,
+        min_child_samples=5,
+        num_threads=1,
+        random_state=0,
+    )
+
+    # When: perform_fdr runs with the prefilter in the cross-fitted final round
+    psm_df = fdr.perform_fdr(
+        classifier,
+        ["feature", "noise"],
+        target_df,
+        decoy_df,
+        competitive=True,
+        random_state=0,
+        is_final=True,
+        prefilter=_get_prefilter(q_value_threshold=0.2),
+        trainer=CrossFittedTrainer(n_folds=2, random_state=0),
+    )
+
+    # Then: one PSM per elution group comes back, the good targets are identified, and
+    # nothing scored at 1.0, dropped or saturated, is
+    assert len(psm_df) == 2000
+    good_targets = psm_df[(psm_df["_decoy"] == 0) & (psm_df["feature"] < 1.0)]
+    assert (good_targets["qval"] < 0.05).mean() > 0.9
+    saturated = psm_df[psm_df["proba"] == 1.0]
+    assert len(saturated) > 900
+    assert (saturated["qval"] > 0.05).all()
+
+
 def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
     # Given: separable targets and decoys and a prefilter
     target_df, decoy_df = _gen_target_decoy_dfs()
@@ -166,12 +213,13 @@ def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
     )
 
     # Then: every PSM gets a probability, the good targets get the low q-values and the
-    # dropped PSMs all rank behind the scored ones
+    # dropped PSMs all carry a probability and q-value of one
     assert psm_df["proba"].notna().all()
     good_targets = psm_df[(psm_df["_decoy"] == 0) & (psm_df["feature"] < 1.0)]
     assert (good_targets["qval"] < 0.05).mean() > 0.9
-    decoys = psm_df[psm_df["_decoy"] == 1]
-    assert good_targets["proba"].max() < decoys["proba"].quantile(0.5)
+    dropped = psm_df[psm_df["proba"] == 1.0]
+    assert len(dropped) > 0
+    assert (dropped["qval"] == 1.0).all()
 
 
 def test_perform_fdr_with_prefilter_reports_the_recall_check(caplog):

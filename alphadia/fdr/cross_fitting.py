@@ -314,7 +314,9 @@ class CrossFittedTrainer:
                 _ROW_COLUMN: np.arange(len(proba)),
             }
         )
-        df = keep_best(df, group_columns=[_COMPETITION_GROUP_COLUMN])
+        df = keep_best(
+            df, group_columns=[_COMPETITION_GROUP_COLUMN], decoy_column="_decoy"
+        )
         df = get_q_values(df)
 
         positives = np.zeros(len(proba), dtype=bool)
