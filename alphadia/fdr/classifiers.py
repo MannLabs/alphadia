@@ -219,7 +219,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
         layers: list[int] | None = None,
-        dropout: float = 0.001,
+        dropout: float = 0.3,
         metric_interval: int = 1000,
         *,
         experimental_hyperparameter_tuning: bool = False,
@@ -251,10 +251,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         weight_decay : float, default=0.00001
             Weight decay for training.
 
-        layers : typing.List[int], default=[100, 50, 20, 5]
+        layers : typing.List[int], default=[192, 64]
             typing.List of hidden layer sizes.
 
-        dropout : float, default=0.001
+        dropout : float, default=0.3
             Dropout probability for training.
 
         metric_interval : int, default=1000
@@ -271,7 +271,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         """
         if layers is None:
-            layers = [100, 50, 20, 5]
+            layers = [192, 64]
         self.test_size = test_size
         self.batch_size = batch_size
         self.epochs = epochs
@@ -431,6 +431,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 layers=self.layers,
                 dropout=self.dropout,
             )
+            self.network.set_input_scaling(x)
 
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
@@ -881,9 +882,11 @@ class FeedForwardNN(nn.Module):
 
     def _build_model(self) -> None:
         """Build the feed forward network model."""
+        # inputs are z-scored with fixed statistics instead of BatchNorm: with the small batches
+        # that small searches get, batch statistics are noisy and cost identifications
+        self.register_buffer("input_mean", torch.zeros(self.input_dim))
+        self.register_buffer("input_std", torch.ones(self.input_dim))
         layers = []
-        # add batch norm layer
-        layers.append(nn.BatchNorm1d(self.input_dim))
         for i in range(len(self.layers) - 1):
             layers.append(nn.Linear(self.layers[i], self.layers[i + 1]))
             layers.append(nn.ReLU())
@@ -894,9 +897,16 @@ class FeedForwardNN(nn.Module):
         layers.append(nn.Softmax(dim=1))
         self.fc_layers = nn.Sequential(*layers)
 
+    def set_input_scaling(self, x: np.ndarray) -> None:
+        """Fix the per-feature mean and standard deviation used to z-score the inputs."""
+        std = x.std(axis=0)
+        std[std == 0] = 1.0
+        self.input_mean = torch.tensor(x.mean(axis=0), dtype=torch.float32)
+        self.input_std = torch.tensor(std, dtype=torch.float32)
+
     def forward(self, x: Any) -> Any:  # noqa: ANN401
         """Forward pass through the network."""
-        return self.fc_layers(x)
+        return self.fc_layers((x - self.input_mean) / self.input_std)
 
 
 class EnsembleClassifier(Classifier):
