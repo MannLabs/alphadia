@@ -315,7 +315,7 @@ def test_fdr_manager_fit_predict(classifier_base):
     )
     test_features_df = fdr_testdata(FDR_TEST_FEATURES)
 
-    assert len(fdr_manager.classifier_store) == 1
+    assert len(fdr_manager.classifier_store) == 0
 
     fdr_manager.fit_predict(
         test_features_df,
@@ -324,7 +324,7 @@ def test_fdr_manager_fit_predict(classifier_base):
         df_fragments=None,
     )
 
-    assert len(fdr_manager.classifier_store) == 2
+    assert len(fdr_manager.classifier_store) == 1
     assert fdr_manager.current_version == 0
     assert column_hash(FDR_TEST_FEATURES) in fdr_manager.classifier_store
 

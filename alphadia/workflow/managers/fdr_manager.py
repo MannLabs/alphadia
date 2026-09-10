@@ -336,6 +336,10 @@ class FDRManager(BaseManager):
 
         logger.info(f"Loading classifier store from {path}")
 
+        # nothing ships with the package any more, so the directory only exists once a store was saved
+        if not os.path.isdir(path):
+            return
+
         for file in os.listdir(path):
             if file.endswith(".pth"):
                 classifier_hash = file.split(".")[0]
