@@ -59,6 +59,10 @@ class TrainingResult:
     y_train: np.ndarray
 
 
+def _take(weight: np.ndarray | None, idx: np.ndarray) -> np.ndarray | None:
+    return None if weight is None else weight[idx]
+
+
 class CrossFittedTrainer:
     """Self-training per fold; every PSM is scored by a model that never saw it.
 
@@ -117,6 +121,8 @@ class CrossFittedTrainer:
         precursor_idx: np.ndarray,
         *,
         is_final: bool = False,
+        sample_weight: np.ndarray | None = None,
+        class_prior: float | None = None,
     ) -> TrainingResult:
         """Fit one classifier per fold and score each fold with the others' model.
 
@@ -139,6 +145,13 @@ class CrossFittedTrainer:
 
         is_final : bool, default=False
             Passed on to the classifier's fit.
+
+        sample_weight : np.ndarray, optional
+            Weight of every PSM in the classifier's loss.
+
+        class_prior : float, optional
+            Share of the targets that are true matches, passed on to the first fit of
+            every fold; the refits see only confident positives.
 
         Returns
         -------
@@ -171,6 +184,8 @@ class CrossFittedTrainer:
                 competition_group[train_idx],
                 precursor_idx[train_idx],
                 is_final=is_final,
+                sample_weight=_take(sample_weight, train_idx),
+                class_prior=class_prior,
             )
             proba[in_fold] = fold_classifiers[fold_idx].predict_proba(x[in_fold])[:, 1]
             return TrainingResult(
@@ -232,6 +247,8 @@ class CrossFittedTrainer:
         precursor_idx: np.ndarray,
         *,
         is_final: bool,
+        sample_weight: np.ndarray | None = None,
+        class_prior: float | None = None,
     ) -> TrainingResult:
         """Fit by self-training on the confident targets against all decoys.
 
@@ -246,7 +263,13 @@ class CrossFittedTrainer:
         )
         teacher, students = members[0], members[1:]
 
-        teacher.fit_separating(x, y_fit, is_final=is_final)
+        teacher.fit_separating(
+            x,
+            y_fit,
+            is_final=is_final,
+            sample_weight=sample_weight,
+            class_prior=class_prior,
+        )
         positives = self._select_positives(
             teacher.predict_proba(x)[:, 1], is_target, competition_group, precursor_idx
         )
@@ -263,8 +286,15 @@ class CrossFittedTrainer:
 
         for refit in range(self.n_refits + 1):
             train_idx = np.flatnonzero(positives | ~is_target)
+            # the positives here are the confident targets, not the whole mixture, so the
+            # class prior does not apply to these fits
             for member in students if refit == 0 else members:
-                member.fit_separating(x[train_idx], y_fit[train_idx], is_final=is_final)
+                member.fit_separating(
+                    x[train_idx],
+                    y_fit[train_idx],
+                    is_final=is_final,
+                    sample_weight=_take(sample_weight, train_idx),
+                )
             proba = classifier.predict_proba(x)[:, 1]
 
             if refit == self.n_refits:

@@ -35,7 +35,43 @@ _ENSEMBLE_MEMBERS_KEY = "members"
 # against 0.79 for a healthy fit). Inside an ensemble or a cross-fitted fold such a fit is
 # invisible in the combined scores, so every fit is checked on its own.
 _MIN_FIT_AUC = 0.55
+LOSS_BCE = "bce"
+LOSS_NNPU = "nnpu"
+LOSS_SYMMETRIC = "symmetric"
+LOSS_GCE = "gce"
+# exponent of the generalized cross-entropy: 0 is the cross-entropy, 1 the mean absolute error
+_GCE_Q = 0.7
+_EPS = 1e-12
 _MAX_FIT_RETRIES = 3
+
+
+def _class_weighted(
+    sample_weight: np.ndarray | None,
+    is_decoy: np.ndarray,
+    class_prior: float | None,
+    loss: str = LOSS_BCE,
+) -> np.ndarray:
+    """Row weights with the decoys scaled by 2(1 - class_prior) when a prior is given.
+
+    Under a symmetric loss that is exactly the unbiased positive-unlabeled risk with the
+    decoys as the labelled class (du Plessis et al. 2014); the other losses use it as a
+    class weight. The nnPU loss applies the prior inside the loss instead.
+    """
+    weight = (
+        np.ones(len(is_decoy))
+        if sample_weight is None
+        else np.asarray(sample_weight, dtype=float)
+    )
+    if class_prior is None or loss == LOSS_NNPU:
+        return weight
+    return weight * np.where(is_decoy == 1, 2 * (1 - class_prior), 1.0)
+
+
+def _weighted_mean(
+    values: torch.Tensor, weight: torch.Tensor, mask: torch.Tensor
+) -> torch.Tensor:
+    w = weight * mask
+    return (values * w).sum() / w.sum().clamp_min(_EPS)
 
 
 class Classifier(ABC):
@@ -54,7 +90,15 @@ class Classifier(ABC):
         """Return whether the classifier has been fitted."""
 
     @abstractmethod
-    def fit(self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False) -> None:
+    def fit(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        *,
+        is_final: bool = False,
+        sample_weight: np.ndarray | None = None,
+        class_prior: float | None = None,
+    ) -> None:
         """Fit the classifier to the data.
 
         Parameters
@@ -69,10 +113,23 @@ class Classifier(ABC):
             Whether this is the fit whose scores are reported, rather than one of the
             optimization rounds. Implementations may spend more effort on it.
 
+        sample_weight : np.ndarray, optional
+            Weight of every row in the loss; None weights every row the same.
+
+        class_prior : float, optional
+            Share of the targets that are true matches. Implementations that can use it
+            correct the loss for the false targets among the positives.
+
         """
 
     def fit_separating(
-        self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        *,
+        is_final: bool = False,
+        sample_weight: np.ndarray | None = None,
+        class_prior: float | None = None,
     ) -> None:
         """Fit, starting over from fresh weights while the fit does not separate the labels.
 
@@ -85,11 +142,17 @@ class Classifier(ABC):
             Decoy labels of shape (n_samples,), 1 for decoys.
 
         is_final : bool, default=False
-            Passed on to `fit`.
+            Passed on to `fit`, as are `sample_weight` and `class_prior`.
 
         """
         for attempt in range(_MAX_FIT_RETRIES + 1):
-            self.fit(x, y, is_final=is_final)
+            self.fit(
+                x,
+                y,
+                is_final=is_final,
+                sample_weight=sample_weight,
+                class_prior=class_prior,
+            )
             auc = roc_auc_score(y, self.predict_proba(x)[:, 1])
             if auc >= _MIN_FIT_AUC:
                 return
@@ -220,6 +283,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         weight_decay: float = 0.00001,
         layers: list[int] | None = None,
         dropout: float = 0.001,
+        loss: str = LOSS_BCE,
         metric_interval: int = 1000,
         *,
         experimental_hyperparameter_tuning: bool = False,
@@ -257,6 +321,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         dropout : float, default=0.001
             Dropout probability for training.
 
+        loss : str, default="bce"
+            Training loss: "bce" cross-entropy, "nnpu" the non-negative positive-unlabeled
+            risk (needs `class_prior` at fit time, cross-entropy without it), "symmetric"
+            the mean probability of the wrong class, "gce" the generalized cross-entropy.
+
         metric_interval : int, default=1000
             Interval for logging metrics during training.
 
@@ -279,6 +348,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.weight_decay = weight_decay
         self.layers = layers
         self.dropout = dropout
+        self.loss = loss
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.metric_interval = metric_interval
@@ -390,6 +460,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         y: np.ndarray,
         *,
         is_final: bool = False,  # noqa: ARG002 # part of the Classifier interface
+        sample_weight: np.ndarray | None = None,
+        class_prior: float | None = None,
     ) -> None:
         """Fit the classifier to the data.
 
@@ -434,12 +506,15 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
+        weight = _class_weighted(sample_weight, y[:, 1], class_prior, self.loss)
 
         random_state = self._np_rng.integers(0, 1_000_000)
         logger.info(f"Using random state {random_state} for train-test-split")
-        x_train, x_test, y_train, y_test, *_ = train_test_split_(
+        x_train, x_test, y_train, y_test, train_idx, test_idx = train_test_split_(
             x, y, test_size=self.test_size, random_state=random_state
         )
+        w_train = torch.Tensor(weight[train_idx])
+        w_test = torch.Tensor(weight[test_idx])
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)
 
@@ -448,8 +523,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             lr=self.learning_rate,
             weight_decay=self.weight_decay,
         )
-
-        loss = nn.BCELoss()
 
         # Set model to training mode for BatchNorm
         self.network.train()
@@ -475,7 +548,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 x_train_batch = x_train[batch_start:batch_stop]
                 y_train_batch = y_train[batch_start:batch_stop]
                 y_pred = self.network(x_train_batch)
-                loss_value = loss(y_pred, y_train_batch)
+                loss_value = self._batch_loss(
+                    y_pred, y_train_batch, w_train[batch_start:batch_stop], class_prior
+                )
 
                 self.network.zero_grad()
                 loss_value.backward()
@@ -489,7 +564,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                         self.metrics["train_loss"].append(loss_value.item())
 
                         y_pred_test = self.network(x_test)
-                        loss_value = loss(y_pred_test, y_test)
+                        loss_value = self._batch_loss(
+                            y_pred_test, y_test, w_test, class_prior
+                        )
                         self.metrics["test_loss"].append(loss_value.item())
 
                         y_pred_train = self.network(x_train_batch).detach().numpy()
@@ -515,6 +592,41 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 batch_count += 1
 
         self._fitted = True
+
+    def _batch_loss(
+        self,
+        y_pred: torch.Tensor,
+        y_true: torch.Tensor,
+        weight: torch.Tensor,
+        class_prior: float | None,
+    ) -> torch.Tensor:
+        """Weighted loss of one batch; the columns of `y_pred` and `y_true` are [target, decoy]."""
+        is_decoy = y_true[:, 1] == 1
+        if self.loss == LOSS_NNPU and class_prior is not None:
+            # Non-negative positive-unlabeled risk (Kiryo et al. 2017) with the decoys as the
+            # labelled class: the loss of the false targets as positives is cancelled, in
+            # expectation, by the decoys' loss as positives, so the network is not rewarded
+            # for telling false targets from decoys. A negative estimate of the positive
+            # part means the batch is being fitted, and is ascended instead.
+            pos_loss = -torch.log(y_pred[:, 0].clamp_min(_EPS))
+            neg_loss = -torch.log(y_pred[:, 1].clamp_min(_EPS))
+            junk = 1.0 - class_prior
+            neg_risk = junk * _weighted_mean(neg_loss, weight, is_decoy)
+            pos_risk = _weighted_mean(
+                pos_loss, weight, ~is_decoy
+            ) - junk * _weighted_mean(pos_loss, weight, is_decoy)
+            if pos_risk.item() < 0:
+                return -pos_risk
+            return neg_risk + pos_risk
+
+        p_correct = (y_pred * y_true).sum(dim=1).clamp_min(_EPS)
+        if self.loss == LOSS_SYMMETRIC:
+            per_row = 1.0 - p_correct
+        elif self.loss == LOSS_GCE:
+            per_row = (1.0 - p_correct**_GCE_Q) / _GCE_Q
+        else:
+            per_row = -torch.log(p_correct)
+        return _weighted_mean(per_row, weight, torch.ones_like(is_decoy))
 
     @manage_torch_threads(max_threads=2)
     def predict(self, x: np.ndarray) -> np.ndarray:
@@ -697,7 +809,15 @@ class LightGBMClassifier(Classifier):
             iteration / self.learning_rate_decay_rounds
         )
 
-    def fit(self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False) -> None:
+    def fit(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        *,
+        is_final: bool = False,
+        sample_weight: np.ndarray | None = None,
+        class_prior: float | None = None,
+    ) -> None:
         """Fit the classifier to the data.
 
         Parameters
@@ -743,7 +863,8 @@ class LightGBMClassifier(Classifier):
 
         # Boosting has no natural stopping point, so a held-out split decides how many trees the
         # PSM set supports. Overfitting the scored PSMs would inflate the reported identifications.
-        x_train, x_valid, y_train, y_valid, *_ = train_test_split_(
+        weight = _class_weighted(sample_weight, y, class_prior)
+        x_train, x_valid, y_train, y_valid, train_idx, valid_idx = train_test_split_(
             x,
             y,
             test_size=validation_fraction,
@@ -753,9 +874,9 @@ class LightGBMClassifier(Classifier):
         # A fresh booster every fit: continuing would stack trees on top of the previous FDR round
         self._booster = lgb.train(
             params,
-            lgb.Dataset(x_train, label=y_train),
+            lgb.Dataset(x_train, label=y_train, weight=weight[train_idx]),
             num_boost_round=max_trees,
-            valid_sets=[lgb.Dataset(x_valid, label=y_valid)],
+            valid_sets=[lgb.Dataset(x_valid, label=y_valid, weight=weight[valid_idx])],
             callbacks=[
                 lgb.reset_parameter(learning_rate=self._learning_rate_at),
                 lgb.early_stopping(self.early_stopping_rounds, verbose=False),
@@ -923,14 +1044,28 @@ class EnsembleClassifier(Classifier):
         """Return whether every member has been fitted."""
         return all(member.fitted for member in self.members)
 
-    def fit(self, x: np.ndarray, y: np.ndarray, *, is_final: bool = False) -> None:
+    def fit(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        *,
+        is_final: bool = False,
+        sample_weight: np.ndarray | None = None,
+        class_prior: float | None = None,
+    ) -> None:
         """Fit every member to the data, each one until it separates the labels.
 
         A member stuck at a constant output would not show in the averaged scores, it
         would only shift them by a constant.
         """
         for member in self.members:
-            member.fit_separating(x, y, is_final=is_final)
+            member.fit_separating(
+                x,
+                y,
+                is_final=is_final,
+                sample_weight=sample_weight,
+                class_prior=class_prior,
+            )
 
     def reset(self) -> None:
         """Set every member back to an unfitted state."""

@@ -12,6 +12,7 @@ import pandas as pd
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.classifiers import EnsembleClassifier
 from alphadia.fdr.plotting import plot_fdr
+from alphadia.fdr.reweighting import decoy_weights
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import compete_for_fragments
 
@@ -67,6 +68,8 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
     random_state: int | None = None,
     is_final: bool = False,
     prefilter: CascadePrefilter | None = None,
+    class_prior: float | None = None,
+    reweight_decoys: bool = False,
     trainer: CrossFittedTrainer | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
@@ -122,6 +125,13 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
         Fits the classifier in the final round instead of a plain fit on a random split.
         The optimization rounds keep the plain fit, as their scores only steer the
         calibration.
+
+    class_prior : float, default=None
+        Share of the targets that are true matches, passed on to the classifier's fit.
+
+    reweight_decoys : bool, default=False
+        Weight every decoy by the estimated density ratio of false targets to decoys, see
+        `alphadia.fdr.reweighting`. Needs a `rank` column.
 
     Returns
     -------
@@ -197,6 +207,13 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
 
     def fit(keep: np.ndarray) -> _Fit:
         x_kept = X[keep]
+        sample_weight = (
+            decoy_weights(
+                x_kept, y[keep], psm_df["rank"].to_numpy()[keep], random_state
+            )
+            if reweight_decoys
+            else None
+        )
 
         if cross_fitted:
             # Only the first member of an ensemble scores the final round. Its trees
@@ -219,6 +236,8 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
                 competition_group[keep],
                 precursor_idx[keep],
                 is_final=is_final,
+                sample_weight=sample_weight,
+                class_prior=class_prior,
             )
             test_idx = np.setdiff1d(np.arange(len(x_kept)), result.train_idx)
             return _Fit(
@@ -233,7 +252,13 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
             x_kept, y[keep], test_size=0.2, random_state=random_state
         )
 
-        classifier.fit_separating(X_train, y_train, is_final=is_final)
+        classifier.fit_separating(
+            X_train,
+            y_train,
+            is_final=is_final,
+            sample_weight=None if sample_weight is None else sample_weight[train_idx],
+            class_prior=class_prior,
+        )
         proba = classifier.predict_proba(x_kept)[:, 1]
         return _Fit(proba, train_idx, test_idx, y_train, y_test)
 
