@@ -105,6 +105,7 @@ class FDRManager(BaseManager):
         self.load_classifier_store()
 
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
+        self._estimate_class_prior = config["fdr"]["estimate_class_prior"]
 
         self._dia_cycle = dia_cycle
         self._prefilter = prefilter
@@ -194,6 +195,7 @@ class FDRManager(BaseManager):
                 is_final=is_final,
                 prefilter=self._prefilter,
                 trainer=self._trainer,
+                estimate_class_prior=self._estimate_class_prior,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -220,6 +222,7 @@ class FDRManager(BaseManager):
                         is_final=is_final,
                         prefilter=self._prefilter,
                         trainer=self._trainer,
+                        estimate_class_prior=self._estimate_class_prior,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
@@ -243,6 +246,7 @@ class FDRManager(BaseManager):
                         is_final=is_final,
                         prefilter=self._prefilter,
                         trainer=self._trainer,
+                        estimate_class_prior=self._estimate_class_prior,
                     )
                 )
 

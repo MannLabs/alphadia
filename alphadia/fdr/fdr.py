@@ -24,6 +24,9 @@ if TYPE_CHECKING:
 max_dia_cycle_shape = 2
 
 _STAGE1_RANK_COLUMN = "_stage1_rank"
+# the estimated share of true targets is kept away from 0 and 1, where the decoy weight
+# would reach 2 or vanish
+_CLASS_PRIOR_CLIP = (0.02, 0.98)
 
 logger = logging.getLogger()
 
@@ -69,6 +72,7 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
     is_final: bool = False,
     prefilter: CascadePrefilter | None = None,
     class_prior: float | None = None,
+    estimate_class_prior: bool = False,
     reweight_decoys: bool = False,
     trainer: CrossFittedTrainer | None = None,
 ) -> pd.DataFrame:
@@ -128,6 +132,11 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
 
     class_prior : float, default=None
         Share of the targets that are true matches, passed on to the classifier's fit.
+
+    estimate_class_prior : bool, default=False
+        Estimate `class_prior` from the fitted PSMs instead: under target-decoy
+        competition the decoys count the false targets, so the excess of targets over
+        decoys is the true share.
 
     reweight_decoys : bool, default=False
         Weight every decoy by the estimated density ratio of false targets to decoys, see
@@ -207,6 +216,15 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
 
     def fit(keep: np.ndarray) -> _Fit:
         x_kept = X[keep]
+        prior = class_prior
+        if estimate_class_prior:
+            n_targets, n_decoys = int((y[keep] == 0).sum()), int((y[keep] == 1).sum())
+            prior = float(
+                np.clip((n_targets - n_decoys) / max(n_targets, 1), *_CLASS_PRIOR_CLIP)
+            )
+            logger.info(
+                f"Class prior {prior:.3f} from {n_targets:,} targets and {n_decoys:,} decoys"
+            )
         sample_weight = (
             decoy_weights(
                 x_kept, y[keep], psm_df["rank"].to_numpy()[keep], random_state
@@ -237,7 +255,7 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
                 precursor_idx[keep],
                 is_final=is_final,
                 sample_weight=sample_weight,
-                class_prior=class_prior,
+                class_prior=prior,
             )
             test_idx = np.setdiff1d(np.arange(len(x_kept)), result.train_idx)
             return _Fit(
@@ -257,7 +275,7 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
             y_train,
             is_final=is_final,
             sample_weight=None if sample_weight is None else sample_weight[train_idx],
-            class_prior=class_prior,
+            class_prior=prior,
         )
         proba = classifier.predict_proba(x_kept)[:, 1]
         return _Fit(proba, train_idx, test_idx, y_train, y_test)

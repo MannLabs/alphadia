@@ -310,6 +310,7 @@ def test_fdr_manager_fit_predict(classifier_base):
         classifier_base=classifier_base,
         config={
             "search": {"compete_for_fragments": False},
+            "fdr": {"estimate_class_prior": True},
         },
         dia_cycle=None,
     )
