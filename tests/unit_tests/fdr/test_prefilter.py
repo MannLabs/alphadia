@@ -50,7 +50,10 @@ def _get_classifier() -> LightGBMClassifier:
 
 
 def _get_prefilter(
-    q_value_threshold: float, min_psms: int = 0, min_kept_psms: int = 1
+    q_value_threshold: float,
+    min_psms: int = 0,
+    min_kept_psms: int = 1,
+    min_kept_fraction: float = 0.0,
 ) -> CascadePrefilter:
     return CascadePrefilter(
         feature_columns=["feature"],
@@ -59,6 +62,7 @@ def _get_prefilter(
         n_folds=2,
         min_psms=min_psms,
         min_kept_psms=min_kept_psms,
+        min_kept_fraction=min_kept_fraction,
         random_state=0,
     )
 
@@ -108,6 +112,23 @@ def test_prefilter_extends_the_cut_to_the_floor_when_the_threshold_keeps_too_few
     assert keep[stage1_order[:300]].all()
     assert 300 <= keep.sum() <= 600
     assert "raised from" in caplog.text
+
+
+def test_prefilter_keeps_at_least_the_relative_floor(caplog):
+    # Given: a cut that would keep almost nothing and a floor of a quarter of the PSMs
+    caplog.set_level(logging.INFO)
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    psm_df = pd.concat([target_df, decoy_df]).reset_index(drop=True)
+    y = psm_df["decoy"].to_numpy()
+
+    # When: the prefilter gates the PSMs
+    keep, stage1_proba, n_passed = _get_prefilter(
+        q_value_threshold=0.0, min_kept_fraction=0.25
+    ).select(psm_df, y, is_final=True)
+
+    # Then: a quarter of the PSMs pass the cut
+    assert n_passed == len(psm_df) // 4
+    assert f"to the floor of {n_passed:,}" in caplog.text
 
 
 def test_prefilter_passes_everything_below_min_psms():
@@ -253,7 +274,7 @@ def test_perform_fdr_with_prefilter_widens_the_cut_when_the_identifications_crow
 ):
     # Given: a gate whose floor cuts right through the confident targets
     caplog.set_level(logging.INFO)
-    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=2000)
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=4000)
 
     # When: the FDR is computed in the final round behind that gate
     psm_df = fdr.perform_fdr(
@@ -273,12 +294,12 @@ def test_perform_fdr_with_prefilter_widens_the_cut_when_the_identifications_crow
     assert (good_targets["qval"] < 0.05).mean() > 0.9
 
 
-def test_perform_fdr_with_prefilter_leaves_the_cut_alone_in_optimization_rounds(
+def test_perform_fdr_with_prefilter_widens_the_cut_in_optimization_rounds_too(
     caplog,
 ):
-    # Given: the same truncating gate, in a round whose scores only steer the calibration
+    # Given: the same truncating gate, in a round whose scores steer the calibration
     caplog.set_level(logging.INFO)
-    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=2000)
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=4000)
 
     # When: the FDR is computed in an optimization round
     fdr.perform_fdr(
@@ -289,6 +310,29 @@ def test_perform_fdr_with_prefilter_leaves_the_cut_alone_in_optimization_rounds(
         competitive=True,
         is_final=False,
         prefilter=_get_prefilter(q_value_threshold=0.0, min_kept_psms=500),
+    )
+
+    # Then: the cut is widened just like in the final round
+    assert "widening the cut to stage-1 q-value <= 0.5" in caplog.text
+    assert caplog.text.count("Prefilter passed") == 2
+
+
+def test_perform_fdr_with_prefilter_does_not_judge_a_round_with_few_identifications(
+    caplog,
+):
+    # Given: the same truncating gate on a sample too small for the recall share to mean anything
+    caplog.set_level(logging.INFO)
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=1000)
+
+    # When: the FDR is computed behind that gate
+    fdr.perform_fdr(
+        _get_classifier(),
+        ["feature", "noise"],
+        target_df,
+        decoy_df,
+        competitive=True,
+        is_final=True,
+        prefilter=_get_prefilter(q_value_threshold=0.0, min_kept_psms=200),
     )
 
     # Then: neither the check nor the widening runs

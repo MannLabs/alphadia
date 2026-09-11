@@ -23,6 +23,13 @@ _MIN_PSMS = 100_000
 # until the floor is reached, which is the same as relaxing the q-value threshold.
 _MIN_KEPT_PSMS = 2_000
 
+# The gate also keeps at least this share of the candidates. On a sample with few true
+# precursors (plasma) the stage-1 q-values pass a few thousand PSMs out of millions, the
+# cut lands inside the identifications, and how many get through then scales with the
+# candidate count rather than with the sample: a wide-tolerance search round passes twice
+# as many as a tight one and the tolerance optimization picks the wide setting for it.
+_MIN_KEPT_FRACTION = 0.01
+
 
 class CascadePrefilter:
     """Gate candidates on a small cross-fitted LightGBM model before the classifier is fitted.
@@ -53,6 +60,7 @@ class CascadePrefilter:
         n_folds: int = 2,
         min_psms: int = _MIN_PSMS,
         min_kept_psms: int = _MIN_KEPT_PSMS,
+        min_kept_fraction: float = _MIN_KEPT_FRACTION,
         max_train_psms: int | None = None,
         random_state: int | None = None,
     ):
@@ -68,7 +76,7 @@ class CascadePrefilter:
 
         q_value_threshold : float
             Candidates whose stage-1 q-value exceeds this are not passed to the classifier.
-            The final FDR round widens the cut once when the identifications crowd it.
+            An FDR round widens the cut once when the identifications crowd it.
 
         n_folds : int, default=2
             Number of cross-fitting folds.
@@ -79,6 +87,9 @@ class CascadePrefilter:
         min_kept_psms : int, default=2000
             The gate keeps at least this many candidates, extending the cut down the
             stage-1 ranking when the q-value threshold alone would keep fewer.
+
+        min_kept_fraction : float, default=0.01
+            The gate keeps at least this share of the candidates, extended the same way.
 
         max_train_psms : int, optional
             Fit each fold's model on at most this many randomly drawn PSMs of the other
@@ -93,6 +104,7 @@ class CascadePrefilter:
         self.n_folds = n_folds
         self.min_psms = min_psms
         self.min_kept_psms = min_kept_psms
+        self.min_kept_fraction = min_kept_fraction
         self.max_train_psms = max_train_psms
         self._classifier = classifier
         self._np_rng = np.random.default_rng(seed=random_state)
@@ -208,7 +220,8 @@ class CascadePrefilter:
             .to_numpy()
         )
         n_below_threshold = int((q_values <= q_value_threshold).sum())
-        n_keep = min(max(n_below_threshold, self.min_kept_psms), n_psms)
+        floor = max(self.min_kept_psms, int(self.min_kept_fraction * n_psms))
+        n_keep = min(max(n_below_threshold, floor), n_psms)
 
         # the same order get_q_values ranks by, so the q-value set is a prefix of it
         order = np.lexsort((precursor_idx, y, stage1_proba))
@@ -217,7 +230,7 @@ class CascadePrefilter:
         keep = np.isin(elution_group_idx, elution_group_idx[passed])
 
         floor_note = (
-            f", raised from {n_below_threshold:,} to the floor of {self.min_kept_psms:,}"
+            f", raised from {n_below_threshold:,} to the floor of {floor:,}"
             if n_keep > n_below_threshold
             else ""
         )

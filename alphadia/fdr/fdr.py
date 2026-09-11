@@ -32,11 +32,15 @@ logger = logging.getLogger()
 # identifications is still dense at the cut. Final rounds on HeLa, with and without an
 # entrapment library, land at 0.08-0.46 % under the shipped threshold, while plasma lands
 # at 0.69-1.28 % and gains 21 % identifications once the cut is widened to the threshold
-# below. Only the final round is judged: the optimization rounds identify a few thousand
-# PSMs and their share is noise.
+# below. Every round is judged, not only the final one: the tolerance optimization compares
+# the identifications of its rounds, and a cut that truncates them in one round and not in
+# another distorts that comparison (plasma settled on a 30 ppm MS2 tolerance because the
+# wide-tolerance round passed twice as many PSMs through the gate). A round with fewer
+# identifications than the minimum below is not judged, its share is noise.
 _RECALL_CHECK_FDR = 0.01
 _RECALL_CHECK_TAIL_FRACTION = 0.1
 _RECALL_WIDEN_TAIL_SHARE = 0.005
+_RECALL_CHECK_MIN_IDENTIFICATIONS = 1_000
 _WIDE_Q_VALUE_THRESHOLD = 0.5
 
 
@@ -115,8 +119,8 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
     prefilter : CascadePrefilter, default=None
         Gate that decides which PSMs the classifier is fitted on and scores. PSMs it
         drops are ranked behind every scored PSM, in the order of its own scores. When
-        the final round's identifications crowd the gate's cut, the cut is widened once
-        and the classifier refitted on the wider set.
+        a round's identifications crowd the gate's cut, the cut is widened once and the
+        classifier refitted on the wider set.
 
     trainer : CrossFittedTrainer, default=None
         Fits the classifier in the final round instead of a plain fit on a random split.
@@ -291,7 +295,11 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
 
     scored_df = score(fit_result, keep)
 
-    if prefilter is not None and is_final and not keep.all():
+    if (
+        prefilter is not None
+        and not keep.all()
+        and _n_identified(scored_df) >= _RECALL_CHECK_MIN_IDENTIFICATIONS
+    ):
         tail_share = _prefilter_tail_share(scored_df, n_passed)
         if tail_share > _RECALL_WIDEN_TAIL_SHARE:
             logger.warning(
