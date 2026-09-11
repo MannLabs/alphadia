@@ -16,6 +16,13 @@ from tqdm import tqdm
 
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 
+# Fewest gradient updates a network is trained with, whatever the size of its training set:
+# ten epochs on a full 200 ng search (1.5M rows at batch 4096). Behind the prefilter a
+# plasma or low-input round trains on a few ten thousand rows, and ten epochs of those are
+# a few hundred updates; the network came out under-trained and identified fewer precursors
+# the fewer candidates the gate passed.
+MIN_TRAINING_STEPS = 4_000
+
 logger = logging.getLogger()
 
 _LGBM_FIXED_PARAMS = {
@@ -461,10 +468,18 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         num_batches = (x_train.shape[0] // self.batch_size) - 1
         batch_start_list = np.arange(num_batches) * self.batch_size
         batch_stop_list = np.arange(num_batches) * self.batch_size + self.batch_size
+        epochs = max(
+            self.epochs, int(np.ceil(MIN_TRAINING_STEPS / max(num_batches, 1)))
+        )
+        if epochs > self.epochs:
+            logger.info(
+                f"Training {epochs} epochs of {num_batches} batches to reach "
+                f"{MIN_TRAINING_STEPS:,} updates"
+            )
 
         batch_count = 0
 
-        for epoch in tqdm(range(self.epochs)):
+        for epoch in tqdm(range(epochs)):
             # shuffle batches
             order = self._np_rng.permutation(num_batches)
             batch_start_list = batch_start_list[order]
