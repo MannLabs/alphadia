@@ -199,11 +199,11 @@ def _get_scaled_training_params(
     # Calculate scaled batch size (linear scaling between min and max)
     batch_size = int(np.clip((n_samples / 1_000_000) * max_batch, min_batch, max_batch))
 
-    # Scale learning rate using square root relationship
-    # sqrt(batch_size) / sqrt(max_batch) = scaled_lr / base_lr
-    learning_rate = base_lr * np.sqrt(batch_size / max_batch)
-
-    return batch_size, learning_rate
+    # The learning rate used to shrink with the square root of the batch size. Behind the
+    # prefilter a low-input or plasma search trains on a few ten thousand rows, and at a
+    # quarter of the learning rate for the same ten epochs the network came out
+    # under-trained: it identified fewer precursors the fewer candidates the gate passed.
+    return batch_size, base_lr
 
 
 class BinaryClassifierLegacyNewBatching(Classifier):

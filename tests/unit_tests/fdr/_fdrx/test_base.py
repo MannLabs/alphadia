@@ -57,11 +57,11 @@ def test_target_decoy_fdr(mock_show):
         (1_000_000, 4096, 0.001),
         (2_000_000, 4096, 0.001),
         # Mid-size dataset cases
-        (500_000, 2048, 0.001 * np.sqrt(2048 / 4096)),  # 50% of max
-        (250_000, 1024, 0.001 * np.sqrt(1024 / 4096)),  # 25% of max
+        (500_000, 2048, 0.001),  # 50% of max
+        (250_000, 1024, 0.001),  # 25% of max
         # Small dataset cases
-        (25_000, 128, 0.001 * np.sqrt(128 / 4096)),  # Should hit min batch size
-        (1_000, 128, 0.001 * np.sqrt(128 / 4096)),  # Should hit min batch size
+        (25_000, 128, 0.001),  # Should hit min batch size
+        (1_000, 128, 0.001),  # Should hit min batch size
     ],
 )
 def test_get_scaled_training_params(n_samples, expected_batch, expected_lr):
