@@ -112,9 +112,15 @@ class _RecordingClassifier(LightGBMClassifier):
         )
         self.positives_per_fit = []
 
-    def fit(self, x, y, *, is_final=False):
+    def fit(self, x, y, *, is_final=False, sample_weight=None, class_prior=None):
         self.positives_per_fit.append(int((y == 0).sum()))
-        super().fit(x, y, is_final=is_final)
+        super().fit(
+            x,
+            y,
+            is_final=is_final,
+            sample_weight=sample_weight,
+            class_prior=class_prior,
+        )
 
 
 def test_fit_predict_fits_only_the_first_ensemble_member_on_every_target():
@@ -170,8 +176,14 @@ class _FlakyClassifier(LightGBMClassifier):
 
     broken_fits_left = 0
 
-    def fit(self, x, y, *, is_final=False):
-        super().fit(x, y, is_final=is_final)
+    def fit(self, x, y, *, is_final=False, sample_weight=None, class_prior=None):
+        super().fit(
+            x,
+            y,
+            is_final=is_final,
+            sample_weight=sample_weight,
+            class_prior=class_prior,
+        )
         if _FlakyClassifier.broken_fits_left > 0:
             _FlakyClassifier.broken_fits_left -= 1
             self.broken = True

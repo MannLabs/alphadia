@@ -267,7 +267,7 @@ class _CollapsingClassifier(Classifier):
     def fitted(self) -> bool:
         return self._fitted
 
-    def fit(self, x, y, *, is_final=False):
+    def fit(self, x, y, *, is_final=False, sample_weight=None, class_prior=None):
         self._fitted = True
 
     def reset(self):
