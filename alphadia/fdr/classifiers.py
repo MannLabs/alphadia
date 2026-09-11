@@ -16,11 +16,14 @@ from tqdm import tqdm
 
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 
-# Fewest gradient updates a network is trained with, whatever the size of its training set:
-# ten epochs on a full 200 ng search (1.5M rows at batch 4096). Behind the prefilter a
-# plasma or low-input round trains on a few ten thousand rows, and ten epochs of those are
-# a few hundred updates; the network came out under-trained and identified fewer precursors
-# the fewer candidates the gate passed.
+# Fewest gradient updates a network is trained with in an optimization round, whatever the
+# size of its training set: ten epochs on a full 200 ng search (1.5M rows at batch 4096).
+# Behind the prefilter a plasma round trains on a few ten thousand rows, and ten epochs of
+# those are a few hundred updates; the network came out under-trained and identified fewer
+# precursors the fewer candidates the gate passed, so the tolerance optimization preferred
+# the settings that passed the most candidates. The final round keeps its ten epochs: a
+# network trained longer on a low-input set learns to tell false targets from decoys, and
+# the reported FDR cannot rest on that.
 MIN_TRAINING_STEPS = 4_000
 
 logger = logging.getLogger()
@@ -396,7 +399,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         x: np.ndarray,
         y: np.ndarray,
         *,
-        is_final: bool = False,  # noqa: ARG002 # part of the Classifier interface
+        is_final: bool = False,
     ) -> None:
         """Fit the classifier to the data.
 
@@ -409,7 +412,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         is_final : bool, default=False
-            Unused: the network is trained the same way in every FDR round.
+            Whether this is the FDR round whose scores are reported. Optimization rounds
+            train for at least MIN_TRAINING_STEPS updates, the final round for `epochs`.
 
         """
         if self.experimental_hyperparameter_tuning:
@@ -468,9 +472,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         num_batches = (x_train.shape[0] // self.batch_size) - 1
         batch_start_list = np.arange(num_batches) * self.batch_size
         batch_stop_list = np.arange(num_batches) * self.batch_size + self.batch_size
-        epochs = max(
-            self.epochs, int(np.ceil(MIN_TRAINING_STEPS / max(num_batches, 1)))
-        )
+        epochs = self.epochs
+        if not is_final:
+            epochs = max(
+                self.epochs, int(np.ceil(MIN_TRAINING_STEPS / max(num_batches, 1)))
+            )
         if epochs > self.epochs:
             logger.info(
                 f"Training {epochs} epochs of {num_batches} batches to reach "
