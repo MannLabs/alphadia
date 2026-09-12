@@ -350,13 +350,14 @@ fdr:
     validation_fraction: 0.1
     # fraction of PSMs held out from the final fit to drive early stopping
     final_validation_fraction: 0.075
-  # a small cross-fitted lightgbm model scores every PSM before the classifier; only PSMs below its q-value threshold,
-  # together with the other candidates of their elution groups (a target always enters with its own decoy, which keeps
-  # the FDR estimate honest on low-input samples), are passed on to the classifier, the rest are ranked behind them by
-  # their stage-1 score. Off: the stage-1 trees pass false targets 1.7x as often as decoys (entrapment), so the kept
-  # set is not exchangeable and the network learns the difference; without the gate the network sees every candidate
+  # a small cross-fitted lightgbm model scores every PSM before the classifier. In the optimization rounds only PSMs
+  # below its q-value threshold, together with the other candidates of their elution groups, are passed on to the
+  # classifier and the rest are ranked behind them by their stage-1 score. In the final round nothing is dropped: the
+  # stage-1 score picks the first positives and samples the negatives of the cross-fitted refits (see cross_fitting),
+  # which then score every PSM. The stage-1 trees pass false targets 1.7x as often as decoys (entrapment), so a kept
+  # set is not exchangeable and a network fitted on it learns the difference
   prefilter:
-    enabled: false
+    enabled: true
     # stage-1 q-value above which a PSM is not passed on to the classifier; the final round widens the cut to 0.5 once
     # when the identifications crowd it, which happens on low-identification samples such as plasma
     q_value_threshold: 0.2
@@ -406,6 +407,13 @@ fdr:
     train_fdr: 0.01
     # number of refits after the first fit; each one re-picks the positives with the current ensemble score
     n_refits: 2
+    # with the prefilter on, the final round is only ever refitted: the stage-1 score picks the first positives, the
+    # most target-like near_decoy_fraction of the decoys enters every refit whole and a random far_decoy_fraction of
+    # the rest enters weighted by its inverse. The fit cost is proportional to the rows, the far decoys carry no
+    # information about the boundary, and the weights keep the risk unbiased (near 0.1 -> 0.3 -> 1.0: 23,979 ->
+    # 24,462 -> 24,539 identifications at 92 -> 132 -> 570 s on a quarter of a HeLa entrapment run)
+    near_decoy_fraction: 0.3
+    far_decoy_fraction: 0.1
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

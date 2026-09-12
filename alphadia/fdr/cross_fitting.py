@@ -18,6 +18,14 @@ rank false targets above decoys. On a low-input sample, where most targets are f
 is most of what they learn and the reported FDR is off by an order of magnitude. A neural
 network fitted the same way does not pick the difference up. So only the first member of
 an ensemble is fitted on every target; it picks the positives the other members start from.
+
+With a stage-1 score at hand (the prefilter's trees) the first fit is not needed at all: the
+stage-1 score picks the first positives, and the network is only ever refitted. Its fit
+cost is proportional to the rows it processes, and the decoys far from the boundary carry
+no information about it, so they enter as a random `far_decoy_fraction` weighted by the
+inverse of that fraction: the risk stays unbiased, the variance sits where it does not
+matter. The most target-like `near_decoy_fraction` of the decoys enters whole. Every row
+is scored out of fold; nothing is dropped and nothing is ranked by the stage-1 score.
 """
 
 import logging
@@ -81,6 +89,8 @@ class CrossFittedTrainer:
         train_fdr: float = 0.01,
         n_refits: int = 0,
         min_positives: int = _MIN_POSITIVES,
+        near_decoy_fraction: float = 1.0,
+        far_decoy_fraction: float = 1.0,
         random_state: int | None = None,
     ):
         """Self-training per fold; every PSM is scored by a model that never saw it.
@@ -99,6 +109,14 @@ class CrossFittedTrainer:
         min_positives : int, default=1000
             Below this many positives no refit is made and the previous model is kept.
 
+        near_decoy_fraction : float, default=1.0
+            With a stage-1 score, the share of the decoys, taken from the most
+            target-like end of the stage-1 ranking, that every refit is fitted on whole.
+
+        far_decoy_fraction : float, default=1.0
+            With a stage-1 score, the share of the remaining decoys drawn at random into
+            every refit, weighted by its inverse.
+
         random_state : int, optional
             Seed of the fold assignment.
 
@@ -110,6 +128,8 @@ class CrossFittedTrainer:
         self.train_fdr = train_fdr
         self.n_refits = n_refits
         self.min_positives = min_positives
+        self.near_decoy_fraction = near_decoy_fraction
+        self.far_decoy_fraction = far_decoy_fraction
         self._np_rng = np.random.default_rng(seed=random_state)
 
     def fit_predict(  # noqa: PLR0913 # Too many arguments
@@ -123,6 +143,8 @@ class CrossFittedTrainer:
         is_final: bool = False,
         sample_weight: np.ndarray | None = None,
         class_prior: float | None = None,
+        stage1_proba: np.ndarray | None = None,
+        candidate: np.ndarray | None = None,
     ) -> TrainingResult:
         """Fit one classifier per fold and score each fold with the others' model.
 
@@ -153,6 +175,14 @@ class CrossFittedTrainer:
             Share of the targets that are true matches, passed on to the first fit of
             every fold; the refits see only confident positives.
 
+        stage1_proba : np.ndarray, optional
+            Out-of-fold stage-1 decoy probability of every PSM. When given it picks the
+            first positives and the sampled negatives, and no fit on every target is made.
+
+        candidate : np.ndarray, optional
+            With `stage1_proba`, the PSMs among which the refits re-pick their positives;
+            every PSM that can reach `train_fdr` must be one.
+
         Returns
         -------
         TrainingResult
@@ -174,19 +204,44 @@ class CrossFittedTrainer:
         ]
         proba = np.empty(len(y))
 
+        if stage1_proba is not None:
+            positives = self._select_positives(
+                stage1_proba, is_target, competition_group, precursor_idx
+            )
+            weight = self._sampled_decoy_weights(stage1_proba, is_target)
+            logger.info(
+                f"Stage 1 picks {int(positives.sum()):,} positives; "
+                f"{int((weight[~is_target] == 1.0).sum()):,} near decoys enter whole, "
+                f"{int((weight[~is_target] > 1.0).sum()):,} far decoys at weight "
+                f"{1 / self.far_decoy_fraction:.0f}"
+            )
+
         def fit_fold(fold_idx: int) -> TrainingResult:
             in_fold = fold == fold_idx
             train_idx = np.flatnonzero(~in_fold)
-            result = self._self_train(
-                fold_classifiers[fold_idx],
-                x[train_idx],
-                is_target[train_idx],
-                competition_group[train_idx],
-                precursor_idx[train_idx],
-                is_final=is_final,
-                sample_weight=_take(sample_weight, train_idx),
-                class_prior=class_prior,
-            )
+            if stage1_proba is None:
+                result = self._self_train(
+                    fold_classifiers[fold_idx],
+                    x[train_idx],
+                    is_target[train_idx],
+                    competition_group[train_idx],
+                    precursor_idx[train_idx],
+                    is_final=is_final,
+                    sample_weight=_take(sample_weight, train_idx),
+                    class_prior=class_prior,
+                )
+            else:
+                result = self._refit(
+                    fold_classifiers[fold_idx],
+                    x[train_idx],
+                    is_target[train_idx],
+                    competition_group[train_idx],
+                    precursor_idx[train_idx],
+                    positives[train_idx],
+                    weight[train_idx],
+                    candidate[train_idx],
+                    is_final=is_final,
+                )
             proba[in_fold] = fold_classifiers[fold_idx].predict_proba(x[in_fold])[:, 1]
             return TrainingResult(
                 proba=result.proba,
@@ -323,6 +378,79 @@ class CrossFittedTrainer:
             )
             positives = new_positives
 
+        return TrainingResult(
+            proba=proba, train_idx=train_idx, y_train=y_fit[train_idx]
+        )
+
+    def _sampled_decoy_weights(
+        self, stage1_proba: np.ndarray, is_target: np.ndarray
+    ) -> np.ndarray:
+        """Weight of every PSM in the refits: 1 for targets and near decoys, the inverse
+        sampling rate for the far decoys drawn, 0 for the far decoys left out."""
+        weight = np.ones(len(stage1_proba))
+        decoy_idx = np.flatnonzero(~is_target)
+        far = decoy_idx[np.argsort(stage1_proba[decoy_idx])][
+            int(self.near_decoy_fraction * len(decoy_idx)) :
+        ]
+        drawn = self._np_rng.random(len(far)) < self.far_decoy_fraction
+        weight[far] = 0.0
+        weight[far[drawn]] = 1.0 / self.far_decoy_fraction
+        return weight
+
+    def _refit(  # noqa: PLR0913 # Too many arguments
+        self,
+        classifier: Classifier,
+        x: np.ndarray,
+        is_target: np.ndarray,
+        competition_group: np.ndarray,
+        precursor_idx: np.ndarray,
+        positives: np.ndarray,
+        weight: np.ndarray,
+        candidate: np.ndarray,
+        *,
+        is_final: bool,
+    ) -> TrainingResult:
+        """Refit on the positives against the sampled decoys, re-picking the positives
+        among the candidates with the classifier's own score each round."""
+        y_fit = (~is_target).astype(float)
+        negatives = ~is_target & (weight > 0)
+        candidate_idx = np.flatnonzero(candidate)
+        for refit in range(self.n_refits + 1):
+            train_idx = np.flatnonzero(positives | negatives)
+            classifier.fit_separating(
+                x[train_idx],
+                y_fit[train_idx],
+                is_final=is_final,
+                sample_weight=weight[train_idx],
+            )
+            if refit == self.n_refits:
+                break
+
+            new_positives = np.zeros(len(x), dtype=bool)
+            new_positives[candidate_idx] = self._select_positives(
+                classifier.predict_proba(x[candidate_idx])[:, 1],
+                is_target[candidate_idx],
+                competition_group[candidate_idx],
+                precursor_idx[candidate_idx],
+            )
+            n_positives = int(new_positives.sum())
+            if n_positives < self.min_positives:
+                logger.warning(
+                    f"Only {n_positives:,} targets below train_fdr {self.train_fdr}; "
+                    f"keeping the model after {refit} refit(s)"
+                )
+                break
+
+            n_changed = int((new_positives != positives).sum())
+            logger.info(
+                f"Refit {refit + 1}: {n_positives:,} positives ({n_changed:,} changed)"
+            )
+            positives = new_positives
+
+        # the candidates' scores are what the refits rest on; the rest is scored out of
+        # fold by the caller
+        proba = np.ones(len(x))
+        proba[candidate_idx] = classifier.predict_proba(x[candidate_idx])[:, 1]
         return TrainingResult(
             proba=proba, train_idx=train_idx, y_train=y_fit[train_idx]
         )

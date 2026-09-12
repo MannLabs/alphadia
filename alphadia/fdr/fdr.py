@@ -210,6 +210,14 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
 
     precursor_idx = psm_df["precursor_idx"].to_numpy()
     cross_fitted = trainer is not None and is_final
+    # In the final round the stage-1 ranking drops nothing: it picks the first positives
+    # and samples the negatives of the cross-fitted refits, which then score every PSM.
+    # Dropping rows would leave the FDR estimate to a kept set in which the stage-1 model
+    # has let false targets through more readily than decoys.
+    sampled = cross_fitted and not keep.all()
+    candidate = keep
+    if sampled:
+        keep = np.ones(len(X), dtype=bool)
     competition_group = (
         psm_df.groupby(group_columns).ngroup().to_numpy() if cross_fitted else None
     )
@@ -256,6 +264,8 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, too many argumen
                 is_final=is_final,
                 sample_weight=sample_weight,
                 class_prior=prior,
+                stage1_proba=stage1_proba if sampled else None,
+                candidate=candidate if sampled else None,
             )
             test_idx = np.setdiff1d(np.arange(len(x_kept)), result.train_idx)
             return _Fit(
