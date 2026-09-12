@@ -201,7 +201,7 @@ def _get_trainer(
         n_folds=config_trainer["n_folds"],
         train_fdr=config_trainer["train_fdr"],
         n_refits=config_trainer["n_refits"],
-        near_decoy_q_value=config_trainer["near_decoy_q_value"],
+        n_near_decoys=config_trainer["n_near_decoys"],
         n_far_decoys=config_trainer["n_far_decoys"],
         random_state=random_state,
     )

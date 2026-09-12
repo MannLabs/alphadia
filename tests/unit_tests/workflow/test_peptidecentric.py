@@ -174,7 +174,7 @@ def _cross_fitting_config(enabled: bool = True) -> dict:
                 "n_folds": 4,
                 "train_fdr": 0.02,
                 "n_refits": 3,
-                "near_decoy_q_value": 0.25,
+                "n_near_decoys": 2000,
                 "n_far_decoys": 5000,
             }
         }
@@ -192,5 +192,5 @@ def test_get_trainer_reads_the_configuration():
     assert trainer.n_folds == 4
     assert trainer.train_fdr == 0.02
     assert trainer.n_refits == 3
-    assert trainer.near_decoy_q_value == 0.25
+    assert trainer.n_near_decoys == 2000
     assert trainer.n_far_decoys == 5000

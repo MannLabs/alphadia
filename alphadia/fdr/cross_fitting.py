@@ -24,10 +24,12 @@ stage-1 score picks the first positives, and the network is only ever refitted. 
 cost is proportional to the rows it processes, and the decoys far from the boundary carry
 no information about it, so only `n_far_decoys` of them enter, drawn at random and
 weighted by the inverse of the sampling rate: the risk stays unbiased, the variance sits
-where it does not matter. The decoys below the stage-1 q-value `near_decoy_q_value`, the
-ones interleaved with the confident targets, enter whole; their number grows with the
-identifications, not with the candidates. Every row is scored out of fold; nothing is
-dropped and nothing is ranked by the stage-1 score.
+where it does not matter. The `n_near_decoys` hardest decoys enter whole: the most
+target-like by the stage-1 score for the first fit and by the network's own score for
+every refit (hard-negative mining), so the negatives are the decoys the current model
+confuses with targets. Both counts are fixed, so the cost does not grow with the
+candidates. Every row is scored out of fold; nothing is dropped and nothing is ranked by
+the stage-1 score.
 """
 
 import logging
@@ -91,7 +93,7 @@ class CrossFittedTrainer:
         train_fdr: float = 0.01,
         n_refits: int = 0,
         min_positives: int = _MIN_POSITIVES,
-        near_decoy_q_value: float = 1.0,
+        n_near_decoys: int | None = None,
         n_far_decoys: int | None = None,
         random_state: int | None = None,
     ):
@@ -111,9 +113,9 @@ class CrossFittedTrainer:
         min_positives : int, default=1000
             Below this many positives no refit is made and the previous model is kept.
 
-        near_decoy_q_value : float, default=1.0
-            With a stage-1 score, the decoys below this stage-1 q-value enter every refit
-            whole.
+        n_near_decoys : int, optional
+            With a stage-1 score, how many of the hardest decoys by the current score
+            enter every refit whole. None enters all of them.
 
         n_far_decoys : int, optional
             With a stage-1 score, how many of the remaining decoys are drawn at random
@@ -131,7 +133,7 @@ class CrossFittedTrainer:
         self.train_fdr = train_fdr
         self.n_refits = n_refits
         self.min_positives = min_positives
-        self.near_decoy_q_value = near_decoy_q_value
+        self.n_near_decoys = n_near_decoys
         self.n_far_decoys = n_far_decoys
         self._np_rng = np.random.default_rng(seed=random_state)
 
@@ -211,7 +213,7 @@ class CrossFittedTrainer:
             positives = self._select_positives(
                 stage1_proba, is_target, competition_group, precursor_idx
             )
-            weight = self._sampled_decoy_weights(stage1_proba, is_target, precursor_idx)
+            weight = self._sampled_decoy_weights(stage1_proba, is_target)
             logger.info(
                 f"Stage 1 picks {int(positives.sum()):,} positives; "
                 f"{int((weight[~is_target] == 1.0).sum()):,} near decoys enter whole, "
@@ -386,25 +388,15 @@ class CrossFittedTrainer:
         )
 
     def _sampled_decoy_weights(
-        self, stage1_proba: np.ndarray, is_target: np.ndarray, precursor_idx: np.ndarray
+        self, score: np.ndarray, is_target: np.ndarray
     ) -> np.ndarray:
-        """Weight of every PSM in the refits: 1 for targets and near decoys, the inverse
-        sampling rate for the far decoys drawn, 0 for the far decoys left out."""
-        q_values = (
-            get_q_values(
-                pd.DataFrame(
-                    {
-                        "proba": stage1_proba,
-                        "_decoy": (~is_target).astype(int),
-                        "precursor_idx": precursor_idx,
-                    }
-                )
-            )["qval"]
-            .sort_index()
-            .to_numpy()
-        )
-        weight = np.ones(len(stage1_proba))
-        far = np.flatnonzero(~is_target & (q_values > self.near_decoy_q_value))
+        """Weight of every PSM in a refit: 1 for targets and the hardest decoys by
+        `score`, the inverse sampling rate for the far decoys drawn, 0 for the rest."""
+        weight = np.ones(len(score))
+        decoy_idx = np.flatnonzero(~is_target)
+        if self.n_near_decoys is None or len(decoy_idx) <= self.n_near_decoys:
+            return weight
+        far = decoy_idx[np.argsort(score[decoy_idx])][self.n_near_decoys :]
         if self.n_far_decoys is None or len(far) <= self.n_far_decoys:
             return weight
         rate = self.n_far_decoys / len(far)
@@ -429,10 +421,10 @@ class CrossFittedTrainer:
         """Refit on the positives against the sampled decoys, re-picking the positives
         among the candidates with the classifier's own score each round."""
         y_fit = (~is_target).astype(float)
-        negatives = ~is_target & (weight > 0)
         candidate_idx = np.flatnonzero(candidate)
+        decoy_idx = np.flatnonzero(~is_target)
         for refit in range(self.n_refits + 1):
-            train_idx = np.flatnonzero(positives | negatives)
+            train_idx = np.flatnonzero(positives | (~is_target & (weight > 0)))
             classifier.fit_separating(
                 x[train_idx],
                 y_fit[train_idx],
@@ -462,6 +454,9 @@ class CrossFittedTrainer:
                 f"Refit {refit + 1}: {n_positives:,} positives ({n_changed:,} changed)"
             )
             positives = new_positives
+            decoy_score = np.ones(len(x))
+            decoy_score[decoy_idx] = classifier.predict_proba(x[decoy_idx])[:, 1]
+            weight = self._sampled_decoy_weights(decoy_score, is_target)
 
         # the candidates' scores are what the refits rest on; the rest is scored out of
         # fold by the caller
