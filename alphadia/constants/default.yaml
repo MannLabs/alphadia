@@ -408,12 +408,13 @@ fdr:
     # number of refits after the first fit; each one re-picks the positives with the current ensemble score
     n_refits: 2
     # with the prefilter on, the final round is only ever refitted: the stage-1 score picks the first positives, the
-    # most target-like near_decoy_fraction of the decoys enters every refit whole and a random far_decoy_fraction of
-    # the rest enters weighted by its inverse. The fit cost is proportional to the rows, the far decoys carry no
-    # information about the boundary, and the weights keep the risk unbiased (near 0.1 -> 0.3 -> 1.0: 23,979 ->
-    # 24,462 -> 24,539 identifications at 92 -> 132 -> 570 s on a quarter of a HeLa entrapment run)
-    near_decoy_fraction: 0.3
-    far_decoy_fraction: 0.1
+    # decoys below near_decoy_q_value in the stage-1 ranking (the ones interleaved with the confident targets) enter
+    # every refit whole and n_far_decoys of the rest enter at random, weighted by the inverse sampling rate. The fit
+    # cost is proportional to the rows, the far decoys carry no information about the boundary, and the weights keep
+    # the risk unbiased; a q-value and a count keep the cost tied to the identifications rather than to the
+    # candidates, of which a HeLa entrapment search has up to 46 million
+    near_decoy_q_value: 0.5
+    n_far_decoys: 200000
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

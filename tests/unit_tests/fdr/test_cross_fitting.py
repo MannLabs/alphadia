@@ -341,7 +341,7 @@ def test_perform_fdr_final_round_scores_with_the_first_ensemble_member():
 
 def test_fit_predict_with_a_stage1_score_refits_on_the_sampled_decoys():
     # Given: a separable feature set, a stage-1 score that already ranks it and a trainer
-    # that keeps a tenth of the decoys whole and draws a tenth of the rest
+    # that keeps the decoys among the confident targets whole and draws 300 of the rest
     psm_df = _gen_psms()
     y = psm_df["decoy"].to_numpy()
     stage1_proba = 1.0 / (1.0 + np.exp(psm_df["feature"].to_numpy() - 1.0))
@@ -349,8 +349,8 @@ def test_fit_predict_with_a_stage1_score_refits_on_the_sampled_decoys():
         n_folds=2,
         n_refits=1,
         min_positives=100,
-        near_decoy_fraction=0.1,
-        far_decoy_fraction=0.1,
+        near_decoy_q_value=0.1,
+        n_far_decoys=300,
         random_state=0,
     )
 
@@ -366,10 +366,11 @@ def test_fit_predict_with_a_stage1_score_refits_on_the_sampled_decoys():
     )
 
     # Then: the true candidates score as targets, the last fit's positives are true
-    # candidates and its negatives are about a fifth of the training fold's decoys
+    # candidates and its negatives are the near decoys plus the training fold's share of
+    # the 300 far ones drawn, a small part of the fold's decoys
     is_true = psm_df["is_true"].to_numpy()
     assert result.proba[is_true].mean() < 0.2
     assert result.proba[~is_true].mean() > 0.5
     assert is_true[result.train_idx][result.y_train == 0].mean() > 0.9
     n_decoys_fitted = (result.y_train == 1).sum()
-    assert 0.1 * (y == 1).sum() / 2 < n_decoys_fitted < 0.3 * (y == 1).sum() / 2
+    assert 100 < n_decoys_fitted < 0.3 * (y == 1).sum() / 2
