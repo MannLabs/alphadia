@@ -353,9 +353,10 @@ fdr:
   # a small cross-fitted lightgbm model scores every PSM before the classifier; only PSMs below its q-value threshold,
   # together with the other candidates of their elution groups (a target always enters with its own decoy, which keeps
   # the FDR estimate honest on low-input samples), are passed on to the classifier, the rest are ranked behind them by
-  # their stage-1 score
+  # their stage-1 score. Off: the stage-1 trees pass false targets 1.7x as often as decoys (entrapment), so the kept
+  # set is not exchangeable and the network learns the difference; without the gate the network sees every candidate
   prefilter:
-    enabled: true
+    enabled: false
     # stage-1 q-value above which a PSM is not passed on to the classifier; the final round widens the cut to 0.5 once
     # when the identifications crowd it, which happens on low-identification samples such as plasma
     q_value_threshold: 0.2
