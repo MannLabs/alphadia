@@ -242,7 +242,7 @@ def test_perform_fdr_with_prefilter_and_trainer_scores_every_psm(caplog):
 
     # Then: the stage-1 score picked the first positives, nothing was dropped or ranked by
     # it, and the helper column does not leak into the result
-    assert "Stage 1 picks" in caplog.text
+    assert "Stage 1 keeps" in caplog.text
     assert "Prefilter recall check" not in caplog.text
     assert (psm_df["proba"] < 1.0).all()
     assert "_stage1_rank" not in psm_df.columns

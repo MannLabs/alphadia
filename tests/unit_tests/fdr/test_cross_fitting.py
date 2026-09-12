@@ -340,13 +340,17 @@ def test_perform_fdr_final_round_scores_with_the_first_ensemble_member():
 
 
 def test_fit_predict_with_a_stage1_score_refits_on_the_sampled_decoys():
-    # Given: a separable feature set, a stage-1 score that already ranks it and a trainer
-    # that keeps the 300 hardest decoys whole and draws 300 of the rest
+    # Given: a separable feature set, a stage-1 score that already ranks it, the elution
+    # groups it lets through as the candidates, and a trainer that keeps the 300 hardest
+    # decoys whole and draws 300 of the rest
     psm_df = _gen_psms()
     y = psm_df["decoy"].to_numpy()
     stage1_proba = 1.0 / (1.0 + np.exp(psm_df["feature"].to_numpy() - 1.0))
+    passing_groups = psm_df.loc[stage1_proba < 0.5, "elution_group_idx"]
+    candidate = psm_df["elution_group_idx"].isin(passing_groups).to_numpy()
     trainer = CrossFittedTrainer(
         n_folds=2,
+        train_fdr=0.05,
         n_refits=1,
         min_positives=100,
         n_near_decoys=300,
@@ -362,13 +366,15 @@ def test_fit_predict_with_a_stage1_score_refits_on_the_sampled_decoys():
         psm_df["elution_group_idx"].to_numpy(),
         psm_df["precursor_idx"].to_numpy(),
         stage1_proba=stage1_proba,
-        candidate=np.ones(len(y), dtype=bool),
+        candidate=candidate,
     )
 
-    # Then: the true candidates score as targets, the last fit's positives are true
-    # candidates and its negatives are the training fold's share of the 300 near and
-    # 300 far decoys, a small part of the fold's decoys
+    # Then: the true candidates score as targets, the candidates hold nearly every true one,
+    # the last fit's positives are true candidates and its negatives are the training fold's
+    # share of the 300 near and 300 far decoys, a small part of the fold's decoys
     is_true = psm_df["is_true"].to_numpy()
+    assert candidate[is_true].mean() > 0.95
+    assert candidate.mean() < 0.6
     assert result.proba[is_true].mean() < 0.2
     assert result.proba[~is_true].mean() > 0.5
     assert is_true[result.train_idx][result.y_train == 0].mean() > 0.9

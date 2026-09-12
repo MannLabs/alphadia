@@ -19,15 +19,20 @@ is most of what they learn and the reported FDR is off by an order of magnitude.
 network fitted the same way does not pick the difference up. So only the first member of
 an ensemble is fitted on every target; it picks the positives the other members start from.
 
-With a stage-1 score at hand (the prefilter's trees) the first fit is not needed at all: the
-stage-1 score picks the first positives, and the network is only ever refitted. Its fit
-cost is proportional to the rows it processes, and the decoys far from the boundary carry
-no information about it, so only `n_far_decoys` of them enter, drawn at random and
-weighted by the inverse of the sampling rate: the risk stays unbiased, the variance sits
-where it does not matter. The `n_near_decoys` hardest decoys enter whole: the most
-target-like by the stage-1 score for the first fit and by the network's own score for
-every refit (hard-negative mining), so the negatives are the decoys the current model
-confuses with targets. Both counts are fixed, so the cost does not grow with the
+With a stage-1 score at hand (the prefilter's trees) the first fit takes every candidate
+target, the targets of the elution groups the stage-1 score lets through, as a positive:
+a tenth of the targets or less, and the positives the refits pick are among them. Taking
+only the targets the stage-1 score puts below `train_fdr` instead starves the first fit on
+a sample with few identifications: on plasma with 2,500 such targets against the decoy
+sample the network collapsed to scoring everything a decoy in one fold out of five and
+lost a quarter of the identifications; on every candidate target it lost none. The fit
+cost is proportional to the rows the network processes, and the decoys far from the
+boundary carry no information about it, so only `n_far_decoys` of them enter, drawn at
+random and weighted by the inverse of the sampling rate: the risk stays unbiased, the
+variance sits where it does not matter. The `n_near_decoys` hardest decoys enter whole:
+the most target-like by the stage-1 score for the first fit and by the network's own
+score for every refit (hard-negative mining), so the negatives are the decoys the current
+model confuses with targets. Both counts are fixed, so the cost does not grow with the
 candidates. Every row is scored out of fold; nothing is dropped and nothing is ranked by
 the stage-1 score.
 """
@@ -182,11 +187,12 @@ class CrossFittedTrainer:
 
         stage1_proba : np.ndarray, optional
             Out-of-fold stage-1 decoy probability of every PSM. When given it picks the
-            first positives and the sampled negatives, and no fit on every target is made.
+            sampled negatives, and the first fit is on the candidate targets only.
 
         candidate : np.ndarray, optional
-            With `stage1_proba`, the PSMs among which the refits re-pick their positives;
-            every PSM that can reach `train_fdr` must be one.
+            With `stage1_proba`, the PSMs whose targets are the first positives and among
+            which the refits re-pick their positives; every PSM that can reach
+            `train_fdr` must be one.
 
         Returns
         -------
@@ -210,12 +216,11 @@ class CrossFittedTrainer:
         proba = np.empty(len(y))
 
         if stage1_proba is not None:
-            positives = self._select_positives(
-                stage1_proba, is_target, competition_group, precursor_idx
-            )
+            positives = is_target & candidate
             weight = self._sampled_decoy_weights(stage1_proba, is_target)
             logger.info(
-                f"Stage 1 picks {int(positives.sum()):,} positives; "
+                f"Stage 1 keeps {int(positives.sum()):,} candidate targets as the first "
+                f"positives; "
                 f"{int((weight[~is_target] == 1.0).sum()):,} near decoys enter whole, "
                 f"{int((weight[~is_target] > 1.0).sum()):,} far decoys at weight "
                 f"{weight.max():.1f}"
@@ -418,8 +423,8 @@ class CrossFittedTrainer:
         *,
         is_final: bool,
     ) -> TrainingResult:
-        """Refit on the positives against the sampled decoys, re-picking the positives
-        among the candidates with the classifier's own score each round."""
+        """Fit on the positives against the sampled decoys, re-picking the positives
+        among the candidates with the classifier's own score before each refit."""
         y_fit = (~is_target).astype(float)
         candidate_idx = np.flatnonzero(candidate)
         decoy_idx = np.flatnonzero(~is_target)
