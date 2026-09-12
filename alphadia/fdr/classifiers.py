@@ -43,6 +43,7 @@ LOSS_GCE = "gce"
 _GCE_Q = 0.7
 _EPS = 1e-12
 _MAX_FIT_RETRIES = 3
+_PREDICT_CHUNK_ROWS = 1_000_000
 
 
 def _class_weighted(
@@ -649,9 +650,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         assert (
             x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
-        assert (
-            x.shape[1] == self.input_dim
-        ), "Input data must have the same number of features as the fitted classifier."
+        assert x.shape[1] == self.input_dim, (
+            "Input data must have the same number of features as the fitted classifier."
+        )
 
         assert self.network is not None, "Network must be initialized after fitting"
         self.network.eval()
@@ -678,13 +679,24 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         assert (
             x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
-        assert (
-            x.shape[1] == self.input_dim
-        ), "Input data must have the same number of features as the fitted classifier."
+        assert x.shape[1] == self.input_dim, (
+            "Input data must have the same number of features as the fitted classifier."
+        )
 
         assert self.network is not None, "Network must be initialized after fitting"
         self.network.eval()
-        return self.network(torch.Tensor(x)).detach().numpy()
+        # scoring the whole matrix in one pass holds an activation per layer for every row, and
+        # without no_grad the graph that produced them too; the final round scores every PSM of
+        # the run, tens of millions of them
+        with torch.no_grad():
+            return np.concatenate(
+                [
+                    self.network(
+                        torch.Tensor(x[start : start + _PREDICT_CHUNK_ROWS])
+                    ).numpy()
+                    for start in range(0, max(len(x), 1), _PREDICT_CHUNK_ROWS)
+                ]
+            )
 
 
 class LightGBMClassifier(Classifier):
