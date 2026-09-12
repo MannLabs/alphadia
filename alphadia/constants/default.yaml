@@ -406,7 +406,9 @@ fdr:
     # q-value below which a target is kept as a positive example
     train_fdr: 0.01
     # number of refits after the first fit; each one re-picks the positives with the current ensemble score
-    n_refits: 2
+    # three refits after the first fit on every kept target: the last one cleans the low-input scores of the
+    # junk-target-vs-decoy separation the first fit picks up (5 ng rank-2 AUC 0.56 -> 0.54) and adds 1.4 % HeLa ids
+    n_refits: 3
     # with the prefilter on, the final round's first fit takes every target the prefilter keeps as a positive (the
     # stage-1 identifications alone starve it on plasma), the n_near_decoys hardest decoys (by the stage-1 score first,
     # then by the network's own score in every refit) enter whole and n_far_decoys of the rest enter at random, weighted
