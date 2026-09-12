@@ -337,3 +337,39 @@ def test_perform_fdr_final_round_scores_with_the_first_ensemble_member():
     assert n_fits_optimization == 1
     assert len(second.positives_per_fit) == 1
     assert len(first.positives_per_fit) > 1
+
+
+def test_fit_predict_with_a_stage1_score_refits_on_the_sampled_decoys():
+    # Given: a separable feature set, a stage-1 score that already ranks it and a trainer
+    # that keeps a tenth of the decoys whole and draws a tenth of the rest
+    psm_df = _gen_psms()
+    y = psm_df["decoy"].to_numpy()
+    stage1_proba = 1.0 / (1.0 + np.exp(psm_df["feature"].to_numpy() - 1.0))
+    trainer = CrossFittedTrainer(
+        n_folds=2,
+        n_refits=1,
+        min_positives=100,
+        near_decoy_fraction=0.1,
+        far_decoy_fraction=0.1,
+        random_state=0,
+    )
+
+    # When: the classifier is cross-fitted from the stage-1 score
+    result = trainer.fit_predict(
+        _classifier(),
+        psm_df[["feature", "noise"]].to_numpy(),
+        y,
+        psm_df["elution_group_idx"].to_numpy(),
+        psm_df["precursor_idx"].to_numpy(),
+        stage1_proba=stage1_proba,
+        candidate=np.ones(len(y), dtype=bool),
+    )
+
+    # Then: the true candidates score as targets, the last fit's positives are true
+    # candidates and its negatives are about a fifth of the training fold's decoys
+    is_true = psm_df["is_true"].to_numpy()
+    assert result.proba[is_true].mean() < 0.2
+    assert result.proba[~is_true].mean() > 0.5
+    assert is_true[result.train_idx][result.y_train == 0].mean() > 0.9
+    n_decoys_fitted = (result.y_train == 1).sum()
+    assert 0.1 * (y == 1).sum() / 2 < n_decoys_fitted < 0.3 * (y == 1).sum() / 2

@@ -222,14 +222,13 @@ def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
     assert (dropped["qval"] == 1.0).all()
 
 
-def test_perform_fdr_with_prefilter_reports_the_recall_check(caplog):
-    # Given: separable targets and decoys, a gate with room behind the confident ones and
-    # the cross-fitted final round, whose false identifications do not pile up on the
-    # scored rows the way a plain fit's do
+def test_perform_fdr_with_prefilter_and_trainer_scores_every_psm(caplog):
+    # Given: separable targets and decoys, a gate that would drop half of them and the
+    # cross-fitted final round
     caplog.set_level(logging.INFO)
     target_df, decoy_df = _gen_target_decoy_dfs(n_samples=2000)
 
-    # When: the FDR is computed behind the prefilter
+    # When: the FDR is computed in the final round behind the prefilter
     psm_df = fdr.perform_fdr(
         _get_classifier(),
         ["feature", "noise"],
@@ -241,10 +240,11 @@ def test_perform_fdr_with_prefilter_reports_the_recall_check(caplog):
         trainer=CrossFittedTrainer(n_folds=2, random_state=0),
     )
 
-    # Then: the identifications are checked against the gate's cut, the cut holds and
-    # the helper column does not leak into the result
-    assert "Prefilter recall check" in caplog.text
-    assert "widening the cut" not in caplog.text
+    # Then: the stage-1 score picked the first positives, nothing was dropped or ranked by
+    # it, and the helper column does not leak into the result
+    assert "Stage 1 picks" in caplog.text
+    assert "Prefilter recall check" not in caplog.text
+    assert (psm_df["proba"] < 1.0).all()
     assert "_stage1_rank" not in psm_df.columns
 
 
