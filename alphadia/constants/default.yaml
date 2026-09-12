@@ -311,7 +311,7 @@ fdr:
   # weight the decoys in the classifier's loss by 2(1 - p), p the share of true targets estimated from the excess of
   # targets over decoys; for a symmetric loss that is the unbiased positive-unlabeled risk, and it stops the network
   # being rewarded for telling false targets from decoys (+5-8 % precursors on 5 ng at unchanged false-target share)
-  estimate_class_prior: true
+  estimate_class_prior: false
   # classifier scoring the candidates: mlp (feed forward neural network), lightgbm (gradient boosted trees) or
   # ensemble (mean of both probabilities; the final cross-fitted round is scored by its first member alone). Trees
   # learn to tell false targets from decoys and inflate the identifications on low-input samples, in the optimization
