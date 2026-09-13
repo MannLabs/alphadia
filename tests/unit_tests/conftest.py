@@ -86,6 +86,7 @@ def mock_precursor_df(
 
     df = df.sample(frac=1).reset_index(drop=True)
     df["precursor_idx"] = np.arange(len(df))
+    df["rank"] = 0
     return df
 
 
