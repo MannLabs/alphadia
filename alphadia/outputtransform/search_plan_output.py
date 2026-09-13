@@ -316,7 +316,10 @@ class SearchPlanOutput:
 
         logger.info("Performing protein FDR")
 
-        psm_df = perform_protein_fdr(psm_df, self._figure_path)
+        protein_df = perform_protein_fdr(psm_df, self._figure_path)
+        psm_df = psm_df.merge(
+            protein_df[["pg", "decoy", "pg_qval"]], on=["pg", "decoy"], how="left"
+        )
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
         log_protein_fdr_summary(psm_df)

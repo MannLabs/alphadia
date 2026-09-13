@@ -1,73 +1,107 @@
 import logging
 
+import numpy as np
 import pandas as pd
+from sklearn.model_selection import StratifiedKFold
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
 from alphadia.exceptions import TooFewProteinsError
 from alphadia.fdr import fdr
 from alphadia.fdr.plotting import plot_fdr
-from alphadia.fdr.utils import train_test_split_
 
 logger = logging.getLogger()
 
+FEATURE_COLUMNS = [
+    "count",
+    "mean_score",
+    "n_peptides",
+    "n_precursor",
+    "n_runs",
+    "best_score",
+    "worst_score",
+]
+N_FOLDS = 5
+RANDOM_STATE = 0
 
-def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
-    """Perform protein FDR on PSM dataframe"""
 
-    protein_features = []
-    for _, group in psm_df.groupby(["pg", "decoy"]):
-        protein_features.append(
-            {
-                "pg": group["pg"].iloc[0],
-                "genes": group["genes"].iloc[0],
-                "proteins": group["proteins"].iloc[0],
-                "decoy": group["decoy"].iloc[0],
-                "count": len(group),
-                "n_precursor": len(group["precursor_idx"].unique()),
-                "n_peptides": len(group["sequence"].unique()),
-                "n_runs": len(group["run"].unique()),
-                "mean_score": group["proba"].mean(),
-                "best_score": group["proba"].min(),
-                "worst_score": group["proba"].max(),
-            }
+def _build_protein_features(psm_df: pd.DataFrame) -> pd.DataFrame:
+    return (
+        psm_df.groupby(["pg", "decoy"])
+        .agg(
+            genes=("genes", "first"),
+            proteins=("proteins", "first"),
+            count=("proba", "size"),
+            n_precursor=("precursor_idx", "nunique"),
+            n_peptides=("sequence", "nunique"),
+            n_runs=("run", "nunique"),
+            mean_score=("proba", "mean"),
+            best_score=("proba", "min"),
+            worst_score=("proba", "max"),
         )
-
-    feature_columns = [
-        "count",
-        "mean_score",
-        "n_peptides",
-        "n_precursor",
-        "n_runs",
-        "best_score",
-        "worst_score",
-    ]
-
-    protein_features = pd.DataFrame(protein_features)
-
-    X = protein_features[feature_columns].values
-    y = protein_features["decoy"].values
-
-    X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-        X,
-        y,
-        test_size=0.2,
-        random_state=42,  # we do this only once so a fixed random state is fine
-        exception=TooFewProteinsError,
+        .reset_index()
     )
 
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_scaled = scaler.transform(X)
 
-    classifier = MLPClassifier(
-        random_state=0  # we do this only once so a fixed random state is fine
-    ).fit(X_train_scaled, y_train)
+def _cross_fitted_decoy_probability(
+    protein_features: pd.DataFrame,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Probability of being a decoy group, out of fold and in fold.
 
-    predicted_proba = classifier.predict_proba(X_scaled)[:, 1]
+    Scoring a group with a model that was trained on it lets the classifier memorise the few
+    thousand rows it is given, which moves groups across the q-value threshold for no reason a
+    rerun reproduces. The in-fold probabilities are only there to show how much was memorised.
+    """
+    x = protein_features[FEATURE_COLUMNS].to_numpy()
+    y = protein_features["decoy"].to_numpy()
 
-    protein_features["proba"] = predicted_proba
-    protein_features = pd.DataFrame(protein_features)
+    n_decoys = int(y.sum())
+    if min(n_decoys, len(y) - n_decoys) < N_FOLDS:
+        raise TooFewProteinsError()
+
+    out_of_fold = np.zeros(len(protein_features))
+    in_fold = np.zeros(len(protein_features))
+    folds = StratifiedKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+    for train_idx, test_idx in folds.split(x, y):
+        scaler = StandardScaler().fit(x[train_idx])
+        classifier = MLPClassifier(random_state=RANDOM_STATE).fit(
+            scaler.transform(x[train_idx]), y[train_idx]
+        )
+        out_of_fold[test_idx] = classifier.predict_proba(scaler.transform(x[test_idx]))[
+            :, 1
+        ]
+        in_fold[train_idx] += classifier.predict_proba(scaler.transform(x[train_idx]))[
+            :, 1
+        ] / (N_FOLDS - 1)
+    return out_of_fold, in_fold
+
+
+def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str | None) -> pd.DataFrame:
+    """Estimate a q-value for every protein group in the PSM dataframe.
+
+    Parameters
+    ----------
+    psm_df : pd.DataFrame
+        Precursors carrying a protein group assignment.
+
+    figure_path : str | None
+        Directory the FDR figure is written to.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per protein group, with its `pg_qval`.
+
+    """
+    protein_features = _build_protein_features(psm_df)
+    protein_features["proba"], in_fold_proba = _cross_fitted_decoy_probability(
+        protein_features
+    )
+    protein_features["in_fold_proba"] = in_fold_proba
+
+    n_targets = (protein_features["decoy"] == 0).sum()
+    n_decoys = (protein_features["decoy"] == 1).sum()
+    logger.info(f"Protein FDR over {n_targets:,} target and {n_decoys:,} decoy groups")
 
     protein_features = fdr.get_q_values(
         protein_features,
@@ -77,36 +111,15 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
         extra_sort_columns=["pg"],
     )
 
-    n_targets = (protein_features["decoy"] == 0).sum()
-    n_decoys = (protein_features["decoy"] == 1).sum()
-
-    logger.info(
-        f"Normalizing q-values using {n_targets:,} targets and {n_decoys:,} decoys"
-    )
-
-    protein_features["pg_qval"] = protein_features["pg_qval"] * n_targets / n_decoys
-
     if figure_path is not None:
+        is_decoy = protein_features["decoy"].to_numpy()
         plot_fdr(
-            y_train,
-            y_test,
-            predicted_proba[idxs_train],
-            predicted_proba[idxs_test],
+            is_decoy,
+            is_decoy,
+            protein_features["in_fold_proba"].to_numpy(),
+            protein_features["proba"].to_numpy(),
             protein_features["pg_qval"],
             figure_path,
         )
 
-    return pd.concat(
-        [
-            psm_df[psm_df["decoy"] == 0].merge(
-                protein_features[protein_features["decoy"] == 0][["pg", "pg_qval"]],
-                on="pg",
-                how="left",
-            ),
-            psm_df[psm_df["decoy"] == 1].merge(
-                protein_features[protein_features["decoy"] == 1][["pg", "pg_qval"]],
-                on="pg",
-                how="left",
-            ),
-        ]
-    )
+    return protein_features.drop(columns=["in_fold_proba"])
