@@ -80,6 +80,7 @@ class CalibCols(metaclass=ConstantsClass):
 
 class SearchStepFiles(metaclass=ConstantsClass):
     PSM_FILE_NAME = "psm.parquet"
+    PROTEIN_FDR_PSM_FILE_NAME = "psm.protein_fdr.parquet"
     FRAG_FILE_NAME = "frag.parquet"
     FRAG_TRANSFER_FILE_NAME = "frag.transfer.parquet"
 

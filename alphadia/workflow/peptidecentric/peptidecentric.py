@@ -39,6 +39,23 @@ from alphadia.workflow.peptidecentric.utils import (
     use_timing_manager,
 )
 
+# everything protein inference and the protein FDR read, without the quantification columns the
+# wider table would otherwise carry for precursors that are never reported
+PROTEIN_FDR_PSM_COLUMNS = [
+    "precursor_idx",
+    "elution_group_idx",
+    "rank",
+    "decoy",
+    "charge",
+    "sequence",
+    "mods",
+    "mod_sites",
+    "proteins",
+    "genes",
+    "proba",
+    "qval",
+]
+
 
 def _get_classifier_base(
     config: Config,
@@ -370,6 +387,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 is_final=True,
             )
 
+            protein_fdr_df = precursor_df[
+                precursor_df["qval"] <= self.config["fdr"]["protein_fdr_input_qval"]
+            ][PROTEIN_FDR_PSM_COLUMNS].copy()
+
             precursor_df = precursor_df[
                 precursor_df["qval"] <= self.config["fdr"]["fdr"]
             ]
@@ -393,11 +414,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 candidates_df, self.dia_data, self.spectral_library
             )
 
-            candidates_fdr_df, precursor_fdr_df = (
+            candidates_fdr_df, precursor_fdr_df, protein_fdr_df = (
                 extraction_handler.perform_fdr_and_filter_candidates(
                     precursor_w_features_df, candidates_df, is_final=True
                 )
             )
+
+            protein_fdr_df = extraction_handler.add_columns_from_library(
+                protein_fdr_df, self.spectral_library
+            )[PROTEIN_FDR_PSM_COLUMNS].copy()
 
             precursor_df, fragments_df = extraction_handler.quantify_candidates(
                 candidates_fdr_df,
@@ -408,7 +433,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         log_precursor_df(self.reporter, precursor_df)
 
-        return precursor_df, fragments_df
+        return precursor_df, fragments_df, protein_fdr_df
 
     @use_timing_manager("requantify")
     def requantify(self, psm_df: pd.DataFrame) -> pd.DataFrame:
