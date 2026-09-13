@@ -80,11 +80,7 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     n_targets = (protein_features["decoy"] == 0).sum()
     n_decoys = (protein_features["decoy"] == 1).sum()
 
-    logger.info(
-        f"Normalizing q-values using {n_targets:,} targets and {n_decoys:,} decoys"
-    )
-
-    protein_features["pg_qval"] = protein_features["pg_qval"] * n_targets / n_decoys
+    logger.info(f"Protein FDR over {n_targets:,} target and {n_decoys:,} decoy groups")
 
     if figure_path is not None:
         plot_fdr(
