@@ -436,7 +436,7 @@ class OptimizationHandler:
                 precursor_quantified_w_features_df, fragments_df
             )
 
-            _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
+            _, precursor_df, _ = extraction_handler.perform_fdr_and_filter_candidates(
                 self._optlock.features_df, candidates_df
             )
 

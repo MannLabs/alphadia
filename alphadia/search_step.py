@@ -549,7 +549,7 @@ class SearchStep:
 
         workflow.search_parameter_optimization()
 
-        psm_df, frag_df = workflow.extraction()
+        psm_df, frag_df, protein_fdr_psm_df = workflow.extraction()
 
         if self.config["multiplexing"]["enabled"]:
             psm_df = workflow.requantify(psm_df)
@@ -561,9 +561,11 @@ class SearchStep:
 
         workflow_path = Path(workflow.path)
         psm_df["run"] = workflow.instance_name
+        protein_fdr_psm_df["run"] = workflow.instance_name
 
         for file_name, df in {
             SearchStepFiles.PSM_FILE_NAME: psm_df,
+            SearchStepFiles.PROTEIN_FDR_PSM_FILE_NAME: protein_fdr_psm_df,
             SearchStepFiles.FRAG_FILE_NAME: frag_df,
             SearchStepFiles.FRAG_TRANSFER_FILE_NAME: frag_transfer_df,
         }.items():

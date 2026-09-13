@@ -273,7 +273,7 @@ class ExtractionHandler(ABC):
         candidates_df: pd.DataFrame,
         *,
         is_final: bool = False,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
         Only implemented by NG extraction handler.
@@ -292,8 +292,9 @@ class ExtractionHandler(ABC):
 
         Returns
         -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            Filtered candidates dataframe and post-FDR precursor dataframe
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
+            Filtered candidates dataframe, post-FDR precursor dataframe, and the precursor
+            dataframe cut at the wider protein FDR input threshold
         """
         raise NotImplementedError()
 
@@ -681,7 +682,7 @@ class NgExtractionHandler(ExtractionHandler):
         candidates_df: pd.DataFrame,
         *,
         is_final: bool = False,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
         See superclass documentation for interface details.
@@ -703,6 +704,9 @@ class NgExtractionHandler(ExtractionHandler):
             version=self._optimization_manager.classifier_version,
             is_final=is_final,
         )
+        protein_fdr_df = precursor_fdr_df[
+            precursor_fdr_df["qval"] <= self._config["fdr"]["protein_fdr_input_qval"]
+        ]
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
         ]
@@ -713,4 +717,4 @@ class NgExtractionHandler(ExtractionHandler):
         ].copy()
         del candidates_filtered["_candidate_idx"]
 
-        return candidates_filtered, precursor_fdr_df
+        return candidates_filtered, precursor_fdr_df, protein_fdr_df
