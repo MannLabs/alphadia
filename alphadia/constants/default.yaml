@@ -298,9 +298,10 @@ fdr:
 
   # q-value up to which precursors are carried into protein inference and protein FDR. Cutting that
   # input at `fdr` instead leaves a decoy protein population the size of the false discoveries,
-  # roughly one percent of the target one, which is far too small to compete a protein against its
-  # own decoy or to place a threshold anywhere near one percent
-  protein_fdr_input_qval: 0.5
+  # roughly one percent of the target one, which is far too small to place a threshold anywhere
+  # near one percent. Widening it also makes protein inference read a noisier peptide set, so this
+  # trades the resolution of the estimate against how much the grouping itself moves
+  protein_fdr_input_qval: 0.1
 
 
   # === advanced settings ===
