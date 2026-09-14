@@ -499,6 +499,7 @@ def get_q_values(
     decoy_column: str = "_decoy",
     qval_column: str = "qval",
     extra_sort_columns: list[str] | None = None,
+    decoy_offset: int = 0,
 ) -> pd.DataFrame:
     """Calculates q-values for a dataframe containing PSMs.
 
@@ -521,6 +522,9 @@ def get_q_values(
     extra_sort_columns : list[str], default=['precursor_idx']
         Additional columns to sort by after score_column and decoy_column to break ties.
 
+    decoy_offset : int, default=0
+        Added to the running decoy count before dividing by the running target count.
+
     Returns
     -------
     pd.DataFrame
@@ -537,7 +541,7 @@ def get_q_values(
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
     fdr_values = np.divide(
-        decoy_cumsum,
+        decoy_cumsum + decoy_offset,
         target_cumsum,
         out=np.ones(len(df), dtype=float),
         where=target_cumsum > 0,

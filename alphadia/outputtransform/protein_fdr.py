@@ -11,6 +11,12 @@ from alphadia.fdr.utils import train_test_split_
 
 logger = logging.getLogger()
 
+# The +1 estimator (D + 1) / T controls the FDR in expectation under exchangeability, where the
+# plain ratio is only unbiased. Protein groups sit far fewer decoys above the cut than
+# precursors do (about 1 % of the accepted groups), so a decoy count that happens to fall short
+# would otherwise be read as a lower FDR than the data can support.
+DECOY_COUNT_OFFSET = 1
+
 
 def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     """Perform protein FDR on PSM dataframe"""
@@ -75,6 +81,7 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
         decoy_column="decoy",
         qval_column="pg_qval",
         extra_sort_columns=["pg"],
+        decoy_offset=DECOY_COUNT_OFFSET,
     )
 
     n_targets = (protein_features["decoy"] == 0).sum()
