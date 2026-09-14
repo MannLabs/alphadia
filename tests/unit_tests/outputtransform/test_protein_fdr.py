@@ -39,7 +39,7 @@ def _groups(
     return rows
 
 
-def test_protein_q_values_are_the_plain_target_decoy_ratio():
+def test_protein_q_values_are_the_plus_one_target_decoy_ratio():
     # given
     rng = np.random.default_rng(RANDOM_STATE)
     psm_df = pd.DataFrame(
@@ -58,10 +58,10 @@ def test_protein_q_values_are_the_plain_target_decoy_ratio():
     n_decoys = int((accepted["decoy"] == 1).sum())
 
     assert 0 < len(accepted) < len(groups)
-    # the q-value of the last accepted group is the decoy-to-target ratio at that cut, so the
-    # accepted set can never exceed the threshold
-    assert n_decoys / n_targets <= FDR_THRESHOLD
+    # the q-value of the last accepted group is (decoys + 1) / targets at that cut, so the
+    # accepted set never exceeds the threshold even after charging one extra decoy
+    assert (n_decoys + 1) / n_targets <= FDR_THRESHOLD
     # and it is the largest such set: one more decoy would push the ratio over the threshold,
     # so the realised ratio sits within one decoy of it. Any factor applied to the q-values after
     # the fact breaks this.
-    assert n_decoys / n_targets >= FDR_THRESHOLD - 2 / n_targets
+    assert (n_decoys + 1) / n_targets >= FDR_THRESHOLD - 2 / n_targets
