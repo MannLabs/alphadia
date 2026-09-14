@@ -39,6 +39,12 @@ from alphadia.workflow.peptidecentric.utils import (
     use_timing_manager,
 )
 
+# the sampled final round trains on hard-mined decoys from the whole population, so the stage-2
+# network can afford the width to fit the real signal as long as dropout keeps it from memorising
+# the handful of features that separate junk targets from decoys
+MLP_LAYERS = [192, 64]
+MLP_DROPOUT = 0.3
+
 
 def _get_classifier_base(
     config: Config,
@@ -86,6 +92,8 @@ def _get_mlp_classifier(
         batch_size=5000,
         learning_rate=0.001,
         epochs=10,
+        layers=MLP_LAYERS,
+        dropout=MLP_DROPOUT,
         experimental_hyperparameter_tuning=config["fdr"][
             "enable_nn_hyperparameter_tuning"
         ],
