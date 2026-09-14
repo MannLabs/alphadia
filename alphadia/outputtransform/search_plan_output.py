@@ -43,6 +43,7 @@ logger = logging.getLogger()
 
 class SearchPlanOutput:
     PSM_INPUT = "psm"
+    PROTEIN_FDR_PSM_INPUT = "psm.protein_fdr"
     PRECURSOR_OUTPUT = "precursors"
     STAT_OUTPUT = "stat"
     INTERNAL_OUTPUT = "internal"
@@ -306,17 +307,33 @@ class SearchPlanOutput:
 
         logger.info("Performing protein inference")
 
-        psm_df = prepare_psm_dataframe(psm_df)
-
-        psm_df = apply_protein_inference(
-            psm_df,
+        # grouping and FDR run on the wider table so that the decoy protein population is not a
+        # hundredth of the target one; the precursors reported below are still only those passing
+        # the precursor FDR
+        protein_fdr_psm_df = apply_protein_inference(
+            prepare_psm_dataframe(
+                pd.concat(
+                    load_psm_files_from_folders(
+                        folder_list, self.PROTEIN_FDR_PSM_INPUT
+                    )
+                )
+            ),
             self.config["fdr"]["inference_strategy"],
             self.config["fdr"]["group_level"],
         )
 
         logger.info("Performing protein FDR")
 
-        psm_df = perform_protein_fdr(psm_df, self._figure_path)
+        protein_df = perform_protein_fdr(protein_fdr_psm_df, self._figure_path)
+
+        psm_df = prepare_psm_dataframe(psm_df)
+        psm_df = psm_df.merge(
+            protein_fdr_psm_df[["run", "precursor_idx", "rank", "pg", "pg_master"]],
+            on=["run", "precursor_idx", "rank"],
+            how="left",
+        ).merge(
+            protein_df[["pg", "decoy", "pg_qval"]], on=["pg", "decoy"], how="left"
+        )
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
         log_protein_fdr_summary(psm_df)

@@ -13,7 +13,7 @@ logger = logging.getLogger()
 
 
 def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
-    """Perform protein FDR on PSM dataframe"""
+    """Score protein groups against their decoys and return one row per group with its q-value."""
 
     protein_features = []
     for _, group in psm_df.groupby(["pg", "decoy"]):
@@ -92,17 +92,4 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
             figure_path,
         )
 
-    return pd.concat(
-        [
-            psm_df[psm_df["decoy"] == 0].merge(
-                protein_features[protein_features["decoy"] == 0][["pg", "pg_qval"]],
-                on="pg",
-                how="left",
-            ),
-            psm_df[psm_df["decoy"] == 1].merge(
-                protein_features[protein_features["decoy"] == 1][["pg", "pg_qval"]],
-                on="pg",
-                how="left",
-            ),
-        ]
-    )
+    return protein_features

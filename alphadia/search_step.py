@@ -553,6 +553,10 @@ class SearchStep:
 
         if self.config["multiplexing"]["enabled"]:
             psm_df = workflow.requantify(psm_df)
+            # requantification expands the reported precursors across channels, and the wider table
+            # is not carried through it, so a multiplexed run keeps the reported precursors as the
+            # protein FDR input
+            protein_fdr_psm_df = psm_df
 
         if self.config["transfer_library"]["enabled"]:
             psm_df, frag_transfer_df = workflow.requantify_fragments(psm_df)

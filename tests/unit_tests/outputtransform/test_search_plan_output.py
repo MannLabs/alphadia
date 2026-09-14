@@ -83,14 +83,18 @@ def test_search_plan_output_integration():
     for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)
 
-        psm_df = psm_base_df.sample(50)
-        psm_df["run"] = os.path.basename(raw_folder)
+        protein_fdr_psm_df = psm_base_df.copy()
+        protein_fdr_psm_df["run"] = os.path.basename(raw_folder)
+        psm_df = protein_fdr_psm_df.sample(50)
         frag_df = fragment_base_df[
             fragment_base_df["precursor_idx"].isin(psm_df["precursor_idx"])
         ]
 
         frag_df.to_parquet(os.path.join(raw_folder, "frag.parquet"), index=False)
         psm_df.to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
+        protein_fdr_psm_df.to_parquet(
+            os.path.join(raw_folder, "psm.protein_fdr.parquet"), index=False
+        )
 
         optimization_manager = OptimizationManager(
             config,
