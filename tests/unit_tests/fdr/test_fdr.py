@@ -146,6 +146,22 @@ def test_get_q_values_reads_one_while_no_target_has_been_seen():
     # Then: the leading decoys carry a q-value of one rather than a division by zero
     assert np.allclose(test_df["qval"].values, [1.0, 1.0, 1.0, 1.0])
 
+def test_get_q_values_with_decoy_offset():
+    test_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            "proba": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+            "_decoy": [0, 0, 0, 1, 0, 0, 1, 1, 1, 1],
+        }
+    )
+
+    test_df = fdr.get_q_values(test_df, "proba", "_decoy", decoy_offset=1)
+
+    assert np.allclose(
+        test_df["qval"].values,
+        np.array([1 / 3, 1 / 3, 1 / 3, 0.4, 0.4, 0.4, 0.6, 0.8, 1.0, 1.2]),
+    )
+
 
 def gen_data_np(
     n_features=10,

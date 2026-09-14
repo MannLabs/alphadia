@@ -300,7 +300,9 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     return np.flip(q_values_flipped)
 
 
-def q_values_of(scores: np.ndarray, decoys: np.ndarray) -> np.ndarray:
+def q_values_of(
+    scores: np.ndarray, decoys: np.ndarray, decoy_offset: int = 0
+) -> np.ndarray:
     """Calculates the q-value of every PSM, in the order the PSMs are given in.
 
     Parameters
@@ -310,6 +312,9 @@ def q_values_of(scores: np.ndarray, decoys: np.ndarray) -> np.ndarray:
 
     decoys : np.ndarray
         Decoy information of every PSM, 1 for decoys and 0 for targets.
+
+    decoy_offset : int, default=0
+        Added to the running decoy count before dividing by the running target count.
 
     Returns
     -------
@@ -329,7 +334,7 @@ def q_values_of(scores: np.ndarray, decoys: np.ndarray) -> np.ndarray:
     decoy_cumsum = np.cumsum(np.bincount(block_of_psm, weights=decoys))
     target_cumsum = np.cumsum(np.bincount(block_of_psm, weights=1 - decoys))
     fdr_values = np.divide(
-        decoy_cumsum,
+        decoy_cumsum + decoy_offset,
         target_cumsum,
         out=np.ones(len(decoy_cumsum), dtype=float),
         where=target_cumsum > 0,
@@ -343,6 +348,7 @@ def get_q_values(
     decoy_column: str = "_decoy",
     qval_column: str = "qval",
     extra_sort_columns: list[str] | None = None,
+    decoy_offset: int = 0,
 ) -> pd.DataFrame:
     """Calculates q-values for a dataframe containing PSMs.
 
@@ -365,6 +371,9 @@ def get_q_values(
     extra_sort_columns : list[str], default=['precursor_idx']
         Additional columns to sort by after score_column and decoy_column to break ties.
 
+    decoy_offset : int, default=0
+        Added to the running decoy count before dividing by the running target count.
+
     Returns
     -------
     pd.DataFrame
@@ -378,6 +387,6 @@ def get_q_values(
         [score_column, decoy_column, *extra_sort_columns], ascending=True
     )  # last sort to break ties
     df[qval_column] = q_values_of(
-        df[score_column].to_numpy(), df[decoy_column].to_numpy()
+        df[score_column].to_numpy(), df[decoy_column].to_numpy(), decoy_offset
     )
     return df
