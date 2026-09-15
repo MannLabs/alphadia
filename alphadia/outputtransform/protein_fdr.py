@@ -11,10 +11,7 @@ from alphadia.fdr.utils import train_test_split_
 
 logger = logging.getLogger()
 
-# The +1 estimator (D + 1) / T controls the FDR in expectation under exchangeability, where the
-# plain ratio is only unbiased. Protein groups sit far fewer decoys above the cut than
-# precursors do (about 1 % of the accepted groups), so a decoy count that happens to fall short
-# would otherwise be read as a lower FDR than the data can support.
+# Make the protein FDR more conservative
 DECOY_COUNT_OFFSET = 1
 
 

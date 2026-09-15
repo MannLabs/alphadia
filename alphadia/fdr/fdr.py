@@ -324,6 +324,6 @@ def get_q_values(
     target_cumsum = np.cumsum(target_values)
     fdr_values = (
         decoy_cumsum + decoy_offset
-    ) / target_cumsum  # TODO: RuntimeWarning: divide by zero encountered in divide
+    ) / target_cumsum  # TODO: RuntimeWarning: divide by zero encountered in divide if offset is not set and there are no targets
     df[qval_column] = _fdr_to_q_values(fdr_values)
     return df
