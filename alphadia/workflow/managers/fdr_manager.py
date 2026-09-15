@@ -48,7 +48,7 @@ def get_group_columns(competitive: bool, group_channels: bool) -> list[str]:
 
 def column_hash(columns):
     columns.sort()
-    return xxhash.xxh64_hexdigest("".join(columns))
+    return xxhash.xxh64_hexdigest("".join(columns).encode())
 
 
 class FDRManager(BaseManager):
