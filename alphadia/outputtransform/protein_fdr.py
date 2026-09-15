@@ -11,12 +11,7 @@ from alphadia.fdr.utils import train_test_split_
 
 logger = logging.getLogger()
 
-# In competition-based FDR control the +1 is what buys the finite-sample guarantee, and at the
-# thresholds used here it cannot be shrunk without losing it (Rajchert and Keich 2023). That
-# proof needs every target to compete head-to-head with its own decoy, which grouping targets
-# and decoys in separate namespaces does not give us, so no guarantee is claimed here. It is
-# kept as a conservative guard: it costs one decoy and stops a cut that happens to catch no
-# decoy from reading as a zero FDR.
+# Make the protein FDR more conservative
 DECOY_COUNT_OFFSET = 1
 
 
