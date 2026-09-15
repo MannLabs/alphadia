@@ -211,7 +211,9 @@ class QuantBuilder:
             f"Performing label-free quantification with {lfq_config.normalization_method} normalization"
         )
 
-        lfq_df = self._prepare_ion_table(intensity_df, lfq_config, config)
+        lfq_df = self._prepare_ion_table(intensity_df, lfq_config)
+        if config["search_output"]["normalize_directlfq"]:
+            lfq_df = self._normalize_ion_table(lfq_df, config)
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
@@ -225,9 +227,8 @@ class QuantBuilder:
         self,
         intensity_df: pd.DataFrame,
         lfq_config: LFQOutputConfig,
-        config: Config,
     ) -> pd.DataFrame:
-        """Build the log2 ion table directLFQ operates on, with sample normalization if enabled.
+        """Build the log2 ion table directLFQ operates on.
 
         Parameters
         ----------
@@ -235,8 +236,6 @@ class QuantBuilder:
             Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
         lfq_config: LFQOutputConfig
             Configuration for this quantification level
-        config: Config
-            Global configuration object
 
         Returns
         -------
@@ -264,17 +263,31 @@ class QuantBuilder:
         )
 
         lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
-        lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
+        return lfqutils.remove_allnan_rows_input_df(lfq_df)
 
-        if config["search_output"]["normalize_directlfq"]:
-            logger.info("Applying directLFQ normalization")
-            lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
-                lfq_df,
-                num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
-                selected_proteins_file=None,
-            ).complete_dataframe
+    def _normalize_ion_table(
+        self, lfq_df: pd.DataFrame, config: Config
+    ) -> pd.DataFrame:
+        """Apply directLFQ sample normalization to a log2 ion table.
 
-        return lfq_df
+        Parameters
+        ----------
+        lfq_df: pd.DataFrame
+            Log2 ion table as returned by _prepare_ion_table
+        config: Config
+            Global configuration object
+
+        Returns
+        -------
+        pd.DataFrame
+            Ion table with per-sample shifts removed
+        """
+        logger.info("Applying directLFQ normalization")
+        return lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
+            lfq_df,
+            num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
+            selected_proteins_file=None,
+        ).complete_dataframe
 
     def quantselect_lfq(
         self,
