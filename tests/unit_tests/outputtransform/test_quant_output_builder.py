@@ -81,16 +81,14 @@ def feature_dfs():
     }
 
 
+def precursor_lfq_side_effect(*args, **kwargs):
+    return pd.DataFrame({"mod_seq_charge_hash": [10, 20], "run1": [1000.0, 2000.0]})
+
+
 def lfq_side_effect(*args, **kwargs):
-    # Extract the lfq_config instance from kwargs (it's passed as a keyword argument)
-    lfq_config = kwargs.get("lfq_config")
+    quant_level = kwargs["lfq_config"].quant_level
 
-    # Get the quant_level attribute from the LFQOutputConfig instance
-    quant_level = getattr(lfq_config, "quant_level", "pg") if lfq_config else "pg"
-
-    if quant_level == "mod_seq_charge_hash":
-        return pd.DataFrame({"mod_seq_charge_hash": [10, 20], "run1": [1000.0, 2000.0]})
-    elif quant_level == "mod_seq_hash":
+    if quant_level == "mod_seq_hash":
         return pd.DataFrame({"mod_seq_hash": [1, 2], "run1": [1500.0, 2500.0]})
     return pd.DataFrame({"pg": ["PG001", "PG002"], "run1": [5000.0, 2000.0]})
 
@@ -128,6 +126,9 @@ class TestQuantOutputBuilder:
         pd.testing.assert_frame_equal(result_psm_df, psm_df)
 
     @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.weighted_sum_lfq"
+    )
+    @patch(
         "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
     )
     @patch(
@@ -137,7 +138,14 @@ class TestQuantOutputBuilder:
         "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
     )
     def test_build_processes_all_levels_with_correct_annotations(
-        self, mock_accumulate, mock_filter, mock_direct_lfq, psm_df, config, feature_dfs
+        self,
+        mock_accumulate,
+        mock_filter,
+        mock_direct_lfq,
+        mock_weighted_sum_lfq,
+        psm_df,
+        config,
+        feature_dfs,
     ):
         """Given all three quantification levels enabled, when build is called, then all levels return output with correct annotations."""
         # Given
@@ -147,6 +155,7 @@ class TestQuantOutputBuilder:
             feature_dfs["correlation"],
         )
         mock_direct_lfq.side_effect = lfq_side_effect
+        mock_weighted_sum_lfq.side_effect = precursor_lfq_side_effect
         builder = QuantOutputBuilder(psm_df, config)
 
         # When
@@ -175,6 +184,132 @@ class TestQuantOutputBuilder:
         assert all(
             col not in protein_result.columns for col in ["sequence", "mods", "charge"]
         )
+
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.weighted_sum_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+    )
+    def test_build_rolls_peptides_and_proteins_up_from_precursor_quantities(
+        self,
+        mock_accumulate,
+        mock_direct_lfq,
+        mock_weighted_sum_lfq,
+        psm_df,
+        config,
+        feature_dfs,
+    ):
+        """Given all levels enabled, when build is called, then fragments are summed to precursors once and directLFQ estimates peptides and protein groups from those precursors."""
+        # Given
+        mock_accumulate.return_value = feature_dfs
+        mock_direct_lfq.side_effect = lfq_side_effect
+        mock_weighted_sum_lfq.side_effect = precursor_lfq_side_effect
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        builder.build(["folder1", "folder2"])
+
+        # Then
+        assert mock_weighted_sum_lfq.call_count == 1
+        ion_quality = mock_weighted_sum_lfq.call_args.kwargs["ion_quality"]
+        assert isinstance(ion_quality, pd.Series)
+        assert set(ion_quality.index) == {100, 101, 102, 103}
+        assert ion_quality.loc[100] == pytest.approx(0.85)
+
+        direct_lfq_calls = mock_direct_lfq.call_args_list
+        assert [call.kwargs["lfq_config"].quant_level for call in direct_lfq_calls] == [
+            "mod_seq_hash",
+            "pg",
+        ]
+        for call in direct_lfq_calls:
+            precursor_ion_df = call.kwargs["intensity_df"]
+            assert list(precursor_ion_df.columns) == [
+                "ion",
+                "run1",
+                "mod_seq_hash",
+                "pg",
+            ]
+            assert precursor_ion_df["ion"].tolist() == [10, 20]
+            assert precursor_ion_df["pg"].tolist() == ["PG001", "PG002"]
+
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.weighted_sum_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+    )
+    def test_build_quantifies_precursors_even_when_precursor_output_is_disabled(
+        self,
+        mock_accumulate,
+        mock_direct_lfq,
+        mock_weighted_sum_lfq,
+        psm_df,
+        config,
+        feature_dfs,
+    ):
+        """Given precursor level output disabled, when build is called, then precursors are still quantified as the foundation of the other levels."""
+        # Given
+        config["search_output"]["precursor_level_lfq"] = False
+        mock_accumulate.return_value = feature_dfs
+        mock_direct_lfq.side_effect = lfq_side_effect
+        mock_weighted_sum_lfq.side_effect = precursor_lfq_side_effect
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        lfq_results, _ = builder.build(["folder1", "folder2"])
+
+        # Then
+        assert mock_weighted_sum_lfq.call_count == 1
+        assert QuantificationLevelName.PRECURSOR not in lfq_results
+        assert QuantificationLevelName.PEPTIDE in lfq_results
+        assert QuantificationLevelName.PROTEIN in lfq_results
+
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.weighted_sum_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+    )
+    def test_build_skips_all_levels_when_no_fragment_passes_the_filter(
+        self,
+        mock_accumulate,
+        mock_filter,
+        mock_direct_lfq,
+        mock_weighted_sum_lfq,
+        psm_df,
+        config,
+        feature_dfs,
+    ):
+        """Given no fragment passes the quality filter, when build is called, then no level is quantified."""
+        # Given
+        mock_accumulate.return_value = feature_dfs
+        mock_filter.return_value = (
+            feature_dfs["intensity"].iloc[0:0],
+            feature_dfs["correlation"].iloc[0:0],
+        )
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        lfq_results, result_psm_df = builder.build(["folder1", "folder2"])
+
+        # Then
+        assert lfq_results == {}
+        mock_weighted_sum_lfq.assert_not_called()
+        mock_direct_lfq.assert_not_called()
+        pd.testing.assert_frame_equal(result_psm_df, psm_df)
 
     @patch("alphadia.outputtransform.utils.write_df")
     def test_save_results_writes_non_empty_results(self, mock_write_df, psm_df, config):

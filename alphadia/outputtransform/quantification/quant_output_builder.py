@@ -15,6 +15,7 @@ from alphadia.outputtransform.quantification.fragment_accumulator import (
 from alphadia.outputtransform.quantification.quant_builder import (
     LFQOutputConfig,
     QuantBuilder,
+    compute_ion_quality,
 )
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
@@ -25,7 +26,8 @@ class QuantOutputBuilder:
     """Build quantification outputs at multiple levels (precursor, peptide, protein).
 
     This class orchestrates the accumulation of fragment data, filtering by quality,
-    and label-free quantification using directLFQ at different aggregation levels.
+    the correlation-weighted rollup of fragments to precursor quantities and the
+    directLFQ estimation of peptide and protein group quantities from those precursors.
 
     Parameters
     ----------
@@ -99,6 +101,7 @@ class QuantOutputBuilder:
             return {}, self.psm_df
 
         quantlevel_configs = self._create_quant_level_configs()
+        precursor_df = self._quantify_precursors(feature_dfs_dict)
         lfq_results = {}
 
         for quantlevel_config in quantlevel_configs:
@@ -110,7 +113,9 @@ class QuantOutputBuilder:
             )
 
             lfq_df = self._process_quant_level(
-                lfq_config=quantlevel_config, feature_dfs_dict=feature_dfs_dict
+                lfq_config=quantlevel_config,
+                feature_dfs_dict=feature_dfs_dict,
+                precursor_df=precursor_df,
             )
 
             if lfq_df is not None and not lfq_df.empty:
@@ -220,10 +225,84 @@ class QuantOutputBuilder:
         )
         return lfq_df.merge(annotate_df, on=config.quant_level, how="left")
 
+    def _quantify_precursors(
+        self, feature_dfs_dict: dict[str, pd.DataFrame]
+    ) -> pd.DataFrame | None:
+        """Roll fragments up to precursor quantities, the foundation of every directLFQ level.
+
+        Parameters
+        ----------
+        feature_dfs_dict : dict[str, pd.DataFrame]
+            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        Returns
+        -------
+        pd.DataFrame | None
+            Precursor quantities with columns: mod_seq_charge_hash, run1, run2, ...
+            None when QuantSelect is used or no fragment passes the quality filter
+        """
+        if (
+            self.config["search_output"]["normalization_method"]
+            != NormalizationMethods.DIRECTLFQ
+        ):
+            return None
+
+        filtered_intensity_df, filtered_quality_df = self.quant_builder.filter_frag_df(
+            feature_dfs_dict["intensity"],
+            feature_dfs_dict["correlation"],
+            top_n=self.config["search_output"]["min_k_fragments"],
+            min_correlation=self.config["search_output"]["min_correlation"],
+            group_column=QuantificationLevelKey.PRECURSOR,
+        )
+
+        if len(filtered_intensity_df) == 0:
+            logger.warning(
+                "No fragments passed the quality filter, skipping label-free quantification"
+            )
+            return None
+
+        # directLFQ's median of fragment ratios compresses true fold changes because
+        # poorly correlating fragments get the same vote as good ones
+        return self.quant_builder.weighted_sum_lfq(
+            intensity_df=filtered_intensity_df,
+            config=self.config,
+            ion_quality=compute_ion_quality(filtered_intensity_df, filtered_quality_df),
+        )
+
+    def _precursor_ion_table(
+        self, precursor_df: pd.DataFrame, feature_dfs_dict: dict[str, pd.DataFrame]
+    ) -> pd.DataFrame:
+        """Present precursor quantities as the ion table of the peptide and protein group levels.
+
+        Parameters
+        ----------
+        precursor_df : pd.DataFrame
+            Precursor quantities with columns: mod_seq_charge_hash, run1, run2, ...
+        feature_dfs_dict : dict[str, pd.DataFrame]
+            Fragment feature dataframes carrying the precursor to peptide and protein group mapping
+
+        Returns
+        -------
+        pd.DataFrame
+            Precursor quantities with columns: ion, run1, run2, ..., mod_seq_hash, pg
+        """
+        group_df = feature_dfs_dict["intensity"][
+            [
+                QuantificationLevelKey.PRECURSOR,
+                QuantificationLevelKey.PEPTIDE,
+                QuantificationLevelKey.PROTEIN,
+            ]
+        ].drop_duplicates(QuantificationLevelKey.PRECURSOR)
+
+        return precursor_df.merge(group_df, on=QuantificationLevelKey.PRECURSOR).rename(
+            columns={QuantificationLevelKey.PRECURSOR: "ion"}
+        )
+
     def _process_quant_level(
         self,
         lfq_config: LFQOutputConfig,
         feature_dfs_dict: dict[str, pd.DataFrame],
+        precursor_df: pd.DataFrame | None,
     ) -> pd.DataFrame | None:
         """Process quantification for a single level.
 
@@ -233,39 +312,31 @@ class QuantOutputBuilder:
             Configuration for this quantification level
         feature_dfs_dict : dict[str, pd.DataFrame]
             Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        precursor_df : pd.DataFrame | None
+            Precursor quantities from _quantify_precursors, None if unavailable
 
         Returns
         -------
         pd.DataFrame | None
             Quantification results, or None if no data available
         """
-        if lfq_config.normalization_method == NormalizationMethods.DIRECTLFQ:
-            filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                top_n=self.config["search_output"]["min_k_fragments"],
-                min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=lfq_config.quant_level,
-            )
-
-            if len(filtered_intensity_df) == 0:
-                logger.warning(
-                    f"No fragments found for {lfq_config.level_name}, skipping label-free quantification"
-                )
-                return None
-
-            lfq_df = self.quant_builder.direct_lfq(
-                intensity_df=filtered_intensity_df,
-                lfq_config=lfq_config,
-                config=self.config,
-            )
-
-        else:
-            lfq_df = self.quant_builder.quantselect_lfq(
+        if lfq_config.normalization_method != NormalizationMethods.DIRECTLFQ:
+            return self.quant_builder.quantselect_lfq(
                 feature_dfs_dict=feature_dfs_dict,
                 lfq_config=lfq_config,
             )
-        return lfq_df
+
+        if precursor_df is None:
+            return None
+
+        if lfq_config.level_name == QuantificationLevelName.PRECURSOR:
+            return precursor_df
+
+        return self.quant_builder.direct_lfq(
+            intensity_df=self._precursor_ion_table(precursor_df, feature_dfs_dict),
+            lfq_config=lfq_config,
+            config=self.config,
+        )
 
     def _apply_output_names(self, df: pd.DataFrame) -> pd.DataFrame:
         """Convert internal column names to output names for output.

@@ -1,13 +1,19 @@
 import platform
 import sys
 from dataclasses import dataclass
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from alphadia.constants.keys import NormalizationMethods
-from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
+from alphadia.outputtransform.quantification.quant_builder import (
+    FRAGMENT_CORRELATION_POWER,
+    MIN_FRAGMENT_WEIGHT,
+    QuantBuilder,
+    compute_ion_quality,
+)
 
 
 @pytest.fixture
@@ -591,7 +597,7 @@ class TestLfq:
         )
 
     @pytest.mark.parametrize("normalize_directlfq", [True, False])
-    def test_respects_normalization_flag(
+    def test_never_normalizes_precursor_quantities(
         self,
         lfq_data,
         psm_df,
@@ -600,7 +606,7 @@ class TestLfq:
         mock_directlfq,
         normalize_directlfq,
     ):
-        """Given normalization flag, when LFQ is run, then applies normalization conditionally."""
+        """Given any normalization flag, when LFQ is run, then no sample normalization is applied because it already happened on the fragment level."""
         # Given
         filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
@@ -612,10 +618,30 @@ class TestLfq:
 
         # Then
         mock_norm = mock_directlfq["norm"]
-        if normalize_directlfq:
-            mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_called_once()
-        else:
-            mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
+        mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
+
+    def test_accepts_precursor_quantities_as_ions(
+        self, psm_df, lfq_config, search_config, mock_directlfq
+    ):
+        """Given precursor quantities without fragment columns, when LFQ is run on the protein level, then precursors act as the ions."""
+        # Given
+        precursor_df = pd.DataFrame(
+            {
+                "ion": [10, 20],
+                "run1": [1000.0, 2000.0],
+                "mod_seq_hash": [1, 2],
+                "pg": ["PG001", "PG002"],
+            }
+        )
+        builder = QuantBuilder(psm_df)
+
+        # When
+        builder.direct_lfq(precursor_df, lfq_config("pg"), search_config)
+
+        # Then
+        mock_utils = mock_directlfq["utils"]
+        called_df = mock_utils.index_and_log_transform_input_df.call_args[0][0]
+        assert list(called_df.columns) == ["ion", "run1", "pg"]
 
     def test_handles_custom_group_column(
         self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
@@ -668,3 +694,281 @@ class TestLfq:
 
         # Verify expected protein groups
         assert set(result_df["pg"]) == {"TNAA_ECOLI", "TNAB_ECOLI"}
+
+
+@pytest.fixture
+def weighted_sum_data():
+    """Two precursors over four runs: precursor 10 has three fragments, precursor 20 a single one.
+
+    Intensities of precursor 10 double from run to run so that cross-run ratios are exact.
+    Ion 102 is missing in run4, ion 200 is missing in run2.
+    """
+    intensity_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 0, 0, 1],
+            "ion": [100, 101, 102, 200],
+            "run1": [100.0, 10.0, 1000.0, 50.0],
+            "run2": [200.0, 20.0, 2000.0, 0.0],
+            "run3": [400.0, 40.0, 4000.0, 60.0],
+            "run4": [800.0, 80.0, 0.0, 70.0],
+            "pg": ["PG001", "PG001", "PG001", "PG002"],
+            "mod_seq_hash": [1, 1, 1, 2],
+            "mod_seq_charge_hash": [10, 10, 10, 20],
+        }
+    )
+    quality_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 0, 0, 1],
+            "ion": [100, 101, 102, 200],
+            "run1": [1.0, 1.0, 0.0, 0.0],
+            "run2": [1.0, 1.0, 0.0, 0.0],
+            "run3": [1.0, 1.0, 0.0, 0.0],
+            "run4": [1.0, 1.0, 0.0, 0.0],
+            "pg": ["PG001", "PG001", "PG001", "PG002"],
+            "mod_seq_hash": [1, 1, 1, 2],
+            "mod_seq_charge_hash": [10, 10, 10, 20],
+        }
+    )
+    return intensity_df, quality_df
+
+
+@pytest.fixture
+def weighted_sum_config(search_config):
+    search_config["search_output"]["normalize_directlfq"] = False
+    return search_config
+
+
+class TestComputeIonQuality:
+    """Test per-ion quality derived from cross-run fragment correlations."""
+
+    def test_averages_correlation_over_observed_runs_only(self, psm_df):
+        """Given an ion missing in one run, when quality is computed, then that run is excluded from the mean."""
+        # Given
+        intensity_df = pd.DataFrame(
+            {
+                "precursor_idx": [0],
+                "ion": [100],
+                "run1": [100.0],
+                "run2": [0.0],
+                "run3": [300.0],
+                "pg": ["PG001"],
+                "mod_seq_hash": [1],
+                "mod_seq_charge_hash": [10],
+            }
+        )
+        quality_df = intensity_df.copy()
+        quality_df[["run1", "run2", "run3"]] = [[0.9, 0.0, 0.7]]
+
+        # When
+        ion_quality = compute_ion_quality(intensity_df, quality_df)
+
+        # Then
+        assert ion_quality.loc[100] == pytest.approx(0.8)
+
+    def test_never_observed_ion_has_zero_quality(self, psm_df):
+        """Given an ion with no intensity in any run, when quality is computed, then it is zero."""
+        # Given
+        intensity_df = pd.DataFrame(
+            {
+                "precursor_idx": [0],
+                "ion": [100],
+                "run1": [0.0],
+                "run2": [0.0],
+                "pg": ["PG001"],
+                "mod_seq_hash": [1],
+                "mod_seq_charge_hash": [10],
+            }
+        )
+        quality_df = intensity_df.copy()
+
+        # When
+        ion_quality = compute_ion_quality(intensity_df, quality_df)
+
+        # Then
+        assert ion_quality.loc[100] == 0.0
+
+    def test_aligns_quality_rows_by_ion(self, psm_df, weighted_sum_data):
+        """Given a quality table in a different row order, when quality is computed, then values follow the ion, not the row."""
+        # Given
+        intensity_df, quality_df = weighted_sum_data
+        shuffled_quality_df = quality_df.iloc[::-1].reset_index(drop=True)
+
+        # When
+        ion_quality = compute_ion_quality(intensity_df, shuffled_quality_df)
+
+        # Then
+        assert list(ion_quality.index) == [100, 101, 102, 200]
+        assert ion_quality.tolist() == [1.0, 1.0, 0.0, 0.0]
+
+
+class TestWeightedSumLfq:
+    """Test the correlation-weighted fragment sum used as the precursor rollup."""
+
+    def test_unit_quality_gives_plain_sum(
+        self, weighted_sum_data, psm_df, weighted_sum_config
+    ):
+        """Given ion quality one everywhere, when summed, then every fragment contributes with weight one."""
+        # Given
+        intensity_df, _ = weighted_sum_data
+        ion_quality = pd.Series(1.0, index=[100, 101, 102, 200])
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.weighted_sum_lfq(
+            intensity_df, weighted_sum_config, ion_quality=ion_quality
+        )
+
+        # Then
+        assert list(result_df.columns) == [
+            "mod_seq_charge_hash",
+            "run1",
+            "run2",
+            "run3",
+            "run4",
+        ]
+        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
+        assert precursor_10.tolist() == pytest.approx([1110.0, 2220.0, 4440.0, 880.0])
+
+    def test_weights_fragments_by_quality(
+        self, weighted_sum_data, psm_df, weighted_sum_config
+    ):
+        """Given quality [1, 1, 0], when summed, then the uncorrelated fragment only contributes at the weight floor."""
+        # Given
+        intensity_df, quality_df = weighted_sum_data
+        builder = QuantBuilder(psm_df)
+        ion_quality = compute_ion_quality(intensity_df, quality_df)
+
+        # When
+        result_df = builder.weighted_sum_lfq(
+            intensity_df, weighted_sum_config, ion_quality=ion_quality
+        )
+
+        # Then
+        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
+        good_fragments = [110.0, 220.0, 440.0, 880.0]
+        floored_fragment = [
+            MIN_FRAGMENT_WEIGHT * v for v in [1000.0, 2000.0, 4000.0, 0.0]
+        ]
+        expected = [g + f for g, f in zip(good_fragments, floored_fragment)]
+        assert precursor_10.tolist() == pytest.approx(expected)
+
+    def test_applies_power_to_quality(
+        self, weighted_sum_data, psm_df, weighted_sum_config
+    ):
+        """Given a fragment with quality 0.5, when summed, then its weight is 0.5 to the correlation power."""
+        # Given
+        intensity_df, _ = weighted_sum_data
+        ion_quality = pd.Series([1.0, 0.5, 0.0, 1.0], index=[100, 101, 102, 200])
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.weighted_sum_lfq(
+            intensity_df, weighted_sum_config, ion_quality=ion_quality
+        )
+
+        # Then
+        run1 = result_df.set_index("mod_seq_charge_hash").loc[10, "run1"]
+        expected = (
+            100.0
+            + 10.0 * 0.5**FRAGMENT_CORRELATION_POWER
+            + 1000.0 * MIN_FRAGMENT_WEIGHT
+        )
+        assert run1 == pytest.approx(expected)
+
+    def test_preserves_ratios_between_runs(
+        self, weighted_sum_data, psm_df, weighted_sum_config
+    ):
+        """Given constant per-fragment weights, when summed, then cross-run ratios of the precursor are unchanged."""
+        # Given
+        intensity_df, _ = weighted_sum_data
+        ion_quality = pd.Series([0.9, 0.6, 0.3, 1.0], index=[100, 101, 102, 200])
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.weighted_sum_lfq(
+            intensity_df, weighted_sum_config, ion_quality=ion_quality
+        )
+
+        # Then - all fragments of precursor 10 double between run1, run2 and run3
+        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
+        assert precursor_10["run2"] / precursor_10["run1"] == pytest.approx(2.0)
+        assert precursor_10["run3"] / precursor_10["run2"] == pytest.approx(2.0)
+
+    def test_all_zero_quality_precursor_keeps_a_quantity(
+        self, weighted_sum_data, psm_df, weighted_sum_config
+    ):
+        """Given a precursor whose only fragment has zero quality, when summed, then it still gets a finite positive value."""
+        # Given
+        intensity_df, quality_df = weighted_sum_data
+        builder = QuantBuilder(psm_df)
+        ion_quality = compute_ion_quality(intensity_df, quality_df)
+
+        # When
+        result_df = builder.weighted_sum_lfq(
+            intensity_df, weighted_sum_config, ion_quality=ion_quality
+        )
+
+        # Then
+        precursor_20 = result_df.set_index("mod_seq_charge_hash").loc[20]
+        assert precursor_20["run1"] == pytest.approx(50.0 * MIN_FRAGMENT_WEIGHT)
+        assert np.isfinite(precursor_20["run1"])
+
+    def test_run_without_fragments_is_zero_for_that_run_only(
+        self, weighted_sum_data, psm_df, weighted_sum_config
+    ):
+        """Given a precursor not detected in one run, when summed, then only that run reports zero."""
+        # Given
+        intensity_df, quality_df = weighted_sum_data
+        builder = QuantBuilder(psm_df)
+        ion_quality = compute_ion_quality(intensity_df, quality_df)
+
+        # When
+        result_df = builder.weighted_sum_lfq(
+            intensity_df, weighted_sum_config, ion_quality=ion_quality
+        )
+
+        # Then
+        precursor_20 = result_df.set_index("mod_seq_charge_hash").loc[20]
+        assert precursor_20["run2"] == 0.0
+        assert (precursor_20[["run1", "run3", "run4"]] > 0).all()
+
+    @pytest.mark.parametrize(
+        "normalize_directlfq, run1_factor", [(True, 2.0), (False, 1.0)]
+    )
+    def test_respects_normalization_flag(
+        self,
+        weighted_sum_data,
+        psm_df,
+        weighted_sum_config,
+        normalize_directlfq,
+        run1_factor,
+    ):
+        """Given the normalization flag, when summed, then the sample shift is applied to the fragments only if enabled."""
+        # Given
+        intensity_df, _ = weighted_sum_data
+        weighted_sum_config["search_output"]["normalize_directlfq"] = (
+            normalize_directlfq
+        )
+        ion_quality = pd.Series(1.0, index=[100, 101, 102, 200])
+        builder = QuantBuilder(psm_df)
+
+        def shift_run1_by_one_log2_unit(lfq_df, **kwargs):
+            normalized_df = lfq_df.copy()
+            normalized_df["run1"] = normalized_df["run1"] + 1.0
+            manager = MagicMock()
+            manager.complete_dataframe = normalized_df
+            return manager
+
+        # When
+        with patch(
+            "alphadia.outputtransform.quantification.quant_builder.lfqnorm.NormalizationManagerSamplesOnSelectedProteins",
+            side_effect=shift_run1_by_one_log2_unit,
+        ):
+            result_df = builder.weighted_sum_lfq(
+                intensity_df, weighted_sum_config, ion_quality=ion_quality
+            )
+
+        # Then - the normalization shift doubles run1 only when enabled
+        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
+        assert precursor_10["run1"] == pytest.approx(run1_factor * 1110.0)
+        assert precursor_10["run2"] == pytest.approx(2220.0)

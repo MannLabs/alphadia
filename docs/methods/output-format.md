@@ -161,12 +161,14 @@ Format: one row per run/channel combination.
 ## `pg.matrix.parquet`
 The protein group quantification matrix provides protein-level quantification across all samples.
 It contains one row per protein group and one column per sample.
+Protein group quantities are estimated by directLFQ from the precursor quantities described under `precursor.matrix.parquet`.
 
 **Important**: This matrix contains only protein groups with valid quantification values. The number of non-zero entries per sample may be slightly lower (~0.3-0.8%) than the `search.proteins` count in `stats.tsv`, which reports all identified proteins. The difference represents proteins that were identified but could not be quantified due to insufficient fragment data or quality.
 
 ## `peptide.matrix.parquet`
 The peptide quantification matrix provides peptide-level quantification across all samples (when peptide-level LFQ is enabled).
 It contains one row per peptide and one column per sample.
+Peptide quantities are estimated by directLFQ from the precursor quantities described under `precursor.matrix.parquet`.
 
 **Important**: This matrix contains only peptides with valid quantification values. Peptides that were identified but failed quality filters for LFQ will have missing (NaN) values or may be absent from the matrix entirely.
 
@@ -174,10 +176,11 @@ It contains one row per peptide and one column per sample.
 The precursor quantification matrix provides precursor-level quantification across all samples (when precursor-level LFQ is enabled).
 It contains one row per precursor and one column per sample.
 
-**Important**: This matrix contains only precursors with valid quantification values. The number of non-zero entries per sample will be lower (~3-4%) than the `search.precursors` count in `stats.tsv`. The difference represents precursors that were identified but failed quantification quality filters such as:
+Precursor quantities are the foundation of all quantification levels. They are the sum of the fragment intensities after directLFQ sample normalization, with each fragment weighted by the fourth power of its mean cross-run correlation. A fragment has a single weight shared by all samples, so ratios between samples are preserved while poorly correlating fragments contribute little. Unlike the peptide and protein group matrices, a precursor is reported in every sample in which at least one of its fragments was observed, regardless of `min_nonnan`.
+
+**Important**: This matrix contains only precursors with valid quantification values. The number of non-zero entries per sample may be lower than the `search.precursors` count in `stats.tsv`. The difference represents precursors that were identified but failed quantification quality filters such as:
 - Poor fragment quality or correlation (below `min_correlation` threshold)
 - Insufficient fragments (fewer than `min_k_fragments`)
-- Insufficient non-missing values (below `min_nonnan` threshold for directLFQ)
 
 This is expected behavior and reflects the distinction between identification (passing FDR) and quantification (passing additional quality requirements).
 
