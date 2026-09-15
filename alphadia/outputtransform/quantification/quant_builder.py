@@ -211,7 +211,7 @@ class QuantBuilder:
             f"Performing label-free quantification with {lfq_config.normalization_method} normalization"
         )
 
-        lfq_df = self._prepare_ion_table(intensity_df, lfq_config)
+        lfq_df = self._prepare_ion_table(intensity_df, lfq_config.quant_level)
         if config["search_output"]["normalize_directlfq"]:
             lfq_df = self._normalize_ion_table(lfq_df, config)
 
@@ -224,9 +224,7 @@ class QuantBuilder:
         return protein_df
 
     def _prepare_ion_table(
-        self,
-        intensity_df: pd.DataFrame,
-        lfq_config: LFQOutputConfig,
+        self, intensity_df: pd.DataFrame, quant_level: str
     ) -> pd.DataFrame:
         """Build the log2 ion table directLFQ operates on.
 
@@ -234,8 +232,8 @@ class QuantBuilder:
         ----------
         intensity_df: pd.DataFrame
             Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
-        lfq_config: LFQOutputConfig
-            Configuration for this quantification level
+        quant_level: str
+            Column to group ions by (pg, mod_seq_hash, mod_seq_charge_hash)
 
         Returns
         -------
@@ -245,22 +243,16 @@ class QuantBuilder:
         """
         # directLFQ treats every column except the group and ion id as a sample
         columns_to_drop = [
-            c
-            for c in FRAGMENT_METADATA_COLUMNS
-            if c not in ("ion", lfq_config.quant_level)
+            c for c in FRAGMENT_METADATA_COLUMNS if c not in ("ion", quant_level)
         ]
         intensity_df = intensity_df.drop(columns=columns_to_drop)
 
-        lfqconfig.set_global_protein_and_ion_id(
-            protein_id=lfq_config.quant_level, quant_id="ion"
-        )
+        lfqconfig.set_global_protein_and_ion_id(protein_id=quant_level, quant_id="ion")
         lfqconfig.set_compile_normalized_ion_table(compile_normalized_ion_table=False)
         lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()
         lfqconfig.set_log_processed_proteins(log_processed_proteins=True)
 
-        intensity_df.sort_values(
-            by=lfq_config.quant_level, inplace=True, ignore_index=True
-        )
+        intensity_df.sort_values(by=quant_level, inplace=True, ignore_index=True)
 
         lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
         return lfqutils.remove_allnan_rows_input_df(lfq_df)
