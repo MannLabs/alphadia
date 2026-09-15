@@ -11,10 +11,12 @@ from alphadia.fdr.utils import train_test_split_
 
 logger = logging.getLogger()
 
-# The +1 estimator (D + 1) / T controls the FDR in expectation under exchangeability, where the
-# plain ratio is only unbiased. Protein groups sit far fewer decoys above the cut than
-# precursors do (about 1 % of the accepted groups), so a decoy count that happens to fall short
-# would otherwise be read as a lower FDR than the data can support.
+# In competition-based FDR control the +1 is what buys the finite-sample guarantee, and at the
+# thresholds used here it cannot be shrunk without losing it (Rajchert and Keich 2023). That
+# proof needs every target to compete head-to-head with its own decoy, which grouping targets
+# and decoys in separate namespaces does not give us, so no guarantee is claimed here. It is
+# kept as a conservative guard: it costs one decoy and stops a cut that happens to catch no
+# decoy from reading as a zero FDR.
 DECOY_COUNT_OFFSET = 1
 
 
