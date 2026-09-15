@@ -177,6 +177,7 @@ def log_protein_fdr_summary(psm_df: pd.DataFrame) -> None:
     logger.info(
         f"  accepted decoy groups: {decoy_pg_count:,} "
         f"({decoy_pg_count / max(pg_count, 1):.2%} of target groups)"
+        f"(relative error of FDR estimate: {1 / max((2 * decoy_pg_count) ** 0.5, 1):.2%})"
     )
     logger.info("")
     logger.info("Unique precursor in output")
