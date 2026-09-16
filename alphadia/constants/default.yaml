@@ -343,6 +343,11 @@ search_output:
   # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directlfq")
   normalize_directlfq: True
 
+  # Remove each run's retention-time dependent intensity drift before label-free quantification.
+  # The correction curve is estimated per run from well-correlating fragments and re-centred, so only
+  # the shape along the gradient is removed; the level of a run is set by the directLFQ normalization.
+  intensity_drift_correction: True
+
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:
   # The order in which to perform optimization. Should be a list of lists of parameter names

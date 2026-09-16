@@ -12,6 +12,9 @@ from alphadia.constants.keys import (
 from alphadia.outputtransform.quantification.fragment_accumulator import (
     FragmentQuantLoader,
 )
+from alphadia.outputtransform.quantification.intensity_drift_correction import (
+    IntensityDriftCorrector,
+)
 from alphadia.outputtransform.quantification.quant_builder import (
     LFQOutputConfig,
     QuantBuilder,
@@ -72,6 +75,7 @@ class QuantOutputBuilder:
 
         self.fragment_loader = FragmentQuantLoader(psm_no_decoys, columns=columns)
         self.quant_builder = QuantBuilder(psm_no_decoys, columns=columns)
+        self.drift_corrector = IntensityDriftCorrector(psm_no_decoys)
 
     def build(
         self, folder_list: list[str]
@@ -256,6 +260,9 @@ class QuantOutputBuilder:
     ) -> dict[str, pd.DataFrame]:
         """Filter fragments per level and estimate the level quantities with directLFQ.
 
+        The RT-dependent drift is removed once from the accumulated fragment table so
+        that every level is quantified from the same corrected intensities.
+
         Parameters
         ----------
         quantlevel_configs : list[LFQOutputConfig]
@@ -268,14 +275,19 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name, levels without fragments are absent
         """
+        intensity_df = feature_dfs_dict["intensity"]
+        correlation_df = feature_dfs_dict["correlation"]
+        if self.config["search_output"]["intensity_drift_correction"]:
+            intensity_df = self.drift_corrector.correct(intensity_df, correlation_df)
+
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
             logger.info(
                 f"Performing label free quantification on the {quantlevel_config.level_name} level"
             )
             filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
+                intensity_df,
+                correlation_df,
                 top_n=self.config["search_output"]["min_k_fragments"],
                 min_correlation=self.config["search_output"]["min_correlation"],
                 group_column=quantlevel_config.quant_level,
