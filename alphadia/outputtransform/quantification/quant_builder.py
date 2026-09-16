@@ -116,8 +116,6 @@ class LFQOutputConfig:
         e.g. if the quant level is precursr, all rows will have the same pg, sequence, mods, mod_sites and charge.
     should_process : bool, default=True
         Whether to process this quantification level
-    save_fragments : bool, default=False
-        Whether to save fragment-level quantification matrices
     """
 
     quant_level: str
@@ -125,7 +123,6 @@ class LFQOutputConfig:
     intensity_column: str
     aggregation_components: list[str]
     should_process: bool = True
-    save_fragments: bool = False
 
 
 # explicit signature: a uint64 precursor_idx would make numba promote the hash
