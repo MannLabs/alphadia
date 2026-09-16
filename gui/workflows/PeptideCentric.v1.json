@@ -588,6 +588,13 @@
                     "default": true,
                     "description": "Apply directLFQ normalization when using the directLFQ method. Only applies when 'directlfq' is selected as the LFQ method.",
                     "type": "boolean"
+                },
+                {
+                    "id": "intensity_drift_correction",
+                    "name": "Intensity drift correction",
+                    "default": true,
+                    "description": "Remove each run's retention-time dependent intensity drift before label-free quantification. Only the shape along the gradient is removed, the run level is set by the directLFQ normalization.",
+                    "type": "boolean"
                 }
             ]
         },
