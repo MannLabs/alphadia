@@ -26,7 +26,7 @@ general:
   # whether to reuse previously calculated quantification data
   reuse_quant: false
   # quant directories (e.g. `<previous_run>/quant`) of other runs to reuse quantification data from.
-  # These directories are only read from, never written to.
+  # These directories are only read from, never written to. Cannot be combined with `reuse_quant`.
   reuse_quant_from: []
   # logging verbosity level (DEBUG, INFO, PROGRESS, WARNING, ERROR)
   log_level: 'INFO'

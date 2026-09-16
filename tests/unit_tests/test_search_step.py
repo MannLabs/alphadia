@@ -295,25 +295,6 @@ def test_get_reusable_quant_folders_from_other_quant_directory(tmp_path):
     assert sorted(p.name for p in folder.iterdir()) == sorted(QUANT_FILE_NAMES)
 
 
-def test_get_reusable_quant_folders_prefers_own_quant_directory(tmp_path):
-    """Test that the quant folder of the step itself takes precedence."""
-    own_folder = _create_quant_folder(tmp_path / "output" / "quant", "raw1")
-    _create_quant_folder(tmp_path / "previous_run" / "quant", "raw1")
-    step = SearchStep(
-        str(tmp_path / "output"),
-        config={
-            "raw_paths": RAW_PATHS,
-            "general": {
-                "reuse_quant": True,
-                "reuse_quant_from": [str(tmp_path / "previous_run/quant")],
-            },
-        },
-    )
-
-    # when
-    assert step._get_reusable_quant_folders() == {"raw1": str(own_folder)}
-
-
 def test_get_reusable_quant_folders_ignores_incomplete_folder(tmp_path):
     """Test that an incomplete quant folder is not reused."""
     quant_directory = tmp_path / "previous_run" / "quant"
@@ -398,6 +379,23 @@ def test_raises_for_nonexistent_reuse_quant_from_directory(tmp_path):
             str(tmp_path / "output"),
             config={
                 "general": {"reuse_quant_from": [str(tmp_path / "does_not_exist")]}
+            },
+        )
+
+
+def test_raises_if_reuse_quant_and_reuse_quant_from_are_both_set(tmp_path):
+    """Test that `reuse_quant` and `reuse_quant_from` cannot be combined."""
+    (tmp_path / "previous_run" / "quant").mkdir(parents=True)
+
+    with pytest.raises(ConfigError, match="CONFIG_ERROR"):
+        # when
+        SearchStep(
+            str(tmp_path / "output"),
+            config={
+                "general": {
+                    "reuse_quant": True,
+                    "reuse_quant_from": [str(tmp_path / "previous_run/quant")],
+                }
             },
         )
 

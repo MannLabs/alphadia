@@ -158,6 +158,7 @@ that holds all required quantification results. They are only read from, never w
 a raw file without reusable results is searched and written to the quant directory of the current run.
 A raw file found in more than one of these directories is an error, as is a directory
 that holds no results for any of the raw files.
+This option cannot be combined with `reuse_quant`.
 Note: this option is not supported with multistep search.
 
 The `--quant-dir` CLI parameter (Config: `quant_directory`, default: `null`)
