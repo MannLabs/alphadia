@@ -43,6 +43,11 @@ class BaseManager:
         if load_from_file:
             # Note: be careful not to overwrite loaded values by initializing them in child classes after calling super().__init__()
             self.load()
+        else:
+            self.reporter.log_string(f"Initializing {self.__class__.__name__}")
+            self.reporter.log_event(
+                "initializing", {"name": f"{self.__class__.__name__}"}
+            )
 
     @property
     def path(self):
@@ -79,9 +84,6 @@ class BaseManager:
     def load(self):
         """Load the state from pickle file."""
         if self.path is None:
-            self.reporter.log_string(
-                f"{self.__class__.__name__}: loading saved state not requested, will be initialized.",
-            )
             return
         elif not os.path.exists(self.path):
             self.reporter.log_string(
