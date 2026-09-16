@@ -155,9 +155,6 @@ class QuantOutputBuilder:
                     "charge",
                 ],
                 should_process=self.config["search_output"]["precursor_level_lfq"],
-                save_fragments=self.config["search_output"][
-                    "save_fragment_quant_matrix"
-                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PEPTIDE,
@@ -170,9 +167,6 @@ class QuantOutputBuilder:
                     "mod_sites",
                 ],
                 should_process=self.config["search_output"]["peptide_level_lfq"],
-                save_fragments=self.config["search_output"][
-                    "save_fragment_quant_matrix"
-                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PROTEIN,
@@ -339,55 +333,5 @@ class QuantOutputBuilder:
             write_df(
                 lfq_df_output,
                 os.path.join(output_folder, f"{config.level_name}.matrix"),
-                file_format=file_format,
-            )
-
-    def save_fragment_matrices(
-        self,
-        feature_dfs_dict: dict[str, pd.DataFrame],
-        output_folder: str,
-        file_format: str = "parquet",
-    ) -> None:
-        """Save fragment-level quantification matrices to disk with output column names.
-
-        Parameters
-        ----------
-        feature_dfs_dict : dict[str, pd.DataFrame]
-            Dictionary containing intensity and correlation dataframes
-        output_folder : str
-            Output folder path
-        file_format : str, default='parquet'
-            File format for output files
-        """
-        from alphadia.outputtransform.utils import write_df
-
-        quantlevel_configs = self._create_quant_level_configs()
-
-        for config in quantlevel_configs:
-            if not config.save_fragments:
-                continue
-
-            group_intensity_df, _ = self.quant_builder.filter_frag_df(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                top_n=self.config["search_output"]["min_k_fragments"],
-                min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=config.quant_level,
-            )
-
-            if len(group_intensity_df) == 0:
-                continue
-
-            logger.info(
-                f"Writing fragment quantity matrix to disk, filtered on {config.level_name}"
-            )
-
-            group_intensity_df_output = self._apply_output_names(group_intensity_df)
-
-            write_df(
-                group_intensity_df_output,
-                os.path.join(
-                    output_folder, f"fragment_{config.level_name}filtered.matrix"
-                ),
                 file_format=file_format,
             )
