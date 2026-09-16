@@ -116,8 +116,6 @@ class LFQOutputConfig:
         e.g. if the quant level is precursr, all rows will have the same pg, sequence, mods, mod_sites and charge.
     should_process : bool, default=True
         Whether to process this quantification level
-    save_fragments : bool, default=False
-        Whether to save fragment-level quantification matrices
     """
 
     quant_level: str
@@ -125,10 +123,14 @@ class LFQOutputConfig:
     intensity_column: str
     aggregation_components: list[str]
     should_process: bool = True
-    save_fragments: bool = False
 
 
-@nb.njit(cache=USE_NUMBA_CACHING)
+# explicit signature: a uint64 precursor_idx would make numba promote the hash
+# to float64, silently rounding away the lower bits for large hashes.
+@nb.njit(
+    "int64[:](int64[:], int64[:], int64[:], int64[:], int64[:])",
+    cache=USE_NUMBA_CACHING,
+)
 def _ion_hash(precursor_idx, number, type, charge, loss_type):
     """Create a 64-bit hash from fragment ion characteristics.
 
@@ -180,11 +182,11 @@ def prepare_df(
     """
     df = df[df[PRECURSOR_IDX_COLUMN].isin(psm_df[PRECURSOR_IDX_COLUMN])].copy()
     df[ION_COLUMN] = _ion_hash(
-        df[PRECURSOR_IDX_COLUMN].values,
-        df["number"].values,
-        df["type"].values,
-        df["charge"].values,
-        df["loss_type"].values,
+        df[PRECURSOR_IDX_COLUMN].values.astype(np.int64),
+        df["number"].values.astype(np.int64),
+        df["type"].values.astype(np.int64),
+        df["charge"].values.astype(np.int64),
+        df["loss_type"].values.astype(np.int64),
     )
     return df[[PRECURSOR_IDX_COLUMN, ION_COLUMN] + columns]
 
