@@ -8,7 +8,7 @@ from alphabase.constants.modification import MOD_DF
 
 from alphadia import __version__ as alphadia_version
 from alphadia import search_step
-from alphadia.exceptions import ConfigError
+from alphadia.exceptions import ConfigError, GenericUserError
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
 
@@ -310,6 +310,25 @@ def test_get_reusable_quant_folders_ignores_incomplete_folder(tmp_path):
 
     # when
     assert step._get_reusable_quant_folders() == {"raw1": str(folder)}
+
+
+def test_get_reusable_quant_folders_raises_for_missing_results_if_fail_fast(
+    tmp_path,
+):
+    """Test that raw files without reusable results raise if `fail_fast` is set."""
+    quant_directory = tmp_path / "previous_run" / "quant"
+    _create_quant_folder(quant_directory, "raw1")
+    step = SearchStep(
+        str(tmp_path / "output"),
+        config={
+            "raw_paths": ["/raw_files/raw1.raw", "/raw_files/raw2.raw"],
+            "general": {"reuse_quant_from": [str(quant_directory)], "fail_fast": True},
+        },
+    )
+
+    with pytest.raises(GenericUserError, match="raw2"):
+        # when
+        step._get_reusable_quant_folders()
 
 
 def test_get_reusable_quant_folders_requires_transfer_file(tmp_path):

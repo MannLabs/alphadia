@@ -155,7 +155,8 @@ To reuse quantification results of *other* runs, i.e. from independently process
 list their quant directories in the config option `general.reuse_quant_from`.
 Before processing each raw file, these directories are searched for a folder named after the raw file
 that holds all required quantification results. They are only read from, never written to:
-a raw file without reusable results is searched and written to the quant directory of the current run.
+a raw file without reusable results is searched and written to the quant directory of the current run
+(or, if `general.fail_fast` is set, raises an error).
 A raw file found in more than one of these directories is an error, as is a directory
 that holds no results for any of the raw files.
 This option cannot be combined with `reuse_quant`.

@@ -16,7 +16,12 @@ from alphadia.constants.keys import (
     ConfigKeys,
     SearchStepFiles,
 )
-from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
+from alphadia.exceptions import (
+    ConfigError,
+    CustomError,
+    GenericUserError,
+    NoLibraryAvailableError,
+)
 from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
@@ -506,10 +511,13 @@ class SearchStep:
         if missing_raw_names := [
             raw_name for raw_name in raw_names if raw_name not in folder_by_raw_name
         ]:
-            logger.warning(
-                f"Found no quantification results for {len(missing_raw_names)}/{len(raw_names)} raw files, "
-                f"they will be processed: {missing_raw_names}"
-            )
+            msg = f"Found no quantification results for {len(missing_raw_names)}/{len(raw_names)} raw files"
+            if general_config[ConfigKeys.GENERAL.FAIL_FAST]:
+                raise GenericUserError(
+                    f"{msg}: {missing_raw_names}",
+                    f"Set '{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.FAIL_FAST}' to false to process them instead.",
+                )
+            logger.warning(f"{msg}, they will be processed: {missing_raw_names}")
 
         return folder_by_raw_name
 
@@ -580,7 +588,7 @@ class SearchStep:
                 _log_exception_event(e, raw_name, workflow)
                 raw_files_with_errors.append((self._step_name, raw_name))
 
-                if self.config["general"]["fail_fast"]:
+                if self.config[ConfigKeys.GENERAL][ConfigKeys.GENERAL.FAIL_FAST]:
                     raise e
 
                 continue
