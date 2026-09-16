@@ -4,13 +4,6 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-try:  # noqa: SIM105
-    from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-        get_context_feature_names,
-        get_feature_names,
-    )
-except ImportError:
-    pass
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -23,6 +16,10 @@ from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandle
 from alphadia.workflow.peptidecentric.library_init import init_spectral_library
 from alphadia.workflow.peptidecentric.multiplexing_requantification_handler import (
     MultiplexingRequantificationHandler,
+)
+from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    get_context_feature_names,
+    get_feature_names,
 )
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.transfer_library_requantification_handler import (
@@ -63,31 +60,6 @@ def _get_classifier_base(
         experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
         random_state=random_state,
     )
-
-
-def _get_classifier_feature_columns(config: Config) -> list[str]:
-    """Return the feature columns the FDR classifier is trained on.
-
-    The rust backend takes its base features from the NG scorer and, if enabled, adds the
-    competition and context features. The python backend uses its fixed feature list.
-
-    Parameters
-    ----------
-    config : Config
-        Workflow configuration
-
-    Returns
-    -------
-    list[str]
-        Feature column names
-    """
-    if config["search"]["extraction_backend"] != "rust":
-        return feature_columns
-
-    columns = get_feature_names()
-    if config["fdr"]["competition_features"]:
-        columns = columns + get_context_feature_names()
-    return columns
 
 
 class PeptideCentricWorkflow(base.WorkflowBase):
@@ -136,8 +108,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
         config_fdr = self.config["fdr"]
+        # the FDR manager ignores listed columns absent from the features, so no flag needed
         self._fdr_manager = FDRManager(
-            feature_columns=_get_classifier_feature_columns(self.config),
+            feature_columns=get_feature_names() + get_context_feature_names()
+            if self._config["search"]["extraction_backend"] == "rust"
+            else feature_columns,
             classifier_base=_get_classifier_base(
                 enable_nn_hyperparameter_tuning=config_fdr[
                     "enable_nn_hyperparameter_tuning"

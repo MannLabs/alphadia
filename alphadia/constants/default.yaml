@@ -190,6 +190,9 @@ search:
   # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
   optimized_peak_group_score: False
 
+  # add cross-candidate competition and isolation-window context features to the classifier (rust backend only)
+  competition_features: True
+
   # === python backend only ===
   # exclude fragments shared between multiple channels
   exclude_shared_ions: True
@@ -308,10 +311,6 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
-  # whether to add the cross-candidate competition and isolation-window context features to the classifier (rust backend only)
-  competition_features: true
-  # minimum number of fragment m/z values (within the ms2 tolerance, same isolation window, adjacent cycles) two candidates must share to compete
-  competition_min_shared: 3
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

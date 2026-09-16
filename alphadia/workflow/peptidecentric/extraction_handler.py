@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
-    CandidateCollection,
     CandidateContext,
     PeakGroupQuantification,
     PeakGroupScoring,
@@ -596,48 +595,16 @@ class NgExtractionHandler(ExtractionHandler):
 
         features_df = to_features_df(candidate_features, spectral_library)
 
-        if self._config["fdr"]["competition_features"]:
-            features_df = self._add_context_features(features_df, candidates, dia_data)
+        # Scoped to the candidates of this call: an optimization batch, or the full library
+        # at extraction. The FDR manager keys classifiers by column set, so both need them.
+        if self._config["search"]["competition_features"]:
+            context_features = CandidateContext(
+                mass_tolerance=self._optimization_manager.ms2_error,
+                top_k_fragments=self._config["search"]["top_k_fragments_scoring"],
+            ).compute(dia_data, self._speclib_ng, candidates)
+            features_df = merge_context_features(features_df, context_features)
 
         return features_df
-
-    def _add_context_features(
-        self,
-        features_df: pd.DataFrame,
-        candidates: CandidateCollection,
-        dia_data: "DiaDataNG",  # noqa: F821
-    ) -> pd.DataFrame:
-        """Add the cross-candidate competition and isolation-window context features.
-
-        The features are computed over the whole candidate collection that was scored, targets
-        and decoys alike, so a candidate's competitors are the candidates it shares the run with.
-        They must be present in every scoring call (optimization batches and final extraction),
-        as the FDR manager keys its classifiers by the set of available feature columns.
-
-        Parameters
-        ----------
-        features_df : pd.DataFrame
-            Scored candidates
-        candidates : CandidateCollection
-            The NG candidates that were scored
-        dia_data : DiaDataNG
-            DIA data the candidates were scored on
-
-        Returns
-        -------
-        pd.DataFrame
-            `features_df` with the context feature columns added
-        """
-        candidate_context = CandidateContext(
-            mass_tolerance=self._optimization_manager.ms2_error,
-            top_k_fragments=self._config["search"]["top_k_fragments_scoring"],
-            min_shared=self._config["fdr"]["competition_min_shared"],
-        )
-        context_features = candidate_context.compute(
-            dia_data, self._speclib_ng, candidates
-        )
-
-        return merge_context_features(features_df, context_features)
 
     def quantify_candidates(
         self,

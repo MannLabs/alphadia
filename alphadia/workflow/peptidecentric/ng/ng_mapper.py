@@ -16,6 +16,8 @@ from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
 
+CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
+
 
 def set_ng_thread_count(thread_count: int) -> None:
     """Set the number of threads for NG computations."""
@@ -98,36 +100,14 @@ def get_context_feature_names() -> list[str]:
 def merge_context_features(
     features_df: pd.DataFrame, context_features: dict[str, np.ndarray]
 ) -> pd.DataFrame:
-    """Merge the NG context features into the features dataframe on (precursor_idx, rank).
+    """Merge the output of `CandidateContext.compute()` into the scored candidates."""
+    merged_df = features_df.merge(
+        pd.DataFrame(context_features),
+        on=CANDIDATE_KEY_COLUMNS,
+        validate="one_to_one",
+    )
 
-    Parameters
-    ----------
-    features_df : pd.DataFrame
-        Scored candidates, one row per (precursor_idx, rank)
-    context_features : dict[str, np.ndarray]
-        Output of `CandidateContext.compute()`: `precursor_idx`, `rank` and one array per context feature
-
-    Returns
-    -------
-    pd.DataFrame
-        `features_df` with one additional column per context feature
-
-    Raises
-    ------
-    ValueError
-        If a candidate of `features_df` has no context features, or if the context features
-        contain a candidate more than once
-    """
-    candidate_columns = ["precursor_idx", "rank"]
-    context_df = pd.DataFrame(context_features)
-
-    if context_df.duplicated(candidate_columns).any():
-        raise ValueError("Context features contain duplicate candidates")
-
-    merged_df = features_df.merge(context_df, on=candidate_columns, how="left")
-
-    context_columns = context_df.columns.difference(candidate_columns)
-    num_missing = merged_df[context_columns].isna().any(axis=1).sum()
+    num_missing = len(features_df) - len(merged_df)
     if num_missing > 0:
         raise ValueError(f"Context features are missing for {num_missing} candidates")
 

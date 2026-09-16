@@ -2,61 +2,55 @@
 
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pandas as pd
+import pytest
+from conftest import mock_context_features
 
 from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import get_context_feature_names
 
 
-def _handler(config: dict) -> NgExtractionHandler:
-    optimization_manager = MagicMock()
-    optimization_manager.ms2_error = 7.5
-    handler = NgExtractionHandler(
-        config, optimization_manager, MagicMock(), MagicMock(), MagicMock()
-    )
-    handler._speclib_ng = MagicMock(name="speclib_ng")
-    return handler
-
-
-def _context_features(precursor_idx: list[int], rank: list[int]) -> dict:
-    context_features = {
-        "precursor_idx": np.array(precursor_idx, dtype=np.uint64),
-        "rank": np.array(rank, dtype=np.uint64),
-    }
-    for name in get_context_feature_names():
-        context_features[name] = np.zeros(len(precursor_idx), dtype=np.float32)
-    return context_features
-
-
+@pytest.mark.parametrize("competition_features", [True, False])
 @patch("alphadia.workflow.peptidecentric.extraction_handler.CandidateContext")
-def test_add_context_features_passes_parameters_and_merges(mock_candidate_context):
+@patch("alphadia.workflow.peptidecentric.extraction_handler.to_features_df")
+@patch("alphadia.workflow.peptidecentric.extraction_handler.PeakGroupScoring")
+@patch("alphadia.workflow.peptidecentric.extraction_handler.candidates_to_ng")
+def test_score_candidates_adds_context_features_if_enabled(
+    mock_candidates_to_ng,
+    mock_scoring,
+    mock_to_features_df,
+    mock_candidate_context,
+    competition_features,
+):
     # given
     config = {
-        "search": {"top_k_fragments_scoring": 12},
-        "fdr": {"competition_features": True, "competition_min_shared": 4},
+        "search": {
+            "top_k_fragments_scoring": 12,
+            "competition_features": competition_features,
+        }
     }
-    handler = _handler(config)
-    features_df = pd.DataFrame(
+    handler = NgExtractionHandler(
+        config, MagicMock(ms2_error=7.5), MagicMock(), MagicMock(), MagicMock()
+    )
+    handler._speclib_ng = MagicMock(name="speclib_ng")
+    dia_data = MagicMock(name="dia_data")
+    mock_to_features_df.return_value = pd.DataFrame(
         {"precursor_idx": [1, 2], "rank": [0, 0], "score": [1.0, 2.0]}
     )
-    candidates = MagicMock(name="candidates")
-    dia_data = MagicMock(name="dia_data")
-    mock_candidate_context.return_value.compute.return_value = _context_features(
+    mock_candidate_context.return_value.compute.return_value = mock_context_features(
         [2, 1], [0, 0]
     )
 
     # when
-    result_df = handler._add_context_features(features_df, candidates, dia_data)
+    features_df = handler.score_candidates(MagicMock(), dia_data, MagicMock())
 
     # then
-    mock_candidate_context.assert_called_once_with(
-        mass_tolerance=7.5, top_k_fragments=12, min_shared=4
-    )
-    mock_candidate_context.return_value.compute.assert_called_once_with(
-        dia_data, handler._speclib_ng, candidates
-    )
-    assert len(result_df) == 2
-    for name in get_context_feature_names():
-        assert name in result_df.columns
-        assert not result_df[name].isna().any()
+    has_context = set(get_context_feature_names()) <= set(features_df.columns)
+    assert has_context == competition_features
+    if competition_features:
+        mock_candidate_context.assert_called_once_with(
+            mass_tolerance=7.5, top_k_fragments=12
+        )
+        mock_candidate_context.return_value.compute.assert_called_once_with(
+            dia_data, handler._speclib_ng, mock_candidates_to_ng.return_value
+        )
