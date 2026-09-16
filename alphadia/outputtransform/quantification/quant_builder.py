@@ -10,20 +10,26 @@ import numpy as np
 import pandas as pd
 from quantselect.output import run_quantselect
 
-from alphadia.constants.keys import NormalizationMethods
+from alphadia.constants.keys import QuantificationLevelKey
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
-# Columns of the accumulated fragment matrices that hold metadata rather than run intensities
+PRECURSOR_IDX_COLUMN = "precursor_idx"
+# directLFQ's name for the lowest quantified unit, fragments here
+ION_COLUMN = "ion"
+# Run columns of the accumulated fragment matrices are everything not listed here
 FRAGMENT_METADATA_COLUMNS = [
-    "precursor_idx",
-    "ion",
-    "pg",
-    "mod_seq_hash",
-    "mod_seq_charge_hash",
+    PRECURSOR_IDX_COLUMN,
+    ION_COLUMN,
+    *QuantificationLevelKey.get_values(),
 ]
+
+
+def get_run_columns(df: pd.DataFrame) -> list[str]:
+    """Run columns of an accumulated fragment matrix."""
+    return [c for c in df.columns if c not in FRAGMENT_METADATA_COLUMNS]
 
 
 @dataclass
@@ -45,8 +51,6 @@ class LFQOutputConfig:
         Whether to process this quantification level
     save_fragments : bool, default=False
         Whether to save fragment-level quantification matrices
-    normalization_method: str | None, default="directlfq"
-        Normalization method to use (e.g., 'directlfq', 'quantselect')
     """
 
     quant_level: str
@@ -55,15 +59,9 @@ class LFQOutputConfig:
     aggregation_components: list[str]
     should_process: bool = True
     save_fragments: bool = False
-    normalization_method: str = NormalizationMethods.DIRECTLFQ
 
 
-# explicit signature: a uint64 precursor_idx would make numba promote the hash
-# to float64, silently rounding away the lower bits for large hashes.
-@nb.njit(
-    "int64[:](int64[:], int64[:], int64[:], int64[:], int64[:])",
-    cache=USE_NUMBA_CACHING,
-)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def _ion_hash(precursor_idx, number, type, charge, loss_type):
     """Create a 64-bit hash from fragment ion characteristics.
 
@@ -113,15 +111,15 @@ def prepare_df(
     pd.DataFrame
         Filtered fragment dataframe with ion hash
     """
-    df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
-    df["ion"] = _ion_hash(
-        df["precursor_idx"].values.astype(np.int64),
-        df["number"].values.astype(np.int64),
-        df["type"].values.astype(np.int64),
-        df["charge"].values.astype(np.int64),
-        df["loss_type"].values.astype(np.int64),
+    df = df[df[PRECURSOR_IDX_COLUMN].isin(psm_df[PRECURSOR_IDX_COLUMN])].copy()
+    df[ION_COLUMN] = _ion_hash(
+        df[PRECURSOR_IDX_COLUMN].values,
+        df["number"].values,
+        df["type"].values,
+        df["charge"].values,
+        df["loss_type"].values,
     )
-    return df[["precursor_idx", "ion"] + columns]
+    return df[[PRECURSOR_IDX_COLUMN, ION_COLUMN] + columns]
 
 
 class QuantBuilder:
@@ -146,25 +144,25 @@ class QuantBuilder:
     def filter_frag_df(
         self,
         intensity_df: pd.DataFrame,
-        quality_df: pd.DataFrame,
+        correlation_df: pd.DataFrame,
         min_correlation: float = 0.5,
         top_n: int = 3,
         group_column: str = "pg",
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Filter fragment data by quality metrics.
+        """Filter fragment data by cross-run correlation.
 
         Keeps fragments that meet either of these criteria:
-        - Among top N fragments per group (by mean quality across runs)
-        - Quality score above min_correlation threshold
+        - Among top N fragments per group (by mean correlation across runs)
+        - Mean correlation above min_correlation threshold
 
         Parameters
         ----------
         intensity_df : pd.DataFrame
             Fragment intensity data with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
-        quality_df : pd.DataFrame
-            Fragment quality/correlation data with same structure as intensity_df
+        correlation_df : pd.DataFrame
+            Fragment correlation data with same structure as intensity_df
         min_correlation : float, default=0.5
-            Minimum quality score to keep fragment (if not in top N)
+            Minimum mean correlation to keep fragment (if not in top N)
         top_n : int, default=3
             Number of top fragments to keep per group
         group_column : str, default='pg'
@@ -173,22 +171,20 @@ class QuantBuilder:
         Returns
         -------
         tuple[pd.DataFrame, pd.DataFrame]
-            Filtered intensity and quality dataframes
+            Filtered intensity and correlation dataframes
         """
-        logger.info("Filtering fragments by quality")
+        logger.info("Filtering fragments by correlation")
 
-        run_columns = [
-            c for c in intensity_df.columns if c not in FRAGMENT_METADATA_COLUMNS
-        ]
+        run_columns = get_run_columns(intensity_df)
 
-        quality_df["total"] = np.mean(quality_df[run_columns].values, axis=1)
-        quality_df["rank"] = quality_df.groupby(group_column)["total"].rank(
+        correlation_df["total"] = np.mean(correlation_df[run_columns].values, axis=1)
+        correlation_df["rank"] = correlation_df.groupby(group_column)["total"].rank(
             ascending=False, method="first"
         )
-        mask = (quality_df["rank"].values <= top_n) | (
-            quality_df["total"].values > min_correlation
+        mask = (correlation_df["rank"].values <= top_n) | (
+            correlation_df["total"].values > min_correlation
         )
-        return intensity_df[mask], quality_df[mask]
+        return intensity_df[mask], correlation_df[mask]
 
     def direct_lfq(
         self,
@@ -212,11 +208,12 @@ class QuantBuilder:
         pd.DataFrame
             Protein/peptide quantification results with columns: group_column, run1, run2, ...
         """
-        logger.info(
-            f"Performing label-free quantification with {lfq_config.normalization_method} normalization"
-        )
+        logger.info("Performing label-free quantification with directLFQ")
 
         lfq_df = self._prepare_ion_table(intensity_df, lfq_config.quant_level)
+        # directLFQ's normalization divides by the number of ions
+        if lfq_df.empty:
+            return pd.DataFrame(columns=[lfq_config.quant_level])
         if config["search_output"]["normalize_directlfq"]:
             lfq_df = self._normalize_ion_table(lfq_df, config)
 
@@ -236,7 +233,8 @@ class QuantBuilder:
         Parameters
         ----------
         intensity_df: pd.DataFrame
-            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+            Ion table with an ion column, the quant_level column and one column per run.
+            Other metadata columns are dropped.
         quant_level: str
             Column to group ions by (pg, mod_seq_hash, mod_seq_charge_hash)
 
@@ -248,11 +246,15 @@ class QuantBuilder:
         """
         # directLFQ treats every column except the group and ion id as a sample
         columns_to_drop = [
-            c for c in FRAGMENT_METADATA_COLUMNS if c not in ("ion", quant_level)
+            c
+            for c in intensity_df.columns
+            if c in FRAGMENT_METADATA_COLUMNS and c not in (ION_COLUMN, quant_level)
         ]
         intensity_df = intensity_df.drop(columns=columns_to_drop)
 
-        lfqconfig.set_global_protein_and_ion_id(protein_id=quant_level, quant_id="ion")
+        lfqconfig.set_global_protein_and_ion_id(
+            protein_id=quant_level, quant_id=ION_COLUMN
+        )
         lfqconfig.set_compile_normalized_ion_table(compile_normalized_ion_table=False)
         lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()
         lfqconfig.set_log_processed_proteins(log_processed_proteins=True)

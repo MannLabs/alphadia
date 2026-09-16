@@ -99,27 +99,31 @@ class QuantOutputBuilder:
             return {}, self.psm_df
 
         quantlevel_configs = self._create_quant_level_configs()
+        requested_configs = [c for c in quantlevel_configs if c.should_process]
+
+        if (
+            self.config["search_output"]["normalization_method"]
+            == NormalizationMethods.QUANTSELECT
+        ):
+            level_dfs = self._quantify_with_quantselect(
+                requested_configs, feature_dfs_dict
+            )
+        else:
+            level_dfs = self._quantify_with_directlfq(
+                requested_configs, feature_dfs_dict
+            )
+
         lfq_results = {}
-
-        for quantlevel_config in quantlevel_configs:
-            if not quantlevel_config.should_process:
-                continue
-
-            logger.info(
-                f"Performing label free quantification on the {quantlevel_config.level_name} level"
-            )
-
-            lfq_df = self._process_quant_level(
-                lfq_config=quantlevel_config, feature_dfs_dict=feature_dfs_dict
-            )
-
-            if lfq_df is not None and not lfq_df.empty:
-                lfq_df = self._annotate_quant_df(lfq_df, self.psm_df, quantlevel_config)
-                lfq_results[quantlevel_config.level_name] = lfq_df
-            else:
+        for quantlevel_config in requested_configs:
+            lfq_df = level_dfs.get(quantlevel_config.level_name)
+            if lfq_df is None or lfq_df.empty:
                 logger.warning(
-                    f"No fragments found for {quantlevel_config.level_name}, skipping label-free quantification"
+                    f"No quantities for the {quantlevel_config.level_name} level, skipping"
                 )
+                continue
+            lfq_results[quantlevel_config.level_name] = self._annotate_quant_df(
+                lfq_df, self.psm_df, quantlevel_config
+            )
 
         psm_df_with_quant = merge_quant_levels_to_psm(
             self.psm_df, lfq_results, quantlevel_configs
@@ -154,9 +158,6 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                normalization_method=self.config["search_output"][
-                    "normalization_method"
-                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PEPTIDE,
@@ -172,9 +173,6 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                normalization_method=self.config["search_output"][
-                    "normalization_method"
-                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PROTEIN,
@@ -184,9 +182,6 @@ class QuantOutputBuilder:
                     QuantificationLevelName.PROTEIN,
                 ],
                 should_process=True,
-                normalization_method=self.config["search_output"][
-                    "normalization_method"
-                ],
             ),
         ]
 
@@ -220,52 +215,78 @@ class QuantOutputBuilder:
         )
         return lfq_df.merge(annotate_df, on=config.quant_level, how="left")
 
-    def _process_quant_level(
+    def _quantify_with_quantselect(
         self,
-        lfq_config: LFQOutputConfig,
+        quantlevel_configs: list[LFQOutputConfig],
         feature_dfs_dict: dict[str, pd.DataFrame],
-    ) -> pd.DataFrame | None:
-        """Process quantification for a single level.
+    ) -> dict[str, pd.DataFrame]:
+        """Quantify every requested level with QuantSelect.
 
         Parameters
         ----------
-        lfq_config : LFQOutputConfig
-            Configuration for this quantification level
+        quantlevel_configs : list[LFQOutputConfig]
+            Requested quantification levels
         feature_dfs_dict : dict[str, pd.DataFrame]
             Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
 
         Returns
         -------
-        pd.DataFrame | None
-            Quantification results, or None if no data available
+        dict[str, pd.DataFrame]
+            Quantification results by level name
         """
-        if lfq_config.normalization_method == NormalizationMethods.DIRECTLFQ:
+        level_dfs = {}
+        for quantlevel_config in quantlevel_configs:
+            logger.info(
+                f"Performing label free quantification on the {quantlevel_config.level_name} level"
+            )
+            level_dfs[quantlevel_config.level_name] = (
+                self.quant_builder.quantselect_lfq(
+                    feature_dfs_dict=feature_dfs_dict,
+                    lfq_config=quantlevel_config,
+                )
+            )
+        return level_dfs
+
+    def _quantify_with_directlfq(
+        self,
+        quantlevel_configs: list[LFQOutputConfig],
+        feature_dfs_dict: dict[str, pd.DataFrame],
+    ) -> dict[str, pd.DataFrame]:
+        """Filter fragments per level and estimate the level quantities with directLFQ.
+
+        Parameters
+        ----------
+        quantlevel_configs : list[LFQOutputConfig]
+            Requested quantification levels
+        feature_dfs_dict : dict[str, pd.DataFrame]
+            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        Returns
+        -------
+        dict[str, pd.DataFrame]
+            Quantification results by level name, levels without fragments are absent
+        """
+        level_dfs = {}
+        for quantlevel_config in quantlevel_configs:
+            logger.info(
+                f"Performing label free quantification on the {quantlevel_config.level_name} level"
+            )
             filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
                 feature_dfs_dict["intensity"],
                 feature_dfs_dict["correlation"],
                 top_n=self.config["search_output"]["min_k_fragments"],
                 min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=lfq_config.quant_level,
+                group_column=quantlevel_config.quant_level,
             )
-
             if len(filtered_intensity_df) == 0:
-                logger.warning(
-                    f"No fragments found for {lfq_config.level_name}, skipping label-free quantification"
-                )
-                return None
+                continue
 
-            lfq_df = self.quant_builder.direct_lfq(
+            level_dfs[quantlevel_config.level_name] = self.quant_builder.direct_lfq(
                 intensity_df=filtered_intensity_df,
-                lfq_config=lfq_config,
+                lfq_config=quantlevel_config,
                 config=self.config,
             )
-
-        else:
-            lfq_df = self.quant_builder.quantselect_lfq(
-                feature_dfs_dict=feature_dfs_dict,
-                lfq_config=lfq_config,
-            )
-        return lfq_df
+        return level_dfs
 
     def _apply_output_names(self, df: pd.DataFrame) -> pd.DataFrame:
         """Convert internal column names to output names for output.
