@@ -26,6 +26,11 @@ FRAGMENT_METADATA_COLUMNS = [
     *QuantificationLevelKey.get_values(),
 ]
 
+PRECURSOR_IDX_MASK = 0xFFFFFFFF
+
+# fragment columns consumed by `_ion_hash`, in the order of its signature
+ION_HASH_COLUMNS = [PRECURSOR_IDX_COLUMN, "number", "type", "charge", "loss_type"]
+
 
 def get_run_columns(df: pd.DataFrame) -> list[str]:
     """Run columns of an accumulated fragment matrix."""
@@ -70,18 +75,21 @@ class LFQOutputConfig:
 def _ion_hash(precursor_idx, number, type, charge, loss_type):
     """Create a 64-bit hash from fragment ion characteristics.
 
+    The hash is only injective if every field stays within its bit range; a field
+    exceeding it aliases into the next one. Ranges are not enforced.
+
     Parameters
     ----------
     precursor_idx : array-like
-        Precursor indices (lower 32 bits)
+        Precursor indices (lower 32 bits, < 2**32)
     number : array-like
-        Fragment number (next 8 bits)
+        Fragment number (next 8 bits, < 256)
     type : array-like
-        Fragment type (next 8 bits)
+        Fragment type (next 8 bits, < 256)
     charge : array-like
-        Fragment charge (next 8 bits)
+        Fragment charge (next 8 bits, < 256)
     loss_type : array-like
-        Loss type (last 8 bits)
+        Loss type (last 8 bits, < 256; >= 128 yields a negative hash)
 
     Returns
     -------
@@ -95,6 +103,25 @@ def _ion_hash(precursor_idx, number, type, charge, loss_type):
         + (charge << 48)
         + (loss_type << 56)
     )
+
+
+def precursor_idx_from_ion(ion: np.ndarray) -> np.ndarray:
+    """Recover the precursor index from the lower 32 bits of the ion hash.
+
+    Assumes `precursor_idx < 2**32` and that `_ion_hash` is injective, i.e. that no
+    field overflows into a neighbouring one. Neither is enforced.
+
+    Parameters
+    ----------
+    ion : np.ndarray
+        Ion hashes as created by `_ion_hash`
+
+    Returns
+    -------
+    np.ndarray
+        Precursor indices as uint32
+    """
+    return (ion & PRECURSOR_IDX_MASK).astype(np.uint32)
 
 
 def prepare_df(

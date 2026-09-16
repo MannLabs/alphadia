@@ -4,6 +4,7 @@ import pytest
 
 from alphadia.outputtransform.quantification.quant_builder import (
     _ion_hash,
+    precursor_idx_from_ion,
     prepare_df,
 )
 
@@ -59,3 +60,18 @@ def test_prepare_df_ion_column_is_int64_for_uint64_precursor_idx():
         (1 << LOSS_TYPE_SHIFT) + 1,
         (1 << LOSS_TYPE_SHIFT) + 2,
     ]
+
+
+def test_precursor_idx_from_ion_roundtrip():
+    # all upper fields set, precursor_idx up to the 32-bit limit
+    precursor_idx = _int64([0, 1, 123456789, 2**32 - 1])
+    number = _int64([1, 255, 7, 255])
+    type_ = _int64([98, 121, 255, 98])
+    charge = _int64([1, 2, 3, 255])
+    loss_type = _int64([0, 1, 127, 127])
+
+    ion = _ion_hash(precursor_idx, number, type_, charge, loss_type)
+    result = precursor_idx_from_ion(ion)
+
+    assert result.dtype == np.uint32
+    assert result.tolist() == precursor_idx.tolist()
