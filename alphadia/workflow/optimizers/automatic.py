@@ -14,10 +14,20 @@ from alphadia.workflow.managers.calibration_manager import (
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.optimizers.base import BaseOptimizer
+from alphadia.workflow.optimizers.features import (
+    MeanIsotopeIntensityCorrelation,
+    OptimizationFeature,
+    PrecursorProportionDetected,
+)
 from alphadia.workflow.optimizers.optimization_lock import OptimizationLock
 
 
 class AutomaticOptimizer(BaseOptimizer, ABC):
+    @property
+    @abstractmethod
+    def _feature(self) -> type[OptimizationFeature]:
+        """The feature that the optimizer makes as large as possible. Concrete optimizers declare it as a class attribute."""
+
     def __init__(
         self,
         initial_parameter: float,
@@ -149,7 +159,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         ax.vlines(
             x=self._optimization_manager.__dict__[self.parameter_name],
             ymin=0,
-            ymax=self.history_df.loc[self._find_index_of_optimum(), self._feature_name],
+            ymax=self.history_df.loc[self._find_index_of_optimum(), self._feature.name],
             color="red",
             zorder=0,
             label=f"Optimal {self.parameter_name}",
@@ -159,16 +169,16 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         sorted_history_df = self.history_df.sort_values("parameter")
         ax.plot(
             sorted_history_df["parameter"],
-            sorted_history_df[self._feature_name],
+            sorted_history_df[self._feature.name],
         )
         ax.scatter(
             self.history_df["parameter"],
-            self.history_df[self._feature_name],
+            self.history_df[self._feature.name],
         )
 
         ax.set_xlabel(self.parameter_name)
         ax.xaxis.set_inverted(True)
-        ax.set_ylim(bottom=0, top=self.history_df[self._feature_name].max() * 1.1)
+        ax.set_ylim(bottom=0, top=self.history_df[self._feature.name].max() * 1.1)
         ax.legend(loc="upper left")
 
         plt.show()
@@ -218,8 +228,8 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
                     "parameter": self._optimization_manager.__dict__[
                         self.parameter_name
                     ],
-                    self._feature_name: self._get_feature_value(
-                        precursors_df, fragments_df
+                    self._feature.name: self._feature.measure(
+                        precursors_df, fragments_df, self._optlock
                     ),
                     "classifier_version": self._fdr_manager.current_version,  # TODO: only we need from fdr_manager
                     "score_cutoff": self._optimization_manager.score_cutoff,
@@ -269,7 +279,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         if len(self.history_df) < 3:
             return False
 
-        feature_history = self.history_df[self._feature_name]
+        feature_history = self.history_df[self._feature.name]
         last_feature_value = feature_history.iloc[-1]
         second_last_feature_value = feature_history.iloc[-2]
         third_last_feature_value = feature_history.iloc[-3]
@@ -339,24 +349,24 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             return self.history_df.index[0]
 
         if self._favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
-            maximum_feature_value = self.history_df[self._feature_name].max()
+            maximum_feature_value = self.history_df[self._feature.name].max()
             threshold = (
                 maximum_feature_value
                 - self._maximum_decrease_from_maximum * np.abs(maximum_feature_value)
             )
 
             rows_within_thresh_of_max = self.history_df[
-                self.history_df[self._feature_name] > threshold
+                self.history_df[self._feature.name] > threshold
             ]
 
             if rows_within_thresh_of_max.empty:
                 # If no rows meet the threshold, return the index of the max feature value
-                return self.history_df[self._feature_name].idxmax()
+                return self.history_df[self._feature.name].idxmax()
             else:
                 return rows_within_thresh_of_max["parameter"].idxmin()
 
         else:
-            return self.history_df[self._feature_name].idxmax()
+            return self.history_df[self._feature.name].idxmax()
 
     def _update_workflow(self):
         """Updates the optimization manager with the results of the optimization, namely:
@@ -396,148 +406,38 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         # The time impact of this is negligible and the benefits can be significant.
         self._optlock.batch_idx = batch_index_at_optimum
 
-    @abstractmethod
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        """Each parameter is optimized according to a particular feature. This method gets the value of that feature for a given round of optimization.
-
-        Parameters
-        ----------
-
-        precursors_df: pd.DataFrame
-            The precursor dataframe for the search
-
-        fragments_df: pd.DataFrame
-            The fragment dataframe for the search
-
-
-        """
-
 
 class AutomaticRTOptimizer(AutomaticOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        optlock: OptimizationLock,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class. Optimizes retention time error."""
-        self.parameter_name = "rt_error"
-        self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = CalibrationEstimators.RT
-        self._feature_name = "precursor_proportion_detected"
-        super().__init__(
-            initial_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            optlock,
-            reporter,
-        )
+    """See base class. Optimizes retention time error."""
 
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        return len(precursors_df) / self._optlock.total_elution_groups
+    parameter_name = "rt_error"
+    _estimator_group_name = CalibrationGroups.PRECURSOR
+    _estimator_name = CalibrationEstimators.RT
+    _feature = PrecursorProportionDetected
 
 
 class AutomaticMS2Optimizer(AutomaticOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        optlock: OptimizationLock,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class. This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number."""
-        self.parameter_name = "ms2_error"
-        self._estimator_group_name = CalibrationGroups.FRAGMENT
-        self._estimator_name = CalibrationEstimators.MZ
-        self._feature_name = "precursor_proportion_detected"
-        super().__init__(
-            initial_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            optlock,
-            reporter,
-        )
+    """See base class. This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number."""
 
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        return len(precursors_df) / self._optlock.total_elution_groups
+    parameter_name = "ms2_error"
+    _estimator_group_name = CalibrationGroups.FRAGMENT
+    _estimator_name = CalibrationEstimators.MZ
+    _feature = PrecursorProportionDetected
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        optlock: OptimizationLock,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class. Optimizes MS1 error."""
-        self.parameter_name = "ms1_error"
-        self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = CalibrationEstimators.MZ
-        self._feature_name = "mean_isotope_intensity_correlation"
-        super().__init__(
-            initial_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            optlock,
-            reporter,
-        )
+    """See base class. Optimizes MS1 error."""
 
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        return precursors_df["isotope_intensity_correlation"].mean()
+    parameter_name = "ms1_error"
+    _estimator_group_name = CalibrationGroups.PRECURSOR
+    _estimator_name = CalibrationEstimators.MZ
+    _feature = MeanIsotopeIntensityCorrelation
 
 
 class AutomaticMobilityOptimizer(AutomaticOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        optlock: OptimizationLock,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class. Optimizes mobility error."""
-        self.parameter_name = "mobility_error"
-        self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = CalibrationEstimators.MOBILITY
-        self._feature_name = "precursor_proportion_detected"
-        super().__init__(
-            initial_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            optlock,
-            reporter,
-        )
+    """See base class. Optimizes mobility error."""
 
-    def _get_feature_value(
-        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ):
-        return len(precursors_df) / self._optlock.total_elution_groups
+    parameter_name = "mobility_error"
+    _estimator_group_name = CalibrationGroups.PRECURSOR
+    _estimator_name = CalibrationEstimators.MOBILITY
+    _feature = PrecursorProportionDetected

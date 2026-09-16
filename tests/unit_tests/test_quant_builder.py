@@ -617,6 +617,22 @@ class TestLfq:
         else:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
 
+    def test_returns_empty_frame_when_nothing_was_observed(
+        self, lfq_data, psm_df, lfq_config, search_config
+    ):
+        """Given fragments with zero intensity everywhere, when LFQ is run, then an empty frame is returned instead of failing inside directLFQ."""
+        # Given
+        unobserved_df = lfq_data["intensity"].copy()
+        unobserved_df[["run1", "run2", "run3"]] = 0.0
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.direct_lfq(unobserved_df, lfq_config("pg"), search_config)
+
+        # Then
+        assert result_df.empty
+        assert list(result_df.columns) == ["pg", "run1", "run2", "run3"]
+
     def test_handles_custom_group_column(
         self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
     ):

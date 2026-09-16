@@ -75,9 +75,6 @@ class CalibrationManager(BaseManager):
         self._has_mobility = has_mobility
         self._has_ms1 = has_ms1
 
-        self.reporter.log_string(f"Initializing {self.__class__.__name__}")
-        self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
-
         if not self.is_loaded_from_file:
             self.all_fitted = False
             self.estimator_groups: EstimatorGroups = self._build_estimator_groups()

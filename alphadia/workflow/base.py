@@ -25,6 +25,13 @@ logger = logging.getLogger()
 QUANT_FOLDER_NAME = "quant"
 
 
+def get_quant_path(config: Config, quant_path: str | None = None) -> str:
+    """Get the directory holding the quant folders of all raw files."""
+    return quant_path or os.path.join(
+        config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
+    )
+
+
 class WorkflowBase:
     """Base class for all workflows. This class is responsible for creating the workflow folder.
     It also initializes the calibration_manager and fdr_manager for the workflow.
@@ -58,9 +65,7 @@ class WorkflowBase:
         """
         self.instance_name: str = instance_name
 
-        quant_path_ = quant_path or os.path.join(
-            config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
-        )
+        quant_path_ = get_quant_path(config, quant_path)
 
         logger.info(f"Quantification results path: {quant_path_}")
 
