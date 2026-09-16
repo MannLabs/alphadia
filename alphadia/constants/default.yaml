@@ -321,14 +321,14 @@ search_output:
   save_fragment_quant_matrix: False
 
   # === advanced settings ===
-  # Minimum number of fragments required for quantification
+  # Number of best-correlating fragments kept per precursor for quantification
   min_k_fragments: 12
-  # Minimum correlation required between fragment XICs for quantification
+  # Fragments with a higher mean cross-run correlation are kept in addition
   min_correlation: 0.9
   # Number of samples used for quadratic fit in retention time alignment
   num_samples_quadratic: 50
-  # Minimum number of non-missing values required for quantification
-  min_nonnan: 3
+  # Minimum number of precursors observed in a sample for a peptide or protein group quantity
+  min_nonnan: 1
 
   # LFQ method for quantification ("directlfq" or "quantselect")
   normalization_method: directlfq

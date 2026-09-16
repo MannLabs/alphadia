@@ -1,13 +1,19 @@
 import platform
 import sys
 from dataclasses import dataclass
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from alphadia.constants.keys import NormalizationMethods
-from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
+from alphadia.outputtransform.quantification.quant_builder import (
+    FRAGMENT_CORRELATION_POWER,
+    QuantBuilder,
+    compute_fragment_weights,
+    compute_mean_correlation,
+)
 
 
 @pytest.fixture
@@ -54,35 +60,47 @@ def filtering_data():
 
 
 @pytest.fixture
-def lfq_data():
-    """Data for LFQ tests."""
+def precursor_df():
+    """Precursor quantities with a two-fold change between runs; PG001 has two precursors."""
+    return pd.DataFrame(
+        {
+            "mod_seq_charge_hash": [10, 20, 30],
+            "mod_seq_hash": [1, 2, 3],
+            "pg": ["PG001", "PG001", "PG002"],
+            "run1": [101.0, 50.0, 800.0],
+            "run2": [202.0, 100.0, 1600.0],
+        }
+    )
+
+
+@pytest.fixture
+def fragment_sum_data():
+    """Two precursors over four runs: precursor 10 has three fragments, precursor 20 a single one.
+
+    Intensities of precursor 10 double from run to run so that cross-run ratios are exact.
+    Ion 102 is missing in run4, ion 200 is missing in run2.
+    """
     intensity_df = pd.DataFrame(
         {
-            "precursor_idx": [0, 0, 1, 1, 2, 2],
-            "ion": [100, 100, 101, 101, 102, 102],
-            "run1": [1000.0, 0.0, 2000.0, 0.0, 3000.0, 1500.0],
-            "run2": [0.0, 1100.0, 0.0, 2100.0, 3100.0, 1600.0],
-            "run3": [1200.0, 1300.0, 2200.0, 2300.0, 0.0, 0.0],
-            "pg": ["PG001", "PG001", "PG002", "PG002", "PG003", "PG003"],
-            "mod_seq_hash": [1, 1, 2, 2, 3, 3],
-            "mod_seq_charge_hash": [10, 10, 20, 20, 30, 30],
+            "precursor_idx": [0, 0, 0, 1],
+            "ion": [100, 101, 102, 200],
+            "run1": [100.0, 10.0, 1000.0, 50.0],
+            "run2": [200.0, 20.0, 2000.0, 0.0],
+            "run3": [400.0, 40.0, 4000.0, 60.0],
+            "run4": [800.0, 80.0, 0.0, 70.0],
+            "pg": ["PG001", "PG001", "PG001", "PG002"],
+            "mod_seq_hash": [1, 1, 1, 2],
+            "mod_seq_charge_hash": [10, 10, 10, 20],
         }
     )
-
-    quality_df = pd.DataFrame(
-        {
-            "precursor_idx": [0, 0, 1, 1, 2, 2],
-            "ion": [100, 100, 101, 101, 102, 102],
-            "run1": [0.9, 0.0, 0.8, 0.0, 0.7, 0.8],
-            "run2": [0.0, 0.9, 0.0, 0.8, 0.7, 0.8],
-            "run3": [0.8, 0.9, 0.8, 0.9, 0.0, 0.0],
-            "pg": ["PG001", "PG001", "PG002", "PG002", "PG003", "PG003"],
-            "mod_seq_hash": [1, 1, 2, 2, 3, 3],
-            "mod_seq_charge_hash": [10, 10, 20, 20, 30, 30],
-        }
-    )
-
-    return {"intensity": intensity_df, "correlation": quality_df}
+    correlation_df = intensity_df.copy()
+    correlation_df[["run1", "run2", "run3", "run4"]] = [
+        [1.0, 1.0, 1.0, 1.0],
+        [1.0, 1.0, 1.0, 1.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+    ]
+    return intensity_df, correlation_df
 
 
 @pytest.fixture
@@ -554,17 +572,14 @@ class TestLfq:
             }
 
     def test_performs_quantification(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+        self, precursor_df, psm_df, lfq_config, search_config, mock_directlfq
     ):
-        """Given filtered intensity data, when direct_lfq is run, then returns protein quantification."""
+        """Given precursor quantities, when direct_lfq is run, then returns protein quantification."""
         # Given
-        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
-        config = search_config
 
         # When
-        result_df = builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        result_df = builder.direct_lfq(precursor_df, lfq_config("pg"), search_config)
 
         # Then
         assert isinstance(result_df, pd.DataFrame)
@@ -572,17 +587,14 @@ class TestLfq:
         assert len(result_df) == 2
 
     def test_configures_directlfq(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+        self, precursor_df, psm_df, lfq_config, search_config, mock_directlfq
     ):
-        """Given LFQ parameters, when run, then configures directLFQ correctly."""
+        """Given precursor quantities, when run, then precursors are configured as directLFQ's ions."""
         # Given
-        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
-        config = search_config
 
         # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        builder.direct_lfq(precursor_df, lfq_config("pg"), search_config)
 
         # Then
         mock_config = mock_directlfq["config"]
@@ -590,71 +602,75 @@ class TestLfq:
             protein_id="pg", quant_id="ion"
         )
 
-    @pytest.mark.parametrize("normalize_directlfq", [True, False])
-    def test_respects_normalization_flag(
-        self,
-        lfq_data,
-        psm_df,
-        lfq_config,
-        search_config,
-        mock_directlfq,
-        normalize_directlfq,
-    ):
-        """Given normalization flag, when LFQ is run, then applies normalization conditionally."""
-        # Given
-        filtered_intensity_df = lfq_data["intensity"]
-        builder = QuantBuilder(psm_df)
-        config = search_config
-        config["search_output"]["normalize_directlfq"] = normalize_directlfq
-
-        # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config("pg"), config)
-
-        # Then
-        mock_norm = mock_directlfq["norm"]
-        if normalize_directlfq:
-            mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_called_once()
-        else:
-            mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
-
-    def test_returns_empty_frame_when_nothing_was_observed(
-        self, lfq_data, psm_df, lfq_config, search_config
-    ):
-        """Given fragments with zero intensity everywhere, when LFQ is run, then an empty frame is returned instead of failing inside directLFQ."""
-        # Given
-        unobserved_df = lfq_data["intensity"].copy()
-        unobserved_df[["run1", "run2", "run3"]] = 0.0
-        builder = QuantBuilder(psm_df)
-
-        # When
-        result_df = builder.direct_lfq(unobserved_df, lfq_config("pg"), search_config)
-
-        # Then
-        assert result_df.empty
-
     def test_handles_custom_group_column(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+        self, precursor_df, psm_df, lfq_config, search_config, mock_directlfq
     ):
         """Given custom group column, when LFQ is run, then groups by specified column."""
         # Given
-        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("mod_seq_hash", NormalizationMethods.DIRECTLFQ)
-        config = search_config
 
         # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        builder.direct_lfq(precursor_df, lfq_config("mod_seq_hash"), search_config)
 
         # Then
-        mock_config = mock_directlfq["config"]
-        mock_config.set_global_protein_and_ion_id.assert_called_with(
-            protein_id="mod_seq_hash", quant_id="ion"
-        )
-
         mock_utils = mock_directlfq["utils"]
         called_df = mock_utils.index_and_log_transform_input_df.call_args[0][0]
-        assert "mod_seq_hash" in called_df.columns
-        assert "pg" not in called_df.columns
+        assert list(called_df.columns) == ["ion", "mod_seq_hash", "run1", "run2"]
+
+    def test_estimates_groups_from_precursor_quantities(
+        self, precursor_df, psm_df, lfq_config, search_config
+    ):
+        """Given precursor quantities with a two-fold change between runs, when LFQ is run on the protein level, then groups are estimated from the precursors without a second normalization."""
+        # Given
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.direct_lfq(precursor_df, lfq_config("pg"), search_config)
+
+        # Then - a second normalization would have removed the two-fold change
+        pg_df = result_df.set_index("pg")
+        assert pg_df.loc["PG002"].tolist() == pytest.approx([800.0, 1600.0])
+        assert pg_df.loc["PG001"].tolist() == pytest.approx([151.0, 302.0])
+
+    def test_merges_a_precursor_listed_under_two_protein_groups(
+        self, psm_df, lfq_config, search_config
+    ):
+        """Given one precursor under two protein groups, when LFQ is run on the peptide level, then both entries count once for the peptide."""
+        # Given
+        precursor_df = pd.DataFrame(
+            {
+                "mod_seq_charge_hash": [10, 10],
+                "mod_seq_hash": [1, 1],
+                "pg": ["PG001", "PG002"],
+                "run1": [100.0, 50.0],
+                "run2": [100.0, 50.0],
+            }
+        )
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.direct_lfq(
+            precursor_df, lfq_config("mod_seq_hash"), search_config
+        )
+
+        # Then
+        assert result_df.set_index("mod_seq_hash").loc[1].tolist() == pytest.approx(
+            [150.0, 150.0]
+        )
+
+    def test_returns_empty_frame_when_nothing_was_observed(
+        self, precursor_df, psm_df, lfq_config, search_config
+    ):
+        """Given precursors with zero intensity everywhere, when LFQ is run, then an empty frame is returned instead of failing inside directLFQ."""
+        # Given
+        precursor_df[["run1", "run2"]] = 0.0
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.direct_lfq(precursor_df, lfq_config("pg"), search_config)
+
+        # Then
+        assert result_df.empty
 
     @pytest.mark.skipif(
         sys.platform == "darwin"
@@ -683,3 +699,272 @@ class TestLfq:
 
         # Verify expected protein groups
         assert set(result_df["pg"]) == {"TNAA_ECOLI", "TNAB_ECOLI"}
+
+
+class TestComputeMeanCorrelation:
+    """Test the per-fragment mean correlation."""
+
+    def test_averages_over_observed_runs_only(self, fragment_sum_data):
+        """Given a fragment missing in one run, when the mean is computed, then that run is excluded."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        correlation_df.loc[correlation_df["ion"] == 200, ["run1", "run3", "run4"]] = [
+            [0.9, 0.7, 0.8]
+        ]
+
+        # When
+        mean_correlation = compute_mean_correlation(intensity_df, correlation_df)
+
+        # Then
+        assert mean_correlation.tolist() == pytest.approx([1.0, 1.0, 0.0, 0.8])
+
+    def test_never_observed_fragment_has_zero_correlation(self, fragment_sum_data):
+        """Given a fragment with no intensity in any run, when the mean is computed, then it is zero."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        intensity_df.loc[
+            intensity_df["ion"] == 100, ["run1", "run2", "run3", "run4"]
+        ] = 0.0
+
+        # When
+        mean_correlation = compute_mean_correlation(intensity_df, correlation_df)
+
+        # Then
+        assert mean_correlation[0] == 0.0
+
+    def test_rejects_misaligned_tables(self, fragment_sum_data):
+        """Given correlation rows in a different order, when the mean is computed, then it fails loudly."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        shuffled_df = correlation_df.iloc[::-1].reset_index(drop=True)
+
+        # When / Then
+        with pytest.raises(ValueError, match="same order"):
+            compute_mean_correlation(intensity_df, shuffled_df)
+
+
+class TestComputeFragmentWeights:
+    """Test the weights relative to the best fragment of a precursor."""
+
+    def test_best_fragment_of_every_precursor_has_weight_one(self):
+        """Given fragments of two precursors, when weighted, then each precursor's best fragment gets weight one."""
+        # Given
+        mean_correlation = np.array([1.0, 0.5, 0.5, 0.25])
+        precursor_hash = np.array([10, 10, 20, 20])
+
+        # When
+        weights = compute_fragment_weights(mean_correlation, precursor_hash)
+
+        # Then
+        assert weights.tolist() == pytest.approx(
+            [1.0, 0.5**FRAGMENT_CORRELATION_POWER, 1.0, 0.5**FRAGMENT_CORRELATION_POWER]
+        )
+
+    def test_precursor_without_correlating_fragment_gets_plain_weights(self):
+        """Given a precursor whose fragments all have zero correlation, when weighted, then every fragment counts fully."""
+        # Given
+        mean_correlation = np.array([0.0, 0.0])
+        precursor_hash = np.array([10, 10])
+
+        # When
+        weights = compute_fragment_weights(mean_correlation, precursor_hash)
+
+        # Then
+        assert weights.tolist() == [1.0, 1.0]
+
+
+class TestSumFragmentsToPrecursors:
+    """Test the correlation-weighted fragment sum used as the precursor rollup."""
+
+    @pytest.fixture
+    def sum_config(self, search_config):
+        search_config["search_output"]["normalize_directlfq"] = False
+        return search_config
+
+    def test_returns_precursors_with_their_groups(
+        self, fragment_sum_data, psm_df, sum_config
+    ):
+        """Given fragments of two precursors, when summed, then one row per precursor with its peptide and protein group is returned."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.sum_fragments_to_precursors(
+            intensity_df, correlation_df, sum_config
+        )
+
+        # Then
+        assert list(result_df.columns) == [
+            "mod_seq_charge_hash",
+            "mod_seq_hash",
+            "pg",
+            "run1",
+            "run2",
+            "run3",
+            "run4",
+        ]
+        assert result_df["mod_seq_charge_hash"].tolist() == [10, 20]
+
+    def test_uncorrelated_fragment_does_not_count(
+        self, fragment_sum_data, psm_df, sum_config
+    ):
+        """Given correlations [1, 1, 0], when summed, then only the two correlating fragments contribute."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.sum_fragments_to_precursors(
+            intensity_df, correlation_df, sum_config
+        )
+
+        # Then
+        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
+        assert precursor_10[["run1", "run2", "run3", "run4"]].tolist() == pytest.approx(
+            [110.0, 220.0, 440.0, 880.0]
+        )
+
+    def test_applies_power_to_correlation(self, fragment_sum_data, psm_df, sum_config):
+        """Given a fragment with correlation 0.5, when summed, then its weight is 0.5 to the correlation power."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        correlation_df.loc[
+            correlation_df["ion"] == 101, ["run1", "run2", "run3", "run4"]
+        ] = 0.5
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.sum_fragments_to_precursors(
+            intensity_df, correlation_df, sum_config
+        )
+
+        # Then
+        run1 = result_df.set_index("mod_seq_charge_hash").loc[10, "run1"]
+        assert run1 == pytest.approx(100.0 + 10.0 * 0.5**FRAGMENT_CORRELATION_POWER)
+
+    def test_preserves_ratios_between_runs(self, fragment_sum_data, psm_df, sum_config):
+        """Given constant per-fragment weights, when summed, then cross-run ratios of the precursor are unchanged."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        correlation_df.loc[
+            correlation_df["mod_seq_charge_hash"] == 10,
+            ["run1", "run2", "run3", "run4"],
+        ] = [
+            [0.9, 0.9, 0.9, 0.9],
+            [0.6, 0.6, 0.6, 0.6],
+            [0.3, 0.3, 0.3, 0.3],
+        ]
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.sum_fragments_to_precursors(
+            intensity_df, correlation_df, sum_config
+        )
+
+        # Then - all fragments of precursor 10 double between run1, run2 and run3
+        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
+        assert precursor_10["run2"] / precursor_10["run1"] == pytest.approx(2.0)
+        assert precursor_10["run3"] / precursor_10["run2"] == pytest.approx(2.0)
+
+    def test_precursor_without_correlating_fragment_gets_plain_sum(
+        self, fragment_sum_data, psm_df, sum_config
+    ):
+        """Given a precursor whose only fragment has zero correlation, when summed, then it keeps its full intensity."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.sum_fragments_to_precursors(
+            intensity_df, correlation_df, sum_config
+        )
+
+        # Then
+        precursor_20 = result_df.set_index("mod_seq_charge_hash").loc[20]
+        assert precursor_20[["run1", "run2", "run3", "run4"]].tolist() == [
+            50.0,
+            0.0,
+            60.0,
+            70.0,
+        ]
+
+    def test_run_where_only_an_uncorrelated_fragment_was_seen_is_zero(
+        self, psm_df, sum_config
+    ):
+        """Given a run in which only the uncorrelated fragment was observed, when summed, then that run reports 0 instead of a tiny value."""
+        # Given
+        intensity_df = pd.DataFrame(
+            {
+                "precursor_idx": [0, 0],
+                "ion": [100, 101],
+                "run1": [1000.0, 1000.0],
+                "run2": [0.0, 1000.0],
+                "pg": ["PG001", "PG001"],
+                "mod_seq_hash": [1, 1],
+                "mod_seq_charge_hash": [10, 10],
+            }
+        )
+        correlation_df = intensity_df.copy()
+        correlation_df[["run1", "run2"]] = [[1.0, 1.0], [0.0, 0.0]]
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.sum_fragments_to_precursors(
+            intensity_df, correlation_df, sum_config
+        )
+
+        # Then
+        assert result_df[["run1", "run2"]].iloc[0].tolist() == [1000.0, 0.0]
+
+    @pytest.mark.parametrize("normalize_directlfq", [True, False])
+    def test_returns_empty_frame_when_nothing_was_observed(
+        self, fragment_sum_data, psm_df, sum_config, normalize_directlfq
+    ):
+        """Given fragments with zero intensity everywhere, when summed, then an empty frame is returned instead of failing inside the normalization."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        intensity_df[["run1", "run2", "run3", "run4"]] = 0.0
+        sum_config["search_output"]["normalize_directlfq"] = normalize_directlfq
+        builder = QuantBuilder(psm_df)
+
+        # When
+        result_df = builder.sum_fragments_to_precursors(
+            intensity_df, correlation_df, sum_config
+        )
+
+        # Then
+        assert result_df.empty
+
+    @pytest.mark.parametrize(
+        "normalize_directlfq, run1_factor", [(True, 2.0), (False, 1.0)]
+    )
+    def test_respects_normalization_flag(
+        self, fragment_sum_data, psm_df, sum_config, normalize_directlfq, run1_factor
+    ):
+        """Given the normalization flag, when summed, then the sample shift is applied to the fragments only if enabled."""
+        # Given
+        intensity_df, correlation_df = fragment_sum_data
+        sum_config["search_output"]["normalize_directlfq"] = normalize_directlfq
+        builder = QuantBuilder(psm_df)
+
+        def shift_run1_by_one_log2_unit(lfq_df, **kwargs):
+            normalized_df = lfq_df.copy()
+            normalized_df["run1"] = normalized_df["run1"] + 1.0
+            manager = MagicMock()
+            manager.complete_dataframe = normalized_df
+            return manager
+
+        # When
+        with patch(
+            "alphadia.outputtransform.quantification.quant_builder.lfqnorm.NormalizationManagerSamplesOnSelectedProteins",
+            side_effect=shift_run1_by_one_log2_unit,
+        ):
+            result_df = builder.sum_fragments_to_precursors(
+                intensity_df, correlation_df, sum_config
+            )
+
+        # Then - the normalization shift doubles run1 only when enabled
+        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
+        assert precursor_10["run1"] == pytest.approx(run1_factor * 110.0)
+        assert precursor_10["run2"] == pytest.approx(220.0)

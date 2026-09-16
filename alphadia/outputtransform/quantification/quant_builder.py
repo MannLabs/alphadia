@@ -17,8 +17,12 @@ from alphadia.workflow.config import Config
 logger = logging.getLogger()
 
 PRECURSOR_IDX_COLUMN = "precursor_idx"
-# directLFQ's name for the lowest quantified unit, fragments here
+# directLFQ's name for the lowest quantified unit: fragments in the precursor sum,
+# precursors in the peptide and protein group estimation
 ION_COLUMN = "ion"
+# Steepness of the fragment weighting: 2 favours precision, 6-8 favour the accuracy
+# of spiked-in ratios, 4 is the compromise
+FRAGMENT_CORRELATION_POWER = 4
 # Run columns of the accumulated fragment matrices are everything not listed here
 FRAGMENT_METADATA_COLUMNS = [
     PRECURSOR_IDX_COLUMN,
@@ -30,6 +34,69 @@ FRAGMENT_METADATA_COLUMNS = [
 def get_run_columns(df: pd.DataFrame) -> list[str]:
     """Run columns of an accumulated fragment matrix."""
     return [c for c in df.columns if c not in FRAGMENT_METADATA_COLUMNS]
+
+
+def compute_mean_correlation(
+    intensity_df: pd.DataFrame, correlation_df: pd.DataFrame
+) -> np.ndarray:
+    """Mean cross-run correlation of every fragment over the runs in which it was observed.
+
+    Parameters
+    ----------
+    intensity_df : pd.DataFrame
+        Fragment intensity data with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+    correlation_df : pd.DataFrame
+        Fragment correlation data with the same rows in the same order
+
+    Returns
+    -------
+    np.ndarray
+        Mean correlation per row of intensity_df, 0 for fragments never observed
+    """
+    if not np.array_equal(
+        intensity_df[ION_COLUMN].to_numpy(), correlation_df[ION_COLUMN].to_numpy()
+    ):
+        raise ValueError(
+            "Intensity and correlation tables must list the same fragments in the same order"
+        )
+
+    run_columns = get_run_columns(intensity_df)
+    observed = intensity_df[run_columns].to_numpy() > 0
+    correlation = correlation_df[run_columns].to_numpy()
+
+    n_observed = observed.sum(axis=1)
+    summed_correlation = np.einsum("ij,ij->i", correlation, observed)
+    return np.divide(
+        summed_correlation,
+        n_observed,
+        out=np.zeros(len(n_observed)),
+        where=n_observed > 0,
+    )
+
+
+def compute_fragment_weights(
+    mean_correlation: np.ndarray, precursor_hash: np.ndarray
+) -> np.ndarray:
+    """Weight of every fragment relative to the best fragment of its precursor.
+
+    Parameters
+    ----------
+    mean_correlation : np.ndarray
+        Mean cross-run correlation per fragment
+    precursor_hash : np.ndarray
+        Precursor of every fragment, aligned with mean_correlation
+
+    Returns
+    -------
+    np.ndarray
+        Weights in (0, 1], the best fragment of every precursor has weight 1
+    """
+    weights = np.clip(mean_correlation, 0.0, 1.0) ** FRAGMENT_CORRELATION_POWER
+    best_weight = pd.Series(weights).groupby(precursor_hash).transform("max").to_numpy()
+    # a precursor without any correlating fragment falls back to the plain sum
+    return np.divide(
+        weights, best_weight, out=np.ones_like(weights), where=best_weight > 0
+    )
 
 
 @dataclass
@@ -125,9 +192,9 @@ def prepare_df(
 class QuantBuilder:
     """Build quantification results through filtering and label-free quantification.
 
-    This class focuses on fragment quality filtering and directLFQ-based
-    protein quantification. Fragment data accumulation is handled by
-    FragmentQuantLoader.
+    Filters fragments by correlation, sums them to precursors with correlation
+    weights and estimates peptides and protein groups from those precursors with
+    directLFQ. Fragment data accumulation is handled by FragmentQuantLoader.
 
     Parameters
     ----------
@@ -188,16 +255,19 @@ class QuantBuilder:
 
     def direct_lfq(
         self,
-        intensity_df: pd.DataFrame,
+        precursor_df: pd.DataFrame,
         lfq_config: LFQOutputConfig,
         config: Config,
     ) -> pd.DataFrame:
-        """Perform label-free quantification using directLFQ.
+        """Estimate peptide or protein group quantities with directLFQ from precursor quantities.
+
+        Precursors take the role of directLFQ's ions. Sample normalization already
+        happened on the fragment table, so there is no second pass here.
 
         Parameters
         ----------
-        intensity_df: pd.DataFrame
-            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+        precursor_df: pd.DataFrame
+            Precursor quantities with columns: mod_seq_charge_hash, mod_seq_hash, pg, run1, run2, ...
         lfq_config: LFQOutputConfig
             Configuration for this quantification level
         config: Config
@@ -210,12 +280,18 @@ class QuantBuilder:
         """
         logger.info("Performing label-free quantification with directLFQ")
 
-        lfq_df = self._prepare_ion_table(intensity_df, lfq_config.quant_level)
-        # directLFQ's normalization divides by the number of ions
+        # a precursor listed under several protein groups is one ion within each group
+        ion_df = (
+            precursor_df.groupby(
+                [QuantificationLevelKey.PRECURSOR, lfq_config.quant_level],
+                as_index=False,
+            )[get_run_columns(precursor_df)]
+            .sum()
+            .rename(columns={QuantificationLevelKey.PRECURSOR: ION_COLUMN})
+        )
+        lfq_df = self._prepare_ion_table(ion_df, lfq_config.quant_level)
         if lfq_df.empty:
             return pd.DataFrame(columns=[lfq_config.quant_level])
-        if config["search_output"]["normalize_directlfq"]:
-            lfq_df = self._normalize_ion_table(lfq_df, config)
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
@@ -224,6 +300,62 @@ class QuantBuilder:
             num_cores=config["general"]["thread_count"],
         )
         return protein_df
+
+    def sum_fragments_to_precursors(
+        self,
+        intensity_df: pd.DataFrame,
+        correlation_df: pd.DataFrame,
+        config: Config,
+    ) -> pd.DataFrame:
+        """Roll fragments up to precursors by a correlation-weighted sum.
+
+        Every fragment gets one weight for all runs, so the ratio between two runs
+        is preserved for the fragments observed in both. Interfered fragments barely
+        count, where a median of fragment ratios would give them an equal vote.
+
+        Parameters
+        ----------
+        intensity_df : pd.DataFrame
+            Fragment intensity data with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+        correlation_df : pd.DataFrame
+            Fragment correlation data with the same rows in the same order
+        config : Config
+            Global configuration object
+
+        Returns
+        -------
+        pd.DataFrame
+            Precursor quantities with columns: mod_seq_charge_hash, mod_seq_hash, pg, run1, run2, ...
+            Runs in which no fragment of a precursor was observed report 0.
+        """
+        logger.info("Summing fragments to precursors")
+
+        run_columns = get_run_columns(intensity_df)
+        group_columns = [
+            QuantificationLevelKey.PRECURSOR,
+            QuantificationLevelKey.PEPTIDE,
+            QuantificationLevelKey.PROTEIN,
+        ]
+        weights = compute_fragment_weights(
+            compute_mean_correlation(intensity_df, correlation_df),
+            intensity_df[QuantificationLevelKey.PRECURSOR].to_numpy(),
+        )
+
+        observed = (intensity_df[run_columns].to_numpy() > 0).any(axis=1)
+        linear_df = intensity_df.loc[observed].set_index(group_columns)[run_columns]
+        if linear_df.empty:
+            return linear_df.reset_index()
+
+        if config["search_output"]["normalize_directlfq"]:
+            log_df = np.log2(linear_df.replace(0, np.nan))
+            linear_df = (2 ** self._normalize_ion_table(log_df, config)).fillna(0.0)
+
+        return (
+            linear_df.mul(weights[observed], axis=0)
+            .groupby(level=group_columns)
+            .sum()
+            .reset_index()
+        )
 
     def _prepare_ion_table(
         self, intensity_df: pd.DataFrame, quant_level: str

@@ -15,6 +15,7 @@ from alphadia.outputtransform.quantification.fragment_accumulator import (
 from alphadia.outputtransform.quantification.quant_builder import (
     LFQOutputConfig,
     QuantBuilder,
+    get_run_columns,
 )
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
@@ -24,8 +25,9 @@ logger = logging.getLogger()
 class QuantOutputBuilder:
     """Build quantification outputs at multiple levels (precursor, peptide, protein).
 
-    This class orchestrates the accumulation of fragment data, filtering by quality,
-    and label-free quantification using directLFQ at different aggregation levels.
+    Accumulates fragment data, filters it by correlation, sums it to precursor
+    quantities and estimates peptide and protein group quantities from those
+    precursors with directLFQ.
 
     Parameters
     ----------
@@ -252,7 +254,7 @@ class QuantOutputBuilder:
         quantlevel_configs: list[LFQOutputConfig],
         feature_dfs_dict: dict[str, pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
-        """Filter fragments per level and estimate the level quantities with directLFQ.
+        """Sum fragments to precursors, then estimate peptides and protein groups from them.
 
         Parameters
         ----------
@@ -264,28 +266,39 @@ class QuantOutputBuilder:
         Returns
         -------
         dict[str, pd.DataFrame]
-            Quantification results by level name, levels without fragments are absent
+            Quantification results by level name, empty when no fragment was observed
         """
+        filtered_intensity_df, filtered_correlation_df = (
+            self.quant_builder.filter_frag_df(
+                feature_dfs_dict["intensity"],
+                feature_dfs_dict["correlation"],
+                top_n=self.config["search_output"]["min_k_fragments"],
+                min_correlation=self.config["search_output"]["min_correlation"],
+                group_column=QuantificationLevelKey.PRECURSOR,
+            )
+        )
+        precursor_df = self.quant_builder.sum_fragments_to_precursors(
+            filtered_intensity_df, filtered_correlation_df, self.config
+        )
+        if precursor_df.empty:
+            return {}
+
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
             logger.info(
                 f"Performing label free quantification on the {quantlevel_config.level_name} level"
             )
-            filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                top_n=self.config["search_output"]["min_k_fragments"],
-                min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=quantlevel_config.quant_level,
-            )
-            if len(filtered_intensity_df) == 0:
-                continue
-
-            level_dfs[quantlevel_config.level_name] = self.quant_builder.direct_lfq(
-                intensity_df=filtered_intensity_df,
-                lfq_config=quantlevel_config,
-                config=self.config,
-            )
+            if quantlevel_config.level_name == QuantificationLevelName.PRECURSOR:
+                # a precursor listed under several protein groups is reported once
+                level_dfs[quantlevel_config.level_name] = precursor_df.groupby(
+                    QuantificationLevelKey.PRECURSOR, as_index=False
+                )[get_run_columns(precursor_df)].sum()
+            else:
+                level_dfs[quantlevel_config.level_name] = self.quant_builder.direct_lfq(
+                    precursor_df=precursor_df,
+                    lfq_config=quantlevel_config,
+                    config=self.config,
+                )
         return level_dfs
 
     def _apply_output_names(self, df: pd.DataFrame) -> pd.DataFrame:
