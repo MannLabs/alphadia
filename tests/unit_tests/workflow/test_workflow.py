@@ -11,6 +11,7 @@ import pytest
 
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
+from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
@@ -298,6 +299,13 @@ FDR_TEST_BASE_CLASSIFIER = BinaryClassifierLegacyNewBatching(
 FDR_TEST_FEATURES = ["feature_a", "feature_b"]
 
 
+def fdr_test_config(feature_transform: str = FeatureTransform.NONE) -> dict:
+    return {
+        "search": {"compete_for_fragments": False},
+        "fdr": {"feature_transform": feature_transform},
+    }
+
+
 def fdr_testdata(features):
     test_dict = {}
 
@@ -313,7 +321,7 @@ def test_fdr_manager():
     fdr_manager = FDRManager(
         feature_columns=FDR_TEST_FEATURES,
         classifier_base=FDR_TEST_BASE_CLASSIFIER,
-        config=MagicMock(),
+        config=fdr_test_config(),
     )
 
     assert fdr_manager.is_loaded_from_file is False
@@ -326,9 +334,7 @@ def test_fdr_manager_fit_predict():
     fdr_manager = FDRManager(
         feature_columns=FDR_TEST_FEATURES,
         classifier_base=FDR_TEST_BASE_CLASSIFIER,
-        config={
-            "search": {"compete_for_fragments": False},
-        },
+        config=fdr_test_config(),
         dia_cycle=None,
     )
     test_features_df = fdr_testdata(FDR_TEST_FEATURES)
@@ -362,7 +368,7 @@ def test_fdr_manager_fit_predict():
     fdr_manager_new = FDRManager(
         feature_columns=FDR_TEST_FEATURES,
         classifier_base=FDR_TEST_BASE_CLASSIFIER,
-        config=MagicMock(),
+        config=fdr_test_config(),
     )
     fdr_manager_new.load_classifier_store(tempfile.tempdir)
 
@@ -372,6 +378,28 @@ def test_fdr_manager_fit_predict():
     assert fdr_manager_new.get_classifier(FDR_TEST_FEATURES).fitted is True
 
     os.remove(temp_path)
+
+
+def test_fdr_manager_passes_feature_transform_to_base_classifier():
+    # Given: a config requesting the quantile feature transform
+    config = fdr_test_config(feature_transform=FeatureTransform.QUANTILE)
+
+    # When: the manager is initialized
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=BinaryClassifierLegacyNewBatching(),
+        config=config,
+    )
+
+    # Then: the base classifier applies the transform
+    assert fdr_manager.classifier_base.feature_transform == FeatureTransform.QUANTILE
+
+    # And: classifiers loaded from an old state dict keep using raw features
+    assert all(
+        classifier.feature_transform == FeatureTransform.NONE
+        for classifier_list in fdr_manager.classifier_store.values()
+        for classifier in classifier_list
+    )
 
 
 def create_workflow_instance():
@@ -423,7 +451,7 @@ def create_workflow_instance():
                 "enable_nn_hyperparameter_tuning"
             ],
         ),
-        config=MagicMock(),
+        config=workflow.config,
         figure_path=workflow._figure_path,
     )
 

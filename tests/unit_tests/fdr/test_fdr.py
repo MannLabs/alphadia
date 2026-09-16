@@ -3,9 +3,12 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
+from scipy.stats import norm
 
-from alphadia.fdr import fdr
+from alphadia.constants.keys import FeatureTransform
+from alphadia.fdr import classifiers, fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
 
@@ -263,3 +266,117 @@ def test_perform_fdr_stops_after_max_reinits():
     # Then: perform_fdr stops after the maximum number of retries
     assert classifier.reset_count == fdr._MAX_FDR_CLASSIFIER_REINITS
     assert psm_df["proba"].std() == 0.0
+
+
+def _gen_quantile_transform_data(n_samples: int = 5000, random_state: int = 42):
+    """Return a matrix with a constant and a heavy-tailed column."""
+    rng = np.random.default_rng(random_state)
+    return np.stack(
+        [np.full(n_samples, 7.0), rng.lognormal(mean=0.0, sigma=2.0, size=n_samples)],
+        axis=1,
+    )
+
+
+def test_fit_transform_maps_features_to_normal_scores():
+    # Given: a classifier with the quantile transform and a constant and a heavy-tailed feature
+    classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+    x = _gen_quantile_transform_data()
+
+    # When: the transform is fitted and applied
+    x_transformed = classifier._fit_transform(x)
+
+    # Then: the constant feature maps to zero
+    assert np.all(x_transformed[:, 0] == 0.0)
+
+    # And: the heavy-tailed feature follows a standard normal
+    probabilities = np.arange(0.1, 1.0, 0.1)
+    assert np.allclose(
+        np.quantile(x_transformed[:, 1], probabilities),
+        norm.ppf(probabilities),
+        atol=0.05,
+    )
+
+
+def test_apply_transform_keeps_out_of_distribution_values_finite():
+    # Given: a fitted quantile transform
+    classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+    x = _gen_quantile_transform_data()
+    classifier._fit_transform(x)
+
+    # When: values far outside the training range are transformed
+    x_extreme = np.array([[7.0, x[:, 1].max() * 1e6], [7.0, x[:, 1].min() * 1e-6]])
+    x_transformed = classifier._apply_transform(x_extreme)
+
+    # Then: they stay at the edge of the distribution instead of outside it
+    assert np.all(np.isfinite(x_transformed))
+    assert x_transformed[0, 1] == norm.ppf(1 - classifiers._QUANTILE_CLIP)
+    assert x_transformed[1, 1] == norm.ppf(classifiers._QUANTILE_CLIP)
+
+
+def test_fit_transform_falls_back_to_raw_features_for_few_rows():
+    # Given: a classifier with the quantile transform and fewer rows than the minimum
+    classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+    x = _gen_quantile_transform_data(n_samples=100)
+
+    # When: the transform is fitted
+    x_transformed = classifier._fit_transform(x)
+
+    # Then: the features are passed through unchanged
+    assert classifier._quantiles is None
+    assert np.array_equal(x_transformed, x)
+
+
+def test_fit_transform_raises_for_unknown_transform():
+    # Given: a classifier with an unknown feature transform
+    classifier = BinaryClassifierLegacyNewBatching(feature_transform="rank")
+
+    # When/Then: fitting the transform fails explicitly
+    with pytest.raises(ValueError, match="Unknown feature transform"):
+        classifier._fit_transform(_gen_quantile_transform_data())
+
+
+def test_quantile_transform_state_dict_round_trip():
+    # Given: a classifier fitted with the quantile transform
+    x, y = gen_data_np(n_samples=2000)
+    classifier = BinaryClassifierLegacyNewBatching(
+        batch_size=100, feature_transform=FeatureTransform.QUANTILE
+    )
+    classifier.fit(x, y)
+    assert classifier._quantiles is not None
+
+    # When: the state dict is round tripped through a new classifier
+    new_classifier = BinaryClassifierLegacyNewBatching()
+    new_classifier.from_state_dict(classifier.to_state_dict())
+
+    # Then: the transform and its quantile table are preserved
+    assert new_classifier.feature_transform == FeatureTransform.QUANTILE
+    assert np.array_equal(new_classifier._quantiles, classifier._quantiles)
+
+    # And: the predictions are identical
+    assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
+
+
+def test_from_state_dict_defaults_to_no_transform():
+    # Given: a state dict written before the feature transform existed
+    x, y = gen_data_np(n_samples=2000)
+    classifier = BinaryClassifierLegacyNewBatching(batch_size=100)
+    classifier.fit(x, y)
+    state_dict = classifier.to_state_dict()
+    del state_dict["feature_transform"]
+    del state_dict["_quantiles"]
+
+    # When: it is loaded into a classifier requesting the quantile transform
+    new_classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+    new_classifier.from_state_dict(state_dict)
+
+    # Then: the loaded weights keep being used with raw features
+    assert new_classifier.feature_transform == FeatureTransform.NONE
+    assert new_classifier._quantiles is None
