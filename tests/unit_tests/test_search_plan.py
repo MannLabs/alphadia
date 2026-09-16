@@ -4,8 +4,14 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
+from alphadia.constants.keys import ConfigKeys
 from alphadia.search_plan import SearchPlan
+
+MULTISTEP_CONFIG_PATH = (
+    Path(__file__).parents[2] / "alphadia" / "constants" / "multistep.yaml"
+)
 
 MOCK_DEFAULT_CONFIG = {
     "general": {"transfer_step_enabled": False, "mbr_step_enabled": False},
@@ -96,6 +102,18 @@ def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
     }
 
     mock_plan.return_value.run.assert_called_once_with()
+
+
+def test_multistep_config_resets_step_specific_user_options():
+    """Test that every step resets options whose user-defined value would apply to all steps."""
+    with MULTISTEP_CONFIG_PATH.open() as file:
+        multistep_config = yaml.safe_load(file)
+
+    for step_config in multistep_config.values():
+        assert step_config[ConfigKeys.QUANT_DIRECTORY] is None
+        assert (
+            step_config[ConfigKeys.GENERAL][ConfigKeys.GENERAL.REUSE_QUANT_FROM] == []
+        )
 
 
 @pytest.mark.parametrize(

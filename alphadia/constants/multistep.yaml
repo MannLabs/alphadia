@@ -14,6 +14,7 @@ transfer:
   # override settings that could have been set by the user:
   quant_directory: null # is step-specific, so user-defined values are not applicable as they would overwrite all steps' values with a single value
   general:
+    reuse_quant_from: [] # same reason as for quant_directory
     save_library: False
   # TODO: think about enforcing optimization of rt here
 
@@ -21,6 +22,7 @@ library:
   # override settings that could have been set by the user:
   quant_directory: null # is step-specific, so user-defined values are not applicable as they would overwrite all steps' values with a single value
   general:
+    reuse_quant_from: [] # same reason as for quant_directory
     save_mbr_library: True
     save_library: False
   transfer_library:
@@ -40,6 +42,8 @@ mbr:
     target_num_candidates: 5
   # override settings that could have been set by the user:
   quant_directory: null # is step-specific, so user-defined values are not applicable as they would overwrite all steps' values with a single value
+  general:
+    reuse_quant_from: [] # same reason as for quant_directory
   library_prediction:
     enabled: False
   transfer_library:

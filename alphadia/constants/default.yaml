@@ -25,6 +25,9 @@ general:
   reuse_calibration: false
   # whether to reuse previously calculated quantification data
   reuse_quant: false
+  # quant directories (e.g. `<previous_run>/quant`) of other runs to reuse quantification data from.
+  # These directories are only read from, never written to.
+  reuse_quant_from: []
   # logging verbosity level (DEBUG, INFO, PROGRESS, WARNING, ERROR)
   log_level: 'INFO'
   # whether to use GPU acceleration for library prediction and scoring
