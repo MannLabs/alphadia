@@ -101,10 +101,20 @@ def merge_context_features(
     features_df: pd.DataFrame, context_features: dict[str, np.ndarray]
 ) -> pd.DataFrame:
     """Merge the output of `CandidateContext.compute()` into the scored candidates."""
+    context_df = pd.DataFrame(context_features)
+
+    # checked before the merge, so that the error can name the offending candidates
+    duplicates = context_df.loc[
+        context_df.duplicated(CANDIDATE_KEY_COLUMNS), CANDIDATE_KEY_COLUMNS
+    ]
+    if not duplicates.empty:
+        raise ValueError(
+            f"Context features contain duplicate candidates:\n"
+            f"{duplicates.to_string(index=False)}"
+        )
+
     merged_df = features_df.merge(
-        pd.DataFrame(context_features),
-        on=CANDIDATE_KEY_COLUMNS,
-        validate="one_to_one",
+        context_df, on=CANDIDATE_KEY_COLUMNS, validate="one_to_one"
     )
 
     num_missing = len(features_df) - len(merged_df)

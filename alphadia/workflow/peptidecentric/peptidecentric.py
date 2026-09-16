@@ -17,16 +17,12 @@ from alphadia.workflow.peptidecentric.library_init import init_spectral_library
 from alphadia.workflow.peptidecentric.multiplexing_requantification_handler import (
     MultiplexingRequantificationHandler,
 )
-from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-    get_context_feature_names,
-    get_feature_names,
-)
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.transfer_library_requantification_handler import (
     TransferLibraryRequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.utils import (
-    feature_columns,
+    get_classifier_feature_columns,
     log_precursor_df,
     use_timing_manager,
 )
@@ -108,11 +104,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
         config_fdr = self.config["fdr"]
-        # the FDR manager ignores listed columns absent from the features, so no flag needed
         self._fdr_manager = FDRManager(
-            feature_columns=get_feature_names() + get_context_feature_names()
-            if self._config["search"]["extraction_backend"] == "rust"
-            else feature_columns,
+            feature_columns=get_classifier_feature_columns(
+                self._config["search"]["extraction_backend"]
+            ),
             classifier_base=_get_classifier_base(
                 enable_nn_hyperparameter_tuning=config_fdr[
                     "enable_nn_hyperparameter_tuning"

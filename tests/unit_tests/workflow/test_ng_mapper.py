@@ -47,5 +47,6 @@ def test_merge_context_features_raises_on_duplicate_candidate():
     context_features = mock_context_features([1, 1, 2, 1], [0, 1, 0, 0])
 
     # when / then
-    with pytest.raises(ValueError, match="not unique"):
+    with pytest.raises(ValueError, match="duplicate candidates") as error:
         merge_context_features(features_df, context_features)
+    assert "1" in str(error.value)
