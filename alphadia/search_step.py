@@ -458,25 +458,17 @@ class SearchStep:
     def _get_reusable_quant_folders(self) -> dict[str, str]:
         """Map the name of each raw file with reusable quantification results to the folder holding them.
 
-        Considers the quant directory of the current search step if `general.reuse_quant` is set,
-        or the directories given in `general.reuse_quant_from` otherwise.
+        Returns an empty mapping unless `general.reuse_quant` is set. Considers the directories given in
+        `general.reuse_quant_from`, or the quant directory of the current search step if there are none.
         """
         general_config = self.config[ConfigKeys.GENERAL]
+        if not general_config[ConfigKeys.GENERAL.REUSE_QUANT]:
+            return {}
+
         raw_names = [Path(raw_location).stem for raw_location in self.raw_path_list]
 
         folder_by_raw_name = {}
-        if general_config[ConfigKeys.GENERAL.REUSE_QUANT]:
-            current_step_quant_dir = get_quant_path(
-                self.config, self.config[ConfigKeys.QUANT_DIRECTORY]
-            )
-            for raw_name in self._get_raw_names_with_quant_results(
-                current_step_quant_dir, raw_names
-            ):
-                folder_by_raw_name[raw_name] = os.path.join(
-                    current_step_quant_dir, raw_name
-                )
-
-        elif reuse_quant_from := general_config[ConfigKeys.GENERAL.REUSE_QUANT_FROM]:
+        if reuse_quant_from := general_config[ConfigKeys.GENERAL.REUSE_QUANT_FROM]:
             for quant_directory in reuse_quant_from:
                 matched_raw_names = self._get_raw_names_with_quant_results(
                     quant_directory, raw_names
@@ -506,7 +498,15 @@ class SearchStep:
                     )
 
         else:
-            return {}
+            current_step_quant_dir = get_quant_path(
+                self.config, self.config[ConfigKeys.QUANT_DIRECTORY]
+            )
+            for raw_name in self._get_raw_names_with_quant_results(
+                current_step_quant_dir, raw_names
+            ):
+                folder_by_raw_name[raw_name] = os.path.join(
+                    current_step_quant_dir, raw_name
+                )
 
         if missing_raw_names := [
             raw_name for raw_name in raw_names if raw_name not in folder_by_raw_name
@@ -746,12 +746,13 @@ class SearchStep:
         general_config = self._config[ConfigKeys.GENERAL]
         reuse_quant_from = general_config[ConfigKeys.GENERAL.REUSE_QUANT_FROM]
 
-        if general_config[ConfigKeys.GENERAL.REUSE_QUANT] and reuse_quant_from:
+        # silently ignoring the directories would lead to re-searching all raw files
+        if reuse_quant_from and not general_config[ConfigKeys.GENERAL.REUSE_QUANT]:
             raise ConfigError(
                 f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
                 str(reuse_quant_from),
                 "final",
-                f"Cannot be combined with '{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT}'.",
+                f"Requires '{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT}' to be set.",
             )
 
 

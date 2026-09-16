@@ -280,13 +280,16 @@ def test_get_reusable_quant_folders_from_own_quant_directory(tmp_path):
 
 
 def test_get_reusable_quant_folders_from_other_quant_directory(tmp_path):
-    """Test that a quant folder from `reuse_quant_from` is reused without being written to."""
+    """Test that `reuse_quant_from` replaces the quant directory of the current step."""
     folder = _create_quant_folder(tmp_path / "previous_run" / "quant", "raw1")
     step = SearchStep(
         str(tmp_path / "output"),
         config={
             "raw_paths": RAW_PATHS,
-            "general": {"reuse_quant_from": [str(tmp_path / "previous_run/quant")]},
+            "general": {
+                "reuse_quant": True,
+                "reuse_quant_from": [str(tmp_path / "previous_run/quant")],
+            },
         },
     )
 
@@ -304,7 +307,10 @@ def test_get_reusable_quant_folders_ignores_incomplete_folder(tmp_path):
         str(tmp_path / "output"),
         config={
             "raw_paths": ["/raw_files/raw1.raw", "/raw_files/raw2.raw"],
-            "general": {"reuse_quant_from": [str(quant_directory)]},
+            "general": {
+                "reuse_quant": True,
+                "reuse_quant_from": [str(quant_directory)],
+            },
         },
     )
 
@@ -322,7 +328,11 @@ def test_get_reusable_quant_folders_raises_for_missing_results_if_fail_fast(
         str(tmp_path / "output"),
         config={
             "raw_paths": ["/raw_files/raw1.raw", "/raw_files/raw2.raw"],
-            "general": {"reuse_quant_from": [str(quant_directory)], "fail_fast": True},
+            "general": {
+                "reuse_quant": True,
+                "reuse_quant_from": [str(quant_directory)],
+                "fail_fast": True,
+            },
         },
     )
 
@@ -342,7 +352,10 @@ def test_get_reusable_quant_folders_requires_transfer_file(tmp_path):
         str(tmp_path / "output"),
         config={
             "raw_paths": ["/raw_files/raw1.raw", "/raw_files/raw2.raw"],
-            "general": {"reuse_quant_from": [str(quant_directory)]},
+            "general": {
+                "reuse_quant": True,
+                "reuse_quant_from": [str(quant_directory)],
+            },
             "transfer_library": {"enabled": True},
         },
     )
@@ -359,7 +372,10 @@ def test_get_reusable_quant_folders_raises_for_directory_without_results(tmp_pat
         config={
             "raw_paths": RAW_PATHS,
             # pointing to the run folder instead of the quant directory therein
-            "general": {"reuse_quant_from": [str(tmp_path / "previous_run")]},
+            "general": {
+                "reuse_quant": True,
+                "reuse_quant_from": [str(tmp_path / "previous_run")],
+            },
         },
     )
 
@@ -377,10 +393,11 @@ def test_get_reusable_quant_folders_raises_on_duplicate_raw_file(tmp_path):
         config={
             "raw_paths": RAW_PATHS,
             "general": {
+                "reuse_quant": True,
                 "reuse_quant_from": [
                     str(tmp_path / "previous_run_1/quant"),
                     str(tmp_path / "previous_run_2/quant"),
-                ]
+                ],
             },
         },
     )
@@ -390,19 +407,14 @@ def test_get_reusable_quant_folders_raises_on_duplicate_raw_file(tmp_path):
         step._get_reusable_quant_folders()
 
 
-def test_raises_if_reuse_quant_and_reuse_quant_from_are_both_set(tmp_path):
-    """Test that `reuse_quant` and `reuse_quant_from` cannot be combined."""
-    (tmp_path / "previous_run" / "quant").mkdir(parents=True)
-
+def test_raises_if_reuse_quant_from_is_set_without_reuse_quant(tmp_path):
+    """Test that `reuse_quant_from` requires `reuse_quant`."""
     with pytest.raises(ConfigError, match="CONFIG_ERROR"):
         # when
         SearchStep(
             str(tmp_path / "output"),
             config={
-                "general": {
-                    "reuse_quant": True,
-                    "reuse_quant_from": [str(tmp_path / "previous_run/quant")],
-                }
+                "general": {"reuse_quant_from": [str(tmp_path / "previous_run/quant")]}
             },
         )
 
@@ -415,7 +427,12 @@ def test_expands_reuse_quant_from_paths(tmp_path, monkeypatch):
     # when
     step = SearchStep(
         str(tmp_path / "output"),
-        config={"general": {"reuse_quant_from": ["~/previous_run/quant"]}},
+        config={
+            "general": {
+                "reuse_quant": True,
+                "reuse_quant_from": ["~/previous_run/quant"],
+            }
+        },
     )
 
     assert step.config["general"]["reuse_quant_from"] == [
@@ -436,6 +453,7 @@ def test_run_creates_no_workflow_for_reused_folder(
         config={
             "raw_paths": ["/raw_files/raw1.raw", "/raw_files/raw2.raw"],
             "general": {
+                "reuse_quant": True,
                 "reuse_quant_from": [str(tmp_path / "previous_run/quant")],
                 "save_mbr_library": False,
             },
