@@ -63,18 +63,21 @@ class LFQOutputConfig:
 def _ion_hash(precursor_idx, number, type, charge, loss_type):
     """Create a 64-bit hash from fragment ion characteristics.
 
+    The hash is only injective if every field stays within its bit range; a field
+    exceeding it aliases into the next one. Ranges are not enforced.
+
     Parameters
     ----------
     precursor_idx : array-like
-        Precursor indices (lower 32 bits)
+        Precursor indices (lower 32 bits, < 2**32)
     number : array-like
-        Fragment number (next 8 bits)
+        Fragment number (next 8 bits, < 256)
     type : array-like
-        Fragment type (next 8 bits)
+        Fragment type (next 8 bits, < 256)
     charge : array-like
-        Fragment charge (next 8 bits)
+        Fragment charge (next 8 bits, < 256)
     loss_type : array-like
-        Loss type (last 8 bits)
+        Loss type (last 8 bits, < 256; >= 128 yields a negative hash)
 
     Returns
     -------
