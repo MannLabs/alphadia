@@ -10,7 +10,7 @@ from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHand
 from alphadia.workflow.peptidecentric.ng.ng_mapper import get_context_feature_names
 
 
-@pytest.mark.parametrize("competition_features", [True, False])
+@pytest.mark.parametrize("candidate_context_features", [True, False])
 @patch("alphadia.workflow.peptidecentric.extraction_handler.CandidateContext")
 @patch("alphadia.workflow.peptidecentric.extraction_handler.to_features_df")
 @patch("alphadia.workflow.peptidecentric.extraction_handler.PeakGroupScoring")
@@ -20,13 +20,13 @@ def test_score_candidates_adds_context_features_if_enabled(
     mock_scoring,
     mock_to_features_df,
     mock_candidate_context,
-    competition_features,
+    candidate_context_features,
 ):
     # given
     config = {
         "search": {
             "top_k_fragments_scoring": 12,
-            "competition_features": competition_features,
+            "candidate_context_features": candidate_context_features,
         }
     }
     handler = NgExtractionHandler(
@@ -46,8 +46,8 @@ def test_score_candidates_adds_context_features_if_enabled(
 
     # then
     has_context = set(get_context_feature_names()) <= set(features_df.columns)
-    assert has_context == competition_features
-    if competition_features:
+    assert has_context == candidate_context_features
+    if candidate_context_features:
         mock_candidate_context.assert_called_once_with(
             mass_tolerance=7.5, top_k_fragments=12
         )

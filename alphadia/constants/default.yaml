@@ -190,8 +190,8 @@ search:
   # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
   optimized_peak_group_score: False
 
-  # add cross-candidate competition and isolation-window context features to the classifier (rust backend only)
-  competition_features: True
+  # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
+  candidate_context_features: True
 
   # === python backend only ===
   # exclude fragments shared between multiple channels

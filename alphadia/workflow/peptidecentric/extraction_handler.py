@@ -597,7 +597,7 @@ class NgExtractionHandler(ExtractionHandler):
 
         # Scoped to the candidates of this call: an optimization batch, or the full library
         # at extraction. The FDR manager keys classifiers by column set, so both need them.
-        if self._config["search"]["competition_features"]:
+        if self._config["search"]["candidate_context_features"]:
             context_features = CandidateContext(
                 mass_tolerance=self._optimization_manager.ms2_error,
                 top_k_fragments=self._config["search"]["top_k_fragments_scoring"],
