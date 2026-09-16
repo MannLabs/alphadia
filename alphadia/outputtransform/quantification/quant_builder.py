@@ -16,6 +16,11 @@ from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
+PRECURSOR_IDX_MASK = 0xFFFFFFFF
+
+# fragment columns consumed by `_ion_hash`, in the order of its signature
+ION_HASH_COLUMNS = ["precursor_idx", "number", "type", "charge", "loss_type"]
+
 
 @dataclass
 class LFQOutputConfig:
@@ -83,6 +88,25 @@ def _ion_hash(precursor_idx, number, type, charge, loss_type):
         + (charge << 48)
         + (loss_type << 56)
     )
+
+
+def precursor_idx_from_ion(ion: np.ndarray) -> np.ndarray:
+    """Recover the precursor index from the lower 32 bits of the ion hash.
+
+    Assumes `precursor_idx < 2**32` and that `_ion_hash` is injective, i.e. that no
+    field overflows into a neighbouring one. Neither is enforced.
+
+    Parameters
+    ----------
+    ion : np.ndarray
+        Ion hashes as created by `_ion_hash`
+
+    Returns
+    -------
+    np.ndarray
+        Precursor indices as uint32
+    """
+    return (ion & PRECURSOR_IDX_MASK).astype(np.uint32)
 
 
 def prepare_df(

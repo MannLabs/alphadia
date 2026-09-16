@@ -1,10 +1,20 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from alphadia.outputtransform.quantification import FragmentQuantLoader
+
+READ_COLUMNS = [
+    "precursor_idx",
+    "number",
+    "type",
+    "charge",
+    "loss_type",
+    "intensity",
+    "correlation",
+]
 
 
 @pytest.fixture
@@ -61,6 +71,8 @@ class TestFragmentQuantLoaderAccumulate:
             "mod_seq_hash",
             "mod_seq_charge_hash",
         ]
+        assert result["intensity"]["precursor_idx"].dtype == np.uint32
+        assert result["intensity"]["precursor_idx"].tolist() == [0, 1, 2]
         assert result["intensity"]["run1"].tolist() == [110.0, 220.0, 330.0]
         assert result["correlation"]["run1"].tolist() == [0.8, 0.9, 0.7]
 
@@ -153,15 +165,17 @@ class TestFragmentQuantLoaderAccumulate:
 class TestFragmentQuantLoaderAccumulateFromFolders:
     """Test cases for FragmentQuantLoader.accumulate_from_folders() method."""
 
+    @patch("pyarrow.parquet.read_schema")
     @patch("os.path.exists")
     @patch("pandas.read_parquet")
     def test_accumulate_from_folders_success(
-        self, mock_read_parquet, mock_exists, psm_df, fragment_df
+        self, mock_read_parquet, mock_exists, mock_read_schema, psm_df, fragment_df
     ):
-        """Test accumulate_from_folders reads parquet files and uses folder basename."""
+        """Test accumulate_from_folders reads only the needed columns and uses folder basename."""
         # given
         mock_exists.return_value = True
-        mock_read_parquet.return_value = fragment_df
+        mock_read_schema.return_value = Mock(names=list(fragment_df.columns))
+        mock_read_parquet.return_value = fragment_df[READ_COLUMNS]
         loader = FragmentQuantLoader(psm_df)
         folders = ["/path/to/run1", "/path/to/run2"]
 
@@ -170,6 +184,9 @@ class TestFragmentQuantLoaderAccumulateFromFolders:
 
         # then
         assert mock_read_parquet.call_count == 2
+        mock_read_parquet.assert_called_with(
+            "/path/to/run2/frag.parquet", columns=READ_COLUMNS
+        )
         assert "run1" in result["intensity"].columns
         assert "run2" in result["intensity"].columns
         assert result["intensity"].shape[0] == 3
@@ -187,14 +204,16 @@ class TestFragmentQuantLoaderAccumulateFromFolders:
         # then
         assert result is None
 
+    @patch("pyarrow.parquet.read_schema")
     @patch("os.path.exists")
     @patch("pandas.read_parquet")
     def test_accumulate_from_folders_read_errors(
-        self, mock_read_parquet, mock_exists, psm_df
+        self, mock_read_parquet, mock_exists, mock_read_schema, psm_df, fragment_df
     ):
         """Test accumulate_from_folders handles read errors gracefully."""
         # given
         mock_exists.return_value = True
+        mock_read_schema.return_value = Mock(names=list(fragment_df.columns))
         mock_read_parquet.side_effect = Exception("Read error")
         loader = FragmentQuantLoader(psm_df)
 
@@ -203,3 +222,20 @@ class TestFragmentQuantLoaderAccumulateFromFolders:
 
         # then
         assert result is None
+
+    @patch("pyarrow.parquet.read_schema")
+    @patch("os.path.exists")
+    @patch("pandas.read_parquet")
+    def test_accumulate_from_folders_missing_column_raises(
+        self, mock_read_parquet, mock_exists, mock_read_schema, psm_df
+    ):
+        """Test accumulate_from_folders raises on a missing column instead of skipping the file."""
+        # given
+        mock_exists.return_value = True
+        mock_read_schema.return_value = Mock(names=["precursor_idx", "intensity"])
+        loader = FragmentQuantLoader(psm_df)
+
+        # when / then
+        with pytest.raises(ValueError, match="missing required columns"):
+            loader.accumulate_from_folders(["some_folder"])
+        mock_read_parquet.assert_not_called()
