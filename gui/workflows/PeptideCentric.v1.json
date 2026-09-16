@@ -545,16 +545,16 @@
             "parameters_advanced": [
                 {
                     "id": "min_k_fragments",
-                    "name": "Fragments per precursor",
+                    "name": "Minimum number of fragments",
                     "default": 12,
-                    "description": "Number of best-correlating fragments kept per precursor for quantification.",
+                    "description": "Minimum number of fragments required for quantification.",
                     "type": "integer"
                 },
                 {
                     "id": "min_correlation",
                     "name": "Minimum correlation",
                     "default": 0.9,
-                    "description": "Fragments with a higher mean cross-run correlation are kept in addition.",
+                    "description": "Minimum correlation required for quantification.",
                     "type": "float"
                 },
                 {
