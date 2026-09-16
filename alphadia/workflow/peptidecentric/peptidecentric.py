@@ -4,10 +4,6 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-try:  # noqa: SIM105
-    from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
-except ImportError:
-    pass
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -26,7 +22,7 @@ from alphadia.workflow.peptidecentric.transfer_library_requantification_handler 
     TransferLibraryRequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.utils import (
-    feature_columns,
+    get_classifier_feature_columns,
     log_precursor_df,
     use_timing_manager,
 )
@@ -109,9 +105,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
-            feature_columns=get_feature_names()
-            if self._config["search"]["extraction_backend"] == "rust"
-            else feature_columns,
+            feature_columns=get_classifier_feature_columns(
+                self._config["search"]["extraction_backend"]
+            ),
             classifier_base=_get_classifier_base(
                 enable_nn_hyperparameter_tuning=config_fdr[
                     "enable_nn_hyperparameter_tuning"

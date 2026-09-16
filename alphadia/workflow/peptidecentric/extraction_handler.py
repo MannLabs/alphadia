@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
+    CandidateContext,
     PeakGroupQuantification,
     PeakGroupScoring,
     PeakGroupSelection,
@@ -28,6 +29,7 @@ from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     candidates_to_ng,
+    merge_context_features,
     parse_candidates,
     parse_quantification,
     speclib_to_ng,
@@ -592,6 +594,15 @@ class NgExtractionHandler(ExtractionHandler):
         )
 
         features_df = to_features_df(candidate_features, spectral_library)
+
+        # Scoped to the candidates of this call: an optimization batch, or the full library
+        # at extraction. The FDR manager keys classifiers by column set, so both need them.
+        if self._config["search"]["candidate_context_features"]:
+            context_features = CandidateContext(
+                mass_tolerance=self._optimization_manager.ms2_error,
+                top_k_fragments=self._config["search"]["top_k_fragments_scoring"],
+            ).compute(dia_data, self._speclib_ng, candidates)
+            features_df = merge_context_features(features_df, context_features)
 
         return features_df
 

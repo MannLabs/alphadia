@@ -13,7 +13,7 @@ from alphabase.tools.data_downloader import DataShareDownloader
 
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
-from alphadia.workflow.peptidecentric.peptidecentric import feature_columns
+from alphadia.workflow.peptidecentric.utils import feature_columns
 
 classifiers = {
     "legacy_new_batching": BinaryClassifierLegacyNewBatching,

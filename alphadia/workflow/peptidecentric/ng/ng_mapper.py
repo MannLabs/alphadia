@@ -5,6 +5,7 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
     CandidateCollection,
+    CandidateContext,
     CandidateFeatureCollection,
     set_num_threads,
 )
@@ -14,6 +15,8 @@ from alphadia_search_rs import (
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
+
+CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
 
 
 def set_ng_thread_count(thread_count: int) -> None:
@@ -87,6 +90,38 @@ def speclib_to_ng(
 def get_feature_names() -> list[str]:
     """Get feature names from NG CandidateFeatureCollection."""
     return [f for f in CandidateFeatureCollection.get_feature_names()]
+
+
+def get_context_feature_names() -> list[str]:
+    """Get the competition and context feature names from NG CandidateContext."""
+    return list(CandidateContext.get_feature_names())
+
+
+def merge_context_features(
+    features_df: pd.DataFrame, context_features: dict[str, np.ndarray]
+) -> pd.DataFrame:
+    """Merge the output of `CandidateContext.compute()` into the scored candidates."""
+    context_df = pd.DataFrame(context_features)
+
+    # checked before the merge, so that the error can name the offending candidates
+    duplicates = context_df.loc[
+        context_df.duplicated(CANDIDATE_KEY_COLUMNS), CANDIDATE_KEY_COLUMNS
+    ]
+    if not duplicates.empty:
+        raise ValueError(
+            f"Context features contain duplicate candidates:\n"
+            f"{duplicates.to_string(index=False)}"
+        )
+
+    merged_df = features_df.merge(
+        context_df, on=CANDIDATE_KEY_COLUMNS, validate="one_to_one"
+    )
+
+    num_missing = len(features_df) - len(merged_df)
+    if num_missing > 0:
+        raise ValueError(f"Context features are missing for {num_missing} candidates")
+
+    return merged_df
 
 
 def parse_candidates(

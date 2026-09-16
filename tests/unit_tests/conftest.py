@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from alphadia.workflow.peptidecentric.ng.ng_mapper import get_context_feature_names
+
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
@@ -169,6 +171,19 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
             "loss_type": fragment_loss_type,
         }
     )
+
+
+def mock_context_features(
+    precursor_idx: list[int], rank: list[int]
+) -> dict[str, np.ndarray]:
+    """Mock `CandidateContext.compute()` output, each feature holding the row index."""
+    context_features = {
+        "precursor_idx": np.array(precursor_idx, dtype=np.uint64),
+        "rank": np.array(rank, dtype=np.uint64),
+    }
+    for name in get_context_feature_names():
+        context_features[name] = np.arange(len(precursor_idx), dtype=np.float32)
+    return context_features
 
 
 def pytest_configure(config):  # TODO is this still used?
