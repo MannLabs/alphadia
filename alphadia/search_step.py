@@ -16,7 +16,12 @@ from alphadia.constants.keys import (
     ConfigKeys,
     SearchStepFiles,
 )
-from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
+from alphadia.exceptions import (
+    ConfigError,
+    CustomError,
+    GenericUserError,
+    NoLibraryAvailableError,
+)
 from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
@@ -37,7 +42,7 @@ from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.utils import expand_path
-from alphadia.workflow.base import WorkflowBase
+from alphadia.workflow.base import WorkflowBase, get_quant_path
 from alphadia.workflow.config import (
     MODIFICATIONS_DELIM,
     MULTIPLEXING_CHANNELS_DELIM,
@@ -420,6 +425,102 @@ class SearchStep:
             raw_name = Path(raw_location).stem
             yield raw_name, raw_location, self.spectral_library
 
+    def _has_quant_results(self, folder: str) -> bool:
+        """Check if `folder` holds all quantification files required for reusing it."""
+        required_files = [
+            SearchStepFiles.PSM_FILE_NAME,
+            SearchStepFiles.FRAG_FILE_NAME,
+        ]
+        if self.config["transfer_library"]["enabled"]:
+            required_files.append(SearchStepFiles.FRAG_TRANSFER_FILE_NAME)
+
+        return all(
+            os.path.exists(os.path.join(folder, file_name))
+            for file_name in required_files
+        )
+
+    def _get_raw_names_with_quant_results(
+        self, quant_directory: str, raw_names: list[str]
+    ) -> list[str]:
+        """Get the names of those `raw_names` for which `quant_directory` holds quantification results."""
+        matched_raw_names = [
+            raw_name
+            for raw_name in raw_names
+            if self._has_quant_results(os.path.join(quant_directory, raw_name))
+        ]
+
+        logger.progress(
+            f"Found quantification results for {len(matched_raw_names)}/{len(raw_names)} raw files in {quant_directory}"
+        )
+
+        return matched_raw_names
+
+    def _get_reusable_quant_folders(self) -> dict[str, str]:
+        """Map the name of each raw file with reusable quantification results to the folder holding them.
+
+        Returns an empty mapping unless `general.reuse_quant` is set. Considers the directories given in
+        `general.reuse_quant_from`, or the quant directory of the current search step if there are none.
+        """
+        general_config = self.config[ConfigKeys.GENERAL]
+        if not general_config[ConfigKeys.GENERAL.REUSE_QUANT]:
+            return {}
+
+        raw_names = [Path(raw_location).stem for raw_location in self.raw_path_list]
+
+        folder_by_raw_name = {}
+        if reuse_quant_from := general_config[ConfigKeys.GENERAL.REUSE_QUANT_FROM]:
+            for quant_directory in reuse_quant_from:
+                matched_raw_names = self._get_raw_names_with_quant_results(
+                    quant_directory, raw_names
+                )
+
+                if not matched_raw_names:
+                    raise ConfigError(
+                        f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
+                        quant_directory,
+                        "final",
+                        "No quantification results found for any of the raw files. This directory needs to "
+                        f"hold one folder per raw file, e.g. '{os.path.join(quant_directory, raw_names[0], SearchStepFiles.PSM_FILE_NAME)}'.",
+                    )
+
+                for raw_name in matched_raw_names:
+                    if raw_name in folder_by_raw_name:
+                        raise ConfigError(
+                            f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
+                            str(reuse_quant_from),
+                            "final",
+                            f"Found quantification results for {raw_name} in more than one directory: "
+                            f"{folder_by_raw_name[raw_name]} and {quant_directory}",
+                        )
+
+                    folder_by_raw_name[raw_name] = os.path.join(
+                        quant_directory, raw_name
+                    )
+
+        else:
+            current_step_quant_dir = get_quant_path(
+                self.config, self.config[ConfigKeys.QUANT_DIRECTORY]
+            )
+            for raw_name in self._get_raw_names_with_quant_results(
+                current_step_quant_dir, raw_names
+            ):
+                folder_by_raw_name[raw_name] = os.path.join(
+                    current_step_quant_dir, raw_name
+                )
+
+        if missing_raw_names := [
+            raw_name for raw_name in raw_names if raw_name not in folder_by_raw_name
+        ]:
+            msg = f"Found no quantification results for {len(missing_raw_names)}/{len(raw_names)} raw files"
+            if general_config[ConfigKeys.GENERAL.FAIL_FAST]:
+                raise GenericUserError(
+                    f"{msg}: {missing_raw_names}",
+                    f"Set '{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.FAIL_FAST}' to false to process them instead.",
+                )
+            logger.warning(f"{msg}, they will be processed: {missing_raw_names}")
+
+        return folder_by_raw_name
+
     def run(
         self,
     ) -> list[tuple[str, str]]:
@@ -447,6 +548,8 @@ class SearchStep:
             f"=================== Starting Search Workflows for step {self._step_name} ==================="
         )
 
+        reusable_quant_folders = self._get_reusable_quant_folders()
+
         workflow_folder_list = []
         raw_files_with_errors = []
 
@@ -462,39 +565,22 @@ class SearchStep:
             )
 
             try:
+                # no workflow is created for reused results to make sure their folder is not written to
+                if (reused_folder := reusable_quant_folders.get(raw_name)) is not None:
+                    logger.info(
+                        f"Reusing quantification results from {reused_folder}, skipping processing .."
+                    )
+                    workflow_folder_list.append(reused_folder)
+                    continue
+
                 workflow = PeptideCentricWorkflow(
                     raw_name,
                     self.config,
-                    quant_path=self.config["quant_directory"],
+                    quant_path=self.config[ConfigKeys.QUANT_DIRECTORY],
                     random_state=random_state,
                 )
-                workflow_path = Path(workflow.path)
 
-                # check if the raw file is already processed, i.e. if all relevant files exist
-                is_already_processed = False
-                if self.config["general"]["reuse_quant"]:
-                    required_files = [
-                        SearchStepFiles.PSM_FILE_NAME,
-                        SearchStepFiles.FRAG_FILE_NAME,
-                    ]
-                    if self.config["transfer_library"]["enabled"]:
-                        required_files.append(SearchStepFiles.FRAG_TRANSFER_FILE_NAME)
-
-                    if all(
-                        (workflow_path / file_name).exists()
-                        for file_name in required_files
-                    ):
-                        logger.info(
-                            f"general.reuse_quant: found existing quantification for {raw_name}, skipping processing .."
-                        )
-                        is_already_processed = True
-                    else:
-                        logger.warning(
-                            f"general.reuse_quant: found no existing quantification for {raw_name}, proceeding with processing .."
-                        )
-
-                if not is_already_processed:
-                    self._process_raw_file(workflow, dia_path, speclib)
+                self._process_raw_file(workflow, dia_path, speclib)
 
                 workflow_folder_list.append(workflow.path)
 
@@ -502,7 +588,7 @@ class SearchStep:
                 _log_exception_event(e, raw_name, workflow)
                 raw_files_with_errors.append((self._step_name, raw_name))
 
-                if self.config["general"]["fail_fast"]:
+                if self.config[ConfigKeys.GENERAL][ConfigKeys.GENERAL.FAIL_FAST]:
                     raise e
 
                 continue
@@ -618,7 +704,17 @@ class SearchStep:
             elif value is not None:
                 config.set_value(key, expand_path(value))
 
-        # this cannot be treated in above loop easily
+        # these cannot be treated in above loop easily
+        config.set_value(
+            (ConfigKeys.GENERAL, ConfigKeys.GENERAL.REUSE_QUANT_FROM),
+            [
+                expand_path(path)
+                for path in config.get(ConfigKeys.GENERAL, {}).get(
+                    ConfigKeys.GENERAL.REUSE_QUANT_FROM, []
+                )
+            ],
+        )
+
         config.set_value(
             (
                 ConfigKeys.LIBRARY_PREDICTION,
@@ -645,6 +741,18 @@ class SearchStep:
                 "True",
                 "final",
                 "Multiplexing is not yet supported with the 'ng' extraction backend.",
+            )
+
+        general_config = self._config[ConfigKeys.GENERAL]
+        reuse_quant_from = general_config[ConfigKeys.GENERAL.REUSE_QUANT_FROM]
+
+        # silently ignoring the directories would lead to re-searching all raw files
+        if reuse_quant_from and not general_config[ConfigKeys.GENERAL.REUSE_QUANT]:
+            raise ConfigError(
+                f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
+                str(reuse_quant_from),
+                "final",
+                f"Requires '{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT}' to be set.",
             )
 
 

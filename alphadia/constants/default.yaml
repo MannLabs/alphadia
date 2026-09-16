@@ -25,6 +25,10 @@ general:
   reuse_calibration: false
   # whether to reuse previously calculated quantification data
   reuse_quant: false
+  # quant directories (e.g. `<previous_run>/quant`) of other runs to reuse quantification data from
+  # instead of the quant directory of the current run, requires `reuse_quant`.
+  # These directories are only read from, never written to.
+  reuse_quant_from: []
   # logging verbosity level (DEBUG, INFO, PROGRESS, WARNING, ERROR)
   log_level: 'INFO'
   # whether to use GPU acceleration for library prediction and scoring
@@ -49,7 +53,8 @@ general:
   # if null, no specific setting of random states is performed
   random_state: null
 
-  # if true, exit immediately in case a file raises an error. If set to false, errors will be logged but the processing of other files will continue.
+  # if true, exit immediately in case a file raises an error or if a quanting result to be reused is not found.
+  # If set to false, errors will be logged but the processing of other files will continue.
   fail_fast: false
 
 library_loading:
