@@ -16,6 +16,15 @@ from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
+# Columns of the accumulated fragment matrices that hold metadata rather than run intensities
+FRAGMENT_METADATA_COLUMNS = [
+    "precursor_idx",
+    "ion",
+    "pg",
+    "mod_seq_hash",
+    "mod_seq_charge_hash",
+]
+
 
 @dataclass
 class LFQOutputConfig:
@@ -168,13 +177,8 @@ class QuantBuilder:
         """
         logger.info("Filtering fragments by quality")
 
-        # Extract sample/run columns (e.g., run_0, run_1, run_2)
-        # These are all columns except metadata columns
         run_columns = [
-            c
-            for c in intensity_df.columns
-            if c
-            not in ["precursor_idx", "ion", "pg", "mod_seq_hash", "mod_seq_charge_hash"]
+            c for c in intensity_df.columns if c not in FRAGMENT_METADATA_COLUMNS
         ]
 
         quality_df["total"] = np.mean(quality_df[run_columns].values, axis=1)
@@ -212,34 +216,9 @@ class QuantBuilder:
             f"Performing label-free quantification with {lfq_config.normalization_method} normalization"
         )
 
-        # drop all other columns as they will be interpreted as samples
-        columns_to_drop = list(
-            {"precursor_idx", "pg", "mod_seq_hash", "mod_seq_charge_hash"}
-            - {lfq_config.quant_level}
-        )
-        intensity_df = intensity_df.drop(columns=columns_to_drop)
-
-        lfqconfig.set_global_protein_and_ion_id(
-            protein_id=lfq_config.quant_level, quant_id="ion"
-        )
-        lfqconfig.set_compile_normalized_ion_table(compile_normalized_ion_table=False)
-        lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()
-        lfqconfig.set_log_processed_proteins(log_processed_proteins=True)
-
-        intensity_df.sort_values(
-            by=lfq_config.quant_level, inplace=True, ignore_index=True
-        )
-
-        lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
-        lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
-
+        lfq_df = self._prepare_ion_table(intensity_df, lfq_config.quant_level)
         if config["search_output"]["normalize_directlfq"]:
-            logger.info("Applying directLFQ normalization")
-            lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
-                lfq_df,
-                num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
-                selected_proteins_file=None,
-            ).complete_dataframe
+            lfq_df = self._normalize_ion_table(lfq_df, config)
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
@@ -248,6 +227,64 @@ class QuantBuilder:
             num_cores=config["general"]["thread_count"],
         )
         return protein_df
+
+    def _prepare_ion_table(
+        self, intensity_df: pd.DataFrame, quant_level: str
+    ) -> pd.DataFrame:
+        """Build the log2 ion table directLFQ operates on.
+
+        Parameters
+        ----------
+        intensity_df: pd.DataFrame
+            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+        quant_level: str
+            Column to group ions by (pg, mod_seq_hash, mod_seq_charge_hash)
+
+        Returns
+        -------
+        pd.DataFrame
+            Log2 intensities indexed by (quant_level, ion) with one column per run.
+            Missing values are NaN and ions missing in every run are dropped.
+        """
+        # directLFQ treats every column except the group and ion id as a sample
+        columns_to_drop = [
+            c for c in FRAGMENT_METADATA_COLUMNS if c not in ("ion", quant_level)
+        ]
+        intensity_df = intensity_df.drop(columns=columns_to_drop)
+
+        lfqconfig.set_global_protein_and_ion_id(protein_id=quant_level, quant_id="ion")
+        lfqconfig.set_compile_normalized_ion_table(compile_normalized_ion_table=False)
+        lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()
+        lfqconfig.set_log_processed_proteins(log_processed_proteins=True)
+
+        intensity_df.sort_values(by=quant_level, inplace=True, ignore_index=True)
+
+        lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
+        return lfqutils.remove_allnan_rows_input_df(lfq_df)
+
+    def _normalize_ion_table(
+        self, lfq_df: pd.DataFrame, config: Config
+    ) -> pd.DataFrame:
+        """Apply directLFQ sample normalization to a log2 ion table.
+
+        Parameters
+        ----------
+        lfq_df: pd.DataFrame
+            Log2 ion table as returned by _prepare_ion_table
+        config: Config
+            Global configuration object
+
+        Returns
+        -------
+        pd.DataFrame
+            Ion table with per-sample shifts removed
+        """
+        logger.info("Applying directLFQ normalization")
+        return lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
+            lfq_df,
+            num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
+            selected_proteins_file=None,
+        ).complete_dataframe
 
     def quantselect_lfq(
         self,
