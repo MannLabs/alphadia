@@ -754,16 +754,6 @@ class SearchStep:
                 f"Cannot be combined with '{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT}'.",
             )
 
-        # a nonexistent directory would silently lead to re-searching all raw files
-        for quant_directory in reuse_quant_from:
-            if not os.path.isdir(quant_directory):
-                raise ConfigError(
-                    f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
-                    quant_directory,
-                    "final",
-                    "Directory does not exist.",
-                )
-
 
 def _log_exception_event(
     e: Exception, raw_name: str | None = None, workflow: WorkflowBase | None = None

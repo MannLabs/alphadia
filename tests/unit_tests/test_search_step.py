@@ -390,18 +390,6 @@ def test_get_reusable_quant_folders_raises_on_duplicate_raw_file(tmp_path):
         step._get_reusable_quant_folders()
 
 
-def test_raises_for_nonexistent_reuse_quant_from_directory(tmp_path):
-    """Test that a nonexistent directory in `reuse_quant_from` raises on initialization."""
-    with pytest.raises(ConfigError, match="CONFIG_ERROR"):
-        # when
-        SearchStep(
-            str(tmp_path / "output"),
-            config={
-                "general": {"reuse_quant_from": [str(tmp_path / "does_not_exist")]}
-            },
-        )
-
-
 def test_raises_if_reuse_quant_and_reuse_quant_from_are_both_set(tmp_path):
     """Test that `reuse_quant` and `reuse_quant_from` cannot be combined."""
     (tmp_path / "previous_run" / "quant").mkdir(parents=True)
