@@ -55,6 +55,7 @@ def test_search_plan_output_integration():
             "file_format": "parquet",
             "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
+            "intensity_drift_correction": True,
         },
         "multiplexing": {"enabled": False},
         "search_initial": {
