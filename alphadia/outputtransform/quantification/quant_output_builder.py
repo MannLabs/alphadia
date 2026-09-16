@@ -101,6 +101,8 @@ class QuantOutputBuilder:
         quantlevel_configs = self._create_quant_level_configs()
         requested_configs = [c for c in quantlevel_configs if c.should_process]
 
+        # TODO cover the QuantSelect branch with a build-level test: every requested
+        #  level is routed to quantselect_lfq and the directLFQ fragment filter is skipped
         if (
             self.config["search_output"]["normalization_method"]
             == NormalizationMethods.QUANTSELECT

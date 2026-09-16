@@ -631,6 +631,7 @@ class TestLfq:
 
         # Then
         assert result_df.empty
+        assert list(result_df.columns) == ["pg", "run1", "run2", "run3"]
 
     def test_handles_custom_group_column(
         self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq

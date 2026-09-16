@@ -213,9 +213,12 @@ class QuantBuilder:
         logger.info("Performing label-free quantification with directLFQ")
 
         lfq_df = self._prepare_ion_table(intensity_df, lfq_config.quant_level)
-        # directLFQ's normalization divides by the number of ions
+        # directLFQ's normalization divides by the number of ions, so an empty ion
+        # table must return before it runs.
         if lfq_df.empty:
-            return pd.DataFrame(columns=[lfq_config.quant_level])
+            return pd.DataFrame(
+                columns=[lfq_config.quant_level, *get_run_columns(intensity_df)]
+            )
         if config["search_output"]["normalize_directlfq"]:
             lfq_df = self._normalize_ion_table(lfq_df, config)
 
