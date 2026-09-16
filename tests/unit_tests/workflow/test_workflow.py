@@ -15,13 +15,18 @@ from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
-from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationEstimators,
+    CalibrationGroups,
+    CalibrationManager,
+)
 from alphadia.workflow.managers.fdr_manager import FDRManager, column_hash
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.optimizers.automatic import (
     AutomaticMobilityOptimizer,
     AutomaticMS1Optimizer,
     AutomaticMS2Optimizer,
+    AutomaticOptimizer,
     AutomaticRTOptimizer,
 )
 from alphadia.workflow.optimizers.targeted import (
@@ -710,6 +715,59 @@ def test_automatic_mobility_optimizer():
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
+
+
+def test_automatic_optimizer_requires_a_feature():
+    """Test that an automatic optimizer that declares no feature cannot be constructed."""
+
+    # given
+    class FeaturelessOptimizer(AutomaticOptimizer):
+        parameter_name = "ms2_error"
+        _estimator_group_name = CalibrationGroups.FRAGMENT
+        _estimator_name = CalibrationEstimators.MZ
+
+    workflow = create_workflow_instance()
+
+    # when / then
+    with pytest.raises(TypeError, match="_feature"):
+        FeaturelessOptimizer(
+            100,
+            workflow.config,
+            workflow.optimization_manager,
+            workflow.calibration_manager,
+            workflow._fdr_manager,
+            workflow._optimization_handler._optlock,
+            workflow.reporter,
+        )
+
+
+def test_automatic_ms1_optimizer_does_not_pick_a_round_without_precursors():
+    """Test that a recovery round without precursors leaves the optimum at a measured round."""
+    # given
+    workflow = create_workflow_instance()
+    calibration_test_df = calibration_testdata()
+    workflow.calibration_manager.fit(calibration_test_df, "precursor", plot=False)
+
+    ms1_optimizer = AutomaticMS1Optimizer(
+        100,
+        workflow.config,
+        workflow.optimization_manager,
+        workflow.calibration_manager,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
+        workflow.reporter,
+    )
+    ms1_optimizer.step(calibration_test_df, pd.DataFrame())
+    no_precursors_df = calibration_test_df.head(0)
+
+    # when
+    ms1_optimizer.proceed_with_insufficient_precursors(no_precursors_df, pd.DataFrame())
+
+    # then
+    assert np.isnan(
+        ms1_optimizer.history_df["mean_isotope_intensity_correlation"].iloc[-1]
+    )
+    assert workflow.optimization_manager.ms1_error == 100
 
 
 def test_targeted_ms2_optimizer():
