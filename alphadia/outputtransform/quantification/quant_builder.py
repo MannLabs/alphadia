@@ -49,7 +49,12 @@ class LFQOutputConfig:
     normalization_method: str = NormalizationMethods.DIRECTLFQ
 
 
-@nb.njit(cache=USE_NUMBA_CACHING)
+# explicit signature: a uint64 precursor_idx would make numba promote the hash
+# to float64, silently rounding away the lower bits for large hashes.
+@nb.njit(
+    "int64[:](int64[:], int64[:], int64[:], int64[:], int64[:])",
+    cache=USE_NUMBA_CACHING,
+)
 def _ion_hash(precursor_idx, number, type, charge, loss_type):
     """Create a 64-bit hash from fragment ion characteristics.
 
@@ -101,11 +106,11 @@ def prepare_df(
     """
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
     df["ion"] = _ion_hash(
-        df["precursor_idx"].values,
-        df["number"].values,
-        df["type"].values,
-        df["charge"].values,
-        df["loss_type"].values,
+        df["precursor_idx"].values.astype(np.int64),
+        df["number"].values.astype(np.int64),
+        df["type"].values.astype(np.int64),
+        df["charge"].values.astype(np.int64),
+        df["loss_type"].values.astype(np.int64),
     )
     return df[["precursor_idx", "ion"] + columns]
 
