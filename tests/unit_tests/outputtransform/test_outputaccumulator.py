@@ -50,8 +50,6 @@ def prepare_input_data():
             "keep_decoys": False,
         },
         "search_output": {
-            "min_k_fragments": 3,
-            "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
             "save_fragment_quant_matrix": False,

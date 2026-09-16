@@ -194,9 +194,9 @@ def prepare_df(
 class QuantBuilder:
     """Build quantification results through filtering and label-free quantification.
 
-    Filters fragments by correlation, sums them to precursors with correlation
-    weights and estimates peptides and protein groups from those precursors with
-    directLFQ. Fragment data accumulation is handled by FragmentQuantLoader.
+    Sums fragments to precursors with correlation weights and estimates peptides
+    and protein groups from those precursors with directLFQ. Fragment data
+    accumulation is handled by FragmentQuantLoader.
 
     Parameters
     ----------
@@ -209,51 +209,6 @@ class QuantBuilder:
     def __init__(self, psm_df: pd.DataFrame, columns: list[str] | None = None):
         self.psm_df = psm_df
         self.columns = ["intensity", "correlation"] if columns is None else columns
-
-    def filter_frag_df(
-        self,
-        intensity_df: pd.DataFrame,
-        correlation_df: pd.DataFrame,
-        min_correlation: float = 0.5,
-        top_n: int = 3,
-        group_column: str = "pg",
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Filter fragment data by cross-run correlation.
-
-        Keeps fragments that meet either of these criteria:
-        - Among top N fragments per group (by mean correlation across runs)
-        - Mean correlation above min_correlation threshold
-
-        Parameters
-        ----------
-        intensity_df : pd.DataFrame
-            Fragment intensity data with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
-        correlation_df : pd.DataFrame
-            Fragment correlation data with same structure as intensity_df
-        min_correlation : float, default=0.5
-            Minimum mean correlation to keep fragment (if not in top N)
-        top_n : int, default=3
-            Number of top fragments to keep per group
-        group_column : str, default='pg'
-            Column to group fragments by (pg, mod_seq_hash, mod_seq_charge_hash)
-
-        Returns
-        -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            Filtered intensity and correlation dataframes
-        """
-        logger.info("Filtering fragments by correlation")
-
-        run_columns = get_run_columns(intensity_df)
-
-        correlation_df["total"] = np.mean(correlation_df[run_columns].values, axis=1)
-        correlation_df["rank"] = correlation_df.groupby(group_column)["total"].rank(
-            ascending=False, method="first"
-        )
-        mask = (correlation_df["rank"].values <= top_n) | (
-            correlation_df["total"].values > min_correlation
-        )
-        return intensity_df[mask], correlation_df[mask]
 
     def direct_lfq(
         self,

@@ -544,20 +544,6 @@
             ],
             "parameters_advanced": [
                 {
-                    "id": "min_k_fragments",
-                    "name": "Fragments per precursor",
-                    "default": 12,
-                    "description": "Number of best-correlating fragments kept per precursor for quantification.",
-                    "type": "integer"
-                },
-                {
-                    "id": "min_correlation",
-                    "name": "Minimum correlation",
-                    "default": 0.9,
-                    "description": "Fragments with a higher mean cross-run correlation are kept in addition.",
-                    "type": "float"
-                },
-                {
                     "id": "num_samples_quadratic",
                     "name": "Number of samples for quadratic fit",
                     "default": 50,

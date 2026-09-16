@@ -218,6 +218,32 @@ def test_config_update_new_key_tolerated():
     assert config_1 == expected_generic_default_config_dict
 
 
+def test_config_update_tolerates_removed_fragment_filter_keys():
+    """Given a user config still setting the removed fragment filter keys, when the default config is updated with it, then the keys are dropped instead of raising."""
+    # given
+    config_base_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "..",
+        "alphadia",
+        "constants",
+        "default.yaml",
+    )
+    default_config = Config(name="default")
+    default_config.from_yaml(config_base_path)
+    user_config = Config(
+        {"search_output": {"min_k_fragments": 12, "min_correlation": 0.9}}, "user"
+    )
+
+    # when
+    default_config.update([user_config])
+
+    # then
+    assert "min_k_fragments" not in default_config["search_output"]
+    assert "min_correlation" not in default_config["search_output"]
+
+
 def test_config_update_type_mismatch_raises():
     """Test updating a config with a different type"""
     config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")

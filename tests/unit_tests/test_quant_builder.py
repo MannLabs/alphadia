@@ -30,36 +30,6 @@ def psm_df():
 
 
 @pytest.fixture
-def filtering_data():
-    """Intensity and quality dataframes for filtering tests."""
-    intensity_df = pd.DataFrame(
-        {
-            "precursor_idx": [0, 0, 0, 1, 1, 1],
-            "ion": [100, 101, 102, 200, 201, 202],
-            "run1": [1000.0, 2000.0, 3000.0, 1500.0, 2500.0, 3500.0],
-            "run2": [1100.0, 2100.0, 3100.0, 1600.0, 2600.0, 3600.0],
-            "pg": ["PG001", "PG001", "PG001", "PG002", "PG002", "PG002"],
-            "mod_seq_hash": [1, 1, 1, 2, 2, 2],
-            "mod_seq_charge_hash": [10, 10, 10, 20, 20, 20],
-        }
-    )
-
-    quality_df = pd.DataFrame(
-        {
-            "precursor_idx": [0, 0, 0, 1, 1, 1],
-            "ion": [100, 101, 102, 200, 201, 202],
-            "run1": [0.9, 0.7, 0.3, 0.8, 0.6, 0.4],
-            "run2": [0.8, 0.6, 0.4, 0.9, 0.7, 0.5],
-            "pg": ["PG001", "PG001", "PG001", "PG002", "PG002", "PG002"],
-            "mod_seq_hash": [1, 1, 1, 2, 2, 2],
-            "mod_seq_charge_hash": [10, 10, 10, 20, 20, 20],
-        }
-    )
-
-    return intensity_df, quality_df
-
-
-@pytest.fixture
 def precursor_df():
     """Precursor quantities with a two-fold change between runs; PG001 has two precursors."""
     return pd.DataFrame(
@@ -110,8 +80,6 @@ def search_config():
             "num_cores": 4,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
-            "min_k_fragments": 1,
-            "min_correlation": 0,
             "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
         },
@@ -430,101 +398,6 @@ def psm_file():
             "precursor.rt.observed": [101.0] * 54,
         }
     )
-
-
-class TestFilterFragDf:
-    """Test fragment filtering by quality."""
-
-    def test_filters_by_top_n_per_group(self, filtering_data, psm_df):
-        """Given fragments from multiple groups, when filtered by top N, then keeps top N per group."""
-        # Given
-        intensity_df, quality_df = filtering_data
-        builder = QuantBuilder(psm_df)
-
-        # When
-        filtered_intensity, _ = builder.filter_frag_df(
-            intensity_df, quality_df, min_correlation=0.5, top_n=2
-        )
-
-        # Then
-        assert len(filtered_intensity) == 4
-        pg001_ions = filtered_intensity[filtered_intensity["pg"] == "PG001"][
-            "ion"
-        ].values
-        pg002_ions = filtered_intensity[filtered_intensity["pg"] == "PG002"][
-            "ion"
-        ].values
-        assert len(pg001_ions) == 2
-        assert len(pg002_ions) == 2
-
-    def test_filters_by_min_correlation(self, filtering_data, psm_df):
-        """Given fragments with varying quality, when filtered by correlation, then keeps high-quality fragments."""
-        # Given
-        intensity_df, quality_df = filtering_data
-        builder = QuantBuilder(psm_df)
-
-        # When
-        filtered_intensity, filtered_quality = builder.filter_frag_df(
-            intensity_df, quality_df, min_correlation=0.6, top_n=1
-        )
-
-        # Then - Should keep top 1 OR above 0.6
-        kept_ions = set(filtered_intensity["ion"].values)
-        assert kept_ions == {100, 101, 200, 201}
-
-    @pytest.mark.parametrize(
-        "group_column,expected_groups",
-        [
-            ("pg", ["PG001", "PG002"]),
-            ("mod_seq_hash", [1, 2]),
-        ],
-    )
-    def test_respects_group_column(
-        self, filtering_data, psm_df, group_column, expected_groups
-    ):
-        """Given custom group column, when filtered, then groups by specified column."""
-        # Given
-        intensity_df, quality_df = filtering_data
-        builder = QuantBuilder(psm_df)
-
-        # When
-        filtered_intensity, _ = builder.filter_frag_df(
-            intensity_df,
-            quality_df,
-            min_correlation=2.0,
-            top_n=1,
-            group_column=group_column,
-        )
-
-        # Then
-        groups = filtered_intensity[group_column].unique()
-        assert set(groups) == set(expected_groups)
-
-    def test_handles_empty_input(self, psm_df):
-        """Given empty dataframes, when filtered, then returns empty dataframes."""
-        # Given
-        empty_intensity = pd.DataFrame(
-            columns=[
-                "precursor_idx",
-                "ion",
-                "run1",
-                "pg",
-                "mod_seq_hash",
-                "mod_seq_charge_hash",
-            ]
-        )
-        empty_quality = empty_intensity.copy()
-        builder = QuantBuilder(psm_df)
-
-        # When
-        filtered_intensity, filtered_quality = builder.filter_frag_df(
-            empty_intensity, empty_quality, min_correlation=0.5, top_n=3
-        )
-
-        # Then
-        assert len(filtered_intensity) == 0
-        assert "total" in filtered_quality.columns
-        assert "rank" in filtered_quality.columns
 
 
 class TestLfq:

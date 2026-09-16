@@ -321,10 +321,6 @@ search_output:
   save_fragment_quant_matrix: False
 
   # === advanced settings ===
-  # Number of best-correlating fragments kept per precursor for quantification
-  min_k_fragments: 12
-  # Fragments with a higher mean cross-run correlation are kept in addition
-  min_correlation: 0.9
   # Number of samples used for quadratic fit in retention time alignment
   num_samples_quadratic: 50
   # Minimum number of precursors observed in a sample for a peptide or protein group quantity

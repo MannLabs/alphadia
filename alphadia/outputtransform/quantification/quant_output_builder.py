@@ -25,9 +25,8 @@ logger = logging.getLogger()
 class QuantOutputBuilder:
     """Build quantification outputs at multiple levels (precursor, peptide, protein).
 
-    Accumulates fragment data, filters it by correlation, sums it to precursor
-    quantities and estimates peptide and protein group quantities from those
-    precursors with directLFQ.
+    Accumulates fragment data, sums it to precursor quantities and estimates
+    peptide and protein group quantities from those precursors with directLFQ.
 
     Parameters
     ----------
@@ -262,17 +261,8 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name, empty when no fragment was observed
         """
-        filtered_intensity_df, filtered_correlation_df = (
-            self.quant_builder.filter_frag_df(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                top_n=self.config["search_output"]["min_k_fragments"],
-                min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=QuantificationLevelKey.PRECURSOR,
-            )
-        )
         precursor_df = self.quant_builder.sum_fragments_to_precursors(
-            filtered_intensity_df, filtered_correlation_df, self.config
+            feature_dfs_dict["intensity"], feature_dfs_dict["correlation"], self.config
         )
         if precursor_df.empty:
             return {}
