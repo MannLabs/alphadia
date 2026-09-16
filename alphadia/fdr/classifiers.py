@@ -9,12 +9,24 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
+from scipy.stats import norm
 from torch import nn, optim
 from tqdm import tqdm
 
+from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
+
+# Number of equally spaced quantiles used to store the empirical CDF of a feature.
+_N_QUANTILES = 1001
+
+# Keeps the most extreme values at a finite normal score instead of +/- infinity.
+_QUANTILE_CLIP = 1e-4
+
+# Below this number of training rows the empirical quantiles are too coarse to be
+# a better input than the raw features.
+_MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 
 
 class Classifier(ABC):
@@ -161,6 +173,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
+        feature_transform: str = FeatureTransform.NONE,
         *,
         experimental_hyperparameter_tuning: bool = False,
         random_state: int | None = None,
@@ -200,6 +213,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         metric_interval : int, default=1000
             Interval for logging metrics during training.
 
+        feature_transform : str, default="none"
+            Transform applied to the features before they enter the network,
+            either "none" or "quantile". See `_apply_transform`.
+
         experimental_hyperparameter_tuning: bool, default=False
             Whether to use experimental hyperparameter tuning.
 
@@ -222,11 +239,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.metric_interval = metric_interval
+        self.feature_transform = feature_transform
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
 
         self.network = None
         self.optimizer = None
         self._fitted = False
+        self._quantiles: np.ndarray | None = None
 
         self.metrics = {
             "epoch": [],
@@ -275,10 +294,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             "dropout": self.dropout,
             "metric_interval": self.metric_interval,
             "metrics": self.metrics,
+            "feature_transform": self.feature_transform,
         }
 
         if self._fitted:
             state_dict["network_state_dict"] = self.network.state_dict()
+            state_dict["_quantiles"] = self._quantiles
 
         return state_dict
 
@@ -297,6 +318,14 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         """
         _state_dict = deepcopy(state_dict)
+
+        # The quantile table belongs to the trained weights: a stored classifier has to
+        # transform its input exactly as it did during training. State dicts written
+        # before the transform existed hold weights trained on raw features.
+        self.feature_transform = _state_dict.pop(
+            "feature_transform", FeatureTransform.NONE
+        )
+        self._quantiles = _state_dict.pop("_quantiles", None)
 
         if "network_state_dict" in _state_dict:
             self.network = FeedForwardNN(
@@ -320,8 +349,84 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.network = None
         self.optimizer = None
         self._fitted = False
+        self._quantiles = None
         for values in self.metrics.values():
             values.clear()
+
+    def _fit_transform(self, x: np.ndarray) -> np.ndarray:
+        """Fit the feature transform on the training data and apply it.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Training data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        x_transformed : np.ndarray, dtype=float
+            Transformed training data of shape (n_samples, n_features).
+
+        """
+        if self.feature_transform == FeatureTransform.NONE:
+            self._quantiles = None
+            return x
+
+        if self.feature_transform != FeatureTransform.QUANTILE:
+            raise ValueError(
+                f"Unknown feature transform: {self.feature_transform}. "
+                f"Valid options are {FeatureTransform.get_values()}"
+            )
+
+        if len(x) < _MIN_ROWS_FOR_QUANTILE_TRANSFORM:
+            logger.warning(
+                f"Only {len(x):,} rows available for the quantile feature transform "
+                f"(minimum {_MIN_ROWS_FOR_QUANTILE_TRANSFORM:,}), using the raw features instead."
+            )
+            self._quantiles = None
+            return x
+
+        self._quantiles = np.quantile(x, np.linspace(0, 1, _N_QUANTILES), axis=0)
+
+        return self._apply_transform(x)
+
+    def _apply_transform(self, x: np.ndarray) -> np.ndarray:
+        """Map every feature through its empirical CDF to a standard normal score.
+
+        Extreme but genuine candidates lie far outside the training distribution and the
+        network extrapolates arbitrarily for them. Ranking keeps them at the edge of the
+        distribution instead of outside it.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        x_transformed : np.ndarray, dtype=float
+            Transformed data of shape (n_samples, n_features). The input is returned
+            unchanged if no quantile table was fitted.
+
+        """
+        if self._quantiles is None:
+            return x
+
+        probabilities = np.linspace(0, 1, self._quantiles.shape[0])
+        x_transformed = np.zeros_like(x, dtype=np.float64)
+
+        for i in range(x.shape[1]):
+            feature_quantiles = self._quantiles[:, i]
+            # A constant feature has no invertible CDF and carries no information,
+            # so it stays at the center of the distribution.
+            if feature_quantiles[0] == feature_quantiles[-1]:
+                continue
+
+            cdf = np.interp(x[:, i], feature_quantiles, probabilities)
+            x_transformed[:, i] = norm.ppf(
+                np.clip(cdf, _QUANTILE_CLIP, 1 - _QUANTILE_CLIP)
+            )
+
+        return x_transformed
 
     @manage_torch_threads(max_threads=2)
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements
@@ -336,6 +441,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
+        x = self._fit_transform(x)
+
         if self.experimental_hyperparameter_tuning:
             self.batch_size, self.learning_rate = _get_scaled_training_params(x)
             logger.info(
@@ -473,6 +580,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
+        x = self._apply_transform(x)
         self.network.eval()
         return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
@@ -502,6 +610,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
+        x = self._apply_transform(x)
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
 
