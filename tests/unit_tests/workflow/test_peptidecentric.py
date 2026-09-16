@@ -5,8 +5,16 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    get_context_feature_names,
+    get_feature_names,
+)
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
-from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.peptidecentric import (
+    PeptideCentricWorkflow,
+    _get_classifier_feature_columns,
+)
+from alphadia.workflow.peptidecentric.utils import feature_columns
 
 
 @pytest.fixture
@@ -72,3 +80,47 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         ),
         check_like=True,
     )
+
+
+def test_get_classifier_feature_columns_with_competition_features():
+    # given
+    config = {
+        "search": {"extraction_backend": "rust"},
+        "fdr": {"competition_features": True},
+    }
+
+    # when
+    columns = _get_classifier_feature_columns(config)
+
+    # then
+    assert columns == get_feature_names() + get_context_feature_names()
+    assert len(set(columns)) == len(columns)
+
+
+def test_get_classifier_feature_columns_without_competition_features():
+    # given
+    config = {
+        "search": {"extraction_backend": "rust"},
+        "fdr": {"competition_features": False},
+    }
+
+    # when
+    columns = _get_classifier_feature_columns(config)
+
+    # then
+    assert columns == get_feature_names()
+    assert not any(column.startswith("ctx_") for column in columns)
+
+
+def test_get_classifier_feature_columns_python_backend_ignores_flag():
+    # given
+    config = {
+        "search": {"extraction_backend": "python"},
+        "fdr": {"competition_features": True},
+    }
+
+    # when
+    columns = _get_classifier_feature_columns(config)
+
+    # then
+    assert columns == feature_columns

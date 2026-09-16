@@ -5,6 +5,7 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
     CandidateCollection,
+    CandidateContext,
     CandidateFeatureCollection,
     set_num_threads,
 )
@@ -87,6 +88,50 @@ def speclib_to_ng(
 def get_feature_names() -> list[str]:
     """Get feature names from NG CandidateFeatureCollection."""
     return [f for f in CandidateFeatureCollection.get_feature_names()]
+
+
+def get_context_feature_names() -> list[str]:
+    """Get the competition and context feature names from NG CandidateContext."""
+    return list(CandidateContext.get_feature_names())
+
+
+def merge_context_features(
+    features_df: pd.DataFrame, context_features: dict[str, np.ndarray]
+) -> pd.DataFrame:
+    """Merge the NG context features into the features dataframe on (precursor_idx, rank).
+
+    Parameters
+    ----------
+    features_df : pd.DataFrame
+        Scored candidates, one row per (precursor_idx, rank)
+    context_features : dict[str, np.ndarray]
+        Output of `CandidateContext.compute()`: `precursor_idx`, `rank` and one array per context feature
+
+    Returns
+    -------
+    pd.DataFrame
+        `features_df` with one additional column per context feature
+
+    Raises
+    ------
+    ValueError
+        If a candidate of `features_df` has no context features, or if the context features
+        contain a candidate more than once
+    """
+    candidate_columns = ["precursor_idx", "rank"]
+    context_df = pd.DataFrame(context_features)
+
+    if context_df.duplicated(candidate_columns).any():
+        raise ValueError("Context features contain duplicate candidates")
+
+    merged_df = features_df.merge(context_df, on=candidate_columns, how="left")
+
+    context_columns = context_df.columns.difference(candidate_columns)
+    num_missing = merged_df[context_columns].isna().any(axis=1).sum()
+    if num_missing > 0:
+        raise ValueError(f"Context features are missing for {num_missing} candidates")
+
+    return merged_df
 
 
 def parse_candidates(

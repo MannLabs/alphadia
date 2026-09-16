@@ -308,6 +308,10 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
+  # whether to add the cross-candidate competition and isolation-window context features to the classifier (rust backend only)
+  competition_features: true
+  # minimum number of fragment m/z values (within the ms2 tolerance, same isolation window, adjacent cycles) two candidates must share to compete
+  competition_min_shared: 3
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
