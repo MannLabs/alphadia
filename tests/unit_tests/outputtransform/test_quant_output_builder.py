@@ -59,6 +59,9 @@ def psm_df():
     )
 
 
+RUN_COLUMNS = ["run1", "run2"]
+
+
 def write_fragment_files(tmp_path, precursor_idx, correlation, intensities):
     """Write one frag.parquet per run and return the run folders."""
     n_fragments = len(precursor_idx)
@@ -138,65 +141,39 @@ class TestQuantOutputBuilder:
         self, psm_df, config, quant_folders
     ):
         """Given fragment files for two runs, when build is called, then precursors are correlation-weighted fragment sums and peptides and protein groups are estimated from them."""
-        # Given
-        builder = QuantOutputBuilder(psm_df, config)
-
         # When
-        lfq_results, psm_df_with_quant = builder.build(quant_folders)
+        lfq_results, psm_df_with_quant = QuantOutputBuilder(psm_df, config).build(
+            quant_folders
+        )
 
-        # Then - the uncorrelated fragment of precursor 10 does not count
+        # Then - the uncorrelated fragment of precursor 10 does not count, precursor 60 is reported once
         precursor_df = lfq_results[QuantificationLevelName.PRECURSOR].set_index(
             "mod_seq_charge_hash"
         )
-        assert precursor_df.loc[10, ["run1", "run2"]].tolist() == pytest.approx(
+        assert precursor_df.loc[10, RUN_COLUMNS].tolist() == pytest.approx(
             [100.0, 200.0]
         )
-        assert precursor_df.loc[20, ["run1", "run2"]].tolist() == pytest.approx(
-            [800.0, 800.0]
+        assert precursor_df.loc[60, RUN_COLUMNS].tolist() == pytest.approx(
+            [100.0, 100.0]
         )
-        assert all(
-            col in precursor_df.columns
-            for col in ["pg", "sequence", "mods", "mod_sites", "charge"]
+        assert {"pg", "sequence", "mods", "mod_sites", "charge"} <= set(
+            precursor_df.columns
         )
 
         # Then - a peptide with a single precursor carries that precursor's quantities
         peptide_df = lfq_results[QuantificationLevelName.PEPTIDE].set_index(
             "mod_seq_hash"
         )
-        assert peptide_df.loc[1, ["run1", "run2"]].tolist() == pytest.approx(
-            [100.0, 200.0]
-        )
+        assert peptide_df.loc[1, RUN_COLUMNS].tolist() == pytest.approx([100.0, 200.0])
         assert "charge" not in peptide_df.columns
 
-        # Then - PG001 combines precursors 10 and 30 and keeps their two-fold change
+        # Then - PG001 combines precursors 10 and 30 and keeps their two-fold change, PG004 and PG005 share precursor 60
         pg_df = lfq_results[QuantificationLevelName.PROTEIN].set_index("pg")
         assert pg_df.loc["PG001"].tolist() == pytest.approx([150.0, 300.0])
-        assert pg_df.loc["PG002"].tolist() == pytest.approx([800.0, 800.0])
-        assert list(pg_df.columns) == ["run1", "run2"]
-
-        assert "precursor_lfq_intensity" in psm_df_with_quant.columns
-
-    def test_build_keeps_a_precursor_shared_by_two_protein_groups_in_both(
-        self, psm_df, config, quant_folders
-    ):
-        """Given one precursor hash under two protein groups, when build is called, then both groups are quantified and the precursor is reported once."""
-        # Given
-        builder = QuantOutputBuilder(psm_df, config)
-
-        # When
-        lfq_results, _ = builder.build(quant_folders)
-
-        # Then
-        pg_df = lfq_results[QuantificationLevelName.PROTEIN].set_index("pg")
         assert pg_df.loc["PG004"].tolist() == pytest.approx([70.0, 70.0])
         assert pg_df.loc["PG005"].tolist() == pytest.approx([30.0, 30.0])
 
-        precursor_df = lfq_results[QuantificationLevelName.PRECURSOR]
-        shared = precursor_df[precursor_df["mod_seq_charge_hash"] == 60]
-        assert len(shared) == 1
-        assert shared[["run1", "run2"]].iloc[0].tolist() == pytest.approx(
-            [100.0, 100.0]
-        )
+        assert "precursor_lfq_intensity" in psm_df_with_quant.columns
 
     def test_build_quantifies_precursors_even_when_precursor_output_is_disabled(
         self, psm_df, config, quant_folders
@@ -204,52 +181,35 @@ class TestQuantOutputBuilder:
         """Given precursor level output disabled, when build is called, then peptides and protein groups are still derived from the precursor sums."""
         # Given
         config["search_output"]["precursor_level_lfq"] = False
-        builder = QuantOutputBuilder(psm_df, config)
 
         # When
-        lfq_results, _ = builder.build(quant_folders)
+        lfq_results, _ = QuantOutputBuilder(psm_df, config).build(quant_folders)
 
         # Then
         assert QuantificationLevelName.PRECURSOR not in lfq_results
         pg_df = lfq_results[QuantificationLevelName.PROTEIN].set_index("pg")
         assert pg_df.loc["PG002"].tolist() == pytest.approx([800.0, 800.0])
 
-    def test_build_returns_empty_when_nothing_was_observed(
-        self, psm_df, config, tmp_path
+    @pytest.mark.parametrize(
+        "precursor_idx, intensity",
+        [([0, 1], [0.0, 0.0]), ([100], [100.0])],
+        ids=["nothing observed", "unknown precursors only"],
+    )
+    def test_build_returns_empty_when_nothing_can_be_quantified(
+        self, psm_df, config, tmp_path, precursor_idx, intensity
     ):
-        """Given fragment files with zero intensities only, when build is called with normalization, then no level is quantified and nothing fails."""
+        """Given fragment files with zero intensities or of unknown precursors only, when build is called with normalization, then no level is quantified and nothing fails."""
         # Given
         config["search_output"]["normalize_directlfq"] = True
         folders = write_fragment_files(
             tmp_path,
-            precursor_idx=[0, 1],
-            correlation=[1.0, 1.0],
-            intensities={"run1": [0.0, 0.0], "run2": [0.0, 0.0]},
+            precursor_idx,
+            correlation=[1.0] * len(precursor_idx),
+            intensities={"run1": intensity, "run2": intensity},
         )
-        builder = QuantOutputBuilder(psm_df, config)
 
         # When
-        lfq_results, result_psm_df = builder.build(folders)
-
-        # Then
-        assert lfq_results == {}
-        pd.testing.assert_frame_equal(result_psm_df, psm_df)
-
-    def test_build_returns_empty_when_no_fragment_belongs_to_a_precursor(
-        self, psm_df, config, tmp_path
-    ):
-        """Given fragment files of unknown precursors only, when build is called, then no level is quantified."""
-        # Given
-        folders = write_fragment_files(
-            tmp_path,
-            precursor_idx=[100],
-            correlation=[1.0],
-            intensities={"run1": [100.0]},
-        )
-        builder = QuantOutputBuilder(psm_df, config)
-
-        # When
-        lfq_results, result_psm_df = builder.build(folders)
+        lfq_results, result_psm_df = QuantOutputBuilder(psm_df, config).build(folders)
 
         # Then
         assert lfq_results == {}

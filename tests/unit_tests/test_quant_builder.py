@@ -43,6 +43,9 @@ def precursor_df():
     )
 
 
+RUN_COLUMNS = ["run1", "run2", "run3", "run4"]
+
+
 @pytest.fixture
 def fragment_sum_data():
     """Two precursors over four runs: precursor 10 has three fragments, precursor 20 a single one.
@@ -64,7 +67,7 @@ def fragment_sum_data():
         }
     )
     correlation_df = intensity_df.copy()
-    correlation_df[["run1", "run2", "run3", "run4"]] = [
+    correlation_df[RUN_COLUMNS] = [
         [1.0, 1.0, 1.0, 1.0],
         [1.0, 1.0, 1.0, 1.0],
         [0.0, 0.0, 0.0, 0.0],
@@ -577,52 +580,49 @@ class TestLfq:
 class TestComputeMeanCorrelation:
     """Test the per-fragment mean correlation."""
 
-    def test_averages_over_observed_runs_only(self, fragment_sum_data):
-        """Given a fragment missing in one run, when the mean is computed, then that run is excluded."""
+    def test_averages_over_observed_runs_only(self):
+        """Given fragments missing in some runs, when the mean is computed, then only observed runs count and a never observed fragment gets 0."""
         # Given
-        intensity_df, correlation_df = fragment_sum_data
-        correlation_df.loc[correlation_df["ion"] == 200, ["run1", "run3", "run4"]] = [
-            [0.9, 0.7, 0.8]
-        ]
+        intensity_df = pd.DataFrame(
+            {
+                "ion": [100, 101],
+                "run1": [100.0, 0.0],
+                "run2": [0.0, 0.0],
+                "run3": [300.0, 0.0],
+            }
+        )
+        correlation_df = pd.DataFrame(
+            {
+                "ion": [100, 101],
+                "run1": [0.9, 0.5],
+                "run2": [0.0, 0.5],
+                "run3": [0.7, 0.5],
+            }
+        )
 
         # When
         mean_correlation = compute_mean_correlation(intensity_df, correlation_df)
 
         # Then
-        assert mean_correlation.tolist() == pytest.approx([1.0, 1.0, 0.0, 0.8])
-
-    def test_never_observed_fragment_has_zero_correlation(self, fragment_sum_data):
-        """Given a fragment with no intensity in any run, when the mean is computed, then it is zero."""
-        # Given
-        intensity_df, correlation_df = fragment_sum_data
-        intensity_df.loc[
-            intensity_df["ion"] == 100, ["run1", "run2", "run3", "run4"]
-        ] = 0.0
-
-        # When
-        mean_correlation = compute_mean_correlation(intensity_df, correlation_df)
-
-        # Then
-        assert mean_correlation[0] == 0.0
+        assert mean_correlation.tolist() == pytest.approx([0.8, 0.0])
 
     def test_rejects_misaligned_tables(self, fragment_sum_data):
         """Given correlation rows in a different order, when the mean is computed, then it fails loudly."""
         # Given
         intensity_df, correlation_df = fragment_sum_data
-        shuffled_df = correlation_df.iloc[::-1].reset_index(drop=True)
 
         # When / Then
         with pytest.raises(ValueError, match="same order"):
-            compute_mean_correlation(intensity_df, shuffled_df)
+            compute_mean_correlation(intensity_df, correlation_df.iloc[::-1])
 
 
 class TestComputeFragmentWeights:
     """Test the weights relative to the best fragment of a precursor."""
 
-    def test_best_fragment_of_every_precursor_has_weight_one(self):
-        """Given fragments of two precursors, when weighted, then each precursor's best fragment gets weight one."""
+    def test_weights_are_relative_to_the_best_fragment_of_each_precursor(self):
+        """Given two precursors, when weighted, then the best fragment of each gets 1, the others the power of their correlation, and a precursor without correlating fragments gets 1 everywhere."""
         # Given
-        mean_correlation = np.array([1.0, 0.5, 0.5, 0.25])
+        mean_correlation = np.array([1.0, 0.5, 0.0, 0.0])
         precursor_hash = np.array([10, 10, 20, 20])
 
         # When
@@ -630,20 +630,8 @@ class TestComputeFragmentWeights:
 
         # Then
         assert weights.tolist() == pytest.approx(
-            [1.0, 0.5**FRAGMENT_CORRELATION_POWER, 1.0, 0.5**FRAGMENT_CORRELATION_POWER]
+            [1.0, 0.5**FRAGMENT_CORRELATION_POWER, 1.0, 1.0]
         )
-
-    def test_precursor_without_correlating_fragment_gets_plain_weights(self):
-        """Given a precursor whose fragments all have zero correlation, when weighted, then every fragment counts fully."""
-        # Given
-        mean_correlation = np.array([0.0, 0.0])
-        precursor_hash = np.array([10, 10])
-
-        # When
-        weights = compute_fragment_weights(mean_correlation, precursor_hash)
-
-        # Then
-        assert weights.tolist() == [1.0, 1.0]
 
 
 class TestSumFragmentsToPrecursors:
@@ -654,141 +642,64 @@ class TestSumFragmentsToPrecursors:
         search_config["search_output"]["normalize_directlfq"] = False
         return search_config
 
-    def test_returns_precursors_with_their_groups(
+    def test_sums_fragments_with_correlation_weights(
         self, fragment_sum_data, psm_df, sum_config
     ):
-        """Given fragments of two precursors, when summed, then one row per precursor with its peptide and protein group is returned."""
+        """Given fragments of two precursors, when summed, then the uncorrelated fragment of precursor 10 does not count, precursor 20 without correlating fragments keeps its plain sum, and a run without fragments is 0."""
         # Given
         intensity_df, correlation_df = fragment_sum_data
-        builder = QuantBuilder(psm_df)
 
         # When
-        result_df = builder.sum_fragments_to_precursors(
+        result_df = QuantBuilder(psm_df).sum_fragments_to_precursors(
             intensity_df, correlation_df, sum_config
         )
 
         # Then
-        assert list(result_df.columns) == [
-            "mod_seq_charge_hash",
-            "mod_seq_hash",
-            "pg",
-            "run1",
-            "run2",
-            "run3",
-            "run4",
-        ]
-        assert result_df["mod_seq_charge_hash"].tolist() == [10, 20]
-
-    def test_uncorrelated_fragment_does_not_count(
-        self, fragment_sum_data, psm_df, sum_config
-    ):
-        """Given correlations [1, 1, 0], when summed, then only the two correlating fragments contribute."""
-        # Given
-        intensity_df, correlation_df = fragment_sum_data
-        builder = QuantBuilder(psm_df)
-
-        # When
-        result_df = builder.sum_fragments_to_precursors(
-            intensity_df, correlation_df, sum_config
+        expected_df = pd.DataFrame(
+            {
+                "mod_seq_charge_hash": [10, 20],
+                "mod_seq_hash": [1, 2],
+                "pg": ["PG001", "PG002"],
+                "run1": [110.0, 50.0],
+                "run2": [220.0, 0.0],
+                "run3": [440.0, 60.0],
+                "run4": [880.0, 70.0],
+            }
         )
-
-        # Then
-        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
-        assert precursor_10[["run1", "run2", "run3", "run4"]].tolist() == pytest.approx(
-            [110.0, 220.0, 440.0, 880.0]
-        )
+        pd.testing.assert_frame_equal(result_df, expected_df)
 
     def test_applies_power_to_correlation(self, fragment_sum_data, psm_df, sum_config):
         """Given a fragment with correlation 0.5, when summed, then its weight is 0.5 to the correlation power."""
         # Given
         intensity_df, correlation_df = fragment_sum_data
-        correlation_df.loc[
-            correlation_df["ion"] == 101, ["run1", "run2", "run3", "run4"]
-        ] = 0.5
-        builder = QuantBuilder(psm_df)
+        correlation_df.loc[correlation_df["ion"] == 101, RUN_COLUMNS] = 0.5
 
         # When
-        result_df = builder.sum_fragments_to_precursors(
+        result_df = QuantBuilder(psm_df).sum_fragments_to_precursors(
             intensity_df, correlation_df, sum_config
         )
 
         # Then
-        run1 = result_df.set_index("mod_seq_charge_hash").loc[10, "run1"]
-        assert run1 == pytest.approx(100.0 + 10.0 * 0.5**FRAGMENT_CORRELATION_POWER)
-
-    def test_preserves_ratios_between_runs(self, fragment_sum_data, psm_df, sum_config):
-        """Given constant per-fragment weights, when summed, then cross-run ratios of the precursor are unchanged."""
-        # Given
-        intensity_df, correlation_df = fragment_sum_data
-        correlation_df.loc[
-            correlation_df["mod_seq_charge_hash"] == 10,
-            ["run1", "run2", "run3", "run4"],
-        ] = [
-            [0.9, 0.9, 0.9, 0.9],
-            [0.6, 0.6, 0.6, 0.6],
-            [0.3, 0.3, 0.3, 0.3],
-        ]
-        builder = QuantBuilder(psm_df)
-
-        # When
-        result_df = builder.sum_fragments_to_precursors(
-            intensity_df, correlation_df, sum_config
+        assert result_df["run1"].iloc[0] == pytest.approx(
+            100.0 + 10.0 * 0.5**FRAGMENT_CORRELATION_POWER
         )
-
-        # Then - all fragments of precursor 10 double between run1, run2 and run3
-        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
-        assert precursor_10["run2"] / precursor_10["run1"] == pytest.approx(2.0)
-        assert precursor_10["run3"] / precursor_10["run2"] == pytest.approx(2.0)
-
-    def test_precursor_without_correlating_fragment_gets_plain_sum(
-        self, fragment_sum_data, psm_df, sum_config
-    ):
-        """Given a precursor whose only fragment has zero correlation, when summed, then it keeps its full intensity."""
-        # Given
-        intensity_df, correlation_df = fragment_sum_data
-        builder = QuantBuilder(psm_df)
-
-        # When
-        result_df = builder.sum_fragments_to_precursors(
-            intensity_df, correlation_df, sum_config
-        )
-
-        # Then
-        precursor_20 = result_df.set_index("mod_seq_charge_hash").loc[20]
-        assert precursor_20[["run1", "run2", "run3", "run4"]].tolist() == [
-            50.0,
-            0.0,
-            60.0,
-            70.0,
-        ]
 
     def test_run_where_only_an_uncorrelated_fragment_was_seen_is_zero(
-        self, psm_df, sum_config
+        self, fragment_sum_data, psm_df, sum_config
     ):
-        """Given a run in which only the uncorrelated fragment was observed, when summed, then that run reports 0 instead of a tiny value."""
-        # Given
-        intensity_df = pd.DataFrame(
-            {
-                "precursor_idx": [0, 0],
-                "ion": [100, 101],
-                "run1": [1000.0, 1000.0],
-                "run2": [0.0, 1000.0],
-                "pg": ["PG001", "PG001"],
-                "mod_seq_hash": [1, 1],
-                "mod_seq_charge_hash": [10, 10],
-            }
-        )
-        correlation_df = intensity_df.copy()
-        correlation_df[["run1", "run2"]] = [[1.0, 1.0], [0.0, 0.0]]
-        builder = QuantBuilder(psm_df)
+        """Given a run in which only the uncorrelated fragment of a precursor was observed, when summed, then that run reports 0 instead of a tiny value."""
+        # Given - in run4 only ion 102 with correlation 0 is left for precursor 10
+        intensity_df, correlation_df = fragment_sum_data
+        intensity_df.loc[intensity_df["ion"].isin([100, 101]), "run4"] = 0.0
+        intensity_df.loc[intensity_df["ion"] == 102, "run4"] = 8000.0
 
         # When
-        result_df = builder.sum_fragments_to_precursors(
+        result_df = QuantBuilder(psm_df).sum_fragments_to_precursors(
             intensity_df, correlation_df, sum_config
         )
 
         # Then
-        assert result_df[["run1", "run2"]].iloc[0].tolist() == [1000.0, 0.0]
+        assert result_df["run4"].iloc[0] == 0.0
 
     @pytest.mark.parametrize("normalize_directlfq", [True, False])
     def test_returns_empty_frame_when_nothing_was_observed(
@@ -797,12 +708,11 @@ class TestSumFragmentsToPrecursors:
         """Given fragments with zero intensity everywhere, when summed, then an empty frame is returned instead of failing inside the normalization."""
         # Given
         intensity_df, correlation_df = fragment_sum_data
-        intensity_df[["run1", "run2", "run3", "run4"]] = 0.0
+        intensity_df[RUN_COLUMNS] = 0.0
         sum_config["search_output"]["normalize_directlfq"] = normalize_directlfq
-        builder = QuantBuilder(psm_df)
 
         # When
-        result_df = builder.sum_fragments_to_precursors(
+        result_df = QuantBuilder(psm_df).sum_fragments_to_precursors(
             intensity_df, correlation_df, sum_config
         )
 
@@ -819,25 +729,21 @@ class TestSumFragmentsToPrecursors:
         # Given
         intensity_df, correlation_df = fragment_sum_data
         sum_config["search_output"]["normalize_directlfq"] = normalize_directlfq
-        builder = QuantBuilder(psm_df)
 
         def shift_run1_by_one_log2_unit(lfq_df, **kwargs):
-            normalized_df = lfq_df.copy()
-            normalized_df["run1"] = normalized_df["run1"] + 1.0
-            manager = MagicMock()
-            manager.complete_dataframe = normalized_df
-            return manager
+            return MagicMock(
+                complete_dataframe=lfq_df.assign(run1=lfq_df["run1"] + 1.0)
+            )
 
         # When
         with patch(
             "alphadia.outputtransform.quantification.quant_builder.lfqnorm.NormalizationManagerSamplesOnSelectedProteins",
             side_effect=shift_run1_by_one_log2_unit,
         ):
-            result_df = builder.sum_fragments_to_precursors(
+            result_df = QuantBuilder(psm_df).sum_fragments_to_precursors(
                 intensity_df, correlation_df, sum_config
             )
 
         # Then - the normalization shift doubles run1 only when enabled
-        precursor_10 = result_df.set_index("mod_seq_charge_hash").loc[10]
-        assert precursor_10["run1"] == pytest.approx(run1_factor * 110.0)
-        assert precursor_10["run2"] == pytest.approx(220.0)
+        assert result_df["run1"].iloc[0] == pytest.approx(run1_factor * 110.0)
+        assert result_df["run2"].iloc[0] == pytest.approx(220.0)
