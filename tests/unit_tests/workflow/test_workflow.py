@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
@@ -63,6 +64,28 @@ def test_base_manager_load():
     assert my_base_manager_loaded.is_loaded_from_file is True
 
     os.remove(my_base_manager.path)
+
+
+def test_base_manager_load_version_mismatch_warns_and_loads(tmp_path):
+    pkl_path = str(tmp_path / "my_base_manager.pkl")
+    my_base_manager = BaseManager(path=pkl_path)
+    my_base_manager._version = "0.0.0"
+    my_base_manager.save()
+
+    reporter = MagicMock()
+    my_base_manager_loaded = BaseManager(
+        path=pkl_path, load_from_file=True, reporter=reporter
+    )
+
+    assert my_base_manager_loaded.is_loaded_from_file is True
+    assert my_base_manager_loaded._version == alphadia.__version__
+    warning_calls = [
+        c
+        for c in reporter.log_string.call_args_list
+        if c.kwargs.get("verbosity") == "warning"
+    ]
+    assert len(warning_calls) == 1
+    assert "Version mismatch" in warning_calls[0].args[0]
 
 
 def test_calibration_manager_init():

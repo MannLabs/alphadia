@@ -96,17 +96,20 @@ class BaseManager:
             with open(self.path, "rb") as f:
                 loaded_state = pickle.load(f)
 
-                if loaded_state._version == self._version:
-                    self.__dict__.update(loaded_state.__dict__)
-                    self.is_loaded_from_file = True
-                    self.reporter.log_string(
-                        f"Loaded {self.__class__.__name__} from {self.path}"
-                    )
-                else:
-                    self.reporter.log_string(
-                        f"Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.",
-                        verbosity="warning",
-                    )
+            # TODO: checking against AlphaDIA version is too strict, ideally each manager has its own (strictly semantic) version
+            current_version = self._version
+            if loaded_state._version != current_version:
+                self.reporter.log_string(
+                    f"Version mismatch while loading {self.__class__.__name__}: {loaded_state._version} != {current_version}.",
+                    verbosity="warning",
+                )
+
+            self.__dict__.update(loaded_state.__dict__)
+            self._version = current_version
+            self.is_loaded_from_file = True
+            self.reporter.log_string(
+                f"Loaded {self.__class__.__name__} from {self.path}"
+            )
         except Exception:
             self.reporter.log_string(
                 f"Failed to load {self.__class__.__name__} from {self.path}",
