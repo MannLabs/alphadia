@@ -31,10 +31,10 @@ PRECURSOR_IDX_MASK = 0xFFFFFFFF
 # fragment columns consumed by `_ion_hash`, in the order of its signature
 ION_HASH_COLUMNS = [PRECURSOR_IDX_COLUMN, "number", "type", "charge", "loss_type"]
 
+
 def get_run_columns(df: pd.DataFrame) -> list[str]:
     """Run columns of an accumulated fragment matrix."""
     return [c for c in df.columns if c not in FRAGMENT_METADATA_COLUMNS]
-
 
 
 @dataclass
