@@ -416,30 +416,12 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
 
 
 class AutomaticRTOptimizer(AutomaticOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        optlock: OptimizationLock,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class. Optimizes retention time error."""
-        self.parameter_name = "rt_error"
-        self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = CalibrationEstimators.RT
-        self._feature_name = "precursor_proportion_detected"
-        super().__init__(
-            initial_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            optlock,
-            reporter,
-        )
+    """See base class. Optimizes retention time error."""
+
+    parameter_name = "rt_error"
+    _estimator_group_name = CalibrationGroups.PRECURSOR
+    _estimator_name = CalibrationEstimators.RT
+    _feature_name = "precursor_proportion_detected"
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -448,30 +430,12 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
 
 
 class AutomaticMS2Optimizer(AutomaticOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        optlock: OptimizationLock,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class. This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number."""
-        self.parameter_name = "ms2_error"
-        self._estimator_group_name = CalibrationGroups.FRAGMENT
-        self._estimator_name = CalibrationEstimators.MZ
-        self._feature_name = "precursor_proportion_detected"
-        super().__init__(
-            initial_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            optlock,
-            reporter,
-        )
+    """See base class. This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number."""
+
+    parameter_name = "ms2_error"
+    _estimator_group_name = CalibrationGroups.FRAGMENT
+    _estimator_name = CalibrationEstimators.MZ
+    _feature_name = "precursor_proportion_detected"
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -480,30 +444,12 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        optlock: OptimizationLock,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class. Optimizes MS1 error."""
-        self.parameter_name = "ms1_error"
-        self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = CalibrationEstimators.MZ
-        self._feature_name = "mean_isotope_intensity_correlation"
-        super().__init__(
-            initial_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            optlock,
-            reporter,
-        )
+    """See base class. Optimizes MS1 error."""
+
+    parameter_name = "ms1_error"
+    _estimator_group_name = CalibrationGroups.PRECURSOR
+    _estimator_name = CalibrationEstimators.MZ
+    _feature_name = "mean_isotope_intensity_correlation"
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -512,30 +458,12 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
 
 
 class AutomaticMobilityOptimizer(AutomaticOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        optlock: OptimizationLock,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class. Optimizes mobility error."""
-        self.parameter_name = "mobility_error"
-        self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = CalibrationEstimators.MOBILITY
-        self._feature_name = "precursor_proportion_detected"
-        super().__init__(
-            initial_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            optlock,
-            reporter,
-        )
+    """See base class. Optimizes mobility error."""
+
+    parameter_name = "mobility_error"
+    _estimator_group_name = CalibrationGroups.PRECURSOR
+    _estimator_name = CalibrationEstimators.MOBILITY
+    _feature_name = "precursor_proportion_detected"
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
