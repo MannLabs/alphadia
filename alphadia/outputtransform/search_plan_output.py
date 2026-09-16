@@ -127,6 +127,7 @@ class SearchPlanOutput:
 
         # LFQ is the most memory-intensive step and runs last, so an OOM kill here
         # does not discard the MBR library and transfer model already on disk
+        # Assumption: no step upfront mutates psm_df in place
         self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
 
     def _build_transfer_model(self, save=True):
