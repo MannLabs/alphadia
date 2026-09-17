@@ -109,6 +109,68 @@ def test_get_q_values():
     )
 
 
+def test_get_q_values_all_tied_scores_are_conservative():
+    # Given: an uninformative classifier assigning every PSM the same probability
+    n_per_class = 500
+    test_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(2 * n_per_class),
+            "proba": np.full(2 * n_per_class, 0.1),
+            "_decoy": np.repeat([0, 1], n_per_class),
+        }
+    )
+
+    # When
+    test_df = fdr.get_q_values(test_df, "proba", "_decoy")
+
+    # Then: the tied block carries its decoy fraction, so nothing is accepted
+    assert np.allclose(test_df["qval"].values, 1.0)
+    assert (test_df["qval"].values < 0.01).sum() == 0
+
+
+def test_get_q_values_tied_best_score_block_does_not_pass():
+    # Given: 600 targets and 300 decoys tied at the best score, the rest at a worse one
+    best_score_decoys, best_score_targets = 300, 600
+    worst_score_decoys, worst_score_targets = 200, 100
+    test_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(
+                best_score_decoys
+                + best_score_targets
+                + worst_score_decoys
+                + worst_score_targets
+            ),
+            "proba": np.repeat(
+                [0.1, 0.9],
+                [
+                    best_score_decoys + best_score_targets,
+                    worst_score_decoys + worst_score_targets,
+                ],
+            ),
+            "_decoy": np.repeat(
+                [1, 0, 1, 0],
+                [
+                    best_score_decoys,
+                    best_score_targets,
+                    worst_score_decoys,
+                    worst_score_targets,
+                ],
+            ),
+        }
+    )
+
+    # When
+    test_df = fdr.get_q_values(test_df, "proba", "_decoy")
+
+    # Then: no PSM passes 1% FDR and q-values stay monotone along the sorted output
+    assert (test_df["qval"].values < 0.01).sum() == 0
+    assert np.allclose(
+        test_df["qval"].values[: best_score_decoys + best_score_targets],
+        best_score_decoys / best_score_targets,
+    )
+    assert np.all(np.diff(test_df["qval"].values) >= 0)
+
+
 def gen_data_np(
     n_features=10,
     n_samples=10000,
