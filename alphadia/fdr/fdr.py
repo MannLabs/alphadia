@@ -312,9 +312,13 @@ def get_q_values(
     if extra_sort_columns is None:
         extra_sort_columns = ["precursor_idx"]
 
+    # Decoys are sorted before targets so that a block of tied scores carries its own
+    # decoy fraction. Otherwise an uninformative classifier, whose probabilities saturate
+    # to a single value, would let the whole block pass as targets at any q-value cutoff.
     df = df.sort_values(
-        [score_column, decoy_column, *extra_sort_columns], ascending=True
-    )  # last sort to break ties
+        [score_column, decoy_column, *extra_sort_columns],
+        ascending=[True, False, *[True] * len(extra_sort_columns)],
+    )
     target_values = 1 - df[decoy_column].to_numpy()
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
