@@ -37,6 +37,7 @@ class CascadePrefilter:
         q_value_threshold: float,
         n_folds: int = 2,
         min_psms: int = _MIN_PSMS,
+        min_kept_psms: int = 0,
         max_train_psms: int | None = None,
         random_state: int | None = None,
     ):
@@ -59,6 +60,10 @@ class CascadePrefilter:
         min_psms : int, default=100000
             Below this many PSMs every candidate is passed on unfiltered.
 
+        min_kept_psms : int, default=0
+            If the gate would keep fewer candidates than this, every candidate is passed
+            on unfiltered instead.
+
         max_train_psms : int, optional
             Fit each fold's model on at most this many randomly drawn PSMs of the other
             folds. None fits on all of them.
@@ -71,6 +76,7 @@ class CascadePrefilter:
         self.q_value_threshold = q_value_threshold
         self.n_folds = n_folds
         self.min_psms = min_psms
+        self.min_kept_psms = min_kept_psms
         self.max_train_psms = max_train_psms
         self._classifier = classifier
         self._np_rng = np.random.default_rng(seed=random_state)
@@ -131,6 +137,16 @@ class CascadePrefilter:
             )
         )["qval"].sort_index()
         keep = (q_values <= self.q_value_threshold).to_numpy()
+
+        # The classifier is fitted on the kept candidates only. On a sparse sample the gate
+        # can keep a few hundred rows, fewer than the classifier takes a single training
+        # step on, so its scores would be those of an untrained network.
+        if keep.sum() < self.min_kept_psms:
+            logger.info(
+                f"Prefilter would keep {keep.sum():,} of {n_psms:,} PSMs, "
+                f"fewer than {self.min_kept_psms:,}: passing all PSMs on"
+            )
+            return keep_all
 
         logger.info(
             f"Prefilter kept {keep.sum():,} of {n_psms:,} PSMs "

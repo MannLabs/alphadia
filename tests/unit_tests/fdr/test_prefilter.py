@@ -47,13 +47,16 @@ def _get_small_network() -> BinaryClassifierLegacyNewBatching:
     )
 
 
-def _get_prefilter(q_value_threshold: float, min_psms: int = 0) -> CascadePrefilter:
+def _get_prefilter(
+    q_value_threshold: float, min_psms: int = 0, min_kept_psms: int = 0
+) -> CascadePrefilter:
     return CascadePrefilter(
         feature_columns=["feature"],
         classifier=_get_small_network(),
         q_value_threshold=q_value_threshold,
         n_folds=2,
         min_psms=min_psms,
+        min_kept_psms=min_kept_psms,
         random_state=0,
     )
 
@@ -90,6 +93,21 @@ def test_prefilter_passes_everything_below_min_psms():
     # Then: nothing is dropped and no stage-1 model was fitted
     assert keep.all()
     assert not stage1_proba.any()
+
+
+def test_prefilter_passes_everything_when_it_would_keep_too_few_psms():
+    # Given: a gate that keeps fewer PSMs than the minimum kept count
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    psm_df = pd.concat([target_df, decoy_df]).reset_index(drop=True)
+    y = psm_df["decoy"].to_numpy()
+
+    # When: the prefilter gates the PSMs
+    keep, _ = _get_prefilter(q_value_threshold=0.2, min_kept_psms=len(psm_df)).select(
+        psm_df, y
+    )
+
+    # Then: nothing is dropped
+    assert keep.all()
 
 
 def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
