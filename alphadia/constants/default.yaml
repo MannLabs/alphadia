@@ -316,8 +316,10 @@ fdr:
     q_value_threshold: 0.3
     # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
     n_folds: 2
-    # if the gate would keep fewer PSMs than this, all PSMs are passed on to the classifier instead
-    min_kept_psms: 2000
+    # the gate is skipped when its kept set holds more hard negatives per estimated true precursor than this
+    max_hard_negatives_per_true: 2.5
+    # epochs the classifier trains for on a gated set; more passes over the small kept set inflate the FDR
+    stage2_epochs: 15
     # fit each fold's stage-1 model on at most this many PSMs of the other folds; null fits on all of them
     max_train_psms: 1000000
     # hidden layer sizes of the stage-1 network
