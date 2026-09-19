@@ -16,6 +16,10 @@ logger = logging.getLogger()
 # trained on too few rows to be trusted with the decision which candidates it never sees.
 _MIN_PSMS = 100_000
 
+# Targets minus decoys below this stage-1 q-value estimate how many true precursors the
+# gate sees; the rest of the kept set is hard negatives the classifier has to learn against.
+_PURITY_Q_VALUE = 0.1
+
 
 class CascadePrefilter:
     """Gate candidates on a small cross-fitted model before the classifier is fitted.
@@ -37,7 +41,8 @@ class CascadePrefilter:
         q_value_threshold: float,
         n_folds: int = 2,
         min_psms: int = _MIN_PSMS,
-        min_kept_psms: int = 0,
+        max_hard_negatives_per_true: float = np.inf,
+        stage2_epochs: int | None = None,
         max_train_psms: int | None = None,
         random_state: int | None = None,
     ):
@@ -60,9 +65,12 @@ class CascadePrefilter:
         min_psms : int, default=100000
             Below this many PSMs every candidate is passed on unfiltered.
 
-        min_kept_psms : int, default=0
-            If the gate would keep fewer candidates than this, every candidate is passed
-            on unfiltered instead.
+        max_hard_negatives_per_true : float, default=inf
+            If the kept set holds more hard negatives per estimated true precursor than
+            this, every candidate is passed on unfiltered instead.
+
+        stage2_epochs : int, optional
+            Epochs the classifier trains for on a gated set. None keeps its own setting.
 
         max_train_psms : int, optional
             Fit each fold's model on at most this many randomly drawn PSMs of the other
@@ -76,7 +84,8 @@ class CascadePrefilter:
         self.q_value_threshold = q_value_threshold
         self.n_folds = n_folds
         self.min_psms = min_psms
-        self.min_kept_psms = min_kept_psms
+        self.max_hard_negatives_per_true = max_hard_negatives_per_true
+        self.stage2_epochs = stage2_epochs
         self.max_train_psms = max_train_psms
         self._classifier = classifier
         self._np_rng = np.random.default_rng(seed=random_state)
@@ -138,13 +147,26 @@ class CascadePrefilter:
         )["qval"].sort_index()
         keep = (q_values <= self.q_value_threshold).to_numpy()
 
-        # The classifier is fitted on the kept candidates only. On a sparse sample the gate
-        # can keep a few hundred rows, fewer than the classifier takes a single training
-        # step on, so its scores would be those of an untrained network.
-        if keep.sum() < self.min_kept_psms:
+        # A kept set dominated by hard negatives, as on a sample with few true precursors,
+        # is a harder problem than the full set: the classifier under-trains at the default
+        # budget and learns the target-decoy asymmetry when trained longer.
+        confident = q_values.to_numpy() <= _PURITY_Q_VALUE
+        estimated_true = int(
+            ((y == 0) & confident).sum() - ((y == 1) & confident).sum()
+        )
+        hard_negatives = int(keep.sum()) - estimated_true
+        hard_negatives_per_true = hard_negatives / max(estimated_true, 1)
+        logger.info(
+            f"Prefilter purity: {estimated_true:,} estimated true precursors, "
+            f"{hard_negatives_per_true:.2f} hard negatives per true in the kept set"
+        )
+        if (
+            estimated_true <= 0
+            or hard_negatives_per_true > self.max_hard_negatives_per_true
+        ):
             logger.info(
-                f"Prefilter would keep {keep.sum():,} of {n_psms:,} PSMs, "
-                f"fewer than {self.min_kept_psms:,}: passing all PSMs on"
+                f"Prefilter kept set too impure (limit {self.max_hard_negatives_per_true}): "
+                "passing all PSMs on"
             )
             return keep_all
 

@@ -5,6 +5,8 @@ from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fdr.prefilter import CascadePrefilter
 
+STAGE2_EPOCHS = 7
+
 
 def _gen_target_decoy_dfs(n_samples: int = 400, seed: int = 0):
     """Targets with a bimodal separable feature: half of them look like decoys."""
@@ -48,7 +50,9 @@ def _get_small_network() -> BinaryClassifierLegacyNewBatching:
 
 
 def _get_prefilter(
-    q_value_threshold: float, min_psms: int = 0, min_kept_psms: int = 0
+    q_value_threshold: float,
+    min_psms: int = 0,
+    max_hard_negatives_per_true: float = np.inf,
 ) -> CascadePrefilter:
     return CascadePrefilter(
         feature_columns=["feature"],
@@ -56,7 +60,8 @@ def _get_prefilter(
         q_value_threshold=q_value_threshold,
         n_folds=2,
         min_psms=min_psms,
-        min_kept_psms=min_kept_psms,
+        max_hard_negatives_per_true=max_hard_negatives_per_true,
+        stage2_epochs=STAGE2_EPOCHS,
         random_state=0,
     )
 
@@ -95,19 +100,42 @@ def test_prefilter_passes_everything_below_min_psms():
     assert not stage1_proba.any()
 
 
-def test_prefilter_passes_everything_when_it_would_keep_too_few_psms():
-    # Given: a gate that keeps fewer PSMs than the minimum kept count
+def test_prefilter_passes_everything_when_the_kept_set_is_too_impure():
+    # Given: a purity limit no kept set can meet
     target_df, decoy_df = _gen_target_decoy_dfs()
     psm_df = pd.concat([target_df, decoy_df]).reset_index(drop=True)
     y = psm_df["decoy"].to_numpy()
 
     # When: the prefilter gates the PSMs
-    keep, _ = _get_prefilter(q_value_threshold=0.2, min_kept_psms=len(psm_df)).select(
-        psm_df, y
-    )
+    keep, _ = _get_prefilter(
+        q_value_threshold=0.2, max_hard_negatives_per_true=0.0
+    ).select(psm_df, y)
 
     # Then: nothing is dropped
     assert keep.all()
+
+
+def test_perform_fdr_with_prefilter_restores_the_classifier_epochs():
+    # Given: a classifier with its own epoch count and a gating prefilter
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    classifier = _get_small_network()
+    classifier.metric_interval = 1
+    default_epochs = classifier.epochs
+
+    # When: perform_fdr runs with the prefilter
+    fdr.perform_fdr(
+        classifier,
+        ["feature", "noise"],
+        target_df.copy(),
+        decoy_df.copy(),
+        competitive=True,
+        random_state=0,
+        prefilter=_get_prefilter(q_value_threshold=0.2),
+    )
+
+    # Then: the gated fit used the prefilter's epochs and left the classifier as it was
+    assert classifier.epochs == default_epochs
+    assert max(classifier.metrics["epoch"]) == STAGE2_EPOCHS - 1
 
 
 def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
