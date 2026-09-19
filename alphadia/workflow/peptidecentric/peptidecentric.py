@@ -9,6 +9,7 @@ try:  # noqa: SIM105
 except ImportError:
     pass
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.prefilter import CascadePrefilter
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -30,6 +31,70 @@ from alphadia.workflow.peptidecentric.utils import (
     log_precursor_df,
     use_timing_manager,
 )
+
+
+def _apply_feature_subset(
+    feature_columns: list[str], feature_subset: list[str]
+) -> list[str]:
+    """Restrict `feature_columns` to `feature_subset`.
+
+    An unknown name is an error rather than a silent no-op: a typo would quietly shrink
+    the feature set and show up only as an unexplained drop in identifications.
+    """
+    if unknown := sorted(set(feature_subset) - set(feature_columns)):
+        raise ValueError(
+            f"fdr.prefilter.feature_subset names features the extraction backend does "
+            f"not provide: {unknown}"
+        )
+
+    return [column for column in feature_columns if column in set(feature_subset)]
+
+
+def _get_prefilter(
+    config: Config,
+    feature_columns: list[str],
+    random_state: int | None = None,
+) -> CascadePrefilter | None:
+    """Creates the stage-1 prefilter, or None if the configuration disables it.
+
+    Parameters
+    ----------
+    config : Config
+        The workflow configuration, read for the prefilter settings.
+
+    feature_columns : list[str]
+        Feature columns the extraction backend provides.
+
+    random_state : int | None, optional
+        Random state for reproducibility. Default is None.
+
+    Returns
+    -------
+    CascadePrefilter | None
+        The prefilter, or None if disabled.
+    """
+    config_prefilter = config["fdr"]["prefilter"]
+    if not config_prefilter["enabled"]:
+        return None
+
+    stage1_classifier = BinaryClassifierLegacyNewBatching(
+        test_size=0.001,
+        batch_size=config_prefilter["batch_size"],
+        learning_rate=config_prefilter["learning_rate"],
+        epochs=config_prefilter["epochs"],
+        layers=config_prefilter["layers"],
+        random_state=random_state,
+    )
+    return CascadePrefilter(
+        feature_columns=_apply_feature_subset(
+            feature_columns, config_prefilter["feature_subset"]
+        ),
+        classifier=stage1_classifier,
+        q_value_threshold=config_prefilter["q_value_threshold"],
+        n_folds=config_prefilter["n_folds"],
+        max_train_psms=config_prefilter["max_train_psms"],
+        random_state=random_state,
+    )
 
 
 def _get_classifier_base(
@@ -108,10 +173,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
         config_fdr = self.config["fdr"]
-        self._fdr_manager = FDRManager(
-            feature_columns=get_feature_names()
+        backend_feature_columns = (
+            get_feature_names()
             if self._config["search"]["extraction_backend"] == "rust"
-            else feature_columns,
+            else feature_columns
+        )
+        self._fdr_manager = FDRManager(
+            feature_columns=backend_feature_columns,
             classifier_base=_get_classifier_base(
                 enable_nn_hyperparameter_tuning=config_fdr[
                     "enable_nn_hyperparameter_tuning"
@@ -122,6 +190,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             config=self.config,
             figure_path=self._figure_path,
             random_state=self._random_state_fdr_manager,
+            prefilter=_get_prefilter(
+                self.config,
+                backend_feature_columns,
+                random_state=self._random_state_fdr_classifier,
+            ),
         )
 
         init_spectral_library(
