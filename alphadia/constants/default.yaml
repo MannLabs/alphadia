@@ -316,18 +316,18 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
-  # a small cross-fitted neural network scores every PSM before the classifier; only PSMs below its q-value threshold
-  # are passed on to the classifier, the rest are ranked behind them by their stage-1 score
+  # a small cross-fitted neural network scores every PSM before the classifier; PSMs below its q-value threshold and
+  # a random sample of the rest are passed on to the classifier, the remaining PSMs are ranked behind them by their
+  # stage-1 score
   prefilter:
     enabled: true
     # stage-1 q-value above which a PSM is not passed on to the classifier
     q_value_threshold: 0.3
     # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
     n_folds: 2
-    # the gate is skipped when its kept set holds more hard negatives per estimated true precursor than this
-    max_hard_negatives_per_true: 2.5
-    # epochs the classifier trains for on a gated set; more passes over the small kept set inflate the FDR
-    stage2_epochs: 15
+    # number of random PSMs above the threshold passed on with the kept set, so that the classifier also
+    # sees the bulk where targets and decoys are exchangeable
+    far_psms: 1500000
     # fit each fold's stage-1 model on at most this many PSMs of the other folds; null fits on all of them
     max_train_psms: 1000000
     # hidden layer sizes of the stage-1 network
