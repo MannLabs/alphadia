@@ -99,11 +99,6 @@ def _get_prefilter(
     )
 
 
-# Hidden layers and dropout of the FDR classifier.
-_CLASSIFIER_LAYERS = [128, 64]
-_CLASSIFIER_DROPOUT = 0.2
-
-
 def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool = False,
     random_state: int | None = None,
@@ -129,8 +124,6 @@ def _get_classifier_base(
         batch_size=5000,
         learning_rate=0.001,
         epochs=10,
-        layers=_CLASSIFIER_LAYERS,
-        dropout=_CLASSIFIER_DROPOUT,
         experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
         random_state=random_state,
     )
