@@ -332,6 +332,9 @@ fdr:
     max_train_psms: 1000000
     # hidden layer sizes of the stage-1 network
     layers: [100, 48]
+    # input scaling of the stage-1 network: "zscore" fixes the training-set mean and standard deviation per feature,
+    # "batch_norm" learns running statistics from the training batches
+    input_scaling: zscore
     # training epochs of the stage-1 network
     epochs: 10
     # batch size of the stage-1 network

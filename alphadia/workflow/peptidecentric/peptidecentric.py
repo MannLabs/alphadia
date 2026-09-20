@@ -79,6 +79,7 @@ def _get_prefilter(
         learning_rate=config_prefilter["learning_rate"],
         epochs=config_prefilter["epochs"],
         layers=config_prefilter["layers"],
+        input_scaling=config_prefilter["input_scaling"],
         random_state=random_state,
     )
     return CascadePrefilter(
@@ -92,6 +93,11 @@ def _get_prefilter(
         max_train_psms=config_prefilter["max_train_psms"],
         random_state=random_state,
     )
+
+
+# Hidden layers and dropout of the FDR classifier.
+_CLASSIFIER_LAYERS = [128, 64]
+_CLASSIFIER_DROPOUT = 0.2
 
 
 def _get_classifier_base(
@@ -119,6 +125,8 @@ def _get_classifier_base(
         batch_size=5000,
         learning_rate=0.001,
         epochs=10,
+        layers=_CLASSIFIER_LAYERS,
+        dropout=_CLASSIFIER_DROPOUT,
         experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
         random_state=random_state,
     )
