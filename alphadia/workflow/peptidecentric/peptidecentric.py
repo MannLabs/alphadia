@@ -92,8 +92,7 @@ def _get_prefilter(
         classifier=stage1_classifier,
         q_value_threshold=config_prefilter["q_value_threshold"],
         n_folds=config_prefilter["n_folds"],
-        max_hard_negatives_per_true=config_prefilter["max_hard_negatives_per_true"],
-        stage2_epochs=config_prefilter["stage2_epochs"],
+        far_psms=config_prefilter["far_psms"],
         max_train_psms=config_prefilter["max_train_psms"],
         random_state=random_state,
     )

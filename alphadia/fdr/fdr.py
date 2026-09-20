@@ -143,7 +143,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     else:
         keep, stage1_proba = prefilter.select(psm_df, y)
         X_kept = X[keep]
-    gated = prefilter is not None and not keep.all()
 
     try:
         X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
@@ -156,16 +155,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         psm_df["qval"] = 1.0
         psm_df["proba"] = 1.0
         return psm_df
-
-    # The classifier's epoch count is tuned for the full candidate set. A gated set is far
-    # smaller, so the same epochs are a fraction of the gradient steps, while many more
-    # passes over it teach the network the target-decoy asymmetry among the hard negatives.
-    default_epochs = classifier.epochs if gated else None
-    if gated and prefilter.stage2_epochs is not None:
-        classifier.epochs = prefilter.stage2_epochs
-        logger.info(
-            f"Training the FDR classifier for {classifier.epochs} epochs on the gated set"
-        )
 
     classifier.fit(X_train, y_train)
 
@@ -202,9 +191,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             "FDR classifier produced a near-constant probability; target/decoy "
             "separation failed and q-values will not filter PSMs."
         )
-
-    if gated:
-        classifier.epochs = default_epochs
 
     proba = np.empty(len(X))
     proba[keep] = predicted_proba
