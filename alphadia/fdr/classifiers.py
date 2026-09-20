@@ -105,12 +105,6 @@ class Classifier(ABC):
         """
 
 
-# Input scaling of the network: BatchNorm learns running statistics from the training batches,
-# z-scoring fixes the per-feature mean and standard deviation of the training set once.
-INPUT_SCALING_BATCH_NORM = "batch_norm"
-INPUT_SCALING_ZSCORE = "zscore"
-
-
 def _get_scaled_training_params(
     df: pd.DataFrame | np.ndarray,
     base_lr: float = 0.001,
@@ -167,7 +161,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
-        input_scaling: str = INPUT_SCALING_BATCH_NORM,
         *,
         experimental_hyperparameter_tuning: bool = False,
         random_state: int | None = None,
@@ -204,9 +197,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         dropout : float, default=0.001
             Dropout probability for training.
 
-        input_scaling : str, default="batch_norm"
-            How the inputs are scaled: "batch_norm" or "zscore".
-
         metric_interval : int, default=1000
             Interval for logging metrics during training.
 
@@ -232,7 +222,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.metric_interval = metric_interval
-        self.input_scaling = input_scaling
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
 
         self.network = None
@@ -285,7 +274,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             "layers": self.layers,
             "dropout": self.dropout,
             "metric_interval": self.metric_interval,
-            "input_scaling": self.input_scaling,
             "metrics": self.metrics,
         }
 
@@ -316,9 +304,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 output_dim=_state_dict.pop("output_dim"),
                 layers=_state_dict.pop("layers"),
                 dropout=_state_dict.pop("dropout"),
-                input_scaling=_state_dict.pop(
-                    "input_scaling", INPUT_SCALING_BATCH_NORM
-                ),
             )
             self.network.load_state_dict(state_dict.pop("network_state_dict"))
             self._fitted = True
@@ -376,7 +361,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 output_dim=self.output_dim,
                 layers=self.layers,
                 dropout=self.dropout,
-                input_scaling=self.input_scaling,
             )
 
         if y.ndim == 1:
@@ -387,8 +371,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         x_train, x_test, y_train, y_test, *_ = train_test_split_(
             x, y, test_size=self.test_size, random_state=random_state
         )
-        if self.input_scaling == INPUT_SCALING_ZSCORE:
-            self.network.set_input_scaling(x_train)
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)
 
@@ -533,7 +515,6 @@ class FeedForwardNN(nn.Module):
         output_dim: int = 2,
         layers: list[int] | None = None,
         dropout: float = 0.5,
-        input_scaling: str = INPUT_SCALING_BATCH_NORM,
     ):
         """Built a simple feed forward network for FDR estimation."""
         if layers is None:
@@ -544,25 +525,14 @@ class FeedForwardNN(nn.Module):
 
         self.layers = [input_dim, *layers]  # type: ignore[assignment]
         self.dropout = dropout  # type: ignore[assignment]
-        self.input_scaling = input_scaling
-        if input_scaling == INPUT_SCALING_ZSCORE:
-            self.register_buffer("input_mean", torch.zeros(input_dim))
-            self.register_buffer("input_std", torch.ones(input_dim))
 
         self._build_model()
-
-    def set_input_scaling(self, x: np.ndarray) -> None:
-        """Fix the per-feature mean and standard deviation the inputs are z-scored with."""
-        std = x.std(axis=0)
-        std[std == 0] = 1.0
-        self.input_mean = torch.tensor(x.mean(axis=0), dtype=torch.float32)
-        self.input_std = torch.tensor(std, dtype=torch.float32)
 
     def _build_model(self) -> None:
         """Build the feed forward network model."""
         layers = []
-        if self.input_scaling == INPUT_SCALING_BATCH_NORM:
-            layers.append(nn.BatchNorm1d(self.input_dim))
+        # add batch norm layer
+        layers.append(nn.BatchNorm1d(self.input_dim))
         for i in range(len(self.layers) - 1):
             layers.append(nn.Linear(self.layers[i], self.layers[i + 1]))
             layers.append(nn.ReLU())
@@ -575,6 +545,4 @@ class FeedForwardNN(nn.Module):
 
     def forward(self, x: Any) -> Any:  # noqa: ANN401
         """Forward pass through the network."""
-        if self.input_scaling == INPUT_SCALING_ZSCORE:
-            x = (x - self.input_mean) / self.input_std
         return self.fc_layers(x)

@@ -6,11 +6,7 @@ import pandas as pd
 import torch
 
 from alphadia.fdr import fdr
-from alphadia.fdr.classifiers import (
-    INPUT_SCALING_ZSCORE,
-    BinaryClassifierLegacyNewBatching,
-    Classifier,
-)
+from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
 
 def test_keep_best():
@@ -207,27 +203,6 @@ def test_feed_forward_save():
 
     y_pred = new_classifier.predict(x)  # noqa: F841  # TODO fix this test
     # assert np.all(y_pred == y)
-
-
-def test_feed_forward_zscore_scaling_survives_a_state_dict_round_trip():
-    # Given: a fitted classifier that z-scores its inputs with fixed statistics
-    x, y = gen_data_np()
-    classifier = BinaryClassifierLegacyNewBatching(
-        batch_size=100, input_scaling=INPUT_SCALING_ZSCORE
-    )
-    classifier.fit(x, y)
-    proba = classifier.predict_proba(x)
-
-    # When: the classifier is restored from its state dict
-    new_classifier = BinaryClassifierLegacyNewBatching()
-    new_classifier.from_state_dict(classifier.to_state_dict())
-
-    # Then: no batch norm layer was built, the scaling is not trivial and predictions match
-    assert not any(
-        isinstance(m, torch.nn.BatchNorm1d) for m in new_classifier.network.fc_layers
-    )
-    assert not torch.allclose(new_classifier.network.input_std, torch.ones(x.shape[1]))
-    np.testing.assert_allclose(new_classifier.predict_proba(x), proba, atol=1e-6)
 
 
 def test_classifier_reset():
