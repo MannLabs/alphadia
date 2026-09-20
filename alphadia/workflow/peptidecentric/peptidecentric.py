@@ -83,7 +83,6 @@ def _get_prefilter(
         learning_rate=config_prefilter["learning_rate"],
         epochs=config_prefilter["epochs"],
         layers=config_prefilter["layers"],
-        input_scaling=config_prefilter["input_scaling"],
         random_state=random_state,
     )
     return CascadePrefilter(
