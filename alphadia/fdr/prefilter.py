@@ -17,7 +17,7 @@ logger = logging.getLogger()
 _MIN_PSMS = 100_000
 
 # Targets minus decoys below this stage-1 q-value estimate how many true precursors the
-# gate sees; the rest of the kept set is hard negatives the classifier has to learn against.
+# gate sees; logged against the kept set as a readout of how hard the gated problem is.
 _PURITY_Q_VALUE = 0.1
 
 
@@ -26,7 +26,8 @@ class CascadePrefilter:
 
     Most candidates are far from the decision boundary and cost the classifier time
     without changing which PSMs pass the FDR threshold. A small model on a feature subset
-    ranks every candidate first; only those below its q-value threshold are passed on.
+    ranks every candidate first; those below its q-value threshold are passed on, together
+    with a random sample of the rest.
 
     The stage-1 scores are produced out-of-fold: every candidate is scored by a model that
     has not seen its label. A model that has seen the labels memorizes false targets as
@@ -41,8 +42,7 @@ class CascadePrefilter:
         q_value_threshold: float,
         n_folds: int = 2,
         min_psms: int = _MIN_PSMS,
-        max_hard_negatives_per_true: float = np.inf,
-        stage2_epochs: int | None = None,
+        far_psms: int = 0,
         max_train_psms: int | None = None,
         random_state: int | None = None,
     ):
@@ -65,12 +65,9 @@ class CascadePrefilter:
         min_psms : int, default=100000
             Below this many PSMs every candidate is passed on unfiltered.
 
-        max_hard_negatives_per_true : float, default=inf
-            If the kept set holds more hard negatives per estimated true precursor than
-            this, every candidate is passed on unfiltered instead.
-
-        stage2_epochs : int, optional
-            Epochs the classifier trains for on a gated set. None keeps its own setting.
+        far_psms : int, default=0
+            Number of randomly drawn candidates above the q-value threshold that are
+            passed on together with the kept set.
 
         max_train_psms : int, optional
             Fit each fold's model on at most this many randomly drawn PSMs of the other
@@ -84,8 +81,7 @@ class CascadePrefilter:
         self.q_value_threshold = q_value_threshold
         self.n_folds = n_folds
         self.min_psms = min_psms
-        self.max_hard_negatives_per_true = max_hard_negatives_per_true
-        self.stage2_epochs = stage2_epochs
+        self.far_psms = far_psms
         self.max_train_psms = max_train_psms
         self._classifier = classifier
         self._np_rng = np.random.default_rng(seed=random_state)
@@ -147,34 +143,32 @@ class CascadePrefilter:
         )["qval"].sort_index()
         keep = (q_values <= self.q_value_threshold).to_numpy()
 
-        # A kept set dominated by hard negatives, as on a sample with few true precursors,
-        # is a harder problem than the full set: the classifier under-trains at the default
-        # budget and learns the target-decoy asymmetry when trained longer.
         confident = q_values.to_numpy() <= _PURITY_Q_VALUE
         estimated_true = int(
             ((y == 0) & confident).sum() - ((y == 1) & confident).sum()
         )
-        hard_negatives = int(keep.sum()) - estimated_true
-        hard_negatives_per_true = hard_negatives / max(estimated_true, 1)
-        logger.info(
-            f"Prefilter purity: {estimated_true:,} estimated true precursors, "
-            f"{hard_negatives_per_true:.2f} hard negatives per true in the kept set"
+        hard_negatives_per_true = (int(keep.sum()) - estimated_true) / max(
+            estimated_true, 1
         )
-        if (
-            estimated_true <= 0
-            or hard_negatives_per_true > self.max_hard_negatives_per_true
-        ):
-            logger.info(
-                f"Prefilter kept set too impure (limit {self.max_hard_negatives_per_true}): "
-                "passing all PSMs on"
-            )
-            return keep_all
-
         logger.info(
             f"Prefilter kept {keep.sum():,} of {n_psms:,} PSMs "
             f"({100 * keep.mean():.1f}%) at stage-1 q-value <= {self.q_value_threshold}: "
-            f"{int(((y == 0) & keep).sum()):,} targets, {int(((y == 1) & keep).sum()):,} decoys"
+            f"{int(((y == 0) & keep).sum()):,} targets, {int(((y == 1) & keep).sum()):,} decoys; "
+            f"{estimated_true:,} estimated true precursors, "
+            f"{hard_negatives_per_true:.2f} hard negatives per true"
         )
+
+        # The gate keeps the candidates where targets and decoys are hardest to tell apart,
+        # and among those false targets are not exchangeable with decoys. A classifier fitted
+        # on the kept set alone learns that asymmetry instead of the true-versus-false
+        # boundary when the true precursors are few, as in plasma. A random draw from the
+        # dropped bulk, where targets and decoys are exchangeable, keeps it anchored there.
+        dropped = np.flatnonzero(~keep)
+        far = self._np_rng.choice(
+            dropped, min(self.far_psms, len(dropped)), replace=False
+        )
+        keep[far] = True
+        logger.info(f"Prefilter added {len(far):,} random dropped PSMs to the kept set")
 
         return keep, stage1_proba
 
