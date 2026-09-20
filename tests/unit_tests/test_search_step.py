@@ -422,6 +422,7 @@ def test_raises_if_reuse_quant_from_is_set_without_reuse_quant(tmp_path):
 def test_expands_reuse_quant_from_paths(tmp_path, monkeypatch):
     """Test that `~` is expanded in `reuse_quant_from` paths."""
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows
     (tmp_path / "previous_run" / "quant").mkdir(parents=True)
 
     # when
