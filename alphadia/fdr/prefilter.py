@@ -1,6 +1,7 @@
 """Stage-1 prefilter that removes obviously false candidates before the FDR classifier."""
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
 import numpy as np
@@ -15,6 +16,11 @@ logger = logging.getLogger()
 # Below this many PSMs the classifier is cheap anyway, and a cross-fitted gate would be
 # trained on too few rows to be trusted with the decision which candidates it never sees.
 _MIN_PSMS = 100_000
+
+# Rows one scoring task takes. Bounds the feature slice a task copies, which is several
+# GB for a whole fold of a large run, while staying far above the batch size where the
+# fixed cost per task would start to show.
+_SCORE_CHUNK_PSMS = 1_000_000
 
 # Targets minus decoys below this stage-1 q-value estimate how many true precursors the
 # gate sees; logged against the kept set as a readout of how hard the gated problem is.
@@ -118,19 +124,46 @@ class CascadePrefilter:
         x = psm_df[self.feature_columns].to_numpy()
         fold = self._np_rng.permutation(n_psms) % self.n_folds
         stage1_proba = np.empty(n_psms)
+        fold_rows = [
+            np.flatnonzero(fold == fold_idx) for fold_idx in range(self.n_folds)
+        ]
 
+        # The folds are fitted one after another because their networks draw the initial
+        # weights and the dropout masks from the process-wide torch generator: fitting them
+        # at the same time would make the gate depend on thread timing instead of the seed.
+        classifiers = []
         try:
             for fold_idx in range(self.n_folds):
-                in_fold = fold == fold_idx
-                train_idx = self._training_rows(np.flatnonzero(~in_fold))
+                train_idx = self._training_rows(np.flatnonzero(fold != fold_idx))
                 classifier = deepcopy(self._classifier)
                 classifier.fit(x[train_idx], y[train_idx])
-                stage1_proba[in_fold] = classifier.predict_proba(x[in_fold])[:, 1]
+                classifiers.append(classifier)
         except TooFewPSMError:
             logger.warning(
                 "Too few PSMs to cross-fit the prefilter, passing all PSMs on"
             )
             return keep_all
+
+        # Scoring a fitted model draws no random numbers and the folds share nothing, so the
+        # folds are scored at the same time. Torch releases the GIL while it computes and
+        # stops scaling at the two intra-op threads the FDR task is capped to, which leaves
+        # the cores this needs.
+        def score_chunk(chunk: tuple[int, slice]) -> np.ndarray:
+            fold_idx, rows = chunk
+            return classifiers[fold_idx].predict_proba(x[fold_rows[fold_idx][rows]])[
+                :, 1
+            ]
+
+        chunks = [
+            (fold_idx, slice(start, start + _SCORE_CHUNK_PSMS))
+            for fold_idx in range(self.n_folds)
+            for start in range(0, len(fold_rows[fold_idx]), _SCORE_CHUNK_PSMS)
+        ]
+        with ThreadPoolExecutor(max_workers=self.n_folds) as pool:
+            for (fold_idx, rows), proba in zip(
+                chunks, pool.map(score_chunk, chunks), strict=True
+            ):
+                stage1_proba[fold_rows[fold_idx][rows]] = proba
 
         q_values = get_q_values(
             pd.DataFrame(
