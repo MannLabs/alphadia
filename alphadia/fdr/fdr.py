@@ -204,10 +204,8 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
 
     psm_df["proba"] = proba
-    psm_df.sort_values(
-        ["proba", "precursor_idx"], ascending=True, inplace=True
-    )  # last sort to break ties
-
+    # No sort here: get_q_values sorts by proba, _decoy and precursor_idx, and a stable
+    # sort on those leaves tied PSMs in the order they came in either way.
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
@@ -302,6 +300,43 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     return np.flip(q_values_flipped)
 
 
+def q_values_of(scores: np.ndarray, decoys: np.ndarray) -> np.ndarray:
+    """Calculates the q-value of every PSM, in the order the PSMs are given in.
+
+    Parameters
+    ----------
+    scores : np.ndarray
+        Score of every PSM, ascending, lower is better.
+
+    decoys : np.ndarray
+        Decoy information of every PSM, 1 for decoys and 0 for targets.
+
+    Returns
+    -------
+    np.ndarray
+        The q-value of every PSM.
+
+    """
+    # Ordering PSMs of one score against each other would put every target of the block
+    # ahead of every decoy, so a running ratio taken mid-block sees only the targets and
+    # reads far too low. With many features the scores are near-continuous and blocks are
+    # 2-3 PSMs wide, but a small feature subset emits few distinct probabilities and a
+    # single block can hold most of the data, which collapses the q-values. Charging every
+    # member of a block the ratio as it stands once the whole block is accepted makes the
+    # q-value a property of the block, so the counting runs over the distinct scores
+    # rather than over the PSMs, and no PSM has to be ordered against a tied one.
+    _, block_of_psm = np.unique(scores, return_inverse=True)
+    decoy_cumsum = np.cumsum(np.bincount(block_of_psm, weights=decoys))
+    target_cumsum = np.cumsum(np.bincount(block_of_psm, weights=1 - decoys))
+    fdr_values = np.divide(
+        decoy_cumsum,
+        target_cumsum,
+        out=np.ones(len(decoy_cumsum), dtype=float),
+        where=target_cumsum > 0,
+    )
+    return _fdr_to_q_values(fdr_values)[block_of_psm]
+
+
 def get_q_values(
     df: pd.DataFrame,
     score_column: str = "proba",
@@ -342,24 +377,7 @@ def get_q_values(
     df = df.sort_values(
         [score_column, decoy_column, *extra_sort_columns], ascending=True
     )  # last sort to break ties
-    target_values = 1 - df[decoy_column].to_numpy()
-    decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
-    target_cumsum = np.cumsum(target_values)
-    fdr_values = np.divide(
-        decoy_cumsum,
-        target_cumsum,
-        out=np.ones(len(df), dtype=float),
-        where=target_cumsum > 0,
+    df[qval_column] = q_values_of(
+        df[score_column].to_numpy(), df[decoy_column].to_numpy()
     )
-
-    # The sort above puts every target of a tied-score block ahead of every decoy, so a
-    # running ratio taken mid-block sees only the targets and reads far too low. With
-    # many features the scores are near-continuous and blocks are 2-3 PSMs wide, but a
-    # small feature subset emits few distinct probabilities and a single block can hold
-    # most of the data, which collapses the q-values. Charge every member of a block the
-    # ratio as it stands once the whole block is accepted.
-    scores = df[score_column].to_numpy()
-    block_end = np.searchsorted(scores, scores, side="right") - 1
-    fdr_values = fdr_values[block_end]
-    df[qval_column] = _fdr_to_q_values(fdr_values)
     return df

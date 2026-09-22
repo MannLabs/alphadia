@@ -9,7 +9,7 @@ import pandas as pd
 
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.classifiers import Classifier
-from alphadia.fdr.fdr import get_q_values
+from alphadia.fdr.fdr import q_values_of
 
 logger = logging.getLogger()
 
@@ -165,18 +165,10 @@ class CascadePrefilter:
             ):
                 stage1_proba[fold_rows[fold_idx][rows]] = proba
 
-        q_values = get_q_values(
-            pd.DataFrame(
-                {
-                    "proba": stage1_proba,
-                    "_decoy": y,
-                    "precursor_idx": psm_df["precursor_idx"].to_numpy(),
-                }
-            )
-        )["qval"].sort_index()
-        keep = (q_values <= self.q_value_threshold).to_numpy()
+        q_values = q_values_of(stage1_proba, y)
+        keep = q_values <= self.q_value_threshold
 
-        confident = q_values.to_numpy() <= _PURITY_Q_VALUE
+        confident = q_values <= _PURITY_Q_VALUE
         estimated_true = int(
             ((y == 0) & confident).sum() - ((y == 1) & confident).sum()
         )
