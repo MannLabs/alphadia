@@ -196,7 +196,7 @@ search:
   optimized_peak_group_score: False
 
   # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
-  candidate_context_features: True
+  candidate_context_features: False
 
   # === python backend only ===
   # exclude fragments shared between multiple channels
