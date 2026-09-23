@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -27,6 +28,9 @@ logger = logging.getLogger()
 _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
+
+# Folds of the cross-fitted classifier behind the prefilter.
+_STAGE2_FOLDS = 2
 
 # Fraction of the gap between the worst scored PSM and 1.0 left empty above the scored
 # PSMs, so a dropped PSM with stage-1 probability 0 still ranks strictly behind them.
@@ -151,9 +155,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         keep, stage1_proba = prefilter.select(psm_df, y)
         X_kept = X[keep]
 
+    y_kept = y[keep]
     try:
         X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-            X_kept, y[keep], test_size=0.2, random_state=random_state
+            X_kept, y_kept, test_size=0.2, random_state=random_state
         )
     except TooFewPSMError:
         logger.warning(
@@ -163,7 +168,30 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         psm_df["proba"] = 1.0
         return psm_df
 
-    classifier.fit(X_train, y_train)
+    if prefilter is None:
+        predicted_proba = _fit_predict(classifier, X_train, y_train, X_kept)
+    else:
+        # Behind the gate the kept set is small and dominated by the hardest candidates, so
+        # a classifier that scores the rows it was fitted on can memorize its false targets
+        # as targets. Every kept PSM is therefore scored by a model that has not seen its
+        # label.
+        fold = np.random.default_rng(random_state).permutation(len(X_kept)) % (
+            _STAGE2_FOLDS
+        )
+        # every fold starts from the same (possibly warm-started) weights; the passed
+        # classifier is fitted last so that it is the one kept for the next round
+        start_state = deepcopy(classifier)
+        predicted_proba = np.empty(len(X_kept))
+        for fold_idx in reversed(range(_STAGE2_FOLDS)):
+            fold_classifier = classifier if fold_idx == 0 else deepcopy(start_state)
+            in_fold = fold == fold_idx
+            predicted_proba[in_fold] = _fit_predict(
+                fold_classifier, X_kept[~in_fold], y_kept[~in_fold], X_kept[in_fold]
+            )
+        # for the diagnostic plot fold 0 plays the test set; all probabilities are out-of-fold
+        idxs_test = np.flatnonzero(fold == 0)
+        idxs_train = np.flatnonzero(fold != 0)
+        y_train, y_test = y_kept[idxs_train], y_kept[idxs_test]
 
     if competitive:
         group_columns = (
@@ -173,31 +201,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
     else:
         group_columns = ["precursor_idx"]
-
-    predicted_proba = classifier.predict_proba(X_kept)[:, 1]
-
-    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
-    n_reinit = 0
-    while (
-        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
-        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
-    ):
-        n_reinit += 1
-        logger.warning(
-            f"FDR classifier collapsed to a near-constant probability "
-            f"({np.unique(predicted_proba).size} unique value(s) over "
-            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
-            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
-        )
-        classifier.reset()
-        classifier.fit(X_train, y_train)
-        predicted_proba = classifier.predict_proba(X_kept)[:, 1]
-
-    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
-        logger.warning(
-            "FDR classifier produced a near-constant probability; target/decoy "
-            "separation failed and q-values will not filter PSMs."
-        )
 
     proba = np.empty(len(X))
     proba[keep] = predicted_proba
@@ -249,6 +252,41 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
 
     return psm_df
+
+
+def _fit_predict(
+    classifier: Classifier,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_score: np.ndarray,
+) -> np.ndarray:
+    """Fit the classifier and return its decoy probability for `X_score`, refitting from scratch on a collapse."""
+    classifier.fit(X_train, y_train)
+    predicted_proba = classifier.predict_proba(X_score)[:, 1]
+
+    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
+    n_reinit = 0
+    while (
+        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
+    ):
+        n_reinit += 1
+        logger.warning(
+            f"FDR classifier collapsed to a near-constant probability "
+            f"({np.unique(predicted_proba).size} unique value(s) over "
+            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
+            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+        )
+        classifier.reset()
+        classifier.fit(X_train, y_train)
+        predicted_proba = classifier.predict_proba(X_score)[:, 1]
+
+    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
+        logger.warning(
+            "FDR classifier produced a near-constant probability; target/decoy "
+            "separation failed and q-values will not filter PSMs."
+        )
+    return predicted_proba
 
 
 def keep_best(
