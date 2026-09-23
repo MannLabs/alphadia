@@ -136,3 +136,42 @@ def test_perform_fdr_with_prefilter_ranks_dropped_psms_behind_scored_ones():
     assert (good_targets["qval"] < 0.05).mean() > 0.9
     decoys = psm_df[psm_df["_decoy"] == 1]
     assert good_targets["proba"].max() < decoys["proba"].quantile(0.5)
+
+
+class _MemorizingClassifier:
+    """Returns the label of every row it was fitted on and 0.5 for rows it has not seen."""
+
+    def __init__(self):
+        self._seen: dict[bytes, float] = {}
+
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+        self._seen = {row.tobytes(): label for row, label in zip(x, y, strict=True)}
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        decoy_proba = np.array([self._seen.get(row.tobytes(), 0.5) for row in x])
+        return np.stack([1 - decoy_proba, decoy_proba], axis=1)
+
+    def reset(self) -> None:
+        self._seen = {}
+
+
+def test_perform_fdr_with_prefilter_scores_every_kept_psm_out_of_fold():
+    # Given: a classifier that memorizes the labels of its training rows, behind a
+    # prefilter that keeps every PSM
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    prefilter = _get_prefilter(q_value_threshold=1.0)
+
+    # When: perform_fdr runs with the prefilter
+    psm_df = fdr.perform_fdr(
+        _MemorizingClassifier(),
+        ["feature", "noise"],
+        target_df.copy(),
+        decoy_df.copy(),
+        competitive=False,
+        random_state=0,
+        prefilter=prefilter,
+    )
+
+    # Then: no PSM is scored by a model that saw its label, so the memorized labels
+    # never reach the probabilities
+    assert (psm_df["proba"] == 0.5).all()
