@@ -320,7 +320,7 @@ fdr:
   # a random sample of the rest are passed on to the classifier, the remaining PSMs are ranked behind them by their
   # stage-1 score
   prefilter:
-    enabled: true
+    enabled: false
     # stage-1 q-value above which a PSM is not passed on to the classifier
     q_value_threshold: 0.3
     # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
