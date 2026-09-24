@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
+from multiprocessing import get_context
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+import torch
 
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.plotting import plot_fdr
@@ -28,8 +31,12 @@ _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
 
-# Folds of the cross-fitted classifier behind the prefilter.
-_STAGE2_FOLDS = 2
+# Folds of the cross-fitted classifier; each fold model is fitted on 80 % of the PSMs, as
+# many as the single in-sample fit it replaces.
+_CROSS_FIT_FOLDS = 5
+
+# Torch threads of one fold's worker process, the cap the FDR task runs under anyway.
+_CROSS_FIT_TORCH_THREADS = 2
 
 # Fraction of the gap between the worst scored PSM and 1.0 left empty above the scored
 # PSMs, so a dropped PSM with stage-1 probability 0 still ranks strictly behind them.
@@ -51,6 +58,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
     prefilter: CascadePrefilter | None = None,
+    cross_fit: bool = False,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -94,6 +102,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     prefilter : CascadePrefilter, default=None
         Gate that decides which PSMs the classifier is fitted on and scores. PSMs it
         drops are ranked behind every scored PSM, in the order of its own scores.
+
+    cross_fit : bool, default=False
+        Score every PSM with a model that was fitted from fresh weights on the other folds,
+        instead of with one model that also scores the PSMs it was fitted on. The passed
+        classifier ends up holding the model of the first fold.
 
     Returns
     -------
@@ -161,30 +174,16 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         psm_df["proba"] = 1.0
         return psm_df
 
-    if prefilter is None:
-        predicted_proba = _fit_predict(classifier, X_train, y_train, X_kept)
-    else:
-        # Behind the gate the kept set is small and dominated by the hardest candidates, so
-        # a classifier that scores the rows it was fitted on can memorize its false targets
-        # as targets. Every kept PSM is therefore scored by a model that has not seen its
-        # label.
-        fold = np.random.default_rng(random_state).permutation(len(X_kept)) % (
-            _STAGE2_FOLDS
+    if cross_fit:
+        predicted_proba, fold = _cross_fitted_proba(
+            classifier, X_kept, y_kept, random_state
         )
-        # every fold starts from the same (possibly warm-started) weights; the passed
-        # classifier is fitted last so that it is the one kept for the next round
-        start_state = deepcopy(classifier)
-        predicted_proba = np.empty(len(X_kept))
-        for fold_idx in reversed(range(_STAGE2_FOLDS)):
-            fold_classifier = classifier if fold_idx == 0 else deepcopy(start_state)
-            in_fold = fold == fold_idx
-            predicted_proba[in_fold] = _fit_predict(
-                fold_classifier, X_kept[~in_fold], y_kept[~in_fold], X_kept[in_fold]
-            )
         # for the diagnostic plot fold 0 plays the test set; all probabilities are out-of-fold
         idxs_test = np.flatnonzero(fold == 0)
         idxs_train = np.flatnonzero(fold != 0)
         y_train, y_test = y_kept[idxs_train], y_kept[idxs_test]
+    else:
+        predicted_proba = _fit_predict(classifier, X_train, y_train, X_kept)
 
     if competitive:
         group_columns = (
@@ -242,6 +241,46 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
 
     return psm_df
+
+
+def _cross_fitted_proba(
+    classifier: Classifier,
+    X: np.ndarray,
+    y: np.ndarray,
+    random_state: int | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Out-of-fold decoy probability of every row, and the fold of every row."""
+    fold = np.random.default_rng(random_state).permutation(len(X)) % _CROSS_FIT_FOLDS
+    # Fresh weights: a warm start carries what earlier rounds learned from the labels of
+    # these same precursors, so a fold model would not be blind to the rows it scores.
+    fresh = deepcopy(classifier)
+    fresh.reset()
+    tasks = [
+        (deepcopy(fresh), X[fold != fold_idx], y[fold != fold_idx], X[fold == fold_idx])
+        for fold_idx in range(_CROSS_FIT_FOLDS)
+    ]
+    # The folds are fitted at the same time so that cross-fitting costs no wall time. The
+    # training loop is bound by the GIL, so threads do not run in parallel, and forking a
+    # process that has already run torch deadlocks, hence spawned worker processes.
+    with ProcessPoolExecutor(
+        max_workers=_CROSS_FIT_FOLDS, mp_context=get_context("spawn")
+    ) as pool:
+        results = list(pool.map(_fit_predict_in_worker, tasks))
+
+    predicted_proba = np.empty(len(X))
+    for fold_idx, (fold_proba, _) in enumerate(results):
+        predicted_proba[fold == fold_idx] = fold_proba
+    classifier.from_state_dict(results[0][1].to_state_dict())
+    return predicted_proba, fold
+
+
+def _fit_predict_in_worker(
+    task: tuple[Classifier, np.ndarray, np.ndarray, np.ndarray],
+) -> tuple[np.ndarray, Classifier]:
+    """Fit one fold in a worker process; returns its probabilities and the fitted model."""
+    classifier, X_train, y_train, X_score = task
+    torch.set_num_threads(_CROSS_FIT_TORCH_THREADS)
+    return _fit_predict(classifier, X_train, y_train, X_score), classifier
 
 
 def _fit_predict(

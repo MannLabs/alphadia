@@ -154,14 +154,20 @@ class _MemorizingClassifier:
     def reset(self) -> None:
         self._seen = {}
 
+    def to_state_dict(self) -> dict:
+        return {"seen": self._seen}
 
-def test_perform_fdr_with_prefilter_scores_every_kept_psm_out_of_fold():
+    def from_state_dict(self, state_dict: dict) -> None:
+        self._seen = state_dict["seen"]
+
+
+def test_perform_fdr_cross_fit_scores_every_kept_psm_out_of_fold():
     # Given: a classifier that memorizes the labels of its training rows, behind a
     # prefilter that keeps every PSM
     target_df, decoy_df = _gen_target_decoy_dfs()
     prefilter = _get_prefilter(q_value_threshold=1.0)
 
-    # When: perform_fdr runs with the prefilter
+    # When: perform_fdr cross-fits the classifier
     psm_df = fdr.perform_fdr(
         _MemorizingClassifier(),
         ["feature", "noise"],
@@ -170,8 +176,31 @@ def test_perform_fdr_with_prefilter_scores_every_kept_psm_out_of_fold():
         competitive=False,
         random_state=0,
         prefilter=prefilter,
+        cross_fit=True,
     )
 
     # Then: no PSM is scored by a model that saw its label, so the memorized labels
     # never reach the probabilities
     assert (psm_df["proba"] == 0.5).all()
+
+
+def test_perform_fdr_cross_fit_hands_back_a_fitted_classifier():
+    # Given: separable targets and decoys and an unfitted network
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    classifier = _get_small_network()
+
+    # When: perform_fdr cross-fits it
+    psm_df = fdr.perform_fdr(
+        classifier,
+        ["feature", "noise"],
+        target_df.copy(),
+        decoy_df.copy(),
+        competitive=True,
+        random_state=0,
+        cross_fit=True,
+    )
+
+    # Then: the good targets are found and the passed classifier holds a fitted model
+    good_targets = psm_df[(psm_df["_decoy"] == 0) & (psm_df["feature"] < 1.0)]
+    assert (good_targets["qval"] < 0.05).mean() > 0.9
+    assert classifier.fitted
