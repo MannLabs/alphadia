@@ -18,8 +18,13 @@ class RecalibrationHandler:
     DEFAULT_FAC = 0.95
     DEFAULT_Q = 3
 
-    OPTIMIZED_FAC = 0.99
-    OPTIMIZED_Q = 1
+    # The calibration identifications are the targets at 1 % FDR, so about 1 % of them are
+    # false and fill the low-score tail: a 1st percentile is set by the false ones, drifts
+    # between runs of the same file and, when low, floods the final search with low-score
+    # candidates of which false targets pass far more often than decoys. The 3rd percentile
+    # lies above that tail.
+    OPTIMIZED_FAC = 0.95
+    OPTIMIZED_Q = 3
 
     def __init__(
         self,
