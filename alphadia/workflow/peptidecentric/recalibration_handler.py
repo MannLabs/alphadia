@@ -21,6 +21,15 @@ class RecalibrationHandler:
     OPTIMIZED_FAC = 0.99
     OPTIMIZED_Q = 1
 
+    # The cutoff percentile is taken over identifications at this q-value only. At the 1 %
+    # FDR of the calibration set, about 1 % of the identifications are false and fill the
+    # low-score tail, so the 1st percentile would be set by the false ones: it then drifts
+    # between runs of the same file and, when low, floods the final search with low-score
+    # candidates of which false targets pass far more often than decoys.
+    SCORE_CUTOFF_MAX_QVAL = 0.001
+    # below this many confident identifications the percentile is taken over all of them
+    SCORE_CUTOFF_MIN_CONFIDENT = 100
+
     def __init__(
         self,
         config: Config,
@@ -69,7 +78,13 @@ class RecalibrationHandler:
             num_candidates=self._config["search"]["target_num_candidates"],
         )
 
-        score = precursor_df_filtered["score"]
+        confident = precursor_df_filtered[
+            precursor_df_filtered["qval"] < self.SCORE_CUTOFF_MAX_QVAL
+        ]
+        if len(confident) < self.SCORE_CUTOFF_MIN_CONFIDENT:
+            confident = precursor_df_filtered
+        score = confident["score"]
+
         if self._config["search"]["optimized_peak_group_score"]:
             # these values give benefits on max memory and runtime, with a small precursor penalty
             fac, q = self.DEFAULT_FAC, self.DEFAULT_Q
