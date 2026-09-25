@@ -309,7 +309,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
             candidates_fdr_df, precursor_fdr_df = (
                 extraction_handler.perform_fdr_and_filter_candidates(
-                    precursor_w_features_df, candidates_df
+                    precursor_w_features_df,
+                    candidates_df,
+                    self.dia_data,
+                    self.spectral_library,
                 )
             )
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -43,6 +44,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     group_channels: bool = True,
     figure_path: str | None = None,
     df_fragments: pd.DataFrame | None = None,
+    fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
@@ -77,6 +79,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     df_fragments : pd.DataFrame, default=None
         The fragment dataframe.
+
+    fragment_provider : Callable[[pd.DataFrame], pd.DataFrame], default=None
+        Returns the fragment dataframe of the PSMs it is given. Used instead of
+        `df_fragments` when the fragments are only quantified on demand; it is called
+        with the PSMs that enter fragment competition.
 
     dia_cycle : np.ndarray, default=None
         The DIA cycle. Required if df_fragments is provided.
@@ -214,6 +221,9 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
         if start_idx == 0:
             start_idx = len(psm_df)
+
+        if df_fragments is None and fragment_provider is not None:
+            df_fragments = fragment_provider(psm_df.iloc[:start_idx])
 
         # make sure fragments are not reused
         if df_fragments is not None:

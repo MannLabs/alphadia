@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
 from typing import Literal
 
@@ -114,6 +115,7 @@ class FDRManager(BaseManager):
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
+        fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -131,6 +133,9 @@ class FDRManager(BaseManager):
             Channel to use for decoy competition if decoy_strategy is "channel". Defaults to -1, which means no decoy channel is used.
         version: int
             Version of the classifier to use. If -1, uses the latest version. Defaults to -1.
+        fragment_provider: None | Callable[[pd.DataFrame], pd.DataFrame]
+            Returns the fragments of the PSMs it is given, for fragment competition when `df_fragments` is not
+            available up front. Only used with decoy_strategy "precursor".
 
         Notes
         -----
@@ -174,6 +179,9 @@ class FDRManager(BaseManager):
                 group_channels=True,
                 # TODO move this logic to perform_fdr():
                 df_fragments=df_fragments if self._compete_for_fragments else None,
+                fragment_provider=fragment_provider
+                if self._compete_for_fragments
+                else None,
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
