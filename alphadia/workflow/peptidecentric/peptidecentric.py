@@ -316,6 +316,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     candidates_df,
                     self.dia_data,
                     self.spectral_library,
+                    # only the reported round, as in the python path
+                    cross_fit=True,
                 )
             )
 

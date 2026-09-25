@@ -143,3 +143,21 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["df_fragments"] is fragments_df
     assert kwargs["fragment_provider"] is None
+
+
+@pytest.mark.parametrize("cross_fit", [True, False])
+def test_perform_fdr_and_filter_candidates_passes_cross_fit_on(cross_fit):
+    # given
+    def fit_predict(features_df, **kwargs):
+        return features_df.assign(qval=0.0)
+
+    handler, fdr_manager = _fdr_handler(fit_predict)
+    features_df, candidates_df, spectral_library = _fdr_inputs()
+
+    # when
+    handler.perform_fdr_and_filter_candidates(
+        features_df, candidates_df, MagicMock(), spectral_library, cross_fit=cross_fit
+    )
+
+    # then
+    assert fdr_manager.fit_predict.call_args.kwargs["cross_fit"] is cross_fit
