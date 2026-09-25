@@ -270,7 +270,12 @@ class ExtractionHandler(ABC):
         raise NotImplementedError()
 
     def perform_fdr_and_filter_candidates(
-        self, features_df: pd.DataFrame, candidates_df: pd.DataFrame
+        self,
+        features_df: pd.DataFrame,
+        candidates_df: pd.DataFrame,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+        df_fragments: pd.DataFrame | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -283,6 +288,16 @@ class ExtractionHandler(ABC):
 
         candidates_df : pd.DataFrame
             DataFrame with candidates
+
+        dia_data : DiaDataNG
+            DIA data, to quantify the fragments that fragment competition needs.
+
+        spectral_library : SpecLibFlat
+            Spectral library of the candidates
+
+        df_fragments : pd.DataFrame, optional
+            Quantified fragments of all candidates. If not given, the fragments of the
+            candidates that enter fragment competition are quantified on demand.
 
         Returns
         -------
@@ -682,6 +697,9 @@ class NgExtractionHandler(ExtractionHandler):
         self,
         features_df: pd.DataFrame,
         candidates_df: pd.DataFrame,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+        df_fragments: pd.DataFrame | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -695,12 +713,33 @@ class NgExtractionHandler(ExtractionHandler):
             candidates_df["precursor_idx"].values, candidates_df["rank"].values
         )
 
+        if CalibCols.MZ_OBSERVED not in features_df.columns:
+            # fragment competition assigns every PSM to its isolation window by this m/z
+            precursor_mz = spectral_library.precursor_df.set_index("precursor_idx")[
+                self._column_name_handler.get_precursor_mz_column()
+            ]
+            features_df[CalibCols.MZ_OBSERVED] = (
+                features_df["precursor_idx"].map(precursor_mz).to_numpy()
+            )
+
+        def quantified_fragments(psm_df: pd.DataFrame) -> pd.DataFrame:
+            # Scoring does not quantify fragments, and quantifying every candidate would
+            # cost far more than the few that are close enough to the threshold to compete.
+            competing = candidates_df[
+                candidates_df["_candidate_idx"].isin(psm_df["_candidate_idx"])
+            ].drop(columns="_candidate_idx")
+            _, fragments_df = self.quantify_candidates(
+                competing, None, dia_data, spectral_library
+            )
+            return fragments_df
+
         # apply FDR to PSMs
         precursor_fdr_df = self._fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor",  # TODO support channel_wise, raise error for now
             competitive=self._config["fdr"]["competitive_scoring"],
-            df_fragments=None,  # TODO: support fragments_df,
+            df_fragments=df_fragments,
+            fragment_provider=quantified_fragments if df_fragments is None else None,
             version=self._optimization_manager.classifier_version,
         )
         precursor_fdr_df = precursor_fdr_df[
