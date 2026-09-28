@@ -362,3 +362,78 @@ def test_perform_fdr_prefers_given_fragments_over_the_provider():
 
     # Then: the given fragments decide the competition
     assert 1 not in psm_df["precursor_idx"].to_numpy()
+
+
+class _MemorizingClassifier(Classifier):
+    """Returns the label of every row it was fitted on and 0.5 for rows it has not seen."""
+
+    def __init__(self):
+        self._seen: dict[bytes, float] = {}
+
+    @property
+    def fitted(self) -> bool:
+        return bool(self._seen)
+
+    def fit(self, x, y):
+        self._seen = {row.tobytes(): label for row, label in zip(x, y, strict=True)}
+
+    def reset(self):
+        self._seen = {}
+
+    def predict(self, x):
+        return self.predict_proba(x)[:, 1]
+
+    def predict_proba(self, x):
+        decoy_proba = np.array([self._seen.get(row.tobytes(), 0.5) for row in x])
+        return np.stack([1 - decoy_proba, decoy_proba], axis=1)
+
+    def to_state_dict(self):
+        return {"seen": self._seen}
+
+    def from_state_dict(self, state_dict):
+        self._seen = state_dict["seen"]
+
+
+def test_perform_fdr_cross_fit_scores_every_psm_out_of_fold():
+    # Given: a classifier that memorizes the labels of its training rows, and PSMs whose
+    # rows are all distinct
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    rng = np.random.default_rng(0)
+    target_df["noise"] = rng.normal(size=len(target_df))
+    decoy_df["noise"] = rng.normal(size=len(decoy_df))
+    classifier = _MemorizingClassifier()
+
+    # When: perform_fdr cross-fits the classifier
+    psm_df = fdr.perform_fdr(
+        classifier,
+        ["feature", "noise"],
+        target_df,
+        decoy_df,
+        random_state=0,
+        cross_fit=True,
+    )
+
+    # Then: no PSM is scored by a model that saw its label, and the passed classifier
+    # holds a fitted fold model
+    assert (psm_df["proba"] == 0.5).all()
+    assert classifier.fitted
+
+
+def test_perform_fdr_in_sample_scores_training_psms_with_their_labels():
+    # Given: the same memorizing classifier and PSMs
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    rng = np.random.default_rng(0)
+    target_df["noise"] = rng.normal(size=len(target_df))
+    decoy_df["noise"] = rng.normal(size=len(decoy_df))
+
+    # When: perform_fdr fits and scores in-sample
+    psm_df = fdr.perform_fdr(
+        _MemorizingClassifier(),
+        ["feature", "noise"],
+        target_df,
+        decoy_df,
+        random_state=0,
+    )
+
+    # Then: the training rows carry their memorized labels
+    assert (psm_df["proba"] != 0.5).mean() > 0.5

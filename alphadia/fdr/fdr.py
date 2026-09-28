@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from concurrent.futures import ProcessPoolExecutor
+from copy import deepcopy
+from multiprocessing import get_context
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+import torch
 
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.plotting import plot_fdr
@@ -27,6 +31,13 @@ _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
 
+# Folds of the cross-fitted classifier; each fold model is fitted on 80 % of the PSMs, as
+# many as the single in-sample fit it replaces.
+_CROSS_FIT_FOLDS = 5
+
+# Torch threads of one fold's worker process, the cap the FDR task runs under anyway.
+_CROSS_FIT_TORCH_THREADS = 2
+
 
 @manage_torch_threads(max_threads=2)
 def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
@@ -43,6 +54,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    cross_fit: bool = False,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -87,6 +99,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     random_state : int, optional
         The random state for train-test split reproducibility.
+
+    cross_fit : bool, default=False
+        Score every PSM with a model that was fitted from fresh weights on the other folds,
+        instead of with one model that also scores the PSMs it was fitted on. The passed
+        classifier ends up holding the model of the first fold.
 
     Returns
     -------
@@ -144,7 +161,14 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         psm_df["proba"] = 1.0
         return psm_df
 
-    classifier.fit(X_train, y_train)
+    if cross_fit:
+        predicted_proba, fold = _cross_fitted_proba(classifier, X, y, random_state)
+        # for the diagnostic plot fold 0 plays the test set; all probabilities are out-of-fold
+        idxs_test = np.flatnonzero(fold == 0)
+        idxs_train = np.flatnonzero(fold != 0)
+        y_train, y_test = y[idxs_train], y[idxs_test]
+    else:
+        predicted_proba = _fit_predict(classifier, X_train, y_train, X)
 
     psm_df = pd.concat([df_target, df_decoy])
     psm_df["_decoy"] = y
@@ -157,31 +181,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
     else:
         group_columns = ["precursor_idx"]
-
-    predicted_proba = classifier.predict_proba(X)[:, 1]
-
-    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
-    n_reinit = 0
-    while (
-        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
-        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
-    ):
-        n_reinit += 1
-        logger.warning(
-            f"FDR classifier collapsed to a near-constant probability "
-            f"({np.unique(predicted_proba).size} unique value(s) over "
-            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
-            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
-        )
-        classifier.reset()
-        classifier.fit(X_train, y_train)
-        predicted_proba = classifier.predict_proba(X)[:, 1]
-
-    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
-        logger.warning(
-            "FDR classifier produced a near-constant probability; target/decoy "
-            "separation failed and q-values will not filter PSMs."
-        )
 
     psm_df["proba"] = predicted_proba
     psm_df.sort_values(
@@ -224,6 +223,81 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
 
     return psm_df
+
+
+def _cross_fitted_proba(
+    classifier: Classifier,
+    X: np.ndarray,
+    y: np.ndarray,
+    random_state: int | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Out-of-fold decoy probability of every row, and the fold of every row."""
+    fold = np.random.default_rng(random_state).permutation(len(X)) % _CROSS_FIT_FOLDS
+    # Fresh weights: a warm start carries what earlier rounds learned from the labels of
+    # these same precursors, so a fold model would not be blind to the rows it scores.
+    fresh = deepcopy(classifier)
+    fresh.reset()
+    tasks = [
+        (deepcopy(fresh), X[fold != fold_idx], y[fold != fold_idx], X[fold == fold_idx])
+        for fold_idx in range(_CROSS_FIT_FOLDS)
+    ]
+    # The folds are fitted at the same time so that cross-fitting costs no wall time. The
+    # training loop is bound by the GIL, so threads do not run in parallel, and forking a
+    # process that has already run torch deadlocks, hence spawned worker processes.
+    with ProcessPoolExecutor(
+        max_workers=_CROSS_FIT_FOLDS, mp_context=get_context("spawn")
+    ) as pool:
+        results = list(pool.map(_fit_predict_in_worker, tasks))
+
+    predicted_proba = np.empty(len(X))
+    for fold_idx, (fold_proba, _) in enumerate(results):
+        predicted_proba[fold == fold_idx] = fold_proba
+    classifier.from_state_dict(results[0][1].to_state_dict())
+    return predicted_proba, fold
+
+
+def _fit_predict_in_worker(
+    task: tuple[Classifier, np.ndarray, np.ndarray, np.ndarray],
+) -> tuple[np.ndarray, Classifier]:
+    """Fit one fold in a worker process; returns its probabilities and the fitted model."""
+    classifier, X_train, y_train, X_score = task
+    torch.set_num_threads(_CROSS_FIT_TORCH_THREADS)
+    return _fit_predict(classifier, X_train, y_train, X_score), classifier
+
+
+def _fit_predict(
+    classifier: Classifier,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_score: np.ndarray,
+) -> np.ndarray:
+    """Fit the classifier and return its decoy probability for `X_score`, refitting from scratch on a collapse."""
+    classifier.fit(X_train, y_train)
+    predicted_proba = classifier.predict_proba(X_score)[:, 1]
+
+    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
+    n_reinit = 0
+    while (
+        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
+    ):
+        n_reinit += 1
+        logger.warning(
+            f"FDR classifier collapsed to a near-constant probability "
+            f"({np.unique(predicted_proba).size} unique value(s) over "
+            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
+            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+        )
+        classifier.reset()
+        classifier.fit(X_train, y_train)
+        predicted_proba = classifier.predict_proba(X_score)[:, 1]
+
+    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
+        logger.warning(
+            "FDR classifier produced a near-constant probability; target/decoy "
+            "separation failed and q-values will not filter PSMs."
+        )
+    return predicted_proba
 
 
 def keep_best(
@@ -333,7 +407,7 @@ def get_q_values(
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
     fdr_values = (
-        decoy_cumsum + decoy_offset
-    ) / target_cumsum  # TODO: RuntimeWarning: divide by zero encountered in divide if offset is not set and there are no targets
+        (decoy_cumsum + decoy_offset) / target_cumsum
+    )  # TODO: RuntimeWarning: divide by zero encountered in divide if offset is not set and there are no targets
     df[qval_column] = _fdr_to_q_values(fdr_values)
     return df

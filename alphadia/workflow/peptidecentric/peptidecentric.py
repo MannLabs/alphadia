@@ -210,6 +210,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 competitive=self._config["fdr"]["competitive_scoring"],
                 df_fragments=fragments_df,
                 version=self.optimization_manager.classifier_version,
+                # only the reported round: the optimization rounds need a ranking, not
+                # honest q-values, and would pay the extra fits many times over
+                cross_fit=True,
             )
 
             precursor_df = precursor_df[
@@ -241,6 +244,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     candidates_df,
                     self.dia_data,
                     self.spectral_library,
+                    # only the reported round, as in the python path
+                    cross_fit=True,
                 )
             )
 
