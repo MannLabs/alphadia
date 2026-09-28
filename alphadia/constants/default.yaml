@@ -316,6 +316,47 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
+  # a small cross-fitted neural network scores every PSM before the classifier; PSMs below its q-value threshold and
+  # a random sample of the rest are passed on to the classifier, the remaining PSMs are ranked behind them by their
+  # stage-1 score
+  prefilter:
+    enabled: true
+    # stage-1 q-value above which a PSM is not passed on to the classifier
+    q_value_threshold: 0.3
+    # number of cross-fitting folds, so that no PSM is gated by a model that has seen its label
+    n_folds: 2
+    # number of random PSMs above the threshold passed on with the kept set, so that the classifier also
+    # sees the bulk where targets and decoys are exchangeable
+    far_psms: 1500000
+    # fit each fold's stage-1 model on at most this many PSMs of the other folds; null fits on all of them
+    max_train_psms: 1000000
+    # hidden layer sizes of the stage-1 network
+    layers: [100, 48]
+    # training epochs of the stage-1 network
+    epochs: 10
+    # batch size of the stage-1 network
+    batch_size: 5000
+    # learning rate of the stage-1 network
+    learning_rate: 0.001
+    # features of the stage-1 network
+    feature_subset:
+      - idf_hyperscore
+      - num_over_0
+      - log10_b_ion_intensity
+      - num_profiles_filtered
+      - log10_y_ion_intensity
+      - idf_xic_dot_product
+      - idf_intensity_dot_product
+      - delta_rt
+      - hyperscore_inverse_mass_error
+      - naa
+      - rt_observed
+      - num_fragments
+      - weighted_mass_error
+      - score
+      - longest_b_series
+      - num_over_0_rank_0_5
+      - fwhm_rt
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
