@@ -26,6 +26,13 @@ class RecalibrationHandler:
     OPTIMIZED_FAC = 0.95
     OPTIMIZED_Q = 3
 
+    # Some calibration batches carry a false tail of far more than 3 %, and then the 3rd
+    # percentile falls into it too. The median lies in the true identifications even then:
+    # across HeLa, low-input, entrapment and plasma runs the 3rd percentile of healthy runs
+    # sat at 0.40-0.55 times the median, while failed runs dropped to about 0.2 times it
+    # with a median unchanged. A floor at this fraction of the median binds only there.
+    MEDIAN_FLOOR_FAC = 0.35
+
     def __init__(
         self,
         config: Config,
@@ -81,9 +88,14 @@ class RecalibrationHandler:
         else:
             fac, q = self.OPTIMIZED_FAC, self.OPTIMIZED_Q
 
-        score_cutoff = fac * np.percentile(score, q)
+        score_cutoff = max(
+            fac * np.percentile(score, q), self.MEDIAN_FLOOR_FAC * np.median(score)
+        )
 
-        self._reporter.log_string(f"Using score_cutoff {score_cutoff} ({fac=}, {q=})")
+        self._reporter.log_string(
+            f"Using score_cutoff {score_cutoff} ({fac=}, {q=}, "
+            f"median floor {self.MEDIAN_FLOOR_FAC} x {np.median(score):.2f})"
+        )
 
         self._optimization_manager.update(
             fwhm_rt=precursor_df_filtered["fwhm_rt"].median(),
