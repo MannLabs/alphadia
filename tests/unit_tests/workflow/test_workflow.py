@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
@@ -333,7 +334,8 @@ def test_fdr_manager_fit_predict():
     )
     test_features_df = fdr_testdata(FDR_TEST_FEATURES)
 
-    assert len(fdr_manager.classifier_store) == 1
+    # the shipped classifier has a two-output head and is not loaded
+    assert len(fdr_manager.classifier_store) == 0
 
     fdr_manager.fit_predict(
         test_features_df,
@@ -342,7 +344,7 @@ def test_fdr_manager_fit_predict():
         df_fragments=None,
     )
 
-    assert len(fdr_manager.classifier_store) == 2
+    assert len(fdr_manager.classifier_store) == 1
     assert fdr_manager.current_version == 0
     assert column_hash(FDR_TEST_FEATURES) in fdr_manager.classifier_store
 
@@ -372,6 +374,28 @@ def test_fdr_manager_fit_predict():
     assert fdr_manager_new.get_classifier(FDR_TEST_FEATURES).fitted is True
 
     os.remove(temp_path)
+
+
+def test_fdr_manager_skips_stored_two_output_classifiers():
+    """The shipped classifier was saved with the former two-output softmax head.
+
+    Loading its weights into the one-logit network would fail, so the store leaves it out.
+    """
+    shipped_dir = Path(alphadia.__file__).parent / "constants" / "classifier"
+    two_output_hashes = [
+        f.stem
+        for f in shipped_dir.glob("*.pth")
+        if torch.load(f, weights_only=False).get("output_dim", 1) != 1
+    ]
+    assert two_output_hashes
+
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config=MagicMock(),
+    )
+
+    assert not set(two_output_hashes) & set(fdr_manager.classifier_store)
 
 
 def create_workflow_instance():
