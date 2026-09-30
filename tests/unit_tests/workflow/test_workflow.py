@@ -12,7 +12,7 @@ import torch
 
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
-from alphadia.constants.keys import FeatureTransform
+from alphadia.constants.keys import FeatureTransform, SearchStepFiles
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
@@ -364,6 +364,35 @@ def test_fdr_manager_fit_predict():
 
     assert fdr_manager.current_version == 1
     assert fdr_manager.get_classifier(FDR_TEST_FEATURES, 0).fitted is True
+
+
+def test_fdr_manager_fit_predict_saves_feature_matrix_on_final_round(tmp_path):
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config=fdr_test_config(),
+        dia_cycle=None,
+        feature_matrix_path=str(tmp_path),
+    )
+    test_features_df = fdr_testdata(FDR_TEST_FEATURES)
+    matrix_path = tmp_path / SearchStepFiles.FDR_FEATURES_FILE_NAME
+
+    fdr_manager.fit_predict(
+        test_features_df,
+        decoy_strategy="precursor",
+        competitive=False,
+    )
+    assert not matrix_path.exists()
+
+    fdr_manager.fit_predict(
+        test_features_df,
+        decoy_strategy="precursor",
+        competitive=False,
+        is_final=True,
+    )
+    matrix = pd.read_parquet(matrix_path)
+    assert len(matrix) == len(test_features_df)
+    assert set(matrix.columns) == set(FDR_TEST_FEATURES) | {"decoy", "precursor_idx"}
 
     fdr_manager.save_classifier_store(tempfile.tempdir)
 
