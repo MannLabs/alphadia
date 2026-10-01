@@ -195,7 +195,7 @@ class MbrLibraryBuilder(ProcessingStep):
         mbr_speclib.remove_unused_fragments()
 
         if self.keep_decoys:
-            decoy_generator = DecoyGenerator(decoy_type="diann")
+            decoy_generator = DecoyGenerator(decoy_type="pseudo_reverse")
             mbr_speclib = decoy_generator(mbr_speclib)
             # Decoys inherit target hashes from DecoyGenerator, rehash to get unique hashes
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
