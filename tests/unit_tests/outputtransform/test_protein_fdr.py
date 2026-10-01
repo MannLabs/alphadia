@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
 
-from alphadia.outputtransform.protein_fdr import perform_protein_fdr
+from alphadia.outputtransform.protein_fdr import (
+    NO_EVIDENCE_QVAL,
+    PROTEIN_FEATURE_QVAL,
+    perform_protein_fdr,
+)
 
 N_TRUE_TARGET_GROUPS = 1800
 # the false targets and the decoys are drawn from one distribution, so the decoys stand in for
@@ -10,10 +14,20 @@ N_FALSE_TARGET_GROUPS = 200
 N_DECOY_GROUPS = 200
 FDR_THRESHOLD = 0.05
 RANDOM_STATE = 7
+# plasma: a few hundred target groups against a few dozen decoy groups
+N_SMALL_TRUE_TARGET_GROUPS = 400
+N_SMALL_DECOY_GROUPS = 25
+CONFIDENT_QVAL = 0.0
+WEAK_QVAL = 0.05
 
 
 def _groups(
-    prefix: str, n: int, decoy: int, rng: np.random.Generator, true_protein: bool
+    prefix: str,
+    n: int,
+    decoy: int,
+    rng: np.random.Generator,
+    true_protein: bool,
+    qval: float = CONFIDENT_QVAL,
 ):
     rows = []
     for i in range(n):
@@ -34,6 +48,7 @@ def _groups(
                     "sequence": f"{prefix}{i}_{j}",
                     "run": "run_0",
                     "proba": proba[j],
+                    "qval": qval,
                 }
             )
     return rows
@@ -65,3 +80,39 @@ def test_protein_q_values_are_the_plus_one_target_decoy_ratio():
     # so the realised ratio sits within one decoy of it. Any factor applied to the q-values after
     # the fact breaks this.
     assert (n_decoys + 1) / n_targets >= FDR_THRESHOLD - 2 / n_targets
+
+
+def test_groups_without_a_confident_precursor_are_not_accepted():
+    # given
+    rng = np.random.default_rng(RANDOM_STATE)
+    psm_df = pd.DataFrame(
+        _groups("T", N_TRUE_TARGET_GROUPS, 0, rng, True)
+        + _groups("W", N_FALSE_TARGET_GROUPS, 0, rng, True, qval=WEAK_QVAL)
+        + _groups("D", N_DECOY_GROUPS, 1, rng, False)
+    )
+    assert WEAK_QVAL > PROTEIN_FEATURE_QVAL
+
+    # when
+    scored = perform_protein_fdr(psm_df, figure_path=None)
+
+    # then
+    weak = scored[scored["pg"].str.startswith("W")]
+    assert (weak["pg_qval"] == NO_EVIDENCE_QVAL).all()
+    assert (scored[scored["pg"].str.startswith("T")]["pg_qval"] < FDR_THRESHOLD).all()
+
+
+def test_few_decoy_groups_still_give_accepted_groups():
+    # given
+    rng = np.random.default_rng(RANDOM_STATE)
+    psm_df = pd.DataFrame(
+        _groups("T", N_SMALL_TRUE_TARGET_GROUPS, 0, rng, True)
+        + _groups("D", N_SMALL_DECOY_GROUPS, 1, rng, False)
+    )
+
+    # when
+    scored = perform_protein_fdr(psm_df, figure_path=None)
+
+    # then
+    groups = scored.drop_duplicates(["pg", "decoy"])
+    accepted = groups[(groups["pg_qval"] <= 0.01) & (groups["decoy"] == 0)]
+    assert len(accepted) == N_SMALL_TRUE_TARGET_GROUPS
