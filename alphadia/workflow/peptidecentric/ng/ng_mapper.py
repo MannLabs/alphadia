@@ -66,7 +66,7 @@ def speclib_to_ng(
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
 
-    return SpecLibFlatNG.from_arrays(
+    speclib_ng = SpecLibFlatNG.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
         precursor_df["mz_library"].values.astype(np.float32),
         precursor_df[precursor_mz_column].values.astype(np.float32),
@@ -85,6 +85,15 @@ def speclib_to_ng(
         fragment_df["position"].values.astype(np.uint8),
         fragment_df["type"].values.astype(np.uint8),
     )
+    # The IDF counts target fragments only: decoy fragments would make it depend on the decoy scheme.
+    # The DIA-NN mutation maps residues 2 and n-1 onto a few amino acids, so decoys crowd their own
+    # m/z bins, get a low IDF and can be told from any target, false ones included.
+    speclib_ng.set_idf_precursors(
+        precursor_df.loc[precursor_df["decoy"] == 0, "precursor_idx"].values.astype(
+            np.uint64
+        )
+    )
+    return speclib_ng
 
 
 def get_feature_names() -> list[str]:
