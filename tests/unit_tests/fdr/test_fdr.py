@@ -556,3 +556,68 @@ def test_from_state_dict_defaults_to_no_transform():
     # Then: the loaded weights keep being used with raw features
     assert new_classifier.feature_transform == FeatureTransform.NONE
     assert new_classifier._quantiles is None
+
+
+class _MemorizingClassifier(_CollapsingClassifier):
+    """Record the feature values of every fit and of every prediction."""
+
+    def __init__(self):
+        super().__init__(n_collapses=0)
+        self.fits = []
+        self.predictions = []
+
+    def __deepcopy__(self, memo):
+        # the fold models are copies; they log into the same lists
+        clone = _MemorizingClassifier()
+        clone.fits, clone.predictions = self.fits, self.predictions
+        return clone
+
+    def fit(self, x, y):
+        super().fit(x, y)
+        self.fits.append(set(x[:, 0]))
+
+    def predict_proba(self, x):
+        self.predictions.append(set(x[:, 0]))
+        return super().predict_proba(x)
+
+
+def _gen_elution_group_psms(n_samples: int = 1000):
+    """Every target shares its elution group with one decoy; each PSM has a unique feature value."""
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples)
+    target_df["elution_group_idx"] = np.arange(n_samples)
+    decoy_df["elution_group_idx"] = np.arange(n_samples)
+    decoy_df["feature"] = decoy_df["feature"] + 2.0
+    return target_df, decoy_df
+
+
+def test_perform_fdr_cross_fit_never_scores_a_psm_with_a_model_fitted_on_it():
+    # Given: a classifier that records what it was fitted on and what it scored
+    classifier = _MemorizingClassifier()
+    target_df, decoy_df = _gen_elution_group_psms()
+
+    # When: perform_fdr runs cross-fitted
+    psm_df = fdr.perform_fdr(
+        classifier, ["feature"], target_df, decoy_df, cross_fit=True
+    )
+
+    # Then: every fold scores PSMs its model has not seen, and all PSMs are scored once
+    assert len(classifier.fits) == fdr._CROSS_FIT_FOLDS
+    assert all(
+        not (fit & scored)
+        for fit, scored in zip(classifier.fits, classifier.predictions, strict=True)
+    )
+    assert sum(len(scored) for scored in classifier.predictions) == len(psm_df)
+
+
+def test_perform_fdr_cross_fit_keeps_a_target_and_its_decoy_in_one_fold():
+    # Given: targets and decoys paired by elution group
+    classifier = _MemorizingClassifier()
+    target_df, decoy_df = _gen_elution_group_psms()
+
+    # When: perform_fdr runs cross-fitted
+    fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df, cross_fit=True)
+
+    # Then: the decoy of every target is scored by the same fold model as the target
+    for scored in classifier.predictions:
+        targets = {value for value in scored if value < 2.0}
+        assert {value + 2.0 for value in targets} == scored - targets

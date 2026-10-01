@@ -113,6 +113,7 @@ class FDRManager(BaseManager):
         decoy_channel: int = -1,
         version: int = -1,
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
+        cross_fit: bool = False,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -133,6 +134,8 @@ class FDRManager(BaseManager):
         fragment_provider: None | Callable[[pd.DataFrame], pd.DataFrame]
             Returns the fragments of the PSMs it is given, for fragment competition when `df_fragments` is not
             available up front. Only used with decoy_strategy "precursor".
+        cross_fit: bool
+            Score every PSM out of fold, see `fdr.perform_fdr`. Only used with decoy_strategy "precursor".
 
         Notes
         -----
@@ -182,6 +185,7 @@ class FDRManager(BaseManager):
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
+                cross_fit=cross_fit,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
