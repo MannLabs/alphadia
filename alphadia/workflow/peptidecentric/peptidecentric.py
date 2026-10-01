@@ -246,6 +246,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     self.dia_data,
                     self.spectral_library,
                     is_final=True,
+                    # the reported round only: the optimization rounds keep their in-sample fit
+                    cross_fit=True,
                 )
             )
 

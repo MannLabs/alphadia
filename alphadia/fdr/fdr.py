@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -34,6 +35,10 @@ _MAX_FDR_CLASSIFIER_REINITS = 3
 _MAX_TIED_BEST_PROBA = 500
 
 
+# Folds of the cross-fitted round: each model is fitted on 80 % of the elution groups, as many as the in-sample fit.
+_CROSS_FIT_FOLDS = 5
+
+
 def _is_collapsed(proba: np.ndarray) -> bool:
     """Whether the classifier output carries no ranking: near constant, or one value for the best PSMs."""
     return (
@@ -57,6 +62,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    cross_fit: bool = False,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -101,6 +107,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     random_state : int, optional
         The random state for train-test split reproducibility.
+
+    cross_fit : bool, default=False
+        Score every PSM with a classifier fitted from scratch on the other elution groups, so no PSM is scored by a
+        model that has seen its label. Costs one fit per fold.
 
     Returns
     -------
@@ -158,8 +168,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         psm_df["proba"] = 1.0
         return psm_df
 
-    classifier.fit(X_train, y_train)
-
     psm_df = pd.concat([df_target, df_decoy])
     psm_df["_decoy"] = y
 
@@ -172,27 +180,12 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     else:
         group_columns = ["precursor_idx"]
 
-    predicted_proba = classifier.predict_proba(X)[:, 1]
-
-    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
-    n_reinit = 0
-    while _is_collapsed(predicted_proba) and n_reinit < _MAX_FDR_CLASSIFIER_REINITS:
-        n_reinit += 1
-        logger.warning(
-            f"FDR classifier collapsed to a near-constant probability "
-            f"({np.unique(predicted_proba).size} unique value(s) over "
-            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
-            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+    if cross_fit:
+        predicted_proba = _cross_fit_predict(
+            classifier, X, y, psm_df["elution_group_idx"].to_numpy()
         )
-        classifier.reset()
-        classifier.fit(X_train, y_train)
-        predicted_proba = classifier.predict_proba(X)[:, 1]
-
-    if _is_collapsed(predicted_proba):
-        logger.warning(
-            "FDR classifier produced a near-constant probability; target/decoy "
-            "separation failed and q-values will not filter PSMs."
-        )
+    else:
+        predicted_proba = _fit_predict(classifier, X_train, y_train, X)
 
     psm_df["proba"] = predicted_proba
     psm_df.sort_values(
@@ -235,6 +228,57 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
 
     return psm_df
+
+
+def _fit_predict(
+    classifier: Classifier, X_train: np.ndarray, y_train: np.ndarray, X: np.ndarray
+) -> np.ndarray:
+    """Fit the classifier and predict the decoy probability of X, refitting from scratch after a collapse."""
+    classifier.fit(X_train, y_train)
+    predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
+    n_reinit = 0
+    while _is_collapsed(predicted_proba) and n_reinit < _MAX_FDR_CLASSIFIER_REINITS:
+        n_reinit += 1
+        logger.warning(
+            f"FDR classifier collapsed to a near-constant probability "
+            f"({np.unique(predicted_proba).size} unique value(s) over "
+            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
+            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+        )
+        classifier.reset()
+        classifier.fit(X_train, y_train)
+        predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    if _is_collapsed(predicted_proba):
+        logger.warning(
+            "FDR classifier produced a near-constant probability; target/decoy "
+            "separation failed and q-values will not filter PSMs."
+        )
+    return predicted_proba
+
+
+def _cross_fit_predict(
+    classifier: Classifier, X: np.ndarray, y: np.ndarray, elution_groups: np.ndarray
+) -> np.ndarray:
+    """Out-of-fold decoy probabilities over folds of whole elution groups.
+
+    A target and its decoy share the elution group, so they always sit in the same fold. Every fold model starts
+    from fresh weights: the warm start of the previous round has seen these labels. The passed classifier is fitted
+    on the first fold and stays the one carried on.
+    """
+    classifier.reset()
+    fresh = copy.deepcopy(classifier)
+    fold = pd.util.hash_array(elution_groups) % _CROSS_FIT_FOLDS
+    predicted_proba = np.empty(len(X))
+    for k in range(_CROSS_FIT_FOLDS):
+        held_out = fold == k
+        fold_classifier = classifier if k == 0 else copy.deepcopy(fresh)
+        predicted_proba[held_out] = _fit_predict(
+            fold_classifier, X[~held_out], y[~held_out], X[held_out]
+        )
+    return predicted_proba
 
 
 def keep_best(
