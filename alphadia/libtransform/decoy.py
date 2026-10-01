@@ -2,11 +2,39 @@ import logging
 
 import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.decoy import decoy_lib_provider
+from alphabase.spectral_library.decoy import DIANNDecoyGenerator, decoy_lib_provider
 
 from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
+
+DIANN_KEEP_PROLINE = "diann_keep_proline"
+
+
+class DIANNKeepProlineDecoyGenerator(DIANNDecoyGenerator):
+    """DIA-NN decoy that keeps a proline before the C-terminal residue and mutates the residue before it instead.
+
+    The DIA-NN map turns that proline into L, so no decoy ends in xP[KR]. Those peptides fragment into an intense
+    y2 (PK / PR) ion of the same mass for all of them, which only targets can match; where it is abundant (plasma),
+    false targets ending in xP[KR] pass without any decoy to account for them.
+    """
+
+    def _decoy(self, sequence: str) -> str:
+        if sequence[-2] != "P":
+            return super()._decoy(sequence)
+        return (
+            sequence[0]
+            + self._mutate(sequence[1])
+            + sequence[2:-3]
+            + self._mutate(sequence[-3])
+            + sequence[-2:]
+        )
+
+    def _mutate(self, amino_acid: str) -> str:
+        return self.mutated_AAs[self.raw_AAs.index(amino_acid)]
+
+
+decoy_lib_provider.register(DIANN_KEEP_PROLINE, DIANNKeepProlineDecoyGenerator)
 
 
 class DecoyGenerator(ProcessingStep):
@@ -17,7 +45,7 @@ class DecoyGenerator(ProcessingStep):
         Parameters
         ----------
         decoy_type : str, optional
-            Type of decoys to generate. Currently only `pseudo_reverse` and `diann` are supported. Default is `diann`.
+            Type of decoys to generate: `pseudo_reverse`, `diann` or `diann_keep_proline`. Default is `diann`.
 
         """
         super().__init__()
