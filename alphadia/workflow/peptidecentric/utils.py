@@ -89,6 +89,11 @@ feature_columns = [
 # carry the marker in their name, also the ones added later.
 IDF_FEATURE_MARKER = "idf"
 
+# The number of candidates sharing a fragment counts how crowded the candidate's fragment m/z are in the
+# library, which the decoy mutation changes, the same way it changes the IDF. At low input it lets false
+# targets pass as targets; the other context features do not.
+LIBRARY_CROWDING_FEATURES = ("ctx_n_competitors",)
+
 
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
@@ -103,7 +108,7 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     return [
         name
         for name in get_feature_names() + get_context_feature_names()
-        if IDF_FEATURE_MARKER not in name
+        if IDF_FEATURE_MARKER not in name and name not in LIBRARY_CROWDING_FEATURES
     ]
 
 
