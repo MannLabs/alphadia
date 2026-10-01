@@ -82,6 +82,19 @@ feature_columns = [
 ]
 
 
+# The rust backend's IDF is computed over every library fragment, decoys included. The DIA-NN decoy
+# mutation maps residues 2 and n-1 onto a few amino acids, so decoy fragments crowd their own m/z bins
+# and get a low IDF, while the fragments of any target, false ones included, do not. These features
+# let the classifier recognise decoys from the library alone, so false targets pass as targets.
+DECOY_SCHEME_FEATURES = (
+    "idf_hyperscore",
+    "idf_xic_dot_product",
+    "idf_intensity_dot_product",
+    "num_over_0_top6_idf",
+    "num_over_50_top6_idf",
+)
+
+
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
@@ -92,7 +105,11 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     if extraction_backend != "rust":
         return feature_columns
 
-    return get_feature_names() + get_context_feature_names()
+    return [
+        name
+        for name in get_feature_names() + get_context_feature_names()
+        if name not in DECOY_SCHEME_FEATURES
+    ]
 
 
 def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:

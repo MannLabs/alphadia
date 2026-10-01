@@ -5,6 +5,7 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     get_feature_names,
 )
 from alphadia.workflow.peptidecentric.utils import (
+    DECOY_SCHEME_FEATURES,
     feature_columns,
     get_classifier_feature_columns,
 )
@@ -15,7 +16,20 @@ def test_get_classifier_feature_columns_for_rust_backend():
     columns = get_classifier_feature_columns("rust")
 
     # then
-    assert columns == get_feature_names() + get_context_feature_names()
+    assert columns == [
+        name
+        for name in get_feature_names() + get_context_feature_names()
+        if name not in DECOY_SCHEME_FEATURES
+    ]
+
+
+def test_get_classifier_feature_columns_leaves_out_the_idf_features():
+    # when
+    columns = get_classifier_feature_columns("rust")
+
+    # then
+    assert set(DECOY_SCHEME_FEATURES) <= set(get_feature_names())
+    assert not set(DECOY_SCHEME_FEATURES) & set(columns)
 
 
 def test_get_classifier_feature_columns_for_python_backend():
