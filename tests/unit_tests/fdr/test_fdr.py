@@ -320,6 +320,45 @@ def test_perform_fdr_stops_after_max_reinits():
     assert psm_df["proba"].std() == 0.0
 
 
+class _PlateauClassifier(_CollapsingClassifier):
+    """Give the best `n_tied` PSMs one probability until the caller resets it `n_collapses` times."""
+
+    def __init__(self, n_collapses: int, n_tied: int):
+        super().__init__(n_collapses)
+        self._n_tied = n_tied
+
+    def predict_proba(self, x):
+        proba = np.linspace(0.0, 1.0, len(x))
+        if self.reset_count < self._n_collapses:
+            proba[: self._n_tied] = 0.0
+        return np.stack([1 - proba, proba], axis=1)
+
+
+def test_perform_fdr_resets_classifier_that_ties_the_best_psms():
+    # Given: a classifier whose best PSMs share one probability, with spread-out probabilities elsewhere
+    classifier = _PlateauClassifier(n_collapses=1, n_tied=fdr._MAX_TIED_BEST_PROBA + 1)
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=1000)
+
+    # When: perform_fdr runs
+    psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
+
+    # Then: perform_fdr resets the classifier once and no longer ties the best PSMs
+    assert classifier.reset_count == 1
+    assert (psm_df["proba"] == psm_df["proba"].min()).sum() == 1
+
+
+def test_perform_fdr_keeps_classifier_with_few_tied_best_psms():
+    # Given: a classifier whose best PSMs tie, but no more than the allowed number
+    classifier = _PlateauClassifier(n_collapses=1, n_tied=fdr._MAX_TIED_BEST_PROBA)
+    target_df, decoy_df = _gen_target_decoy_dfs(n_samples=1000)
+
+    # When: perform_fdr runs
+    fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
+
+    # Then: perform_fdr keeps it
+    assert classifier.reset_count == 0
+
+
 def _gen_competing_psms(n_samples: int = 200):
     """Targets 0 and 1 elute together and share their fragments; every other PSM elutes alone."""
     target_df, decoy_df = _gen_target_decoy_dfs(n_samples)

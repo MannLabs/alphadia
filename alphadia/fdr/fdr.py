@@ -27,6 +27,20 @@ _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
 
+# A collapse can also leave the probability spread out over the junk while every target-like PSM gets one
+# and the same value: the last hidden layer is all zero for those inputs, so the output is its bias. The
+# standard deviation stays high, but the q-value of that tied block is set by the decoys inside it. A
+# healthy float64 probability almost never ties at its best value.
+_MAX_TIED_BEST_PROBA = 500
+
+
+def _is_collapsed(proba: np.ndarray) -> bool:
+    """Whether the classifier output carries no ranking: near constant, or one value for the best PSMs."""
+    return (
+        float(np.std(proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        or int(np.sum(proba == proba.min())) > _MAX_TIED_BEST_PROBA
+    )
+
 
 @manage_torch_threads(max_threads=2)
 def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
@@ -162,10 +176,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
     n_reinit = 0
-    while (
-        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
-        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
-    ):
+    while _is_collapsed(predicted_proba) and n_reinit < _MAX_FDR_CLASSIFIER_REINITS:
         n_reinit += 1
         logger.warning(
             f"FDR classifier collapsed to a near-constant probability "
@@ -177,7 +188,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         classifier.fit(X_train, y_train)
         predicted_proba = classifier.predict_proba(X)[:, 1]
 
-    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
+    if _is_collapsed(predicted_proba):
         logger.warning(
             "FDR classifier produced a near-constant probability; target/decoy "
             "separation failed and q-values will not filter PSMs."
