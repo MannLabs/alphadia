@@ -106,6 +106,7 @@ class MbrLibraryBuilder(ProcessingStep):
         self.fdr = fdr
         self.keep_decoys = keep_decoys
         self.rt_by_run: pd.DataFrame | None = None
+        self.pg_qval: pd.DataFrame | None = None
 
     def validate(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
@@ -184,7 +185,12 @@ class MbrLibraryBuilder(ProcessingStep):
         elution group.
 
         """
-        psm_df = psm_df[psm_df["qval"] <= self.fdr]
+        # The precursor table reaching here is filtered at the configured fdr.fdr, which entrapment and other
+        # diagnostic runs raise above 1 %. Protein groups that only passed at that looser level would enter the MBR
+        # library, where the MBR step's own protein FDR, computed over the pre-selected groups, cannot reject them.
+        psm_df = psm_df[(psm_df["qval"] <= self.fdr) & (psm_df["pg_qval"] <= self.fdr)]
+
+        self.pg_qval = psm_df.groupby("pg", as_index=False)["pg_qval"].max()
 
         self.rt_by_run = (
             psm_df[psm_df["decoy"] == 0]
@@ -255,3 +261,17 @@ def leave_one_out_rt(
     speclib_for_run = copy(speclib)
     speclib_for_run._precursor_df = precursor_df
     return speclib_for_run
+
+
+def bound_by_library_pg_qval(
+    psm_df: pd.DataFrame, library_pg_qval: pd.DataFrame
+) -> pd.DataFrame:
+    """Raise each protein group's q-value to its q-value in the search that built the MBR library.
+
+    The MBR step only searches the protein groups that passed the first search, with fresh decoys for them, so its
+    protein FDR does not see that the false groups among them were already selected out of the whole protein space.
+    A group's q-value is therefore at least the one it had there.
+    """
+    library_qval = psm_df["pg"].map(library_pg_qval.set_index("pg")["pg_qval"])
+    psm_df["pg_qval"] = np.maximum(psm_df["pg_qval"], library_qval.fillna(0).to_numpy())
+    return psm_df

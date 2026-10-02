@@ -4,7 +4,12 @@ import pytest
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.libtransform.mbr import IndexBuilder, MbrLibraryBuilder, leave_one_out_rt
+from alphadia.libtransform.mbr import (
+    IndexBuilder,
+    MbrLibraryBuilder,
+    bound_by_library_pg_qval,
+    leave_one_out_rt,
+)
 
 
 class TestIndexBuilder:
@@ -161,6 +166,7 @@ class TestMbrLibraryBuilder:
                 "qval": [0.001, 0.005, 0.002, 0.5],
                 "rt_observed": [10.0, 11.0, 20.0, 30.0],
                 "rt_calibrated": [12.0, 12.0, 22.0, 32.0],
+                "pg_qval": [0.001, 0.001, 0.002, 0.002],
                 "run": ["run_a", "run_a", "run_b", "run_a"],
                 "pg": ["PG_A", "PG_A", "PG_B", "PG_C"],
                 "mod_seq_charge_hash": [
@@ -235,6 +241,7 @@ class TestMbrLibraryBuilder:
                 "qval": [0.001, 0.005],
                 "rt_observed": [10.0, 20.0],
                 "rt_calibrated": [12.0, 22.0],
+                "pg_qval": [0.001, 0.001],
                 "run": ["run_a", "run_a"],
                 "pg": ["PG_A", "PG_B"],
                 "mod_seq_charge_hash": [lib_hashes[0], -1],
@@ -297,6 +304,7 @@ def test_mbr_library_builder_records_target_rt_by_run():
             "qval": [0.001, 0.002, 0.001, 0.5],
             "rt_observed": [10.0, 14.0, 99.0, 30.0],
             "rt_calibrated": [11.0, 13.0, 99.0, 31.0],
+            "pg_qval": [0.001, 0.001, 0.001, 0.001],
             "run": ["run_a", "run_b", "run_a", "run_a"],
             "pg": ["PG_A", "PG_A", "PG_A", "PG_B"],
             "mod_seq_charge_hash": [hashes[0], hashes[0], -1, hashes[1]],
@@ -345,3 +353,68 @@ def test_leave_one_out_rt():
     np.testing.assert_array_equal(
         speclib.precursor_df["rt_library"], [100.0, 100.0, 200.0, 300.0, 400.0]
     )
+
+
+class TestMbrProteinFdr:
+    """Tests for the protein-level filtering and q-value bounds of the MBR library."""
+
+    @pytest.fixture
+    def base_library(self):
+        lib = SpecLibBase()
+        lib._precursor_df = pd.DataFrame(
+            {
+                "sequence": ["PEPTIDER", "PEPTIDEK"],
+                "charge": [2, 2],
+                "mods": ["", ""],
+                "mod_sites": ["", ""],
+            }
+        )
+        lib._precursor_df["nAA"] = lib._precursor_df["sequence"].str.len()
+        lib.calc_precursor_mz()
+        lib.calc_fragment_mz_df()
+        lib._precursor_df["elution_group_idx"] = [0, 1]
+        lib._precursor_df["precursor_idx"] = [0, 1]
+        lib._precursor_df["decoy"] = 0
+        lib._precursor_df["channel"] = 0
+        lib._precursor_df = hash_precursor_df(lib._precursor_df)
+        return lib
+
+    def test_groups_above_the_protein_fdr_are_left_out(self, base_library):
+        # given: both precursors pass, but the second one's protein group only at 5 %
+        hashes = base_library.precursor_df["mod_seq_charge_hash"].values
+        psm_df = pd.DataFrame(
+            {
+                "elution_group_idx": [0, 1],
+                "decoy": [0, 0],
+                "qval": [0.001, 0.001],
+                "pg_qval": [0.002, 0.05],
+                "rt_observed": [10.0, 20.0],
+                "rt_calibrated": [11.0, 21.0],
+                "run": ["run_a", "run_a"],
+                "pg": ["PG_A", "PG_B"],
+                "mod_seq_charge_hash": hashes,
+            }
+        )
+
+        # when
+        builder = MbrLibraryBuilder(fdr=0.01, keep_decoys=False)
+        result = builder(psm_df, base_library)
+
+        # then
+        np.testing.assert_array_equal(result.precursor_df["elution_group_idx"], [0])
+        assert builder.pg_qval.to_dict("list") == {"pg": ["PG_A"], "pg_qval": [0.002]}
+
+    def test_bound_by_library_pg_qval(self):
+        # given
+        psm_df = pd.DataFrame(
+            {"pg": ["PG_A", "PG_B", "PG_C"], "pg_qval": [0.001, 0.02, 0.003]}
+        )
+        library_pg_qval = pd.DataFrame(
+            {"pg": ["PG_A", "PG_B"], "pg_qval": [0.008, 0.001]}
+        )
+
+        # when
+        result = bound_by_library_pg_qval(psm_df, library_pg_qval)
+
+        # then: raised to the library q-value, never lowered, unknown groups kept
+        np.testing.assert_allclose(result["pg_qval"], [0.008, 0.02, 0.003])

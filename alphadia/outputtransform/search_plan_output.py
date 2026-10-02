@@ -12,7 +12,7 @@ from alphadia.constants.keys import (
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
-from alphadia.libtransform.mbr import MbrLibraryBuilder
+from alphadia.libtransform.mbr import MbrLibraryBuilder, bound_by_library_pg_qval
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
     build_run_stat_df,
@@ -49,6 +49,7 @@ class SearchPlanOutput:
     PG_OUTPUT = "protein_groups"
     LIBRARY_OUTPUT = "speclib.mbr"
     LIBRARY_RT_BY_RUN_OUTPUT = "speclib.mbr.rt_by_run.parquet"
+    LIBRARY_PG_QVAL_OUTPUT = "speclib.mbr.pg_qval.parquet"
     TRANSFER_OUTPUT = "speclib.transfer"
     TRANSFER_MODEL = "peptdeep.transfer"
     TRANSFER_STATS_OUTPUT = "stats.transfer"
@@ -322,6 +323,21 @@ class SearchPlanOutput:
         logger.info("Performing protein FDR")
 
         psm_df = perform_protein_fdr(psm_df, self._figure_path)
+
+        library_path = self.config.get(ConfigKeys.LIBRARY_PATH)
+        library_pg_qval_path = (
+            None
+            if library_path is None
+            else os.path.join(
+                os.path.dirname(library_path), SearchPlanOutput.LIBRARY_PG_QVAL_OUTPUT
+            )
+        )
+        if library_pg_qval_path is not None and os.path.exists(library_pg_qval_path):
+            logger.info(f"Bounding protein q-values by {library_pg_qval_path}")
+            psm_df = bound_by_library_pg_qval(
+                psm_df, pd.read_parquet(library_pg_qval_path)
+            )
+
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
         log_protein_fdr_summary(psm_df)
@@ -526,6 +542,12 @@ class SearchPlanOutput:
             libbuilder.rt_by_run.to_parquet(
                 os.path.join(
                     self.output_folder, SearchPlanOutput.LIBRARY_RT_BY_RUN_OUTPUT
+                ),
+                index=False,
+            )
+            libbuilder.pg_qval.to_parquet(
+                os.path.join(
+                    self.output_folder, SearchPlanOutput.LIBRARY_PG_QVAL_OUTPUT
                 ),
                 index=False,
             )
