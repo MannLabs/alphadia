@@ -92,6 +92,9 @@ DECOY_SCHEME_FEATURES = (
     "idf_intensity_dot_product",
     "num_over_0_top6_idf",
     "num_over_50_top6_idf",
+    # The number of candidates sharing a fragment counts how crowded the candidate's fragment m/z are in the library,
+    # which the decoy mutation changes the same way as the IDF.
+    "ctx_n_competitors",
 )
 
 

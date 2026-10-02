@@ -28,7 +28,9 @@ def test_get_classifier_feature_columns_leaves_out_the_idf_features():
     columns = get_classifier_feature_columns("rust")
 
     # then
-    assert set(DECOY_SCHEME_FEATURES) <= set(get_feature_names())
+    assert set(DECOY_SCHEME_FEATURES) <= set(get_feature_names()) | set(
+        get_context_feature_names()
+    )
     assert not set(DECOY_SCHEME_FEATURES) & set(columns)
 
 
