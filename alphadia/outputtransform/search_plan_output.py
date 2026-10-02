@@ -48,6 +48,7 @@ class SearchPlanOutput:
     INTERNAL_OUTPUT = "internal"
     PG_OUTPUT = "protein_groups"
     LIBRARY_OUTPUT = "speclib.mbr"
+    LIBRARY_RT_BY_RUN_OUTPUT = "speclib.mbr.rt_by_run.parquet"
     TRANSFER_OUTPUT = "speclib.transfer"
     TRANSFER_MODEL = "peptdeep.transfer"
     TRANSFER_STATS_OUTPUT = "stats.transfer"
@@ -521,6 +522,12 @@ class SearchPlanOutput:
                 os.path.join(
                     self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
                 )
+            )
+            libbuilder.rt_by_run.to_parquet(
+                os.path.join(
+                    self.output_folder, SearchPlanOutput.LIBRARY_RT_BY_RUN_OUTPUT
+                ),
+                index=False,
             )
 
         return mbr_spec_lib
