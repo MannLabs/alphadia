@@ -80,6 +80,7 @@ def _get_prefilter(
         epochs=config_prefilter["epochs"],
         layers=config_prefilter["layers"],
         random_state=random_state,
+        feature_transform=config["fdr"]["feature_transform"],
     )
     return CascadePrefilter(
         feature_columns=_apply_feature_subset(

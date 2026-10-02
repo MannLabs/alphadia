@@ -342,29 +342,19 @@ fdr:
     batch_size: 5000
     # learning rate of the stage-1 network
     learning_rate: 0.001
-    # features of the stage-1 network
+    # features of the stage-1 network; no IDF features, they let it recognise decoys from the library alone
     feature_subset:
-      - idf_hyperscore
       - num_over_0
       - log10_b_ion_intensity
       - num_profiles_filtered
       - log10_y_ion_intensity
-      - idf_xic_dot_product
-      - idf_intensity_dot_product
       - delta_rt
       - hyperscore_inverse_mass_error
-      - intensity_cosine_library
       - naa
       - rt_observed
       - num_fragments
       - weighted_mass_error
-      - spectral_entropy
-      - weighted_mean_correlation
-      - mass_error_std
-      - mass_error_mean_signed
       - score
-      - mass_error_max_abs
-      - correlation_iqr
       - longest_b_series
       - num_over_0_rank_0_5
       - fwhm_rt
