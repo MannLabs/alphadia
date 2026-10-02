@@ -42,7 +42,17 @@ def add_frag_start_stop_idx(
     )
     index_df["_frag_stop_idx"] += 1
 
-    return psm_df.merge(index_df, "inner", on="_candidate_idx")
+    merged = psm_df.merge(index_df, "inner", on="_candidate_idx")
+    # PSMs without quantified fragments leave the target-decoy competition here; log both classes so an asymmetry shows
+    if "decoy" in psm_df.columns:
+        logger.info(
+            "fragment competition merge: targets %d -> %d, decoys %d -> %d",
+            int((psm_df["decoy"] == 0).sum()),
+            int((merged["decoy"] == 0).sum()),
+            int((psm_df["decoy"] == 1).sum()),
+            int((merged["decoy"] == 1).sum()),
+        )
+    return merged
 
 
 def candidate_hash(precursor_idx: np.ndarray, rank: np.ndarray) -> np.ndarray:
