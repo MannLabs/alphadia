@@ -95,6 +95,21 @@ DECOY_SCHEME_FEATURES = (
 )
 
 
+# Context features left out of the classifier. Candidate density, competitor count and the fraction of fragments shared
+# with anyone measure how crowded a candidate's spot is, whatever the competitors score; the decoy mutation moves decoy
+# fragments onto masses of their own, so decoys see a different crowd than false targets, and on 5 ng paired entrapment
+# each raised the paired FDP at 1 % q by 0.2-0.35 pp. The count and rank of higher-scoring competitors cost
+# identifications at equal true FDP. The features weighing the fragments shared with higher-scoring competitors add
+# identifications without shifting the FDP.
+CROWDING_CONTEXT_FEATURES = (
+    "ctx_candidate_density",
+    "ctx_n_competitors",
+    "ctx_n_competitors_higher",
+    "ctx_claimant_rank",
+    "ctx_shared_frac_any",
+)
+
+
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
@@ -108,7 +123,7 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     return [
         name
         for name in get_feature_names() + get_context_feature_names()
-        if name not in DECOY_SCHEME_FEATURES
+        if name not in DECOY_SCHEME_FEATURES and name not in CROWDING_CONTEXT_FEATURES
     ]
 
 
