@@ -9,6 +9,7 @@ from alphadia.libtransform.base import ProcessingStep
 logger = logging.getLogger()
 
 DIANN_KEEP_PROLINE = "diann_keep_proline"
+DIANN_INNER = "diann_inner"
 
 
 class DIANNKeepProlineDecoyGenerator(DIANNDecoyGenerator):
@@ -37,6 +38,30 @@ class DIANNKeepProlineDecoyGenerator(DIANNDecoyGenerator):
 decoy_lib_provider.register(DIANN_KEEP_PROLINE, DIANNKeepProlineDecoyGenerator)
 
 
+class DIANNInnerDecoyGenerator(DIANNKeepProlineDecoyGenerator):
+    """DIA-NN map applied to the third and the fourth-to-last residue instead of the second and the second-to-last.
+
+    Every decoy keeps its target's b1, b2, y1 and y2. These short ions are the ones a false target most often shares
+    with co-eluting peptides by chance; with the outermost residues mutated, decoys carry rarer short-ion masses and
+    match fewer of them, so they underestimate false targets. A proline at either mutated position moves that
+    mutation one residue inwards, as in `DIANNKeepProlineDecoyGenerator`.
+    """
+
+    def _decoy(self, sequence: str) -> str:
+        first, second = 2, len(sequence) - 3
+        if sequence[second] == "P":
+            second -= 1
+        if sequence[first] == "P" and first + 1 < second:
+            first += 1
+        residues = list(sequence)
+        residues[first] = self._mutate(sequence[first])
+        residues[second] = self._mutate(sequence[second])
+        return "".join(residues)
+
+
+decoy_lib_provider.register(DIANN_INNER, DIANNInnerDecoyGenerator)
+
+
 class DecoyGenerator(ProcessingStep):
     def __init__(self, decoy_type: str = "diann", mp_process_num: int = 8) -> None:
         """Generate decoys for the spectral library.
@@ -45,7 +70,7 @@ class DecoyGenerator(ProcessingStep):
         Parameters
         ----------
         decoy_type : str, optional
-            Type of decoys to generate: `pseudo_reverse`, `diann` or `diann_keep_proline`. Default is `diann`.
+            Type of decoys to generate: `pseudo_reverse`, `diann`, `diann_keep_proline` or `diann_inner`. Default is `diann`.
 
         """
         super().__init__()
