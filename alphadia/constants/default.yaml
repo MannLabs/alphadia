@@ -317,7 +317,7 @@ fdr:
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
   # write the unfiltered FDR feature matrix and the classifier feature importances to the quant folder, for offline feature analysis
-  save_feature_matrix: true
+  save_feature_matrix: false
   # transform applied to the features before they enter the neural network, either "none" or "quantile".
   # "quantile" replaces every feature by its rank in the training distribution, mapped to a standard
   # normal score. This keeps extreme values inside the range the network was trained on.
