@@ -1,8 +1,10 @@
 import logging
+from copy import copy
 
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
+from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import CalibCols
 from alphadia.libtransform.base import ProcessingStep
@@ -103,6 +105,7 @@ class MbrLibraryBuilder(ProcessingStep):
         super().__init__()
         self.fdr = fdr
         self.keep_decoys = keep_decoys
+        self.rt_by_run: pd.DataFrame | None = None
 
     def validate(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
@@ -183,6 +186,17 @@ class MbrLibraryBuilder(ProcessingStep):
         """
         psm_df = psm_df[psm_df["qval"] <= self.fdr]
 
+        self.rt_by_run = (
+            psm_df[psm_df["decoy"] == 0]
+            .groupby(["elution_group_idx", "run"], as_index=False)
+            .agg(
+                rt_observed=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="median"),
+                rt_calibrated=pd.NamedAgg(
+                    column=CalibCols.RT_CALIBRATED, aggfunc="median"
+                ),
+            )
+        )
+
         if self.keep_decoys:
             elution_groups = psm_df["elution_group_idx"].unique()
         else:
@@ -212,3 +226,32 @@ class MbrLibraryBuilder(ProcessingStep):
         self._assign_rt_and_protein_groups(mbr_speclib, agg_by_eg, agg_by_hash)
 
         return mbr_speclib
+
+
+def leave_one_out_rt(
+    speclib: SpecLibFlat, rt_by_run: pd.DataFrame, run: str
+) -> SpecLibFlat:
+    """Return the library with each elution group's RT taken from the runs other than `run`.
+
+    The MBR library RT is the median observed RT over the runs that are searched again, so a
+    first-pass identification, false ones included, would get its own apex as library RT and a
+    near-zero RT error, which the decoys generated for the MBR step cannot reproduce. An elution
+    group identified in `run` only keeps the first-pass calibrated library RT of that run.
+    """
+    other_runs = rt_by_run[rt_by_run["run"] != run]
+    this_run = rt_by_run[rt_by_run["run"] == run]
+    rt = (
+        other_runs.groupby("elution_group_idx")["rt_observed"]
+        .median()
+        .combine_first(this_run.set_index("elution_group_idx")["rt_calibrated"])
+    )
+
+    precursor_df = speclib.precursor_df.copy()
+    loo_rt = precursor_df["elution_group_idx"].map(rt)
+    precursor_df[CalibCols.RT_LIBRARY] = loo_rt.fillna(
+        precursor_df[CalibCols.RT_LIBRARY]
+    ).to_numpy()
+
+    speclib_for_run = copy(speclib)
+    speclib_for_run._precursor_df = precursor_df
+    return speclib_for_run

@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 import pytest
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
+from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.libtransform.mbr import IndexBuilder, MbrLibraryBuilder
+from alphadia.libtransform.mbr import IndexBuilder, MbrLibraryBuilder, leave_one_out_rt
 
 
 class TestIndexBuilder:
@@ -159,6 +160,8 @@ class TestMbrLibraryBuilder:
                 "decoy": [0, 1, 0, 0],
                 "qval": [0.001, 0.005, 0.002, 0.5],
                 "rt_observed": [10.0, 11.0, 20.0, 30.0],
+                "rt_calibrated": [12.0, 12.0, 22.0, 32.0],
+                "run": ["run_a", "run_a", "run_b", "run_a"],
                 "pg": ["PG_A", "PG_A", "PG_B", "PG_C"],
                 "mod_seq_charge_hash": [
                     lib_hashes[0],
@@ -231,6 +234,8 @@ class TestMbrLibraryBuilder:
                 "decoy": [0, 1],
                 "qval": [0.001, 0.005],
                 "rt_observed": [10.0, 20.0],
+                "rt_calibrated": [12.0, 22.0],
+                "run": ["run_a", "run_a"],
                 "pg": ["PG_A", "PG_B"],
                 "mod_seq_charge_hash": [lib_hashes[0], -1],
             }
@@ -263,3 +268,80 @@ class TestMbrLibraryBuilder:
         np.testing.assert_array_equal(df_exclude["decoy"].values, [0])
         assert df_exclude["rt"].values[0] == 10.0
         assert df_exclude["genes"].values[0] == "PG_A"
+
+
+def test_mbr_library_builder_records_target_rt_by_run():
+    # given
+    lib = SpecLibBase()
+    lib._precursor_df = pd.DataFrame(
+        {
+            "sequence": ["PEPTIDER", "PEPTIDEK"],
+            "charge": [2, 2],
+            "mods": ["", ""],
+            "mod_sites": ["", ""],
+        }
+    )
+    lib._precursor_df["nAA"] = lib._precursor_df["sequence"].str.len()
+    lib.calc_precursor_mz()
+    lib.calc_fragment_mz_df()
+    lib._precursor_df["elution_group_idx"] = [0, 1]
+    lib._precursor_df["precursor_idx"] = [0, 1]
+    lib._precursor_df["decoy"] = 0
+    lib._precursor_df["channel"] = 0
+    lib._precursor_df = hash_precursor_df(lib._precursor_df)
+    hashes = lib.precursor_df["mod_seq_charge_hash"].values
+    psm_df = pd.DataFrame(
+        {
+            "elution_group_idx": [0, 0, 0, 1],
+            "decoy": [0, 0, 1, 0],
+            "qval": [0.001, 0.002, 0.001, 0.5],
+            "rt_observed": [10.0, 14.0, 99.0, 30.0],
+            "rt_calibrated": [11.0, 13.0, 99.0, 31.0],
+            "run": ["run_a", "run_b", "run_a", "run_a"],
+            "pg": ["PG_A", "PG_A", "PG_A", "PG_B"],
+            "mod_seq_charge_hash": [hashes[0], hashes[0], -1, hashes[1]],
+        }
+    )
+
+    # when
+    builder = MbrLibraryBuilder(fdr=0.01, keep_decoys=False)
+    builder(psm_df, lib)
+
+    # then
+    rt_by_run = builder.rt_by_run.sort_values("run").reset_index(drop=True)
+    np.testing.assert_array_equal(rt_by_run["elution_group_idx"], [0, 0])
+    np.testing.assert_array_equal(rt_by_run["run"], ["run_a", "run_b"])
+    np.testing.assert_array_equal(rt_by_run["rt_observed"], [10.0, 14.0])
+    np.testing.assert_array_equal(rt_by_run["rt_calibrated"], [11.0, 13.0])
+
+
+def test_leave_one_out_rt():
+    # given
+    speclib = SpecLibFlat()
+    speclib._precursor_df = pd.DataFrame(
+        {
+            "elution_group_idx": [0, 0, 1, 2, 3],
+            "decoy": [0, 1, 0, 0, 0],
+            "rt_library": [100.0, 100.0, 200.0, 300.0, 400.0],
+        }
+    )
+    rt_by_run = pd.DataFrame(
+        {
+            "elution_group_idx": [0, 0, 0, 1, 2],
+            "run": ["run_a", "run_b", "run_c", "run_a", "run_b"],
+            "rt_observed": [10.0, 20.0, 40.0, 50.0, 60.0],
+            "rt_calibrated": [11.0, 21.0, 41.0, 51.0, 61.0],
+        }
+    )
+
+    # when
+    result = leave_one_out_rt(speclib, rt_by_run, "run_a")
+
+    # then: group 0 from runs b and c, group 1 seen in run_a only keeps its calibrated RT there,
+    # group 2 from run_b, group 3 never seen keeps the library RT
+    np.testing.assert_array_equal(
+        result.precursor_df["rt_library"], [30.0, 30.0, 51.0, 60.0, 400.0]
+    )
+    np.testing.assert_array_equal(
+        speclib.precursor_df["rt_library"], [100.0, 100.0, 200.0, 300.0, 400.0]
+    )

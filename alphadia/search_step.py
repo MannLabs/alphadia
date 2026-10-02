@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 import torch
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
@@ -37,6 +38,7 @@ from alphadia.libtransform.harmonize import (
     RTNormalization,
 )
 from alphadia.libtransform.loader import DynamicLoader
+from alphadia.libtransform.mbr import leave_one_out_rt
 from alphadia.libtransform.multiplex import MultiplexLibrary
 from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
@@ -550,6 +552,8 @@ class SearchStep:
 
         reusable_quant_folders = self._get_reusable_quant_folders()
 
+        rt_by_run = self._load_mbr_rt_by_run()
+
         workflow_folder_list = []
         raw_files_with_errors = []
 
@@ -579,6 +583,9 @@ class SearchStep:
                     quant_path=self.config[ConfigKeys.QUANT_DIRECTORY],
                     random_state=random_state,
                 )
+
+                if rt_by_run is not None:
+                    speclib = leave_one_out_rt(speclib, rt_by_run, raw_name)
 
                 self._process_raw_file(workflow, dia_path, speclib)
 
@@ -624,6 +631,19 @@ class SearchStep:
         )
 
         return raw_files_with_errors
+
+    def _load_mbr_rt_by_run(self) -> pd.DataFrame | None:
+        """Load the per-run RT table written next to an MBR library, if this step searches one."""
+        if self.library_path is None:
+            return None
+        rt_by_run_path = os.path.join(
+            os.path.dirname(self.library_path),
+            SearchPlanOutput.LIBRARY_RT_BY_RUN_OUTPUT,
+        )
+        if not os.path.exists(rt_by_run_path):
+            return None
+        logger.info(f"Using leave-one-out library RT from {rt_by_run_path}")
+        return pd.read_parquet(rt_by_run_path)
 
     def _process_raw_file(
         self, workflow: PeptideCentricWorkflow, dia_path: str, speclib: SpecLibFlat
