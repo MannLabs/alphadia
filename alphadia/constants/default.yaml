@@ -342,22 +342,45 @@ fdr:
     batch_size: 5000
     # learning rate of the stage-1 network
     learning_rate: 0.001
-    # features of the stage-1 network; no IDF features, they let it recognise decoys from the library alone
+    # features of the stage-1 network: the classifier's own feature set, no IDF features, they let it recognise
+    # decoys from the library alone
     feature_subset:
-      - num_over_0
-      - log10_b_ion_intensity
-      - num_profiles_filtered
-      - log10_y_ion_intensity
+      - correlation_std
       - delta_rt
-      - hyperscore_inverse_mass_error
-      - naa
-      - rt_observed
-      - num_fragments
-      - weighted_mass_error
-      - score
-      - longest_b_series
-      - num_over_0_rank_0_5
       - fwhm_rt
+      - hyperscore_intensity_library
+      - hyperscore_intensity_observation
+      - hyperscore_inverse_mass_error
+      - intensity_correlation
+      - log10_b_ion_intensity
+      - log10_y_ion_intensity
+      - longest_b_series
+      - longest_y_series
+      - mean_correlation
+      - median_correlation
+      - median_profile_sum
+      - median_profile_sum_filtered
+      - naa
+      - num_fragments
+      - num_over_0
+      - num_over_0_rank_0_5
+      - num_over_0_rank_6_11
+      - num_over_0_rank_12_17
+      - num_over_0_rank_18_23
+      - num_over_50
+      - num_over_50_rank_0_5
+      - num_over_50_rank_6_11
+      - num_over_50_rank_12_17
+      - num_over_50_rank_18_23
+      - num_over_80
+      - num_over_90
+      - num_over_95
+      - num_profiles
+      - num_profiles_filtered
+      - num_scans
+      - rt_observed
+      - score
+      - weighted_mass_error
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
