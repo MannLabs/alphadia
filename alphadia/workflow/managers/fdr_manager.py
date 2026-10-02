@@ -17,6 +17,10 @@ from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
+from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    get_context_feature_names,
+    get_feature_names,
+)
 
 logger = logging.getLogger()
 
@@ -302,8 +306,14 @@ class FDRManager(BaseManager):
         if not is_final:
             return
 
+        # Features the classifier does not train on are written too, so that adding them back can be
+        # replayed offline on the same candidates.
         dump_columns = available_columns + [
-            column for column in _FEATURE_MATRIX_ID_COLUMNS if column in features_df
+            column
+            for column in get_feature_names()
+            + get_context_feature_names()
+            + _FEATURE_MATRIX_ID_COLUMNS
+            if column in features_df and column not in available_columns
         ]
         matrix_path = os.path.join(
             self._feature_matrix_path, SearchStepFiles.FDR_FEATURES_FILE_NAME
