@@ -112,6 +112,44 @@ def test_get_q_values():
     )
 
 
+def test_get_q_values_by_length_counts_decoys_within_each_stratum():
+    # given: a short-peptide decoy ranked between long-peptide targets
+    test_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2, 3, 4, 5],
+            "proba": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+            "_decoy": [0, 0, 1, 0, 0, 0],
+            "naa": [12, 7, 7, 12, 12, 9],
+        }
+    )
+
+    # when
+    result = fdr.get_q_values_by_length(test_df, "proba", "_decoy")
+
+    # then: the decoy only counts against the short peptides, the 9-mer is its own stratum
+    assert result["precursor_idx"].tolist() == [0, 1, 2, 3, 4, 5]
+    np.testing.assert_allclose(result["qval"], [0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+
+
+def test_get_q_values_by_length_without_length_is_pooled():
+    # given
+    test_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2, 3],
+            "proba": [0.1, 0.2, 0.3, 0.4],
+            "_decoy": [0, 1, 0, 0],
+        }
+    )
+
+    # when
+    result = fdr.get_q_values_by_length(test_df.copy(), "proba", "_decoy")
+
+    # then
+    np.testing.assert_allclose(
+        result["qval"], fdr.get_q_values(test_df, "proba", "_decoy")["qval"]
+    )
+
+
 def test_get_q_values_with_decoy_offset():
     test_df = pd.DataFrame(
         {

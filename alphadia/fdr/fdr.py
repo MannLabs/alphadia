@@ -33,6 +33,12 @@ _MAX_FDR_CLASSIFIER_REINITS = 3
 # healthy float64 probability almost never ties at its best value.
 _MAX_TIED_BEST_PROBA = 500
 
+# Upper peptide lengths of the strata whose q-values are computed separately. Short peptides have few fragments, so
+# both false and decoy precursors pass more easily than long ones; with one pooled q-value the short stratum ran at a
+# decoy-estimated FDR of ~2 % while the long ones stayed below 1 %, and its false targets beat their decoys more often
+# still (paired entrapment, 5 ng HeLa: 2.9 % FDP for peptides up to 8 residues at a pooled 1 %).
+PEPTIDE_LENGTH_STRATA = (8, 10)
+
 
 def _is_collapsed(proba: np.ndarray) -> bool:
     """Whether the classifier output carries no ranking: near constant, or one value for the best PSMs."""
@@ -222,7 +228,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             )
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+    psm_df = get_q_values_by_length(psm_df, "proba", "_decoy")
 
     if figure_path is not None:
         plot_fdr(
@@ -294,6 +300,29 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     fdr_values_flipped = np.flip(fdr_values)
     q_values_flipped = np.minimum.accumulate(fdr_values_flipped)
     return np.flip(q_values_flipped)
+
+
+def get_q_values_by_length(
+    df: pd.DataFrame,
+    score_column: str = "proba",
+    decoy_column: str = "_decoy",
+    qval_column: str = "qval",
+) -> pd.DataFrame:
+    """Calculate q-values separately within each peptide length stratum of `PEPTIDE_LENGTH_STRATA`.
+
+    Falls back to pooled q-values when the dataframe has no `naa` column. The result is sorted by `score_column`.
+    """
+    if "naa" not in df.columns:
+        return get_q_values(df, score_column, decoy_column, qval_column)
+
+    strata = np.searchsorted(PEPTIDE_LENGTH_STRATA, df["naa"].to_numpy(), side="left")
+    df = pd.concat(
+        [
+            get_q_values(stratum_df, score_column, decoy_column, qval_column)
+            for _, stratum_df in df.groupby(strata)
+        ]
+    )
+    return df.sort_values([score_column, decoy_column, "precursor_idx"], ascending=True)
 
 
 def get_q_values(
