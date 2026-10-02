@@ -5,7 +5,6 @@ import pandas as pd
 from alphadia.constants.keys import CalibCols
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-    get_context_feature_names,
     get_feature_names,
 )
 
@@ -96,20 +95,13 @@ DECOY_SCHEME_FEATURES = (
 
 
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
-    """Get the feature columns the FDR classifier is trained on.
-
-    The candidate context features are always listed for the rust backend: the FDR manager
-    only uses the listed columns that the features actually carry, so the config flag that
-    computes them does not need to be repeated here.
-    """
+    """Get the feature columns the FDR classifier is trained on."""
     if extraction_backend != "rust":
         return feature_columns
 
-    return [
-        name
-        for name in get_feature_names() + get_context_feature_names()
-        if name not in DECOY_SCHEME_FEATURES
-    ]
+    # The context features are computed for the feature matrix dump only; training on them inflates the
+    # low-input FDR, so the classifier keeps the base features of the lead build.
+    return [name for name in get_feature_names() if name not in DECOY_SCHEME_FEATURES]
 
 
 def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:
