@@ -3,6 +3,7 @@ import shutil
 import tempfile
 
 import pandas as pd
+import pytest
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import InferenceStrategy, NormalizationMethods
@@ -17,7 +18,10 @@ from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 
-def test_search_plan_output_integration():
+@pytest.mark.parametrize(
+    "normalization_method", [NormalizationMethods.DIRECTLFQ, NormalizationMethods.NONE]
+)
+def test_search_plan_output_integration(normalization_method):
     """Integration test for SearchPlanOutput.build() covering end-to-end workflow.
 
     Tests that SearchPlanOutput.build() correctly orchestrates:
@@ -53,7 +57,7 @@ def test_search_plan_output_integration():
             "min_nonnan": 1,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization_method": NormalizationMethods.DIRECTLFQ,
+            "normalization_method": normalization_method,
             "normalize_directlfq": True,
         },
         "multiplexing": {"enabled": False},
@@ -174,8 +178,12 @@ def test_search_plan_output_integration():
     )
     assert isinstance(internal_df["duration_extraction"][0], float)
 
-    protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
-    assert all(col in protein_df.columns for col in run_columns)
+    pg_matrix_path = os.path.join(temp_folder, "pg.matrix.parquet")
+    if normalization_method != NormalizationMethods.NONE:
+        protein_df = pd.read_parquet(pg_matrix_path)
+        assert all(col in protein_df.columns for col in run_columns)
+    else:
+        assert not os.path.exists(pg_matrix_path)
 
     shutil.rmtree(temp_folder)
 

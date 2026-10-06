@@ -338,7 +338,7 @@ search_output:
   # Minimum number of non-missing values required for quantification
   min_nonnan: 3
 
-  # LFQ method for quantification ("directlfq" or "quantselect")
+  # LFQ method for quantification ("directlfq", "quantselect" or "none"). "none" skips LFQ: no quantification tables are written
   normalization_method: directlfq
   # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directlfq")
   normalize_directlfq: True
