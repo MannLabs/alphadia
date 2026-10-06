@@ -259,10 +259,11 @@ class SearchPlanOutput:
         )
         log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
         if save:
-            logging.info("Writing transfer library to disk")
-            transferAccumulator.consensus_speclibase.save_hdf(
-                os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf")
+            transfer_lib_path = os.path.join(
+                self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
             )
+            logging.info(f"Writing transfer library to {transfer_lib_path}")
+            transferAccumulator.consensus_speclibase.save_hdf(transfer_lib_path)
 
         return transferAccumulator.consensus_speclibase
 
@@ -526,11 +527,10 @@ class SearchPlanOutput:
         )
 
         if save:
-            logger.info("Writing MBR spectral library to disk")
-            mbr_spec_lib.save_hdf(
-                os.path.join(
-                    self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
-                )
+            mbr_lib_path = os.path.join(
+                self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
             )
+            logger.info(f"Writing MBR spectral library to {mbr_lib_path}")
+            mbr_spec_lib.save_hdf(mbr_lib_path)
 
         return mbr_spec_lib
