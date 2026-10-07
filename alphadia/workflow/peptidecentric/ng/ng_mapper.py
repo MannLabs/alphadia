@@ -70,22 +70,18 @@ def speclib_to_ng(
     rt_column: str,
     precursor_mz_column: str,
     fragment_mz_column: str,
-    inherit_decoy_idf: bool = False,
 ) -> "SpecLibFlatNG":  # noqa: F821
     """Convert speclib from classic to ng format.
 
-    The NG library uses the library fragment m/z only to look up the fragment IDF. With `inherit_decoy_idf`, every decoy
-    fragment is passed with the library m/z of the corresponding fragment of its target, so a decoy gets exactly the IDF
-    weights of its target while it is still matched at its own m/z.
+    The NG library uses the library fragment m/z only to look up the fragment IDF. Every decoy fragment is passed with
+    the library m/z of the corresponding fragment of its target, so a decoy gets exactly the IDF weights of its target
+    while it is still matched at its own m/z.
     """
 
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
 
-    if inherit_decoy_idf:
-        fragment_mz_library = target_fragment_mz_for_decoys(precursor_df, fragment_df)
-    else:
-        fragment_mz_library = fragment_df["mz_library"].values.astype(np.float32)
+    fragment_mz_library = target_fragment_mz_for_decoys(precursor_df, fragment_df)
 
     return SpecLibFlatNG.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
