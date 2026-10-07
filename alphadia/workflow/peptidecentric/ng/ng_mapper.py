@@ -1,5 +1,7 @@
 """Conversion of AlphaDIA to NG data structure and back."""
 
+import logging
+
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -16,7 +18,15 @@ from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
 
+logger = logging.getLogger()
+
 CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
+
+# A decoy and its target share elution group, channel and charge.
+DECOY_TARGET_KEY_COLUMNS = ["elution_group_idx", "channel", "charge"]
+
+# A decoy fragment corresponds to the target fragment with the same annotation.
+FRAGMENT_ANNOTATION_COLUMNS = ["type", "number", "charge", "loss_type"]
 
 
 def set_ng_thread_count(thread_count: int) -> None:
@@ -60,11 +70,22 @@ def speclib_to_ng(
     rt_column: str,
     precursor_mz_column: str,
     fragment_mz_column: str,
+    inherit_decoy_idf: bool = False,
 ) -> "SpecLibFlatNG":  # noqa: F821
-    """Convert speclib from classic to ng format."""
+    """Convert speclib from classic to ng format.
+
+    The NG library uses the library fragment m/z only to look up the fragment IDF. With `inherit_decoy_idf`, every decoy
+    fragment is passed with the library m/z of the corresponding fragment of its target, so a decoy gets exactly the IDF
+    weights of its target while it is still matched at its own m/z.
+    """
 
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
+
+    if inherit_decoy_idf:
+        fragment_mz_library = target_fragment_mz_for_decoys(precursor_df, fragment_df)
+    else:
+        fragment_mz_library = fragment_df["mz_library"].values.astype(np.float32)
 
     return SpecLibFlatNG.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
@@ -75,7 +96,7 @@ def speclib_to_ng(
         precursor_df["nAA"].values.astype(np.uint8),
         precursor_df["flat_frag_start_idx"].values.astype(np.uint64),
         precursor_df["flat_frag_stop_idx"].values.astype(np.uint64),
-        fragment_df["mz_library"].values.astype(np.float32),
+        fragment_mz_library,
         fragment_df[fragment_mz_column].values.astype(np.float32),
         fragment_df["intensity"].values.astype(np.float32),
         fragment_df["cardinality"].values.astype(np.uint8),
@@ -85,6 +106,80 @@ def speclib_to_ng(
         fragment_df["position"].values.astype(np.uint8),
         fragment_df["type"].values.astype(np.uint8),
     )
+
+
+def target_fragment_mz_for_decoys(
+    precursor_df: pd.DataFrame, fragment_df: pd.DataFrame
+) -> np.ndarray:
+    """The library fragment m/z, with each decoy fragment replaced by that of the corresponding target fragment.
+
+    The IDF weights a fragment by how rare its m/z is in the library. The decoy mutation moves decoy fragments onto
+    masses of their own, so with their own m/z decoys get different weights than any target and the IDF features tell
+    them apart from the library alone. A decoy is a copy of its target with mutated residues, so its fragments come in the
+    same order; a fragment takes the target's m/z where the annotation at the same offset agrees. Decoys without a target
+    of the same elution group, channel and charge, or with a different fragment count, keep their own m/z.
+
+    Parameters
+    ----------
+    precursor_df : pd.DataFrame
+        Library precursors with `decoy`, `elution_group_idx`, `channel`, `charge`, `flat_frag_start_idx` and
+        `flat_frag_stop_idx`.
+
+    fragment_df : pd.DataFrame
+        Library fragments with `mz_library` and the annotation columns.
+
+    Returns
+    -------
+    np.ndarray
+        Fragment m/z of dtype float32, one per row of `fragment_df`.
+
+    """
+    fragment_mz = fragment_df["mz_library"].to_numpy(dtype=np.float32, copy=True)
+    span = ["flat_frag_start_idx", "flat_frag_stop_idx"]
+    precursors = precursor_df[["decoy", *DECOY_TARGET_KEY_COLUMNS, *span]]
+
+    targets = precursors[precursors["decoy"] == 0].drop_duplicates(
+        DECOY_TARGET_KEY_COLUMNS
+    )
+    pairs = precursors[precursors["decoy"] == 1].merge(
+        targets, on=DECOY_TARGET_KEY_COLUMNS, suffixes=("_decoy", "_target")
+    )
+    decoy_start = pairs["flat_frag_start_idx_decoy"].to_numpy(dtype=np.int64)
+    target_start = pairs["flat_frag_start_idx_target"].to_numpy(dtype=np.int64)
+    lengths = pairs["flat_frag_stop_idx_decoy"].to_numpy(dtype=np.int64) - decoy_start
+    same_length = (
+        pairs["flat_frag_stop_idx_target"].to_numpy(dtype=np.int64) - target_start
+        == lengths
+    )
+    decoy_start, target_start, lengths = (
+        decoy_start[same_length],
+        target_start[same_length],
+        lengths[same_length],
+    )
+
+    offsets = np.arange(lengths.sum()) - np.repeat(
+        np.cumsum(lengths) - lengths, lengths
+    )
+    decoy_idx = np.repeat(decoy_start, lengths) + offsets
+    target_idx = np.repeat(target_start, lengths) + offsets
+
+    same_fragment = np.ones(len(decoy_idx), dtype=bool)
+    for column in FRAGMENT_ANNOTATION_COLUMNS:
+        values = fragment_df[column].to_numpy()
+        same_fragment &= values[decoy_idx] == values[target_idx]
+
+    fragment_mz[decoy_idx[same_fragment]] = fragment_mz[target_idx[same_fragment]]
+
+    num_decoy_fragments = int(
+        (
+            precursor_df.loc[precursor_df["decoy"] == 1, "flat_frag_stop_idx"]
+            - precursor_df.loc[precursor_df["decoy"] == 1, "flat_frag_start_idx"]
+        ).sum()
+    )
+    logger.info(
+        f"IDF of decoys: {same_fragment.sum():,} of {num_decoy_fragments:,} decoy fragments take the m/z of their target fragment"
+    )
+    return fragment_mz
 
 
 def get_feature_names() -> list[str]:

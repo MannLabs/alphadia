@@ -530,6 +530,7 @@ class NgExtractionHandler(ExtractionHandler):
                 rt_column=self._column_name_handler.get_rt_column(),
                 precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
                 fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
+                inherit_decoy_idf=self._config["search"]["inherit_decoy_idf"],
             )
 
     def _select_candidates(

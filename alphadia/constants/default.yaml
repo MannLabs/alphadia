@@ -198,6 +198,10 @@ search:
   # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
   candidate_context_features: True
 
+  # give every decoy fragment the IDF weight of the corresponding fragment of its target; otherwise decoy fragments get
+  # IDF weights of their own and the IDF features tell decoys apart from the library alone (rust backend only)
+  inherit_decoy_idf: True
+
   # === python backend only ===
   # exclude fragments shared between multiple channels
   exclude_shared_ions: True
