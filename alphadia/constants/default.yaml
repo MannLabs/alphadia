@@ -200,7 +200,7 @@ search:
 
   # replace each decoy candidate's context features by those of its target's candidate of the same rank, so that the
   # features cannot tell a decoy from its own target (rust backend only, needs candidate_context_features)
-  inherit_decoy_context_features: True
+  inherit_decoy_context_features: False
 
   # === python backend only ===
   # exclude fragments shared between multiple channels
