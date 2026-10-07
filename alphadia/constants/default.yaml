@@ -196,7 +196,11 @@ search:
   optimized_peak_group_score: False
 
   # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
-  candidate_context_features: False
+  candidate_context_features: True
+
+  # replace each decoy candidate's context features by those of its target's candidate of the same rank, so that the
+  # features cannot tell a decoy from its own target (rust backend only, needs candidate_context_features)
+  inherit_decoy_context_features: True
 
   # === python backend only ===
   # exclude fragments shared between multiple channels

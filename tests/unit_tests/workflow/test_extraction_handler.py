@@ -27,6 +27,7 @@ def test_score_candidates_adds_context_features_if_enabled(
         "search": {
             "top_k_fragments_scoring": 12,
             "candidate_context_features": candidate_context_features,
+            "inherit_decoy_context_features": False,
         }
     }
     handler = NgExtractionHandler(

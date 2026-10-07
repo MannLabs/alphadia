@@ -1,5 +1,7 @@
 """Conversion of AlphaDIA to NG data structure and back."""
 
+import logging
+
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -16,7 +18,12 @@ from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
 
+logger = logging.getLogger()
+
 CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
+
+# A decoy and its target share elution group, channel and charge.
+DECOY_TARGET_KEY_COLUMNS = ["elution_group_idx", "channel", "charge"]
 
 
 def set_ng_thread_count(thread_count: int) -> None:
@@ -122,6 +129,69 @@ def merge_context_features(
         raise ValueError(f"Context features are missing for {num_missing} candidates")
 
     return merged_df
+
+
+def inherit_context_features_from_targets(
+    features_df: pd.DataFrame, precursor_df: pd.DataFrame
+) -> pd.DataFrame:
+    """Give every decoy candidate the context features of its target's candidate of the same rank.
+
+    The context features describe how crowded a candidate's spot is. Decoy fragments sit at the masses the decoy
+    mutation produces, so decoys see a different crowd than targets and the features would tell them apart before any
+    spectrum evidence. Copied from the target, they carry the same values for a target and its own decoy. A decoy whose
+    target has no candidate of that rank takes the target's rank 0 candidate; one whose target has no candidate at all
+    keeps its own values.
+
+    Parameters
+    ----------
+    features_df : pd.DataFrame
+        Scored candidates with the context features, `precursor_idx`, `rank`, `decoy`, `elution_group_idx` and
+        `channel`.
+
+    precursor_df : pd.DataFrame
+        Library precursors with `precursor_idx` and `charge`.
+
+    Returns
+    -------
+    pd.DataFrame
+        `features_df` with the decoys' context features replaced.
+
+    """
+    names = get_context_feature_names()
+    charge = precursor_df.set_index("precursor_idx")["charge"]
+    keys = features_df[["elution_group_idx", "channel", "rank"]].assign(
+        charge=features_df["precursor_idx"].map(charge).to_numpy()
+    )
+    is_decoy = (features_df["decoy"] == 1).to_numpy()
+
+    targets = pd.concat(
+        [keys[~is_decoy], features_df.loc[~is_decoy, names]], axis=1
+    ).drop_duplicates([*DECOY_TARGET_KEY_COLUMNS, "rank"])
+    best_targets = (
+        targets[targets["rank"] == 0]
+        .drop(columns="rank")
+        .drop_duplicates(DECOY_TARGET_KEY_COLUMNS)
+    )
+
+    decoy_keys = keys[is_decoy]
+    same_rank = decoy_keys.merge(
+        targets, on=[*DECOY_TARGET_KEY_COLUMNS, "rank"], how="left"
+    )[names]
+    rank_zero = decoy_keys.merge(best_targets, on=DECOY_TARGET_KEY_COLUMNS, how="left")[
+        names
+    ]
+    own = features_df.loc[is_decoy, names].reset_index(drop=True)
+    inherited = same_rank.fillna(rank_zero).fillna(own)
+
+    num_orphans = int(same_rank[names[0]].isna().sum())
+    if num_orphans > 0:
+        logger.info(
+            f"{num_orphans:,} of {is_decoy.sum():,} decoy candidates have no target candidate of the same rank"
+        )
+
+    result_df = features_df.copy()
+    result_df.loc[is_decoy, names] = inherited.to_numpy()
+    return result_df
 
 
 def parse_candidates(

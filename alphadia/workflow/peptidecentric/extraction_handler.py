@@ -29,6 +29,7 @@ from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     candidates_to_ng,
+    inherit_context_features_from_targets,
     merge_context_features,
     parse_candidates,
     parse_quantification,
@@ -618,6 +619,10 @@ class NgExtractionHandler(ExtractionHandler):
                 top_k_fragments=self._config["search"]["top_k_fragments_scoring"],
             ).compute(dia_data, self._speclib_ng, candidates)
             features_df = merge_context_features(features_df, context_features)
+            if self._config["search"]["inherit_decoy_context_features"]:
+                features_df = inherit_context_features_from_targets(
+                    features_df, spectral_library.precursor_df
+                )
 
         return features_df
 
