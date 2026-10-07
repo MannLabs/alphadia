@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
-from scipy.stats import norm
+from sklearn.preprocessing import QuantileTransformer
 from torch import nn, optim
 from tqdm import tqdm
 
@@ -20,9 +20,6 @@ logger = logging.getLogger()
 
 # Number of equally spaced quantiles used to store the empirical CDF of a feature.
 _N_QUANTILES = 1001
-
-# Keeps the most extreme values at a finite normal score instead of +/- infinity.
-_QUANTILE_CLIP = 1e-4
 
 # Below this number of training rows the empirical quantiles are too coarse to be
 # a better input than the raw features.
@@ -245,7 +242,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.network = None
         self.optimizer = None
         self._fitted = False
-        self._quantiles: np.ndarray | None = None
+        self._quantile_transformer: QuantileTransformer | None = None
 
         self.metrics = {
             "epoch": [],
@@ -299,7 +296,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         if self._fitted:
             state_dict["network_state_dict"] = self.network.state_dict()
-            state_dict["_quantiles"] = self._quantiles
+            state_dict["_quantile_transformer"] = self._quantile_transformer
 
         return state_dict
 
@@ -325,7 +322,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.feature_transform = _state_dict.pop(
             "feature_transform", FeatureTransform.NONE
         )
-        self._quantiles = _state_dict.pop("_quantiles", None)
+        self._quantile_transformer = _state_dict.pop("_quantile_transformer", None)
 
         if "network_state_dict" in _state_dict:
             self.network = FeedForwardNN(
@@ -349,7 +346,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.network = None
         self.optimizer = None
         self._fitted = False
-        self._quantiles = None
+        self._quantile_transformer = None
         for values in self.metrics.values():
             values.clear()
 
@@ -368,7 +365,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         """
         if self.feature_transform == FeatureTransform.NONE:
-            self._quantiles = None
+            self._quantile_transformer = None
             return x
 
         if self.feature_transform != FeatureTransform.QUANTILE:
@@ -382,12 +379,14 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 f"Only {len(x):,} rows available for the quantile feature transform "
                 f"(minimum {_MIN_ROWS_FOR_QUANTILE_TRANSFORM:,}), using the raw features instead."
             )
-            self._quantiles = None
+            self._quantile_transformer = None
             return x
 
-        self._quantiles = np.quantile(x, np.linspace(0, 1, _N_QUANTILES), axis=0)
-
-        return self._apply_transform(x)
+        # Without subsampling the quantiles are exact, as the data is already in memory.
+        self._quantile_transformer = QuantileTransformer(
+            n_quantiles=_N_QUANTILES, output_distribution="normal", subsample=None
+        )
+        return self._quantile_transformer.fit_transform(x)
 
     def _apply_transform(self, x: np.ndarray) -> np.ndarray:
         """Map every feature through its empirical CDF to a standard normal score.
@@ -408,25 +407,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             unchanged if no quantile table was fitted.
 
         """
-        if self._quantiles is None:
+        if self._quantile_transformer is None:
             return x
 
-        probabilities = np.linspace(0, 1, self._quantiles.shape[0])
-        x_transformed = np.zeros_like(x, dtype=np.float64)
-
-        for i in range(x.shape[1]):
-            feature_quantiles = self._quantiles[:, i]
-            # A constant feature has no invertible CDF and carries no information,
-            # so it stays at the center of the distribution.
-            if feature_quantiles[0] == feature_quantiles[-1]:
-                continue
-
-            cdf = np.interp(x[:, i], feature_quantiles, probabilities)
-            x_transformed[:, i] = norm.ppf(
-                np.clip(cdf, _QUANTILE_CLIP, 1 - _QUANTILE_CLIP)
-            )
-
-        return x_transformed
+        return self._quantile_transformer.transform(x)
 
     @manage_torch_threads(max_threads=2)
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements

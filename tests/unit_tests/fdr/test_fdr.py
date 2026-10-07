@@ -8,7 +8,7 @@ import torch
 from scipy.stats import norm
 
 from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr import classifiers, fdr
+from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
 
@@ -287,8 +287,8 @@ def test_fit_transform_maps_features_to_normal_scores():
     # When: the transform is fitted and applied
     x_transformed = classifier._fit_transform(x)
 
-    # Then: the constant feature maps to zero
-    assert np.all(x_transformed[:, 0] == 0.0)
+    # Then: the constant feature maps to a single value
+    assert np.unique(x_transformed[:, 0]).size == 1
 
     # And: the heavy-tailed feature follows a standard normal
     probabilities = np.arange(0.1, 1.0, 0.1)
@@ -297,6 +297,25 @@ def test_fit_transform_maps_features_to_normal_scores():
         norm.ppf(probabilities),
         atol=0.05,
     )
+
+
+def test_fit_transform_separates_tied_values_from_their_neighbours():
+    # Given: a feature where a large share of the rows is exactly zero
+    rng = np.random.default_rng(42)
+    feature = rng.lognormal(mean=0.0, sigma=2.0, size=5000)
+    feature[:2000] = 0.0
+    x = feature[:, None]
+    classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+
+    # When: the transform is fitted and applied
+    x_transformed = classifier._fit_transform(x)
+
+    # Then: the zeros stay clearly apart from the smallest positive value
+    zero_score = x_transformed[feature == 0.0, 0].max()
+    smallest_positive_score = x_transformed[feature == feature[feature > 0].min(), 0]
+    assert smallest_positive_score - zero_score > 1.0
 
 
 def test_apply_transform_keeps_out_of_distribution_values_finite():
@@ -312,9 +331,10 @@ def test_apply_transform_keeps_out_of_distribution_values_finite():
     x_transformed = classifier._apply_transform(x_extreme)
 
     # Then: they stay at the edge of the distribution instead of outside it
+    x_training_scores = classifier._apply_transform(x)
     assert np.all(np.isfinite(x_transformed))
-    assert x_transformed[0, 1] == norm.ppf(1 - classifiers._QUANTILE_CLIP)
-    assert x_transformed[1, 1] == norm.ppf(classifiers._QUANTILE_CLIP)
+    assert x_transformed[0, 1] == x_training_scores[:, 1].max()
+    assert x_transformed[1, 1] == x_training_scores[:, 1].min()
 
 
 def test_fit_transform_falls_back_to_raw_features_for_few_rows():
@@ -328,7 +348,7 @@ def test_fit_transform_falls_back_to_raw_features_for_few_rows():
     x_transformed = classifier._fit_transform(x)
 
     # Then: the features are passed through unchanged
-    assert classifier._quantiles is None
+    assert classifier._quantile_transformer is None
     assert np.array_equal(x_transformed, x)
 
 
@@ -348,7 +368,7 @@ def test_quantile_transform_state_dict_round_trip():
         batch_size=100, feature_transform=FeatureTransform.QUANTILE
     )
     classifier.fit(x, y)
-    assert classifier._quantiles is not None
+    assert classifier._quantile_transformer is not None
 
     # When: the state dict is round tripped through a new classifier
     new_classifier = BinaryClassifierLegacyNewBatching()
@@ -356,7 +376,10 @@ def test_quantile_transform_state_dict_round_trip():
 
     # Then: the transform and its quantile table are preserved
     assert new_classifier.feature_transform == FeatureTransform.QUANTILE
-    assert np.array_equal(new_classifier._quantiles, classifier._quantiles)
+    assert np.array_equal(
+        new_classifier._quantile_transformer.quantiles_,
+        classifier._quantile_transformer.quantiles_,
+    )
 
     # And: the predictions are identical
     assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
@@ -369,7 +392,7 @@ def test_from_state_dict_defaults_to_no_transform():
     classifier.fit(x, y)
     state_dict = classifier.to_state_dict()
     del state_dict["feature_transform"]
-    del state_dict["_quantiles"]
+    del state_dict["_quantile_transformer"]
 
     # When: it is loaded into a classifier requesting the quantile transform
     new_classifier = BinaryClassifierLegacyNewBatching(
@@ -379,4 +402,4 @@ def test_from_state_dict_defaults_to_no_transform():
 
     # Then: the loaded weights keep being used with raw features
     assert new_classifier.feature_transform == FeatureTransform.NONE
-    assert new_classifier._quantiles is None
+    assert new_classifier._quantile_transformer is None
