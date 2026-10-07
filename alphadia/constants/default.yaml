@@ -316,9 +316,8 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
-  # transform applied to the features before they enter the neural network, either "none" or "quantile".
-  # "quantile" replaces every feature by its rank in the training distribution, mapped to a standard
-  # normal score. This keeps extreme values inside the range the network was trained on.
+  # feature transform before the neural network, either "none" or "quantile".
+  # "quantile" keeps extreme values inside the range the network was trained on.
   feature_transform: quantile
 
 search_output:

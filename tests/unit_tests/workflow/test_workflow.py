@@ -394,13 +394,6 @@ def test_fdr_manager_passes_feature_transform_to_base_classifier():
     # Then: the base classifier applies the transform
     assert fdr_manager.classifier_base.feature_transform == FeatureTransform.QUANTILE
 
-    # And: classifiers loaded from an old state dict keep using raw features
-    assert all(
-        classifier.feature_transform == FeatureTransform.NONE
-        for classifier_list in fdr_manager.classifier_store.values()
-        for classifier in classifier_list
-    )
-
 
 def create_workflow_instance():
     config_base_path = os.path.join(

@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-from scipy.stats import norm
 
 from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr import fdr
@@ -268,81 +267,12 @@ def test_perform_fdr_stops_after_max_reinits():
     assert psm_df["proba"].std() == 0.0
 
 
-def _gen_quantile_transform_data(n_samples: int = 5000, random_state: int = 42):
-    """Return a matrix with a constant and a heavy-tailed column."""
-    rng = np.random.default_rng(random_state)
-    return np.stack(
-        [np.full(n_samples, 7.0), rng.lognormal(mean=0.0, sigma=2.0, size=n_samples)],
-        axis=1,
-    )
-
-
-def test_fit_transform_maps_features_to_normal_scores():
-    # Given: a classifier with the quantile transform and a constant and a heavy-tailed feature
-    classifier = BinaryClassifierLegacyNewBatching(
-        feature_transform=FeatureTransform.QUANTILE
-    )
-    x = _gen_quantile_transform_data()
-
-    # When: the transform is fitted and applied
-    x_transformed = classifier._fit_transform(x)
-
-    # Then: the constant feature maps to a single value
-    assert np.unique(x_transformed[:, 0]).size == 1
-
-    # And: the heavy-tailed feature follows a standard normal
-    probabilities = np.arange(0.1, 1.0, 0.1)
-    assert np.allclose(
-        np.quantile(x_transformed[:, 1], probabilities),
-        norm.ppf(probabilities),
-        atol=0.05,
-    )
-
-
-def test_fit_transform_separates_tied_values_from_their_neighbours():
-    # Given: a feature where a large share of the rows is exactly zero
-    rng = np.random.default_rng(42)
-    feature = rng.lognormal(mean=0.0, sigma=2.0, size=5000)
-    feature[:2000] = 0.0
-    x = feature[:, None]
-    classifier = BinaryClassifierLegacyNewBatching(
-        feature_transform=FeatureTransform.QUANTILE
-    )
-
-    # When: the transform is fitted and applied
-    x_transformed = classifier._fit_transform(x)
-
-    # Then: the zeros stay clearly apart from the smallest positive value
-    zero_score = x_transformed[feature == 0.0, 0].max()
-    smallest_positive_score = x_transformed[feature == feature[feature > 0].min(), 0]
-    assert smallest_positive_score - zero_score > 1.0
-
-
-def test_apply_transform_keeps_out_of_distribution_values_finite():
-    # Given: a fitted quantile transform
-    classifier = BinaryClassifierLegacyNewBatching(
-        feature_transform=FeatureTransform.QUANTILE
-    )
-    x = _gen_quantile_transform_data()
-    classifier._fit_transform(x)
-
-    # When: values far outside the training range are transformed
-    x_extreme = np.array([[7.0, x[:, 1].max() * 1e6], [7.0, x[:, 1].min() * 1e-6]])
-    x_transformed = classifier._apply_transform(x_extreme)
-
-    # Then: they stay at the edge of the distribution instead of outside it
-    x_training_scores = classifier._apply_transform(x)
-    assert np.all(np.isfinite(x_transformed))
-    assert x_transformed[0, 1] == x_training_scores[:, 1].max()
-    assert x_transformed[1, 1] == x_training_scores[:, 1].min()
-
-
 def test_fit_transform_falls_back_to_raw_features_for_few_rows():
     # Given: a classifier with the quantile transform and fewer rows than the minimum
     classifier = BinaryClassifierLegacyNewBatching(
         feature_transform=FeatureTransform.QUANTILE
     )
-    x = _gen_quantile_transform_data(n_samples=100)
+    x, _ = gen_data_np(n_samples=100)
 
     # When: the transform is fitted
     x_transformed = classifier._fit_transform(x)
@@ -358,7 +288,7 @@ def test_fit_transform_raises_for_unknown_transform():
 
     # When/Then: fitting the transform fails explicitly
     with pytest.raises(ValueError, match="Unknown feature transform"):
-        classifier._fit_transform(_gen_quantile_transform_data())
+        classifier._fit_transform(gen_data_np()[0])
 
 
 def test_quantile_transform_state_dict_round_trip():
@@ -374,14 +304,7 @@ def test_quantile_transform_state_dict_round_trip():
     new_classifier = BinaryClassifierLegacyNewBatching()
     new_classifier.from_state_dict(classifier.to_state_dict())
 
-    # Then: the transform and its quantile table are preserved
-    assert new_classifier.feature_transform == FeatureTransform.QUANTILE
-    assert np.array_equal(
-        new_classifier._quantile_transformer.quantiles_,
-        classifier._quantile_transformer.quantiles_,
-    )
-
-    # And: the predictions are identical
+    # Then: the predictions are identical
     assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
 
 

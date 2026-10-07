@@ -18,7 +18,6 @@ from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
 
-# Number of equally spaced quantiles used to store the empirical CDF of a feature.
 _N_QUANTILES = 1001
 
 # Below this number of training rows the empirical quantiles are too coarse to be
@@ -316,9 +315,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         """
         _state_dict = deepcopy(state_dict)
 
-        # The quantile table belongs to the trained weights: a stored classifier has to
-        # transform its input exactly as it did during training. State dicts written
-        # before the transform existed hold weights trained on raw features.
+        # State dicts written before the transform existed hold weights trained on raw features.
         self.feature_transform = _state_dict.pop(
             "feature_transform", FeatureTransform.NONE
         )
@@ -382,18 +379,16 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             self._quantile_transformer = None
             return x
 
-        # Without subsampling the quantiles are exact, as the data is already in memory.
         self._quantile_transformer = QuantileTransformer(
             n_quantiles=_N_QUANTILES, output_distribution="normal", subsample=None
         )
         return self._quantile_transformer.fit_transform(x)
 
     def _apply_transform(self, x: np.ndarray) -> np.ndarray:
-        """Map every feature through its empirical CDF to a standard normal score.
+        """Map every feature to a standard normal score through its empirical CDF.
 
-        Extreme but genuine candidates lie far outside the training distribution and the
-        network extrapolates arbitrarily for them. Ranking keeps them at the edge of the
-        distribution instead of outside it.
+        Extreme candidates would otherwise lie outside the training range, where the
+        network extrapolates arbitrarily.
 
         Parameters
         ----------
@@ -403,8 +398,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         Returns
         -------
         x_transformed : np.ndarray, dtype=float
-            Transformed data of shape (n_samples, n_features). The input is returned
-            unchanged if no quantile table was fitted.
+            Transformed data of shape (n_samples, n_features), or the input if no
+            transform was fitted.
 
         """
         if self._quantile_transformer is None:
