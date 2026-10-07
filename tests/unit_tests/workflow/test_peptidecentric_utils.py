@@ -6,6 +6,7 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
 )
 from alphadia.workflow.peptidecentric.utils import (
     DECOY_SCHEME_FEATURES,
+    SCORE_RELATIVE_CONTEXT_FEATURES,
     feature_columns,
     get_classifier_feature_columns,
 )
@@ -20,7 +21,21 @@ def test_get_classifier_feature_columns_for_rust_backend():
         name
         for name in get_feature_names() + get_context_feature_names()
         if name not in DECOY_SCHEME_FEATURES
+        and name not in SCORE_RELATIVE_CONTEXT_FEATURES
     ]
+
+
+def test_get_classifier_feature_columns_keeps_only_the_crowding_context_features():
+    # when
+    columns = get_classifier_feature_columns("rust")
+
+    # then
+    assert set(SCORE_RELATIVE_CONTEXT_FEATURES) <= set(get_context_feature_names())
+    assert set(get_context_feature_names()) & set(columns) == {
+        "ctx_candidate_density",
+        "ctx_n_competitors",
+        "ctx_shared_frac_any",
+    }
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():

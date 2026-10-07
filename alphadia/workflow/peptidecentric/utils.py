@@ -95,6 +95,19 @@ DECOY_SCHEME_FEATURES = (
 )
 
 
+# Context features left out of the classifier. They compare a candidate with its higher-scoring competitors, so they
+# follow the candidate's own score. A decoy inherits them from its target's candidate, and values that do not fit its
+# own score would let the classifier recognise it. The crowding features (density, competitor count, shared fraction)
+# do not depend on the candidate's score.
+SCORE_RELATIVE_CONTEXT_FEATURES = (
+    "ctx_n_competitors_higher",
+    "ctx_claimant_rank",
+    "ctx_shared_frac_higher",
+    "ctx_shared_lib_intensity_frac_higher",
+    "ctx_competitor_log_ratio",
+)
+
+
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
@@ -109,6 +122,7 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
         name
         for name in get_feature_names() + get_context_feature_names()
         if name not in DECOY_SCHEME_FEATURES
+        and name not in SCORE_RELATIVE_CONTEXT_FEATURES
     ]
 
 
