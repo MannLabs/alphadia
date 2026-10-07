@@ -95,12 +95,15 @@ DECOY_SCHEME_FEATURES = (
 )
 
 
-def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
+def get_classifier_feature_columns(
+    extraction_backend: str, *, include_idf: bool = False
+) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
     The candidate context features are always listed for the rust backend: the FDR manager
     only uses the listed columns that the features actually carry, so the config flag that
-    computes them does not need to be repeated here.
+    computes them does not need to be repeated here. The IDF features are listed only with
+    `include_idf`, for decoys that inherit the IDF weights of their target.
     """
     if extraction_backend != "rust":
         return feature_columns
@@ -108,7 +111,7 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     return [
         name
         for name in get_feature_names() + get_context_feature_names()
-        if name not in DECOY_SCHEME_FEATURES
+        if include_idf or name not in DECOY_SCHEME_FEATURES
     ]
 
 
