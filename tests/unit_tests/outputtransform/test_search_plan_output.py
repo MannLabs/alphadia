@@ -1,12 +1,17 @@
 import os
-import shutil
-import tempfile
 
 import pandas as pd
 import pytest
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia.constants.keys import InferenceStrategy, NormalizationMethods
+from alphadia.constants.keys import (
+    InferenceStrategy,
+    NormalizationMethods,
+    PeptideOutputCols,
+    PrecursorOutputCols,
+    ProteinGroupOutputCols,
+    QuantificationLevelName,
+)
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
 )
@@ -21,7 +26,7 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 @pytest.mark.parametrize(
     "normalization_method", [NormalizationMethods.DIRECTLFQ, NormalizationMethods.NONE]
 )
-def test_search_plan_output_integration(normalization_method):
+def test_search_plan_output_integration(normalization_method, tmp_path):
     """Integration test for SearchPlanOutput.build() covering end-to-end workflow.
 
     Tests that SearchPlanOutput.build() correctly orchestrates:
@@ -75,8 +80,7 @@ def test_search_plan_output_integration(normalization_method):
         },
     }
 
-    temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
-    os.makedirs(temp_folder, exist_ok=True)
+    temp_folder = str(tmp_path)
     quant_path = os.path.join(temp_folder, QUANT_FOLDER_NAME)
     os.makedirs(quant_path, exist_ok=True)
     raw_folders = [os.path.join(quant_path, run) for run in run_columns]
@@ -178,14 +182,24 @@ def test_search_plan_output_integration(normalization_method):
     )
     assert isinstance(internal_df["duration_extraction"][0], float)
 
-    pg_matrix_path = os.path.join(temp_folder, "pg.matrix.parquet")
-    if normalization_method != NormalizationMethods.NONE:
-        protein_df = pd.read_parquet(pg_matrix_path)
-        assert all(col in protein_df.columns for col in run_columns)
-    else:
-        assert not os.path.exists(pg_matrix_path)
+    lfq_enabled = normalization_method != NormalizationMethods.NONE
+    for level_name in [
+        QuantificationLevelName.PRECURSOR,
+        QuantificationLevelName.PEPTIDE,
+        QuantificationLevelName.PROTEIN,
+    ]:
+        matrix_path = os.path.join(temp_folder, f"{level_name}.matrix.parquet")
+        assert os.path.exists(matrix_path) == lfq_enabled
+        if lfq_enabled:
+            matrix_df = pd.read_parquet(matrix_path)
+            assert all(col in matrix_df.columns for col in run_columns)
 
-    shutil.rmtree(temp_folder)
+    lfq_intensity_columns = [
+        PrecursorOutputCols.INTENSITY,
+        PeptideOutputCols.INTENSITY,
+        ProteinGroupOutputCols.INTENSITY,
+    ]
+    assert all((col in psm_df.columns) == lfq_enabled for col in lfq_intensity_columns)
 
 
 def test_merge_quant_levels_to_psm_handles_empty_lfq():
