@@ -198,8 +198,7 @@ search:
   # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
   candidate_context_features: False
 
-  # give every decoy fragment the IDF weight of the corresponding fragment of its target and train the classifier on the
-  # IDF features; without it the IDF features are left out, because decoy fragments get IDF weights of their own
+  # train the classifier on the IDF features; decoy fragments always take the IDF of their target fragment
   # (rust backend only)
   inherit_decoy_idf: True
 
