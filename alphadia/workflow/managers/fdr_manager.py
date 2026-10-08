@@ -89,6 +89,8 @@ class FDRManager(BaseManager):
             self.classifier_store = defaultdict(list)
             self.classifier_base = classifier_base
 
+        self.classifier_base.feature_transform = config["fdr"]["feature_transform"]
+
         self._current_version = -1
         self.load_classifier_store()
 
