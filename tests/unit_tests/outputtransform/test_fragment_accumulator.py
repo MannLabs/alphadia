@@ -1,3 +1,4 @@
+import os
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -185,7 +186,7 @@ class TestFragmentQuantLoaderAccumulateFromFolders:
         # then
         assert mock_read_parquet.call_count == 2
         mock_read_parquet.assert_called_with(
-            "/path/to/run2/frag.parquet", columns=READ_COLUMNS
+            os.path.join("/path/to/run2", "frag.parquet"), columns=READ_COLUMNS
         )
         assert "run1" in result["intensity"].columns
         assert "run2" in result["intensity"].columns

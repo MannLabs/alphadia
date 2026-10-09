@@ -9,6 +9,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphadia import utils
 from alphadia.constants.keys import (
     ConfigKeys,
+    NormalizationMethods,
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
@@ -128,7 +129,14 @@ class SearchPlanOutput:
         # LFQ is the most memory-intensive step and runs last, so an OOM kill here
         # does not discard the MBR library and transfer model already on disk
         # Assumption: no step upfront mutates psm_df in place
-        self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
+        if (
+            self.config["search_output"]["normalization_method"].lower()
+            != NormalizationMethods.NONE
+        ):
+            self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
+        else:
+            logger.info("Skipping label free quantification")
+            self._save_precursor_table(psm_df)
 
     def _build_transfer_model(self, save=True):
         """
@@ -251,10 +259,11 @@ class SearchPlanOutput:
         )
         log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
         if save:
-            logging.info("Writing transfer library to disk")
-            transferAccumulator.consensus_speclibase.save_hdf(
-                os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf")
+            transfer_lib_path = os.path.join(
+                self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
             )
+            logging.info(f"Writing transfer library to {transfer_lib_path}")
+            transferAccumulator.consensus_speclibase.save_hdf(transfer_lib_path)
 
         return transferAccumulator.consensus_speclibase
 
@@ -458,13 +467,7 @@ class SearchPlanOutput:
         lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
 
         if save:
-            logger.info("Writing psm output to disk")
-            psm_df_output = apply_output_column_names(psm_df_with_quant)
-            write_df(
-                psm_df_output,
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
-                file_format=self.config["search_output"]["file_format"],
-            )
+            self._save_precursor_table(psm_df_with_quant)
 
             if lfq_results:
                 quant_output_builder.save_results(
@@ -474,6 +477,14 @@ class SearchPlanOutput:
                 )
 
         return lfq_results
+
+    def _save_precursor_table(self, psm_df: pd.DataFrame) -> None:
+        logger.info("Writing psm output to disk")
+        write_df(
+            apply_output_column_names(psm_df),
+            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+            file_format=self.config["search_output"]["file_format"],
+        )
 
     def _build_mbr_library(
         self,
@@ -516,11 +527,10 @@ class SearchPlanOutput:
         )
 
         if save:
-            logger.info("Writing MBR spectral library to disk")
-            mbr_spec_lib.save_hdf(
-                os.path.join(
-                    self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
-                )
+            mbr_lib_path = os.path.join(
+                self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
             )
+            logger.info(f"Writing MBR spectral library to {mbr_lib_path}")
+            mbr_spec_lib.save_hdf(mbr_lib_path)
 
         return mbr_spec_lib
