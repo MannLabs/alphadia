@@ -4,13 +4,16 @@ import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.decoy import decoy_lib_provider
 
+from alphadia.constants.keys import DecoyType
 from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
 
 
 class DecoyGenerator(ProcessingStep):
-    def __init__(self, decoy_type: str = "diann", mp_process_num: int = 8) -> None:
+    def __init__(
+        self, decoy_type: str = DecoyType.DIANN, mp_process_num: int = 8
+    ) -> None:
         """Generate decoys for the spectral library.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
 
@@ -21,6 +24,10 @@ class DecoyGenerator(ProcessingStep):
 
         """
         super().__init__()
+        if decoy_type not in DecoyType.get_values():
+            raise ValueError(
+                f"Unknown decoy_type: {decoy_type}. Valid options are {DecoyType.get_values()}"
+            )
         self.decoy_type = decoy_type
         self.mp_process_num = mp_process_num
 
