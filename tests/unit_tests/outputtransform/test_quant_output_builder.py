@@ -29,6 +29,7 @@ def config():
             "file_format": "parquet",
             "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
+            "intensity_drift_correction": True,
         },
     }
 
@@ -175,6 +176,89 @@ class TestQuantOutputBuilder:
         assert all(
             col not in protein_result.columns for col in ["sequence", "mods", "charge"]
         )
+
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.IntensityDriftCorrector.correct"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+    )
+    def test_build_corrects_drift_once_before_filtering(
+        self,
+        mock_accumulate,
+        mock_correct,
+        mock_filter,
+        mock_direct_lfq,
+        psm_df,
+        config,
+        feature_dfs,
+    ):
+        """Given intensity drift correction enabled, when build is called, then the fragment table is corrected once and every level filters the corrected table."""
+        # Given
+        mock_accumulate.return_value = feature_dfs
+        corrected_df = feature_dfs["intensity"].copy()
+        mock_correct.return_value = corrected_df
+        mock_filter.return_value = (corrected_df, feature_dfs["correlation"])
+        mock_direct_lfq.side_effect = lfq_side_effect
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        builder.build(["folder1", "folder2"])
+
+        # Then
+        mock_correct.assert_called_once_with(
+            feature_dfs["intensity"], feature_dfs["correlation"]
+        )
+        assert mock_filter.call_count == 3
+        for call in mock_filter.call_args_list:
+            assert call.args[0] is corrected_df
+
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.IntensityDriftCorrector.correct"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+    )
+    def test_build_skips_drift_correction_when_disabled(
+        self,
+        mock_accumulate,
+        mock_correct,
+        mock_filter,
+        mock_direct_lfq,
+        psm_df,
+        config,
+        feature_dfs,
+    ):
+        """Given intensity drift correction disabled, when build is called, then the raw fragment table is filtered."""
+        # Given
+        config["search_output"]["intensity_drift_correction"] = False
+        mock_accumulate.return_value = feature_dfs
+        mock_filter.return_value = (
+            feature_dfs["intensity"],
+            feature_dfs["correlation"],
+        )
+        mock_direct_lfq.side_effect = lfq_side_effect
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        builder.build(["folder1", "folder2"])
+
+        # Then
+        mock_correct.assert_not_called()
+        for call in mock_filter.call_args_list:
+            assert call.args[0] is feature_dfs["intensity"]
 
     @patch("alphadia.outputtransform.utils.write_df")
     def test_save_results_writes_non_empty_results(self, mock_write_df, psm_df, config):

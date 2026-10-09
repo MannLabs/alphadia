@@ -64,6 +64,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
             "file_format": "parquet",
             "normalization_method": normalization_method,
             "normalize_directlfq": True,
+            "intensity_drift_correction": True,
         },
         "multiplexing": {"enabled": False},
         "search_initial": {
