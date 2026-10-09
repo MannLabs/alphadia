@@ -312,6 +312,9 @@ fdr:
   keep_decoys: false
   # whether to keep decoy PSMs in the MBR library
   keep_decoys_in_mbr_library: false
+  # decoy generation scheme for the search library and the MBR library: "diann" or "pseudo_reverse"
+  # ignored if the provided library already contains decoys
+  decoy_type: "diann"
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
