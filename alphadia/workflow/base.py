@@ -25,13 +25,20 @@ logger = logging.getLogger()
 QUANT_FOLDER_NAME = "quant"
 
 
+def get_quant_path(config: Config, quant_path: str | None = None) -> str:
+    """Get the directory holding the quant folders of all raw files."""
+    return quant_path or os.path.join(
+        config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
+    )
+
+
 class WorkflowBase:
     """Base class for all workflows. This class is responsible for creating the workflow folder.
     It also initializes the calibration_manager and fdr_manager for the workflow.
     """
 
     RAW_FILE_MANAGER_PKL_NAME = "raw_file_manager.pkl"
-    CALIBRATION_MANAGER_PKL_NAME = "calibration_manager.pkl"
+    CALIBRATION_STATS_FILE_NAME = "calibration.stats.json"
     OPTIMIZATION_MANAGER_PKL_NAME = "optimization_manager.pkl"
     TIMING_MANAGER_PKL_NAME = "timing_manager.pkl"
     FDR_MANAGER_PKL_NAME = "fdr_manager.pkl"
@@ -58,9 +65,7 @@ class WorkflowBase:
         """
         self.instance_name: str = instance_name
 
-        quant_path_ = quant_path or os.path.join(
-            config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
-        )
+        quant_path_ = get_quant_path(config, quant_path)
 
         logger.info(f"Quantification results path: {quant_path_}")
 
@@ -145,8 +150,7 @@ class WorkflowBase:
         self._spectral_library: SpecLibFlat = spectral_library.copy()
 
         self._calibration_manager = CalibrationManager(
-            path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
-            load_from_file=self.config["general"]["reuse_calibration"],
+            load_from_file=False,
             has_ms1=self._dia_data.has_ms1,
             has_mobility=self._dia_data.has_mobility,
             reporter=self.reporter,

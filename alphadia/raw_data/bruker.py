@@ -8,6 +8,7 @@ from alpharaw.bruker.timstof import TimsTOFBase
 from alpharaw.utils.pjit import pjit, set_threads
 
 from alphadia.exceptions import NotValidDiaDataError
+from alphadia.raw_data.bruker_hdf import HDF_FILE_EXTENSION, import_data_from_hdf_file
 from alphadia.search.jitclasses.bruker_jit import TimsTOFTransposeJIT
 from alphadia.utils import USE_NUMBA_CACHING
 
@@ -21,13 +22,18 @@ class TimsTOFTranspose(TimsTOFBase):
         self,
         bruker_d_folder_name: str,
     ):
-        super().__init__(
-            bruker_d_folder_name,
-            mz_estimation_from_frame=1,
-            mobility_estimation_from_frame=1,
-            drop_polarity=True,
-            convert_polarity_to_int=True,
-        )
+        if bruker_d_folder_name.lower().endswith(HDF_FILE_EXTENSION):
+            loaded = import_data_from_hdf_file(bruker_d_folder_name)
+            self.__dict__.update(loaded)
+            del loaded
+        else:
+            super().__init__(
+                bruker_d_folder_name,
+                mz_estimation_from_frame=1,
+                mobility_estimation_from_frame=1,
+                drop_polarity=True,
+                convert_polarity_to_int=True,
+            )
 
         try:
             cycle_shape = self._cycle.shape[0]
@@ -68,9 +74,6 @@ class TimsTOFTranspose(TimsTOFBase):
         self._push_indices = push_indices
         self._tof_indptr = tof_indptr
         self._intensity_values = intensity_values
-
-    def _import_data_from_hdf_file(self, *args, **kwargs):
-        raise NotImplementedError("Not implemented yet for TimsTOFTranspose")
 
     def to_jitclass(self) -> TimsTOFTransposeJIT:
         """Create a TimsTOFTransposeJIT with the current state of this class."""

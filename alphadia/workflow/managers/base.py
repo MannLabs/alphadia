@@ -43,6 +43,11 @@ class BaseManager:
         if load_from_file:
             # Note: be careful not to overwrite loaded values by initializing them in child classes after calling super().__init__()
             self.load()
+        else:
+            self.reporter.log_string(f"Initializing {self.__class__.__name__}")
+            self.reporter.log_event(
+                "initializing", {"name": f"{self.__class__.__name__}"}
+            )
 
     @property
     def path(self):
@@ -79,9 +84,6 @@ class BaseManager:
     def load(self):
         """Load the state from pickle file."""
         if self.path is None:
-            self.reporter.log_string(
-                f"{self.__class__.__name__}: loading saved state not requested, will be initialized.",
-            )
             return
         elif not os.path.exists(self.path):
             self.reporter.log_string(
@@ -94,17 +96,20 @@ class BaseManager:
             with open(self.path, "rb") as f:
                 loaded_state = pickle.load(f)
 
-                if loaded_state._version == self._version:
-                    self.__dict__.update(loaded_state.__dict__)
-                    self.is_loaded_from_file = True
-                    self.reporter.log_string(
-                        f"Loaded {self.__class__.__name__} from {self.path}"
-                    )
-                else:
-                    self.reporter.log_string(
-                        f"Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.",
-                        verbosity="warning",
-                    )
+            # TODO: checking against AlphaDIA version is too strict, ideally each manager has its own (strictly semantic) version
+            current_version = self._version
+            if loaded_state._version != current_version:
+                self.reporter.log_string(
+                    f"Version mismatch while loading {self.__class__.__name__}: {loaded_state._version} != {current_version}.",
+                    verbosity="warning",
+                )
+
+            self.__dict__.update(loaded_state.__dict__)
+            self._version = current_version
+            self.is_loaded_from_file = True
+            self.reporter.log_string(
+                f"Loaded {self.__class__.__name__} from {self.path}"
+            )
         except Exception:
             self.reporter.log_string(
                 f"Failed to load {self.__class__.__name__} from {self.path}",

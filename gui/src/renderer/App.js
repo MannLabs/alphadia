@@ -106,9 +106,15 @@ const App = () => {
             </Box>
             <Box sx={{
                 flexGrow: 1,
+                minHeight: 0,
                 paddingLeft: theme.spacing(1),
                 paddingRight: theme.spacing(1),
-                overflow: 'auto'
+                overflow: 'auto',
+                // Reserve the scrollbar width permanently. On Windows the scrollbar
+                // takes up layout width, so a page whose content height depends on
+                // its width can otherwise flip between "needs scrollbar" and
+                // "does not" indefinitely.
+                scrollbarGutter: 'stable'
             }}>
 
                 <Routes>

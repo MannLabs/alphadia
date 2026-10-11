@@ -2,10 +2,14 @@ import logging
 import os
 from collections.abc import Iterator
 
-import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 
-from alphadia.outputtransform.quantification.quant_builder import prepare_df
+from alphadia.outputtransform.quantification.quant_builder import (
+    ION_HASH_COLUMNS,
+    precursor_idx_from_ion,
+    prepare_df,
+)
 
 logger = logging.getLogger()
 
@@ -27,6 +31,9 @@ class FragmentQuantLoader:
     def __init__(self, psm_df: pd.DataFrame, columns: list[str] | None = None):
         self.psm_df = psm_df
         self.columns = ["intensity", "correlation"] if columns is None else columns
+        # the remaining columns of the fragment files are never used downstream,
+        # reading them would roughly double the bytes read per file
+        self._read_columns = list(dict.fromkeys(ION_HASH_COLUMNS + self.columns))
 
     def accumulate_from_folders(
         self, folder_list: list[str]
@@ -74,9 +81,11 @@ class FragmentQuantLoader:
 
         df = prepare_df(df, self.psm_df, columns=self.columns)
 
+        # the ion hash already encodes the precursor_idx, so it is the only join key
+        # needed here; precursor_idx is recovered once all runs are merged
         df_list = []
         for col in self.columns:
-            feat_df = df[["precursor_idx", "ion", col]].copy()
+            feat_df = df[["ion", col]].copy()
             feat_df.rename(columns={col: raw_name}, inplace=True)
             df_list.append(feat_df)
 
@@ -85,8 +94,8 @@ class FragmentQuantLoader:
 
             for idx, col in enumerate(self.columns):
                 df_list[idx] = df_list[idx].merge(
-                    df[["ion", col, "precursor_idx"]],
-                    on=["ion", "precursor_idx"],
+                    df[["ion", col]],
+                    on="ion",
                     how="outer",
                 )
                 df_list[idx].rename(columns={col: raw_name}, inplace=True)
@@ -122,34 +131,44 @@ class FragmentQuantLoader:
             if not os.path.exists(frag_path):
                 logger.warning(f"no frag file found for {raw_name}")
             else:
+                self._check_read_columns(frag_path)
+
                 try:
                     logger.info(f"reading frag file for {raw_name}")
-                    run_df = pd.read_parquet(frag_path)
+                    run_df = pd.read_parquet(frag_path, columns=self._read_columns)
                 except Exception as e:
                     logger.warning(f"Error reading frag file for {raw_name}")
                     logger.warning(e)
                 else:
                     yield raw_name, run_df
 
+    def _check_read_columns(self, frag_path: str) -> None:
+        """Raise if the fragment file does not contain all required columns."""
+        missing_columns = set(self._read_columns) - set(pq.read_schema(frag_path).names)
+        if missing_columns:
+            raise ValueError(
+                f"Fragment file {frag_path} is missing required columns: {sorted(missing_columns)}"
+            )
+
     @staticmethod
     def _add_precursor_idx(
         df: pd.DataFrame, precursor_metadata_df: pd.DataFrame
     ) -> pd.DataFrame:
-        """Add precursor index metadata to fragment data.
+        """Add precursor index and its metadata to fragment data.
 
         Parameters
         ----------
         df : pd.DataFrame
-            Fragment data with precursor_idx
+            Fragment data with ion
         precursor_metadata_df : pd.DataFrame
             Precursor metadata with precursor_idx, pg, mod_seq_hash, mod_seq_charge_hash
 
         Returns
         -------
         pd.DataFrame
-            Fragment data with precursor metadata columns added
+            Fragment data with precursor_idx and precursor metadata columns added
         """
         df.fillna(0, inplace=True)
-        df["precursor_idx"] = df["precursor_idx"].astype(np.uint32)
+        df.insert(0, "precursor_idx", precursor_idx_from_ion(df["ion"].values))
         df = df.merge(precursor_metadata_df, on="precursor_idx", how="left")
         return df

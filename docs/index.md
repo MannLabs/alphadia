@@ -1,7 +1,7 @@
 
 # AlphaDIA Documentation
 ![GitHub Release](https://img.shields.io/github/v/release/mannlabs/alphadia?logoColor=green&color=brightgreen)
-![Versions](https://img.shields.io/badge/python-3.10_%7C_3.11_%7C_3.12-brightgreen)
+![Versions](https://img.shields.io/badge/python-3.11_%7C_3.12-brightgreen)
 ![License](https://img.shields.io/badge/License-Apache-brightgreen)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/e2e_testing.yml?branch=main&label=E2E%20Tests)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/pip_installation.yml?branch=main&label=Unit%20Tests)

@@ -55,6 +55,9 @@ class ConfigKeys(metaclass=ConstantsClass):
     GENERAL = ConstantNamespace(
         "general",
         SAVE_FIGURES="save_figures",
+        REUSE_QUANT="reuse_quant",
+        REUSE_QUANT_FROM="reuse_quant_from",
+        FAIL_FAST="fail_fast",
         # TODO: belongs to the adaptation/transfer step; rename when step naming is finalised
         ADAPTATION_METHOD="adaptation_method",
     )
@@ -69,7 +72,7 @@ class ConfigKeys(metaclass=ConstantsClass):
 
 
 class CalibCols(metaclass=ConstantsClass):
-    """String constants for accessing (mz, rt, mobility) columns in the context of calibration."""
+    """String constants for accessing (mz, rt, or mobility) columns in the context of calibration."""
 
     MZ_OBSERVED = "mz_observed"
     MZ_LIBRARY = "mz_library"
@@ -98,6 +101,13 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
+class DecoyType(metaclass=ConstantsClass):
+    """String constants for decoy generation schemes."""
+
+    DIANN = "diann"
+    PSEUDO_REVERSE = "pseudo_reverse"
+
+
 class QuantificationLevelName(metaclass=ConstantsClass):
     """String constants for accessing the quantification level."""
 
@@ -119,6 +129,7 @@ class NormalizationMethods(metaclass=ConstantsClass):
 
     DIRECTLFQ: str = "directlfq"
     QUANTSELECT: str = "quantselect"
+    NONE: str = "none"
 
 
 class PrecursorOutputCols(metaclass=ConstantsClass):
@@ -208,9 +219,9 @@ class StatCalibrationCols(metaclass=ConstantsClass):
     """String constants for calibration statistics columns."""
 
     MS2_BIAS = "calibration.ms2_bias"
-    MS2_ERROR = "calibration.ms2_variance"
+    MS2_VARIANCE = "calibration.ms2_variance"
     MS1_BIAS = "calibration.ms1_bias"
-    MS1_ERROR = "calibration.ms1_variance"
+    MS1_VARIANCE = "calibration.ms1_variance"
 
 
 # this mapping is also used to filter the output columns, so only its values are kept
@@ -239,8 +250,8 @@ INTERNAL_TO_OUTPUT_MAPPING = {
     "qval": PrecursorOutputCols.QVAL,
     "proba": PrecursorOutputCols.PROBA,
     "score": PrecursorOutputCols.SCORE,
-    "cycle_fwhm": PrecursorOutputCols.RT_FWHM,
-    "mobility_fwhm": PrecursorOutputCols.MOBILITY_FWHM,
+    "fwhm_rt": PrecursorOutputCols.RT_FWHM,
+    "fwhm_mobility": PrecursorOutputCols.MOBILITY_FWHM,
     "channel": PrecursorOutputCols.CHANNEL,
     "decoy": PrecursorOutputCols.DECOY,
     "pg": ProteinGroupOutputCols.NAME,

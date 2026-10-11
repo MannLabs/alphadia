@@ -4,6 +4,10 @@ import pandas as pd
 
 from alphadia.constants.keys import CalibCols
 from alphadia.reporting.reporting import Pipeline
+from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    get_context_feature_names,
+    get_feature_names,
+)
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -68,14 +72,27 @@ feature_columns = [
     "n_b_ions",
     "n_y_ions",
     "f_masked",
-    "cycle_fwhm",
-    "mobility_fwhm",
+    "fwhm_rt",
+    "fwhm_mobility",
     "top_3_ms2_mass_error",
     "mean_ms2_mass_error",
     "n_overlapping",
     "mean_overlapping_intensity",
     "mean_overlapping_mass_error",
 ]
+
+
+def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
+    """Get the feature columns the FDR classifier is trained on.
+
+    The candidate context features are always listed for the rust backend: the FDR manager
+    only uses the listed columns that the features actually carry, so the config flag that
+    computes them does not need to be repeated here.
+    """
+    if extraction_backend != "rust":
+        return feature_columns
+
+    return get_feature_names() + get_context_feature_names()
 
 
 def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:

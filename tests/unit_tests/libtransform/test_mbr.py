@@ -1,8 +1,11 @@
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 import pytest
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 
+from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.mbr import IndexBuilder, MbrLibraryBuilder
 
 
@@ -192,6 +195,20 @@ class TestMbrLibraryBuilder:
         ).reset_index(drop=True)
         np.testing.assert_array_equal(df_no_decoy["elution_group_idx"].values, [0, 1])
         np.testing.assert_array_equal(df_no_decoy["decoy"].values, [0, 0])
+
+    def test_decoy_type_is_passed_to_decoy_generator(self, base_library, psm_df):
+        """Test that the configured decoy_type is used for MBR decoy generation."""
+        # when
+        with patch(
+            "alphadia.libtransform.mbr.DecoyGenerator", wraps=DecoyGenerator
+        ) as mock_decoy_generator:
+            result = MbrLibraryBuilder(
+                fdr=0.01, keep_decoys=True, decoy_type="pseudo_reverse"
+            )(psm_df, base_library)
+
+        # then
+        mock_decoy_generator.assert_called_once_with(decoy_type="pseudo_reverse")
+        assert result.precursor_df["decoy"].sum() == 2
 
     def test_rt_and_pg_assignment(self, base_library, psm_df):
         """Test RT and protein group assignment with fallback and specific values."""

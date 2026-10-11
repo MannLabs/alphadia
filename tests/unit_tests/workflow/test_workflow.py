@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 from copy import deepcopy
@@ -7,21 +8,25 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 import pytest
-from sklearn.linear_model import LinearRegression
 
+import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
-from alphadia.calibration.models import LOESSRegression
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
-from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationEstimators,
+    CalibrationGroups,
+    CalibrationManager,
+)
 from alphadia.workflow.managers.fdr_manager import FDRManager, column_hash
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.optimizers.automatic import (
     AutomaticMobilityOptimizer,
     AutomaticMS1Optimizer,
     AutomaticMS2Optimizer,
+    AutomaticOptimizer,
     AutomaticRTOptimizer,
 )
 from alphadia.workflow.optimizers.targeted import (
@@ -66,52 +71,41 @@ def test_base_manager_load():
     os.remove(my_base_manager.path)
 
 
-TEST_CALIBRATION_GROUPS_CONFIG = {
-    "precursor": {
-        "mz": {
-            "model": "LinearRegression",
-            "input_columns": ["mz_library"],
-            "target_columns": ["mz_observed"],
-            "output_columns": ["mz_calibrated"],
-            "transform_deviation": 1e6,
-        },
-        "rt": {
-            "model": "LOESSRegression",
-            "model_args": {"n_kernels": 2},
-            "input_columns": ["rt_library"],
-            "target_columns": ["rt_observed"],
-            "output_columns": ["rt_calibrated"],
-            "transform_deviation": None,
-        },
-    },
-    "fragment": {
-        "mz": {
-            "model": "LinearRegression",
-            "input_columns": ["mz_library"],
-            "target_columns": ["mz_observed"],
-            "output_columns": ["mz_calibrated"],
-            "transform_deviation": 1e6,
-        }
-    },
-}
+def test_base_manager_load_version_mismatch_warns_and_loads(tmp_path):
+    pkl_path = str(tmp_path / "my_base_manager.pkl")
+    my_base_manager = BaseManager(path=pkl_path)
+    my_base_manager._version = "0.0.0"
+    my_base_manager.save()
+
+    reporter = MagicMock()
+    my_base_manager_loaded = BaseManager(
+        path=pkl_path, load_from_file=True, reporter=reporter
+    )
+
+    assert my_base_manager_loaded.is_loaded_from_file is True
+    assert my_base_manager_loaded._version == alphadia.__version__
+    warning_calls = [
+        c
+        for c in reporter.log_string.call_args_list
+        if c.kwargs.get("verbosity") == "warning"
+    ]
+    assert len(warning_calls) == 1
+    assert "Version mismatch" in warning_calls[0].args[0]
 
 
 def test_calibration_manager_init():
-    # initialize the calibration manager
+    # initialize the calibration manager (mobility not available in the raw data)
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    with patch(
-        "alphadia.workflow.managers.calibration_manager.CALIBRATION_GROUPS_CONFIG",
-        TEST_CALIBRATION_GROUPS_CONFIG,
-    ):
-        calibration_manager = CalibrationManager(
-            path=temp_path, load_from_file=False, has_mobility=False
-        )
+    calibration_manager = CalibrationManager(
+        path=temp_path, load_from_file=False, has_mobility=False
+    )
 
     assert calibration_manager.path == temp_path
     assert calibration_manager.is_loaded_from_file is False
     assert calibration_manager.all_fitted is False
 
     assert len(calibration_manager.estimator_groups) == 2
+    # precursor: mz + rt (mobility skipped), fragment: mz
     assert len(calibration_manager.estimator_groups["precursor"]) == 2
     assert len(calibration_manager.estimator_groups["fragment"]) == 1
 
@@ -129,14 +123,11 @@ def test_calibration_manager_init():
         calibration_manager.get_estimator("fragment", "mz"), CalibrationEstimator
     )
 
-    assert isinstance(
-        calibration_manager.get_estimator("precursor", "mz")._model, LinearRegression
+    assert (
+        calibration_manager.get_estimator("precursor", "mz").transform_deviation == 1e6
     )
-    assert isinstance(
-        calibration_manager.get_estimator("precursor", "rt")._model, LOESSRegression
-    )
-    assert isinstance(
-        calibration_manager.get_estimator("fragment", "mz")._model, LinearRegression
+    assert (
+        calibration_manager.get_estimator("precursor", "rt").transform_deviation is None
     )
 
 
@@ -177,13 +168,9 @@ def calibration_testdata():
 
 def test_calibration_manager_fit_predict():
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    with patch(
-        "alphadia.workflow.managers.calibration_manager.CALIBRATION_GROUPS_CONFIG",
-        TEST_CALIBRATION_GROUPS_CONFIG,
-    ):
-        calibration_manager = CalibrationManager(
-            path=temp_path, load_from_file=False, has_mobility=False
-        )
+    calibration_manager = CalibrationManager(
+        path=temp_path, load_from_file=False, has_mobility=False
+    )
 
     test_df = calibration_testdata()
 
@@ -204,41 +191,28 @@ def test_calibration_manager_fit_predict():
     assert calibration_manager.all_fitted is True
 
 
-def test_calibration_manager_save_load():
-    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    with patch(
-        "alphadia.workflow.managers.calibration_manager.CALIBRATION_GROUPS_CONFIG",
-        TEST_CALIBRATION_GROUPS_CONFIG,
-    ):
-        calibration_manager = CalibrationManager(
-            path=temp_path, load_from_file=False, has_mobility=False
-        )
+def test_calibration_manager_save_stats():
+    calibration_manager = CalibrationManager(load_from_file=False, has_mobility=False)
 
     test_df = calibration_testdata()
     calibration_manager.fit(test_df, "precursor", plot=False)
     calibration_manager.fit(test_df, "fragment", plot=False)
 
     assert calibration_manager.all_fitted is True
-    assert calibration_manager.is_loaded_from_file is False
 
-    calibration_manager.save()
+    stats = calibration_manager.get_stats()
+    assert set(stats["precursor"]) == {"mz", "rt"}  # mobility skipped
+    assert set(stats["fragment"]) == {"mz"}
+    assert set(stats["precursor"]["mz"]) == {"median_bias", "median_variance"}
 
-    with patch(
-        "alphadia.workflow.managers.calibration_manager.CALIBRATION_GROUPS_CONFIG",
-        TEST_CALIBRATION_GROUPS_CONFIG,
-    ):
-        calibration_manager_loaded = CalibrationManager(
-            path=temp_path, load_from_file=True, has_mobility=False
-        )
-    assert calibration_manager_loaded.all_fitted is True
-    assert calibration_manager_loaded.is_loaded_from_file is True
+    stats_path = os.path.join(tempfile.tempdir, "calibration.stats.json")
+    calibration_manager.save_stats(stats_path)
 
-    calibration_manager_loaded.predict(test_df, "precursor")
+    with open(stats_path) as f:
+        loaded = json.load(f)
+    assert loaded == stats  # round-trips through JSON
 
-    assert "mz_calibrated" in test_df.columns
-    assert "rt_calibrated" in test_df.columns
-
-    os.remove(temp_path)
+    os.remove(stats_path)
 
 
 TEST_OPTIMIZATION_CONFIG = {
@@ -429,8 +403,7 @@ def create_workflow_instance():
         ]
     )
     workflow._calibration_manager = CalibrationManager(
-        path=os.path.join(workflow.path, workflow.CALIBRATION_MANAGER_PKL_NAME),
-        load_from_file=workflow.config["general"]["reuse_calibration"],
+        load_from_file=False,
         reporter=workflow.reporter,
         has_mobility=True,
     )
@@ -742,6 +715,59 @@ def test_automatic_mobility_optimizer():
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
+
+
+def test_automatic_optimizer_requires_a_feature():
+    """Test that an automatic optimizer that declares no feature cannot be constructed."""
+
+    # given
+    class FeaturelessOptimizer(AutomaticOptimizer):
+        parameter_name = "ms2_error"
+        _estimator_group_name = CalibrationGroups.FRAGMENT
+        _estimator_name = CalibrationEstimators.MZ
+
+    workflow = create_workflow_instance()
+
+    # when / then
+    with pytest.raises(TypeError, match="_feature"):
+        FeaturelessOptimizer(
+            100,
+            workflow.config,
+            workflow.optimization_manager,
+            workflow.calibration_manager,
+            workflow._fdr_manager,
+            workflow._optimization_handler._optlock,
+            workflow.reporter,
+        )
+
+
+def test_automatic_ms1_optimizer_does_not_pick_a_round_without_precursors():
+    """Test that a recovery round without precursors leaves the optimum at a measured round."""
+    # given
+    workflow = create_workflow_instance()
+    calibration_test_df = calibration_testdata()
+    workflow.calibration_manager.fit(calibration_test_df, "precursor", plot=False)
+
+    ms1_optimizer = AutomaticMS1Optimizer(
+        100,
+        workflow.config,
+        workflow.optimization_manager,
+        workflow.calibration_manager,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
+        workflow.reporter,
+    )
+    ms1_optimizer.step(calibration_test_df, pd.DataFrame())
+    no_precursors_df = calibration_test_df.head(0)
+
+    # when
+    ms1_optimizer.proceed_with_insufficient_precursors(no_precursors_df, pd.DataFrame())
+
+    # then
+    assert np.isnan(
+        ms1_optimizer.history_df["mean_isotope_intensity_correlation"].iloc[-1]
+    )
+    assert workflow.optimization_manager.ms1_error == 100
 
 
 def test_targeted_ms2_optimizer():

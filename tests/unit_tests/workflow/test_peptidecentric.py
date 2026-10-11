@@ -1,10 +1,12 @@
 """Unit test for the peptidecentric module."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
+from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
@@ -72,3 +74,59 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         ),
         check_like=True,
     )
+
+
+def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
+    """Make a handler whose optimization lock runs out of batches before the target."""
+    optimizer = MagicMock(has_converged=False, parameter_name="ms2_error")
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
+    ):
+        handler = OptimizationHandler(
+            {"calibration": {"max_steps": 20}},
+            SimpleNamespace(ms2_error=100.0),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+        )
+    handler._optlock.has_target_num_precursors = False
+    handler._optlock.batches_remaining.return_value = False
+    handler._optlock.total_elution_groups = total_elution_groups
+    handler._get_ordered_optimizers = MagicMock(return_value=[[optimizer]])
+    handler._process_batch = MagicMock(return_value=pd.DataFrame())
+    handler._filter_dfs = MagicMock(return_value=(pd.DataFrame(), pd.DataFrame()))
+    return handler, optimizer
+
+
+def test_search_parameter_optimization_raises_without_candidates():
+    """Test that a raw file without a single candidate fails instead of running unoptimized."""
+    # given
+    handler, _ = _create_handler_that_exhausts_the_batch_plan(total_elution_groups=0)
+
+    # when / then
+    with (
+        patch(
+            "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+        ),
+        pytest.raises(NoOptimizationLockTargetError),
+    ):
+        handler.search_parameter_optimization()
+
+
+def test_search_parameter_optimization_recovers_with_insufficient_precursors():
+    """Test that a raw file with candidates but too few precursors takes the recovery path."""
+    # given
+    handler, optimizer = _create_handler_that_exhausts_the_batch_plan(
+        total_elution_groups=2000
+    )
+
+    # when
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # then
+    optimizer.proceed_with_insufficient_precursors.assert_called_once()

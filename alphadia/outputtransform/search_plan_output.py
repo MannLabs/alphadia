@@ -9,6 +9,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphadia import utils
 from alphadia.constants.keys import (
     ConfigKeys,
+    NormalizationMethods,
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
@@ -118,7 +119,6 @@ class SearchPlanOutput:
         psm_df = self._build_precursor_table(folder_list, save=False)
         self._build_stat_df(folder_list, psm_df=psm_df, save=True)
         self._build_internal_df(folder_list, save=True)
-        self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
 
         if self.config["general"]["save_mbr_library"]:
             if base_spec_lib is None:
@@ -135,6 +135,18 @@ class SearchPlanOutput:
 
         if self.config.get("context_extraction", {}).get("enabled", False):
             self._extract_context()
+
+        # LFQ is the most memory-intensive step and runs last, so an OOM kill here
+        # does not discard the MBR library and transfer model already on disk
+        # Assumption: no step upfront mutates psm_df in place
+        if (
+            self.config["search_output"]["normalization_method"].lower()
+            != NormalizationMethods.NONE
+        ):
+            self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
+        else:
+            logger.info("Skipping label free quantification")
+            self._save_precursor_table(psm_df)
 
     def _extract_context(self) -> None:
         """Extract the context of the raw files using peptdeep_kontext."""
@@ -286,10 +298,11 @@ class SearchPlanOutput:
             "constant_context_indicator"
         ] = "constant_context"
         if save:
-            logger.info("Writing transfer library to disk")
-            transferAccumulator.consensus_speclibase.save_hdf(
-                os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf")
+            transfer_lib_path = os.path.join(
+                self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
             )
+            logger.info(f"Writing transfer library to {transfer_lib_path}")
+            transferAccumulator.consensus_speclibase.save_hdf(transfer_lib_path)
         return transferAccumulator.consensus_speclibase
 
     def _load_precursor_table(self):
@@ -492,13 +505,7 @@ class SearchPlanOutput:
         lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
 
         if save:
-            logger.info("Writing psm output to disk")
-            psm_df_output = apply_output_column_names(psm_df_with_quant)
-            write_df(
-                psm_df_output,
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
-                file_format=self.config["search_output"]["file_format"],
-            )
+            self._save_precursor_table(psm_df_with_quant)
 
             if lfq_results:
                 quant_output_builder.save_results(
@@ -508,6 +515,14 @@ class SearchPlanOutput:
                 )
 
         return lfq_results
+
+    def _save_precursor_table(self, psm_df: pd.DataFrame) -> None:
+        logger.info("Writing psm output to disk")
+        write_df(
+            apply_output_column_names(psm_df),
+            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+            file_format=self.config["search_output"]["file_format"],
+        )
 
     def _build_mbr_library(
         self,
@@ -539,6 +554,7 @@ class SearchPlanOutput:
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
             keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
+            decoy_type=self.config["fdr"]["decoy_type"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 
@@ -550,11 +566,10 @@ class SearchPlanOutput:
         )
 
         if save:
-            logger.info("Writing MBR spectral library to disk")
-            mbr_spec_lib.save_hdf(
-                os.path.join(
-                    self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
-                )
+            mbr_lib_path = os.path.join(
+                self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
             )
+            logger.info(f"Writing MBR spectral library to {mbr_lib_path}")
+            mbr_spec_lib.save_hdf(mbr_lib_path)
 
         return mbr_spec_lib

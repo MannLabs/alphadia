@@ -3,6 +3,7 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
+from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
@@ -275,6 +276,12 @@ class OptimizationHandler:
                 if not self._optlock.has_target_num_precursors:
                     log_string("Target number of precursors not reached yet.")
                     if not self._optlock.batches_remaining():
+                        if self._optlock.total_elution_groups == 0:
+                            # The recovery path below measures the last round. Without
+                            # a single elution group there is nothing to measure.
+                            raise NoOptimizationLockTargetError(
+                                "The search extracted no candidate from the raw file."
+                            )
                         log_string(
                             "Insufficient number of precursors to continue optimization."
                         )

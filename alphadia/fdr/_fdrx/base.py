@@ -15,7 +15,7 @@ from alphadia.fdr._fdrx.plotting import (
 )
 from alphadia.fdr._fdrx.stats import add_q_values, get_pep, keep_best
 from alphadia.fdr.utils import train_test_split_
-from alphadia.fragcomp.fragcomp import FragmentCompetition
+from alphadia.fragcomp.fragcomp import compete_for_fragments
 
 logger = logging.getLogger()
 
@@ -149,8 +149,7 @@ class TargetDecoyFDR:
                 decoy_column=self._decoy_column,
                 r_target_decoy=r_target_decoy,
             )
-            fragment_competition = FragmentCompetition()
-            psm_df = fragment_competition(
+            psm_df = compete_for_fragments(
                 psm_df[psm_df["qval"] < competition_heuristic], fragments_df, dia_cycle
             )
 

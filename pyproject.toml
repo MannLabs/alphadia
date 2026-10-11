@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "alphadia"
-requires-python = ">=3.10.0"
+requires-python = ">=3.11.0"
 dynamic = ["version", "dependencies", "optional-dependencies"]
 
 authors = [

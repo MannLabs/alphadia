@@ -137,104 +137,32 @@ class TargetedOptimizer(BaseOptimizer, ABC):
 
 
 class TargetedRTOptimizer(TargetedOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        target_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class."""
-        self.parameter_name = "rt_error"
-        self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = CalibrationEstimators.RT
-        super().__init__(
-            initial_parameter,
-            target_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            reporter,
-        )
+    """See base class."""
+
+    parameter_name = "rt_error"
+    _estimator_group_name = CalibrationGroups.PRECURSOR
+    _estimator_name = CalibrationEstimators.RT
 
 
 class TargetedMS2Optimizer(TargetedOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        target_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class."""
-        self.parameter_name = "ms2_error"
-        self._estimator_group_name = CalibrationGroups.FRAGMENT
-        self._estimator_name = CalibrationEstimators.MZ
-        super().__init__(
-            initial_parameter,
-            target_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            reporter,
-        )
+    """See base class."""
+
+    parameter_name = "ms2_error"
+    _estimator_group_name = CalibrationGroups.FRAGMENT
+    _estimator_name = CalibrationEstimators.MZ
 
 
 class TargetedMS1Optimizer(TargetedOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        target_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class."""
-        self.parameter_name = "ms1_error"
-        self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = CalibrationEstimators.MZ
-        super().__init__(
-            initial_parameter,
-            target_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            reporter,
-        )
+    """See base class."""
+
+    parameter_name = "ms1_error"
+    _estimator_group_name = CalibrationGroups.PRECURSOR
+    _estimator_name = CalibrationEstimators.MZ
 
 
 class TargetedMobilityOptimizer(TargetedOptimizer):
-    def __init__(
-        self,
-        initial_parameter: float,
-        target_parameter: float,
-        config: Config,
-        optimization_manager: OptimizationManager,
-        calibration_manager: CalibrationManager,
-        fdr_manager: FDRManager,
-        reporter: None | reporting.Pipeline | reporting.Backend = None,
-    ):
-        """See base class."""
-        self.parameter_name = "mobility_error"
-        self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = CalibrationEstimators.MOBILITY
-        super().__init__(
-            initial_parameter,
-            target_parameter,
-            config,
-            optimization_manager,
-            calibration_manager,
-            fdr_manager,
-            reporter,
-        )
+    """See base class."""
+
+    parameter_name = "mobility_error"
+    _estimator_group_name = CalibrationGroups.PRECURSOR
+    _estimator_name = CalibrationEstimators.MOBILITY

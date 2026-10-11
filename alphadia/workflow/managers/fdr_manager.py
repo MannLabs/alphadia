@@ -48,7 +48,7 @@ def get_group_columns(competitive: bool, group_channels: bool) -> list[str]:
 
 def column_hash(columns):
     columns.sort()
-    return xxhash.xxh64_hexdigest("".join(columns))
+    return xxhash.xxh64_hexdigest("".join(columns).encode())
 
 
 class FDRManager(BaseManager):
@@ -83,8 +83,6 @@ class FDRManager(BaseManager):
             Random state for reproducibility.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
-        self.reporter.log_string(f"Initializing {self.__class__.__name__}")
-        self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
             self.feature_columns = feature_columns

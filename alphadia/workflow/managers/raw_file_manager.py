@@ -3,15 +3,47 @@
 import logging
 import os
 
+import h5py
 import numpy as np
 
+from alphadia.exceptions import NotValidDiaDataError
 from alphadia.raw_data import DiaData
-from alphadia.raw_data.alpharaw_wrapper import AlphaRawBase, MzML, Sciex, Thermo
+from alphadia.raw_data.alpharaw_wrapper import (
+    ALPHARAW_HDF_GROUP,
+    AlphaRawBase,
+    MzML,
+    Sciex,
+    Thermo,
+)
 from alphadia.raw_data.bruker import TimsTOFTranspose
+from alphadia.raw_data.bruker_hdf import ALPHATIMS_HDF_GROUP, HDF_FILE_EXTENSION
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
+
+
+def _is_alphatims_hdf(hdf_path: str) -> bool:
+    """Return whether an HDF file holds an alphatims-serialized TimsTOF object.
+
+    alphatims writes a top-level `raw` group, whereas alpharaw's HDF format
+    (read by AlphaRawBase) uses a `ms_data` group instead.
+
+    Raises
+    ------
+    NotValidDiaDataError
+        If the file holds neither group.
+    """
+    with h5py.File(hdf_path, "r") as hdf:
+        if ALPHATIMS_HDF_GROUP in hdf:
+            return True
+        if ALPHARAW_HDF_GROUP in hdf:
+            return False
+
+    raise NotValidDiaDataError(
+        f"HDF file {hdf_path} holds neither an alphatims `{ALPHATIMS_HDF_GROUP}` "
+        f"group nor an alpharaw `{ALPHARAW_HDF_GROUP}` group."
+    )
 
 
 class RawFileManager(BaseManager):
@@ -30,9 +62,6 @@ class RawFileManager(BaseManager):
         self._config: Config = config
 
         # deliberately not storing the dia_data object as an instance variable to avoid the saved manager file being too large
-
-        self.reporter.log_string(f"Initializing {self.__class__.__name__}")
-        self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
     def get_dia_data_object(self, dia_data_path: str) -> DiaData:
         """Get the correct data class depending on the file extension of the DIA data file.
@@ -57,9 +86,13 @@ class RawFileManager(BaseManager):
                 dia_data_path,
             )
 
-        elif file_extension.lower() == ".hdf":
-            raw_data_type = "alpharaw"
-            dia_data = AlphaRawBase(dia_data_path)
+        elif file_extension.lower() == HDF_FILE_EXTENSION:
+            if _is_alphatims_hdf(dia_data_path):
+                raw_data_type = "alphatims"
+                dia_data = TimsTOFTranspose(dia_data_path)
+            else:
+                raw_data_type = "alpharaw"
+                dia_data = AlphaRawBase(dia_data_path)
 
         elif file_extension.lower() == ".raw":
             raw_data_type = "thermo"

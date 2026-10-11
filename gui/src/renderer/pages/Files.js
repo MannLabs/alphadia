@@ -9,6 +9,10 @@ const FullWidthBox = styled(Box)(({ theme }) => ({
     width: '100%'
 }))
 
+// Leaves room for the grid's toolbar, header, footer and a few rows once the
+// selectors above it have grown (the fasta selector grows with each file added).
+const FILE_VIEWER_MIN_HEIGHT = 240
+
 const Files = () => {
 
     const method  = useMethod();
@@ -16,7 +20,7 @@ const Files = () => {
 
     return (
         <Box sx={{
-            height: 'calc(100% - 64px)',
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
             gap: 1
@@ -47,7 +51,7 @@ const Files = () => {
                             onChange={(path) => {dispatch({type: 'appendFiles', path: path})}}
                     />
                 </FullWidthBox>
-                <FullWidthBox sx={{flexGrow: 1}}>
+                <FullWidthBox sx={{flexGrow: 1, minHeight: FILE_VIEWER_MIN_HEIGHT, overflow: 'hidden'}}>
                     <FileViewer
                             path={method.raw_path_list.path}
                             onChange={(path) => {dispatch({type: 'updateFiles', path: path})}}/>

@@ -17,7 +17,7 @@ pip install "dist/${WHL_NAME}[stable]"
 # TODO: remove when GitHub allows for release artifacts > 2 GB
 if [ "${CPU_OR_GPU}" == "CPU" ]; then
     # this is a bit flaky and depends on the format of the requirements freeze file, cf. also pip_install.sh
-    TORCH_VERSION=$(grep "torch==" requirements/_requirements.freeze.txt | grep "sys_platform != 'darwin' or platform_machine != 'x86_64'" | sed -E "s/torch==([0-9.]+).*/\1/")
+    TORCH_VERSION=$(grep "^torch==" requirements/_requirements.freeze.txt | sed -E "s/torch==([0-9.]+).*/\1/")
     echo "Detected torch version: $TORCH_VERSION"
     pip install torch==$TORCH_VERSION -U --extra-index-url https://download.pytorch.org/whl/cpu
 fi

@@ -30,6 +30,10 @@ general:
   reuse_calibration: false
   # whether to reuse previously calculated quantification data
   reuse_quant: false
+  # quant directories (e.g. `<previous_run>/quant`) of other runs to reuse quantification data from
+  # instead of the quant directory of the current run, requires `reuse_quant`.
+  # These directories are only read from, never written to.
+  reuse_quant_from: []
   # logging verbosity level (DEBUG, INFO, PROGRESS, WARNING, ERROR)
   log_level: 'INFO'
   # whether to use GPU acceleration for library prediction and scoring
@@ -54,7 +58,8 @@ general:
   # if null, no specific setting of random states is performed
   random_state: null
 
-  # if true, exit immediately in case a file raises an error. If set to false, errors will be logged but the processing of other files will continue.
+  # if true, exit immediately in case a file raises an error or if a quanting result to be reused is not found.
+  # If set to false, errors will be logged but the processing of other files will continue.
   fail_fast: false
 
 library_loading:
@@ -209,6 +214,9 @@ search:
   # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
   optimized_peak_group_score: False
 
+  # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
+  candidate_context_features: True
+
   # === python backend only ===
   # exclude fragments shared between multiple channels
   exclude_shared_ions: True
@@ -323,6 +331,9 @@ fdr:
   keep_decoys: false
   # whether to keep decoy PSMs in the MBR library
   keep_decoys_in_mbr_library: false
+  # decoy generation scheme for the search library and the MBR library: "diann" or "pseudo_reverse"
+  # ignored if the provided library already contains decoys
+  decoy_type: "diann"
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
@@ -349,7 +360,7 @@ search_output:
   # Minimum number of non-missing values required for quantification
   min_nonnan: 3
 
-  # LFQ method for quantification ("directlfq" or "quantselect")
+  # LFQ method for quantification ("directlfq", "quantselect" or "none"). "none" skips LFQ: no quantification tables are written
   normalization_method: directlfq
   # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directlfq")
   normalize_directlfq: True

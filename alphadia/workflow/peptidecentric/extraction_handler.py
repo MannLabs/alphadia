@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
+    CandidateContext,
     PeakGroupQuantification,
     PeakGroupScoring,
     PeakGroupSelection,
@@ -28,6 +29,7 @@ from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     candidates_to_ng,
+    merge_context_features,
     parse_candidates,
     parse_quantification,
     speclib_to_ng,
@@ -146,7 +148,7 @@ class ExtractionHandler(ABC):
         )
         candidates_df = self._select_candidates(dia_data, spectral_library)
 
-        # sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
+        # plt.hist(candidates_df["score"], bins=100)
 
         if apply_cutoff:
             candidates_df = self._apply_score_cutoff(candidates_df)
@@ -593,6 +595,15 @@ class NgExtractionHandler(ExtractionHandler):
 
         features_df = to_features_df(candidate_features, spectral_library)
 
+        # Scoped to the candidates of this call: an optimization batch, or the full library
+        # at extraction. The FDR manager keys classifiers by column set, so both need them.
+        if self._config["search"]["candidate_context_features"]:
+            context_features = CandidateContext(
+                mass_tolerance=self._optimization_manager.ms2_error,
+                top_k_fragments=self._config["search"]["top_k_fragments_scoring"],
+            ).compute(dia_data, self._speclib_ng, candidates)
+            features_df = merge_context_features(features_df, context_features)
+
         return features_df
 
     def quantify_candidates(
@@ -630,8 +641,10 @@ class NgExtractionHandler(ExtractionHandler):
         precursor_df = self.add_columns_from_library(precursor_df, spectral_library)
 
         if precursor_fdr_df is not None:
+            # fwhm_rt is a scoring feature (not produced by quantification), so it is
+            # carried over from the post-FDR precursors into the quantified output.
             precursor_df = precursor_df.merge(
-                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
+                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba", "fwhm_rt"]],
                 on=["precursor_idx", "rank"],
                 how="left",
             )
@@ -653,14 +666,12 @@ class NgExtractionHandler(ExtractionHandler):
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
         )
 
-        # TODO: get this from the ng backend
-        features_or_precursor_df["cycle_fwhm"] = 3  # TODO: remove
         features_or_precursor_df[CalibCols.MZ_OBSERVED] = features_or_precursor_df[
             CalibCols.MZ_LIBRARY
         ]  # required for transfer library building
 
         # dummy values required to satisfy some downstream calculations
-        features_or_precursor_df["mobility_fwhm"] = -1
+        features_or_precursor_df["fwhm_mobility"] = -1
         features_or_precursor_df[CalibCols.MOBILITY_OBSERVED] = (
             DEFAULT_VALUE_NO_MOBILITY
         )
