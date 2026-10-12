@@ -57,8 +57,8 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
 
-# On Windows, multiprocessing pools fail with "need at most 63 handles" for more than 61 worker processes
-# (cf. concurrent.futures.process._MAX_WINDOWS_WORKERS)
+# On Windows with Python < 3.13, multiprocessing pools fail with "need at most 63 handles" for more than
+# 61 worker processes (cf. concurrent.futures.process._MAX_WINDOWS_WORKERS), fixed in CPython by gh-89240
 MAX_WINDOWS_PROCESS_COUNT = 61
 
 # Type stub for extended Logger with progress method
@@ -201,10 +201,14 @@ class SearchStep:
     def _limit_thread_count(config: Config) -> None:
         """Limit the thread count to what multiprocessing supports on the current platform."""
         thread_count = config[ConfigKeys.GENERAL][ConfigKeys.GENERAL.THREAD_COUNT]
-        if sys.platform == "win32" and thread_count > MAX_WINDOWS_PROCESS_COUNT:
+        if (
+            sys.platform == "win32"
+            and sys.version_info < (3, 13)
+            and thread_count > MAX_WINDOWS_PROCESS_COUNT
+        ):
             logger.warning(
                 f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.THREAD_COUNT}={thread_count} exceeds the maximum "
-                f"of {MAX_WINDOWS_PROCESS_COUNT} supported on Windows, using {MAX_WINDOWS_PROCESS_COUNT} instead."
+                f"of {MAX_WINDOWS_PROCESS_COUNT} supported on Windows with Python < 3.13, using {MAX_WINDOWS_PROCESS_COUNT} instead."
             )
             config.set_value(
                 (ConfigKeys.GENERAL, ConfigKeys.GENERAL.THREAD_COUNT),

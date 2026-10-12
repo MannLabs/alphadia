@@ -408,18 +408,20 @@ def test_get_reusable_quant_folders_raises_on_duplicate_raw_file(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("platform", "thread_count", "expected_thread_count"),
+    ("platform", "version_info", "thread_count", "expected_thread_count"),
     [
-        ("win32", 64, 61),
-        ("win32", 61, 61),
-        ("linux", 64, 64),
+        ("win32", (3, 11), 64, 61),
+        ("win32", (3, 11), 61, 61),
+        ("win32", (3, 13), 64, 64),
+        ("linux", (3, 11), 64, 64),
     ],
 )
 def test_limits_thread_count_on_windows(
-    platform, thread_count, expected_thread_count, tmp_path, monkeypatch
+    platform, version_info, thread_count, expected_thread_count, tmp_path, monkeypatch
 ):
-    """Test that `thread_count` is capped on Windows to avoid exceeding the multiprocessing handle limit."""
+    """Test that `thread_count` is capped on Windows with Python < 3.13 to avoid exceeding the multiprocessing handle limit."""
     monkeypatch.setattr(search_step.sys, "platform", platform)
+    monkeypatch.setattr(search_step.sys, "version_info", version_info)
 
     # when
     step = SearchStep(
