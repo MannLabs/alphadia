@@ -108,30 +108,42 @@ const Output = () => {
 
     const profile = useProfile();
 
-    const updateItems = (offset) => {
-        window.electronAPI.getOutputRowsNew(-1,{limit:100, offset}).then((newItems) => {
-            backendLengthRef.current += newItems.length;
-            setItems(items => applyCarriageReturns([...items, ...newItems]));
-        });
-    }
-
     React.useEffect(() => {
         setItems([]);
         backendLengthRef.current = 0;
 
         let isMounted = true;
+        // prevents overlapping polls from fetching (and appending) the same rows twice
+        let isFetching = false;
 
         const interval = setInterval(() => {
+            if (isFetching) {
+                return;
+            }
+            isFetching = true;
             window.electronAPI.getOutputLengthNew(-1).then((length) => {
-                if (isMounted){
-                    if (length > backendLengthRef.current) {
-                        updateItems(backendLengthRef.current);
-                    }
-                    if (length < backendLengthRef.current) {
-                        setItems([]);
-                        backendLengthRef.current = 0;
-                    }
+                if (!isMounted) {
+                    return;
                 }
+                if (length < backendLengthRef.current) {
+                    setItems([]);
+                    backendLengthRef.current = 0;
+                }
+                if (length > backendLengthRef.current) {
+                    // fetch all pending rows at once, otherwise the full backlog is replayed
+                    // in small batches when returning to this page during a long run
+                    const offset = backendLengthRef.current;
+                    return window.electronAPI.getOutputRowsNew(-1, {limit: length - offset, offset}).then((newItems) => {
+                        if (isMounted) {
+                            backendLengthRef.current = offset + newItems.length;
+                            setItems(items => applyCarriageReturns([...items, ...newItems]));
+                        }
+                    });
+                }
+            }).catch((err) => {
+                console.error(err);
+            }).finally(() => {
+                isFetching = false;
             });
         }, 100);
 
