@@ -86,6 +86,7 @@ class Config(UserDict):
                 ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH,
             ),
             (ConfigKeys.GENERAL, ConfigKeys.GENERAL.REUSE_QUANT_FROM),
+            (ConfigKeys.GENERAL, ConfigKeys.GENERAL.THREAD_COUNT),
         ]:
             raise NotImplementedError(
                 "Only certain values may be set directly, use update() to update the config otherwise."

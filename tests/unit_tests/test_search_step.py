@@ -407,6 +407,31 @@ def test_get_reusable_quant_folders_raises_on_duplicate_raw_file(tmp_path):
         step._get_reusable_quant_folders()
 
 
+@pytest.mark.parametrize(
+    ("platform", "version_info", "thread_count", "expected_thread_count"),
+    [
+        ("win32", (3, 11), 64, 61),
+        ("win32", (3, 11), 61, 61),
+        ("win32", (3, 13), 64, 64),
+        ("linux", (3, 11), 64, 64),
+    ],
+)
+def test_limits_thread_count_on_windows(
+    platform, version_info, thread_count, expected_thread_count, tmp_path, monkeypatch
+):
+    """Test that `thread_count` is capped on Windows with Python < 3.13 to avoid exceeding the multiprocessing handle limit."""
+    monkeypatch.setattr(search_step.sys, "platform", platform)
+    monkeypatch.setattr(search_step.sys, "version_info", version_info)
+
+    # when
+    step = SearchStep(
+        str(tmp_path / "output"),
+        config={"general": {"thread_count": thread_count}},
+    )
+
+    assert step.config["general"]["thread_count"] == expected_thread_count
+
+
 def test_raises_if_reuse_quant_from_is_set_without_reuse_quant(tmp_path):
     """Test that `reuse_quant_from` requires `reuse_quant`."""
     with pytest.raises(ConfigError, match="CONFIG_ERROR"):
