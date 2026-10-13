@@ -416,7 +416,9 @@ optimization:
 # initial parameters, will be optimized
 optimization_manager:
   # full width at half maximum for retention time in seconds (used for peak shape modeling)
-  fwhm_rt: 5
+  # Used until the first recalibration; measured peaks on 2-21 min Astral gradients are 1.5-3 s wide, and a 5 s start
+  # smoothed them over neighbouring peaks during the optimization rounds.
+  fwhm_rt: 2
   # full width at half maximum for ion mobility in 1/K_0 (used for peak shape modeling)
   fwhm_mobility: 0.01
   # minimum score threshold for candidate precursors
