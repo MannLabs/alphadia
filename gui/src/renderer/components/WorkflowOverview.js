@@ -176,10 +176,13 @@ const InputNode = ({ data, id, onEnabledChange }) => {
 };
 
 const TransferLearningNode = ({ data, id, onEnabledChange, onMethodChange }) => {
-    const method = data.adaptationMethod === "tto" ? "tto" : "transfer";
-    const description = method === "tto"
-        ? "Search all files and extract the context with peptdeep_kontext. The result will be used for the main search."
-        : "Search all files and train a custom PeptDeep model. The result will be used for the main search.";
+    const descriptions = {
+        transfer: "Search all files and train a custom PeptDeep model. The result will be used for the main search.",
+        tto: "Search all files and learn the context with peptdeep_kontext. The result will be used for the main search.",
+        hybrid: "Search all files, learn the context and train a custom peptdeep_kontext model. The result will be used for the main search.",
+    };
+    const method = data.adaptationMethod in descriptions ? data.adaptationMethod : "transfer";
+    const description = descriptions[method];
 
     const handleMethodChange = (event, newMethod) => {
         // ToggleButtonGroup passes null when the active button is re-clicked; ignore to keep a selection.
@@ -196,20 +199,22 @@ const TransferLearningNode = ({ data, id, onEnabledChange, onMethodChange }) => 
                         <Typography>
                             The adaptation step will perform a whole search of all selected raw files before the first search. It can be used with a spectral library or with fasta files and fully predicted library.
                             <br/><br/>
-                            Two methods are available:
+                            Three methods are available:
                             <br/>
-                            &bull; <b>Transfer</b>: fine-tune a custom PeptDeep model (transfer learning).
+                            &bull; <b>Transfer</b>: train a custom PeptDeep model (transfer learning).
                             <br/>
-                            &bull; <b>TTO</b>: extract the context with peptdeep_kontext (test-time optimization).
+                            &bull; <b>TTO</b>: learn the context with peptdeep_kontext (test-time optimization).
+                            <br/>
+                            &bull; <b>Hybrid</b>: learn the context, then train a custom peptdeep_kontext model with it.
                             <br/><br/>
                             All parameters set in the configuration will also be used for this step (except those required to switch on the specific behavior of this step).
                             <br/><br/>
                             If this step is enabled, the relevant modules are automatically activated for this step:
                         </Typography>
                         <Typography sx={{ fontFamily: 'monospace' }}>
-                            {method === "tto"
-                                ? "context_extraction.enabled = true"
-                                : <>transfer_library.enabled  = true<br/>transfer_learning.enabled = true</>}
+                            {method === "transfer"
+                                ? <>transfer_library.enabled  = true<br/>transfer_learning.enabled = true</>
+                                : <>transfer_library.enabled    = true<br/>peptdeep_kontext.adaptation = {method}</>}
                         </Typography>
                         <Typography>
                             The corresponding configuration section offers advanced parameters to tune the behavior of the adaptation step.
@@ -228,6 +233,7 @@ const TransferLearningNode = ({ data, id, onEnabledChange, onMethodChange }) => 
                         >
                             <ToggleButton value="transfer" sx={{ textTransform: 'none', py: 0.25 }}>Transfer</ToggleButton>
                             <ToggleButton value="tto" sx={{ textTransform: 'none', py: 0.25 }}>TTO</ToggleButton>
+                            <ToggleButton value="hybrid" sx={{ textTransform: 'none', py: 0.25 }}>Hybrid</ToggleButton>
                         </ToggleButtonGroup>
                     </Box>
                 )}

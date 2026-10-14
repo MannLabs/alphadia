@@ -191,8 +191,6 @@ test_cases:
         max_var_mod_num: 1 # mbr: 2
         missed_cleavages: 0  # mbr: 1
         fragment_types: ['a', 'b', 'c', 'x', 'y', 'z', 'b_H2O', 'y_H2O', 'b_NH3', 'y_NH3', 'z_addH', 'c_lossH']
-      context_extraction:
-        fragment_types: ['a', 'b', 'c', 'x', 'y', 'z', 'b_H2O', 'y_H2O', 'b_NH3', 'y_NH3', 'z_addH', 'c_lossH']
     # dimethyl data (from tutorial)
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
@@ -327,3 +325,98 @@ test_cases:
 #      - source_url: ...
 #    metrics:
 #      - BasicStats
+
+  # Benchmark of library prediction for the first pass x adaptation method on one dimethyl raw file (no MBR).
+  # The shared settings are anchored in the baseline case and reused by the others.
+  - name: dimethyl_fp-peptdeep_transfer  # baseline
+    config:
+      general:
+        transfer_step_enabled: True
+        adaptation_method: "transfer"
+        mbr_step_enabled: False
+      search: &dimethyl_search
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 0.5
+      library_prediction: &dimethyl_library_prediction
+        enabled: True
+        prediction_framework: "peptdeep"
+        precursor_mz:
+          - 380
+          - 980
+        fixed_modifications: 'Dimethyl@Any_N-term;Dimethyl@K'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
+        max_var_mod_num: 1
+        missed_cleavages: 0
+    fasta_paths: &dimethyl_fasta
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
+    raw_paths: &dimethyl_raw_b1
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
+    metrics: &dimethyl_metrics
+      - BasicStats
+
+  - name: dimethyl_fp-pdk_transfer
+    config:
+      general:
+        transfer_step_enabled: True
+        adaptation_method: "transfer"
+        mbr_step_enabled: False
+      search: *dimethyl_search
+      library_prediction:
+        <<: *dimethyl_library_prediction
+        prediction_framework: "peptdeep_kontext"
+    fasta_paths: *dimethyl_fasta
+    raw_paths: *dimethyl_raw_b1
+    metrics: *dimethyl_metrics
+
+  - name: dimethyl_fp-pdk_tto
+    config:
+      general:
+        transfer_step_enabled: True
+        adaptation_method: "tto"
+        mbr_step_enabled: False
+      search: *dimethyl_search
+      library_prediction:
+        <<: *dimethyl_library_prediction
+        prediction_framework: "peptdeep_kontext"
+    fasta_paths: *dimethyl_fasta
+    raw_paths: *dimethyl_raw_b1
+    metrics: *dimethyl_metrics
+
+  - name: dimethyl_fp-pdk_hybrid
+    config:
+      general:
+        transfer_step_enabled: True
+        adaptation_method: "hybrid"
+        mbr_step_enabled: False
+      search: *dimethyl_search
+      library_prediction:
+        <<: *dimethyl_library_prediction
+        prediction_framework: "peptdeep_kontext"
+    fasta_paths: *dimethyl_fasta
+    raw_paths: *dimethyl_raw_b1
+    metrics: *dimethyl_metrics
+
+  - name: dimethyl_fp-peptdeep_tto
+    config:
+      general:
+        transfer_step_enabled: True
+        adaptation_method: "tto"
+        mbr_step_enabled: False
+      search: *dimethyl_search
+      library_prediction: *dimethyl_library_prediction
+    fasta_paths: *dimethyl_fasta
+    raw_paths: *dimethyl_raw_b1
+    metrics: *dimethyl_metrics
+
+  - name: dimethyl_fp-peptdeep_hybrid
+    config:
+      general:
+        transfer_step_enabled: True
+        adaptation_method: "hybrid"
+        mbr_step_enabled: False
+      search: *dimethyl_search
+      library_prediction: *dimethyl_library_prediction
+    fasta_paths: *dimethyl_fasta
+    raw_paths: *dimethyl_raw_b1
+    metrics: *dimethyl_metrics

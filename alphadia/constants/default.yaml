@@ -15,11 +15,16 @@ general:
   # number of threads to use for parallel processing
   thread_count: 10
 
-  # Enables the transfer/adaptation step before the main search (transfer learning or TTO)
-  # TODO: rename to adaptation_step_enabled in a subsequent release to better reflect that it includes both transfer learning and TTO
+  # Enables the transfer/adaptation step before the main search
+  # TODO: rename to adaptation_step_enabled in a subsequent release to better reflect that it includes all adaptation methods
   transfer_step_enabled: false
 
-  # Method for the adaptation step: "transfer" (peptdeep fine-tuning) or "tto" (peptdeep_kontext TTO)
+  # Method for the adaptation step:
+  # "transfer": peptdeep transfer learning
+  # "tto": peptdeep_kontext test-time optimization, i.e. the context is learned while the model stays frozen
+  # "hybrid": peptdeep_kontext test-time optimization followed by peptdeep_kontext transfer learning
+  # The library step then predicts with the adapted model. The transfer step itself predicts with
+  # library_prediction.prediction_framework, so first-pass prediction and adaptation method can be combined freely.
   adaptation_method: "transfer"
 
   # Enables separate MBR step
@@ -136,16 +141,15 @@ library_prediction:
   # minimum probability threshold for including a predicted charge state
   min_charge_probability: 0.1
 
-  ###### peptdeep_kontext specific settings ######
-  # peptdeep_kontext downstream model path; if null, weights are auto-downloaded to ~/.cache/peptdeep_kontext
+  ###### peptdeep_kontext specific settings, see also the peptdeep_kontext section ######
+  # path to a peptdeep_kontext ContextDownstream model directory
+  # if null, the pretrained model from peptdeep_kontext.model_dir is used
+  # set by search_plan.py for the library step when adaptation_method is "hybrid"
   peptdeep_kontext_model_path: null
 
-  #context path if set to null it will use zero context
+  # path to a peptdeep_kontext context.json; if null, the zero context is used
+  # set by search_plan.py for the library step when adaptation_method is "tto" or "hybrid"
   context_path: null
-
-  #columns to define teh context
-  context_indicators:
-    - 'constant_context_indicator'
 
 
 # define custom alphabase modifications not part of unimod or alphabase
@@ -470,37 +474,52 @@ transfer_library:
   # include only fragments with a XIC correlation at least 0.75 of the median for all fragments
   fragment_correlation_ratio: 0.75
 
-# This section controls the context extraction and prediction using peptdeep_kontext.
-# This step can be used as an alternative to transfer learning for library adaptation.
-# See https://github.com/MannLabs/peptdeep_kontext/blob/main/docs/configs.md for more details.
-context_extraction:
-  # if true, peptdeep_kontext will be used to extract the context and do the library prediction
-  enabled: False
-  # Number of epochs used to extract the context during TTO.
+# Settings for peptdeep_kontext, used by the "tto" and "hybrid" adaptation methods
+# and when library_prediction.prediction_framework is "peptdeep_kontext".
+peptdeep_kontext:
+  # adaptation run after the search: "tto", "hybrid" or null (no adaptation)
+  # set by search_plan.py for the transfer step according to general.adaptation_method
+  adaptation: null
+
+  # directory containing the pretrained ContextModel/ and ContextDownstream/ models
+  # if null, the weights are downloaded to ~/.cache/peptdeep_kontext
+  model_dir: null
+
+  # version of the pretrained weights to download if model_dir is null
+  model_version: "v2"
+
+  # optional peptdeep_kontext pipeline config (.py or .yaml) to set any other peptdeep_kontext setting.
+  # Its tto_config, downstream_finetune_config and model_manager_config sections take precedence over the settings below.
+  # Paths, fragment types, context grouping, pretrained models and the device are always set by alphaDIA.
+  # See https://github.com/MannLabs/peptdeep_kontext/blob/main/docs/configs.md
+  config_path: null
+
+  # test-time optimization (tto_*): learns the context while the model stays frozen
+  # number of passes over the transfer library
   tto_epochs: 10
-  # Number of warmup epochs during which the learning rate is ramped up during TTO.
-  tto_warmup_epochs: 5
-  # Number of precursors per batch during TTO.
-  tto_batch_size: 2000
-  # Maximum learning rate per batch during TTO. The maximum learning rate will be reached after a warmup phase.
+  # minimum number of optimizer steps; more epochs are run if needed so that small libraries converge
+  tto_min_steps: 300
+  # number of precursors per batch
+  tto_batch_size: 1000
+  # learning rate for the context
   tto_lr: 0.1
-  # columns used to group precursors with different contexts during TTO and prediction.
-  # constant_context_indicator can be used to indicate that all precursors belong to the same context.
-  context_indicators:
-    - 'constant_context_indicator'
 
-  # path to the pretrained peptdeep_kontext ContextModel directory
-  # if null, weights are auto-downloaded to ~/.cache/peptdeep_kontext
-  context_model_path: null
+  # transfer learning (transfer_learning_*), only used by the "hybrid" adaptation method
+  # number of passes over the transfer library
+  transfer_learning_epochs: 50
+  # number of precursors per batch
+  transfer_learning_batch_size: 2000
+  # learning rate for the model weights
+  transfer_learning_lr: 0.0001
+  # which model weights are trained: "heads" (output heads only) or "full"
+  transfer_learning_model_trainable: "heads"
+  # fraction of precursors held out for validation
+  transfer_learning_val_fraction: 0.1
+  # keep the epoch with the lowest validation loss; if training never improves, the pretrained weights are kept
+  transfer_learning_keep_best_epoch: true
 
-  # version tag used when auto-downloading peptdeep_kontext model weights
-  context_model_version: "v2"
-
-  # list of fragment types (see alphabase.peptide.fragment.FRAGMENT_TYPES for supported types)
-  fragment_types: ['b', 'y']
-
-  # maximum charge for fragments
-  max_charge: 2
+  # number of precursors per batch during prediction
+  prediction_batch_size: 1000
 
 transfer_learning:
 

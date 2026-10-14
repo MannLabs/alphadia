@@ -9,8 +9,6 @@ transfer:
 #      predict: True
   transfer_library:
     enabled: True
-  # transfer_learning: enabled is injected by search_plan.py (always True for the "transfer" adaptation_method)
-  # context_extraction: enabled is injected instead when adaptation_method is "tto"
 
   # override settings that could have been set by the user:
   quant_directory: null # is step-specific, so user-defined values are not applicable as they would overwrite all steps' values with a single value
@@ -18,6 +16,11 @@ transfer:
     reuse_quant_from: [] # same reason as for quant_directory
     save_library: False
   # TODO: think about enforcing optimization of rt here
+# will be set in search_plan.py depending on general.adaptation_method:
+#  transfer_learning:
+#    enabled: True (transfer method)
+#  peptdeep_kontext:
+#    adaptation: "tto" or "hybrid" (tto and hybrid methods)
 
 library:
   # override settings that could have been set by the user:
@@ -30,13 +33,15 @@ library:
     enabled: False
   transfer_learning:
     enabled: False
-  context_extraction:
-    enabled: False
+  peptdeep_kontext:
+    adaptation: null
 # will be set in search_plan.py if transfer step is enabled:
 #  library_prediction:
 #    enabled: True
+#    prediction_framework: "peptdeep" (transfer method) or "peptdeep_kontext" (tto and hybrid methods)
 #    peptdeep_model_path: <value from transfer step> (transfer method)
-#    context_path: <value from transfer step> (tto method)
+#    context_path: <value from transfer step> (tto and hybrid methods)
+#    peptdeep_kontext_model_path: <value from transfer step> (hybrid method)
 
 mbr:
   fasta_paths: []
@@ -54,8 +59,8 @@ mbr:
     enabled: False
   transfer_learning:
     enabled: False
-  context_extraction:
-    enabled: False
+  peptdeep_kontext:
+    adaptation: null
 # will be set in search_plan.py if mbr step is enabled:
 #  library_path: <value from library step>
 #  search:

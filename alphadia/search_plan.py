@@ -1,5 +1,6 @@
 """Search plan for single- and multistep search."""
 
+import importlib.util
 import os
 from collections import defaultdict
 from pathlib import Path
@@ -19,6 +20,7 @@ from alphadia.search_step import (
     SearchStep,
     logger,
 )
+from alphadia.transferlearning import kontext
 
 # TODO: rename to ADAPTATION_STEP_NAME = "adaptation" once backward compat with transfer_step_enabled is dropped
 TRANSFER_STEP_NAME = "transfer"
@@ -26,8 +28,13 @@ LIBRARY_STEP_NAME = "library"
 MBR_STEP_NAME = "mbr"
 
 ADAPTATION_METHOD_TRANSFER = "transfer"
-ADAPTATION_METHOD_TTO = "tto"
-_VALID_ADAPTATION_METHODS = (ADAPTATION_METHOD_TRANSFER, ADAPTATION_METHOD_TTO)
+ADAPTATION_METHOD_TTO = kontext.ADAPTATION_TTO
+ADAPTATION_METHOD_HYBRID = kontext.ADAPTATION_HYBRID
+_VALID_ADAPTATION_METHODS = (
+    ADAPTATION_METHOD_TRANSFER,
+    ADAPTATION_METHOD_TTO,
+    ADAPTATION_METHOD_HYBRID,
+)
 
 CONSTANTS_FOLDER_PATH = Path(os.path.dirname(__file__)) / "constants"
 
@@ -101,6 +108,17 @@ class SearchPlan:
                 f"Must be one of: {', '.join(_VALID_ADAPTATION_METHODS)}."
             )
 
+        # fail before the adaptation search rather than after it
+        # TODO: remove once peptdeep_kontext is released and a required dependency of alphaDIA
+        if (
+            self._transfer_step_enabled
+            and self._adaptation_method != ADAPTATION_METHOD_TRANSFER
+            and importlib.util.find_spec("peptdeep_kontext") is None
+        ):
+            raise UserError(
+                f"adaptation_method '{self._adaptation_method}' requires peptdeep_kontext, which is not installed."
+            )
+
         if self._transfer_step_enabled or self._mbr_step_enabled:
             self._update_paths()
             with (CONSTANTS_FOLDER_PATH / "multistep.yaml").open() as f:
@@ -148,8 +166,12 @@ class SearchPlan:
 
             if self._adaptation_method == ADAPTATION_METHOD_TRANSFER:
                 method_config = {"transfer_learning": {"enabled": True}}
-            elif self._adaptation_method == ADAPTATION_METHOD_TTO:
-                method_config = {"context_extraction": {"enabled": True}}
+            else:
+                method_config = {
+                    ConfigKeys.PEPTDEEP_KONTEXT: {
+                        ConfigKeys.PEPTDEEP_KONTEXT.ADAPTATION: self._adaptation_method
+                    }
+                }
             # TODO: rename TRANSFER_STEP_NAME key to ADAPTATION_STEP_NAME once backward compat is dropped
             transfer_extra_config = (
                 self._multistep_config[TRANSFER_STEP_NAME] | method_config
@@ -171,16 +193,24 @@ class SearchPlan:
                         ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK: "peptdeep",
                     }
                 }
-            elif self._adaptation_method == ADAPTATION_METHOD_TTO:
+            else:
+                adaptation_dir = (
+                    self._transfer_step_output_dir
+                    / SearchPlanOutput.KONTEXT_ADAPTATION_OUTPUT
+                )
+                library_prediction_config = {
+                    ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH: kontext.get_context_path(
+                        adaptation_dir
+                    ),
+                    "enabled": True,
+                    ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK: "peptdeep_kontext",
+                }
+                if self._adaptation_method == ADAPTATION_METHOD_HYBRID:
+                    library_prediction_config[
+                        ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_KONTEXT_MODEL_PATH
+                    ] = kontext.get_transfer_learned_model_path(adaptation_dir)
                 extra_config_from_adaptation = {
-                    ConfigKeys.LIBRARY_PREDICTION: {
-                        ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH: os.path.join(
-                            self._transfer_step_output_dir,
-                            SearchPlanOutput.CONTEXT_OUTPUT,
-                        ),
-                        "enabled": True,
-                        ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK: "peptdeep_kontext",
-                    }
+                    ConfigKeys.LIBRARY_PREDICTION: library_prediction_config
                 }
 
             optimized_values_config = self._get_optimized_values_config(

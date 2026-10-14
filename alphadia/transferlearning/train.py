@@ -384,6 +384,16 @@ class FinetuneManager(ModelManager):
             Whether to continue training or not based on the early stopping criteria applied on the metrics.
         """
         continue_training = True
+        # if empty test_input, skip the evaluation and return continue_training as True
+        if (
+            not test_input
+            or "predicted" not in test_input
+            or not len(test_input["predicted"])
+        ):
+            logger.warning(
+                f"Skipping evaluation for {property_name} at epoch {epoch} due to empty test input."
+            )
+            return continue_training
         val_metrics = metric_accumulator.calculate_test_metric(
             test_input, epoch, data_split=data_split, property_name=property_name
         )

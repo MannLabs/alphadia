@@ -126,6 +126,7 @@ def test_multistep_config_resets_step_specific_user_options():
     [
         (True, "transfer", True),
         (True, "tto", False),
+        (True, "hybrid", False),
         (False, "transfer", True),
         (False, "transfer", False),
     ],
@@ -168,6 +169,21 @@ def test_raises_on_invalid_adaptation_method(mock_init_logging):
                 "general": {
                     "transfer_step_enabled": True,
                     "adaptation_method": "invalid_method",
+                }
+            }
+        )
+
+
+@patch("alphadia.search_plan.importlib.util.find_spec", return_value=None)
+@patch("alphadia.search_plan.reporting.init_logging")
+def test_raises_if_peptdeep_kontext_missing(mock_init_logging, mock_find_spec):
+    """The tto and hybrid adaptation methods fail early if peptdeep_kontext is not installed."""
+    with pytest.raises(CustomError, match="requires peptdeep_kontext"):
+        get_search_plan(
+            {
+                "general": {
+                    "transfer_step_enabled": True,
+                    "adaptation_method": "hybrid",
                 }
             }
         )
@@ -317,17 +333,38 @@ def test_runs_plan_with_adaptation_step_transfer(
     )
 
 
+ADAPTATION_DIR = "/user_provided_output_path/transfer/peptdeep_kontext.adaptation"
+
+
+@pytest.mark.parametrize(
+    ("adaptation_method", "expected_model_path"),
+    [
+        ("tto", {}),
+        (
+            "hybrid",
+            {
+                "peptdeep_kontext_model_path": _convert_path(
+                    f"{ADAPTATION_DIR}/transfer_learning/ContextDownstream"
+                )
+            },
+        ),
+    ],
+)
 @patch("alphadia.search_plan.reporting.init_logging")
 @patch("alphadia.search_plan.SearchStep")
 @patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
-def test_runs_plan_with_adaptation_step_tto(
-    mock_get_dyn_config, mock_plan, mock_init_logging
+def test_runs_plan_with_kontext_adaptation_step(
+    mock_get_dyn_config,
+    mock_plan,
+    mock_init_logging,
+    adaptation_method,
+    expected_model_path,
 ):
-    """Test that the SearchPlan object runs the plan correctly with the adaptation step (tto method)."""
+    """Test that the SearchPlan object runs the plan correctly with a peptdeep_kontext adaptation step."""
     additional_user_config = {
         "general": {
             "transfer_step_enabled": True,
-            "adaptation_method": "tto",
+            "adaptation_method": adaptation_method,
             "mbr_step_enabled": False,
         }
     }
@@ -347,7 +384,7 @@ def test_runs_plan_with_adaptation_step_tto(
         "output_folder": _convert_path("/user_provided_output_path/transfer"),
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"]
-        | {"context_extraction": {"enabled": True}},
+        | {"peptdeep_kontext": {"adaptation": adaptation_method}},
         "cli_config": BASE_CLI_PARAMS_CONFIG,
         "step_name": "transfer",
     }
@@ -359,12 +396,11 @@ def test_runs_plan_with_adaptation_step_tto(
         "extra_config": MOCK_MULTISTEP_CONFIG["library"]
         | {
             "library_prediction": {
-                "context_path": _convert_path(
-                    "/user_provided_output_path/transfer/peptdeep_kontext.context.json"
-                ),
+                "context_path": _convert_path(f"{ADAPTATION_DIR}/context.json"),
                 "enabled": True,
                 "prediction_framework": "peptdeep_kontext",
-            },
+            }
+            | expected_model_path,
         }
         | dynamic_config,
         "cli_config": BASE_CLI_PARAMS_CONFIG,
@@ -534,7 +570,7 @@ def test_runs_plan_with_adaptation_tto_and_mbr_steps(
         "output_folder": _convert_path("/user_provided_output_path/transfer"),
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"]
-        | {"context_extraction": {"enabled": True}},
+        | {"peptdeep_kontext": {"adaptation": "tto"}},
         "cli_config": BASE_CLI_PARAMS_CONFIG,
         "step_name": "transfer",
     }
@@ -546,11 +582,7 @@ def test_runs_plan_with_adaptation_tto_and_mbr_steps(
         "extra_config": MOCK_MULTISTEP_CONFIG["library"]
         | {
             "library_prediction": {
-                "context_path": str(
-                    Path(
-                        "/user_provided_output_path/transfer/peptdeep_kontext.context.json"
-                    )
-                ),
+                "context_path": _convert_path(f"{ADAPTATION_DIR}/context.json"),
                 "enabled": True,
                 "prediction_framework": "peptdeep_kontext",
             },
