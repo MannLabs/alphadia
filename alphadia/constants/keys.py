@@ -102,6 +102,15 @@ class FeatureTransform(metaclass=ConstantsClass):
     QUANTILE = "quantile"
 
 
+class DecoyType(metaclass=ConstantsClass):
+    """String constants for decoy generation schemes."""
+
+    DIANN = "diann"
+    PSEUDO_REVERSE = "pseudo_reverse"
+    DIANN_KEEP_PROLINE = "diann_keep_proline"
+    DIANN_INNER = "diann_inner"
+
+
 class QuantificationLevelName(metaclass=ConstantsClass):
     """String constants for accessing the quantification level."""
 
@@ -123,6 +132,7 @@ class NormalizationMethods(metaclass=ConstantsClass):
 
     DIRECTLFQ: str = "directlfq"
     QUANTSELECT: str = "quantselect"
+    NONE: str = "none"
 
 
 class PrecursorOutputCols(metaclass=ConstantsClass):

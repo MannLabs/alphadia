@@ -1,8 +1,7 @@
 from alphabase.spectral_library.decoy import DIANNDecoyGenerator, decoy_lib_provider
 
+from alphadia.constants.keys import DecoyType
 from alphadia.libtransform.decoy import (
-    DIANN_INNER,
-    DIANN_KEEP_PROLINE,
     DIANNInnerDecoyGenerator,
     DIANNKeepProlineDecoyGenerator,
 )
@@ -21,7 +20,7 @@ def test_keep_proline_decoy_equals_diann_decoy_without_proline_before_the_c_term
 
 def test_keep_proline_decoy_is_registered():
     assert isinstance(
-        decoy_lib_provider.decoy_dict[DIANN_KEEP_PROLINE](),
+        decoy_lib_provider.decoy_dict[DecoyType.DIANN_KEEP_PROLINE](),
         DIANNKeepProlineDecoyGenerator,
     )
 
@@ -43,5 +42,5 @@ def test_inner_decoy_moves_a_mutation_off_a_proline():
 
 def test_inner_decoy_is_registered():
     assert isinstance(
-        decoy_lib_provider.decoy_dict[DIANN_INNER](), DIANNInnerDecoyGenerator
+        decoy_lib_provider.decoy_dict[DecoyType.DIANN_INNER](), DIANNInnerDecoyGenerator
     )

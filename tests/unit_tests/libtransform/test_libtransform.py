@@ -2,6 +2,7 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+import pytest
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.libtransform.base import ProcessingPipeline
@@ -21,7 +22,8 @@ from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
 
 
-def test_library_transform():
+@pytest.mark.parametrize("decoy_type", ["diann", "pseudo_reverse"])
+def test_library_transform(decoy_type):
     fasta = """
 >sp|Q9CX84|RGS19_MOUSE Regulator of G-protein signaling 19 OS=Mus musculus OX=10090 GN=Rgs19 PE=1 SV=2
 LMHSPTGRRRKK
@@ -66,7 +68,7 @@ KSKSSGEHLDLKSGEHLDLKLMHSPTGR
     # the prepare pipeline is used to prepare an alphabase compatible spectral library for extraction
     prepare_pipeline = ProcessingPipeline(
         [
-            DecoyGenerator(decoy_type="diann"),
+            DecoyGenerator(decoy_type=decoy_type),
             FlattenLibrary(),
             InitFlatColumns(),
             LogFlatLibraryStats(),
@@ -95,6 +97,12 @@ KSKSSGEHLDLKSGEHLDLKLMHSPTGR
 
     assert speclib.precursor_df["decoy"].sum() == 2
     assert np.all(speclib.precursor_df["cardinality"] == [2, 2, 1, 1])
+
+
+def test_decoy_generator_invalid_decoy_type():
+    """Test that an unknown decoy_type raises a ValueError."""
+    with pytest.raises(ValueError, match="Unknown decoy_type"):
+        DecoyGenerator(decoy_type="reverse")
 
 
 def test_multiplex_library():

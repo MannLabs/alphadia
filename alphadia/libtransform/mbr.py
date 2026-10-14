@@ -6,9 +6,9 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import CalibCols, DecoyType
 from alphadia.libtransform.base import ProcessingStep
-from alphadia.libtransform.decoy import DIANN_INNER, DecoyGenerator
+from alphadia.libtransform.decoy import DecoyGenerator
 
 logger = logging.getLogger()
 
@@ -101,12 +101,18 @@ class IndexBuilder:
 
 
 class MbrLibraryBuilder(ProcessingStep):
-    def __init__(self, fdr: float = 0.01, keep_decoys: bool = False) -> None:
+    def __init__(
+        self,
+        fdr: float = 0.01,
+        keep_decoys: bool = False,
+        decoy_type: str = DecoyType.DIANN,
+    ) -> None:
         super().__init__()
         self.fdr = fdr
         self.keep_decoys = keep_decoys
         self.rt_by_run: pd.DataFrame | None = None
         self.pg_qval: pd.DataFrame | None = None
+        self.decoy_type = decoy_type
 
     def validate(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
@@ -215,7 +221,7 @@ class MbrLibraryBuilder(ProcessingStep):
         mbr_speclib.remove_unused_fragments()
 
         if self.keep_decoys:
-            decoy_generator = DecoyGenerator(decoy_type=DIANN_INNER)
+            decoy_generator = DecoyGenerator(decoy_type=self.decoy_type)
             mbr_speclib = decoy_generator(mbr_speclib)
             # Decoys inherit target hashes from DecoyGenerator, rehash to get unique hashes
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)

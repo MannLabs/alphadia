@@ -437,6 +437,19 @@
                     "type": "boolean"
                 },
                 {
+                    "id": "decoy_type",
+                    "name": "Decoy Type",
+                    "default": "diann_inner",
+                    "description": "Scheme used to generate decoys for the search library and the MBR library. Ignored if the library already contains decoys. \n diann: mutates the second and second-to-last amino acid (DIA-NN style). \n pseudo_reverse: reverses the sequence while keeping the C-terminal amino acid. \n diann_keep_proline: diann, but a proline before the C-terminal residue is kept. \n diann_inner: mutates the third and fourth-to-last amino acid, keeping b2/y2.",
+                    "type": "dropdown",
+                    "options": [
+                        "diann",
+                        "pseudo_reverse",
+                        "diann_keep_proline",
+                        "diann_inner"
+                    ]
+                },
+                {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
                     "default": true,
@@ -575,11 +588,12 @@
                     "id": "normalization_method",
                     "name": "LFQ method",
                     "default": "directlfq",
-                    "description": "Select the label-free quantification method. 'directlfq' uses the directLFQ algorithm, 'quantselect' uses the QuantSelect algorithm.",
+                    "description": "Select the label-free quantification method. 'directlfq' uses the directLFQ algorithm, 'quantselect' uses the QuantSelect algorithm, 'none' skips label-free quantification.",
                     "type": "dropdown",
                     "options": [
                         "directlfq",
-                        "quantselect"
+                        "quantselect",
+                        "none"
                     ]
                 },
                 {

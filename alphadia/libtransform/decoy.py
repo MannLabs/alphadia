@@ -4,12 +4,10 @@ import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.decoy import DIANNDecoyGenerator, decoy_lib_provider
 
+from alphadia.constants.keys import DecoyType
 from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
-
-DIANN_KEEP_PROLINE = "diann_keep_proline"
-DIANN_INNER = "diann_inner"
 
 
 class DIANNKeepProlineDecoyGenerator(DIANNDecoyGenerator):
@@ -35,7 +33,9 @@ class DIANNKeepProlineDecoyGenerator(DIANNDecoyGenerator):
         return self.mutated_AAs[self.raw_AAs.index(amino_acid)]
 
 
-decoy_lib_provider.register(DIANN_KEEP_PROLINE, DIANNKeepProlineDecoyGenerator)
+decoy_lib_provider.register(
+    DecoyType.DIANN_KEEP_PROLINE, DIANNKeepProlineDecoyGenerator
+)
 
 
 class DIANNInnerDecoyGenerator(DIANNKeepProlineDecoyGenerator):
@@ -59,11 +59,13 @@ class DIANNInnerDecoyGenerator(DIANNKeepProlineDecoyGenerator):
         return "".join(residues)
 
 
-decoy_lib_provider.register(DIANN_INNER, DIANNInnerDecoyGenerator)
+decoy_lib_provider.register(DecoyType.DIANN_INNER, DIANNInnerDecoyGenerator)
 
 
 class DecoyGenerator(ProcessingStep):
-    def __init__(self, decoy_type: str = "diann", mp_process_num: int = 8) -> None:
+    def __init__(
+        self, decoy_type: str = DecoyType.DIANN, mp_process_num: int = 8
+    ) -> None:
         """Generate decoys for the spectral library.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
 
@@ -74,6 +76,10 @@ class DecoyGenerator(ProcessingStep):
 
         """
         super().__init__()
+        if decoy_type not in DecoyType.get_values():
+            raise ValueError(
+                f"Unknown decoy_type: {decoy_type}. Valid options are {DecoyType.get_values()}"
+            )
         self.decoy_type = decoy_type
         self.mp_process_num = mp_process_num
 
