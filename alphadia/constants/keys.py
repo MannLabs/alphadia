@@ -70,6 +70,11 @@ class ConfigKeys(metaclass=ConstantsClass):
         PREDICTION_FRAMEWORK="prediction_framework",
     )
 
+    PEPTDEEP_KONTEXT = ConstantNamespace(
+        "peptdeep_kontext",
+        ADAPTATION="adaptation",
+    )
+
 
 class CalibCols(metaclass=ConstantsClass):
     """String constants for accessing (mz, rt, or mobility) columns in the context of calibration."""

@@ -54,11 +54,12 @@
                     "id": "adaptation_method",
                     "name": "Adaptation Method",
                     "default": "transfer",
-                    "description": "Method for the adaptation step: 'transfer' (peptdeep fine-tuning) or 'tto' (peptdeep_kontext test-time optimization). Selected via the Adaptation node in the workflow overview.",
+                    "description": "Method for the adaptation step: 'transfer' (peptdeep transfer learning), 'tto' (peptdeep_kontext test-time optimization) or 'hybrid' (peptdeep_kontext test-time optimization followed by peptdeep_kontext transfer learning). Selected via the Adaptation node in the workflow overview.",
                     "type": "dropdown",
                     "options": [
                         "transfer",
-                        "tto"
+                        "tto",
+                        "hybrid"
                     ],
                     "hidden": true
                 }
@@ -207,7 +208,7 @@
                     "id": "prediction_framework",
                     "name": "Prediction Framework",
                     "default": "peptdeep",
-                    "description": "Framework used for library prediction. \n 'peptdeep' uses alphaPeptDeep. \n 'peptdeep_kontext' uses the peptdeep_kontext models (see the Kontext Model Path and Context Path in the advanced parameters). \n Note: when a multistep TTO adaptation step is enabled, this is set automatically for the main search.",
+                    "description": "Framework used for library prediction. \n 'peptdeep' uses alphaPeptDeep. \n 'peptdeep_kontext' uses the peptdeep_kontext models (see the Kontext Model Path and Context Path in the advanced parameters). \n Note: in a multistep search this sets the framework of the adaptation step; the main search uses the framework of the selected adaptation method.",
                     "type": "dropdown",
                     "options": [
                         "peptdeep",
@@ -409,15 +410,15 @@
                     "id": "peptdeep_kontext_model_path",
                     "name": "Peptdeep_Kontext Model Path",
                     "default": null,
-                    "description": "peptdeep_kontext downstream (ContextDownstream) model directory. Relevant when using 'peptdeep_kontext' as the Prediction Framework, or when running the TTO adaptation method. If empty, the weights are auto-downloaded to ~/.cache/peptdeep_kontext.",
+                    "description": "peptdeep_kontext ContextDownstream model directory used for prediction. If empty, the pretrained model from the PeptDeep Kontext section is used. In a multistep 'hybrid' run this is set automatically for the main search.",
                     "type": "singleFolderSelection"
                 },
                 {
                     "id": "context_path",
                     "name": "Peptdeep_Kontext Experiment Context Path",
                     "default": null,
-                    "description": "Path to the experiment context used for peptdeep_kontext library prediction. Relevant when using 'peptdeep_kontext' as the Prediction Framework. If empty, a zero context is used. In a multistep TTO run this is set automatically from the adaptation step output, so you do not need to set it here.",
-                    "type": "singleFolderSelection"
+                    "description": "Path to a peptdeep_kontext context.json used for prediction. If empty, the zero context is used. In a multistep 'tto' or 'hybrid' run this is set automatically for the main search.",
+                    "type": "string"
                 }
             ]
         },
@@ -808,81 +809,111 @@
             ]
         },
         {
-            "id": "context_extraction",
-            "name": "Context Extraction",
-            "hidden": true,
-            "visible_when": {
-                "general.transfer_step_enabled": true,
-                "general.adaptation_method": "tto"
-            },
+            "id": "peptdeep_kontext",
+            "name": "PeptDeep Kontext",
             "parameters": [
                 {
-                    "id": "enabled",
-                    "name": "Enabled for all steps",
-                    "default": false,
-                    "description": "If true, peptdeep_kontext test-time optimization (TTO) is used to extract the context and predict the library. The settings in this section will be used for all steps. If you are using a multistep workflow with the 'tto' adaptation method, this option is automatically enabled for the adaptation step. Only use this section to configure individual settings but do not activate this option for all steps.",
-                    "type": "boolean"
+                    "id": "model_dir",
+                    "name": "Model Directory",
+                    "default": null,
+                    "description": "Directory containing the pretrained peptdeep_kontext ContextModel/ and ContextDownstream/ models. If empty, the weights are downloaded to ~/.cache/peptdeep_kontext.",
+                    "type": "singleFolderSelection"
+                },
+                {
+                    "id": "config_path",
+                    "name": "Config File",
+                    "default": null,
+                    "description": "Optional peptdeep_kontext pipeline config (.py or .yaml) to set any other peptdeep_kontext setting. Its tto_config, downstream_finetune_config and model_manager_config sections take precedence over the settings here. Paths, fragment types, context grouping, pretrained models and the device are always set by alphaDIA.",
+                    "type": "string"
                 }
             ],
             "parameters_advanced": [
                 {
+                    "id": "model_version",
+                    "name": "Model Version",
+                    "default": "v2",
+                    "description": "Version of the pretrained weights to download if no model directory is set.",
+                    "type": "string"
+                },
+                {
                     "id": "tto_epochs",
-                    "name": "TTO epochs",
+                    "name": "TTO Epochs",
                     "default": 10,
-                    "description": "Number of epochs used to extract the context during TTO.",
+                    "description": "Number of passes over the transfer library during test-time optimization.",
                     "type": "integer"
                 },
                 {
-                    "id": "tto_warmup_epochs",
-                    "name": "TTO warmup epochs",
-                    "default": 5,
-                    "description": "Number of warmup epochs during which the learning rate is ramped up during TTO.",
+                    "id": "tto_min_steps",
+                    "name": "TTO Minimum Steps",
+                    "default": 300,
+                    "description": "Minimum number of optimizer steps during test-time optimization. More epochs are run if needed so that small libraries converge.",
                     "type": "integer"
                 },
                 {
                     "id": "tto_batch_size",
-                    "name": "TTO batch size",
-                    "default": 2000,
-                    "description": "Number of precursors per batch during TTO.",
+                    "name": "TTO Batch Size",
+                    "default": 1000,
+                    "description": "Number of precursors per batch during test-time optimization.",
                     "type": "integer"
                 },
                 {
                     "id": "tto_lr",
-                    "name": "TTO learning rate",
+                    "name": "TTO Learning Rate",
                     "default": 0.1,
-                    "description": "Maximum learning rate per batch during TTO. The maximum learning rate will be reached after a warmup phase.",
+                    "description": "Learning rate for the context during test-time optimization.",
                     "type": "float"
                 },
                 {
-                    "id": "context_model_path",
-                    "name": "Context Model Path",
-                    "default": null,
-                    "description": "Path to the pretrained peptdeep_kontext ContextModel directory. If empty, the weights are auto-downloaded to ~/.cache/peptdeep_kontext.",
-                    "type": "singleFolderSelection"
+                    "id": "transfer_learning_epochs",
+                    "name": "Transfer Learning Epochs",
+                    "default": 50,
+                    "description": "Number of passes over the transfer library during transfer learning ('hybrid' adaptation method only).",
+                    "type": "integer"
                 },
                 {
-                    "id": "context_model_version",
-                    "name": "Context Model Version",
-                    "default": "v2",
-                    "description": "Version tag used when auto-downloading peptdeep_kontext model weights.",
-                    "type": "string"
+                    "id": "transfer_learning_batch_size",
+                    "name": "Transfer Learning Batch Size",
+                    "default": 2000,
+                    "description": "Number of precursors per batch during transfer learning ('hybrid' adaptation method only).",
+                    "type": "integer"
                 },
                 {
-                    "id": "fragment_types",
-                    "name": "Fragment types",
-                    "default": ["b", "y"],
-                    "description": "List of fragment types to quantify in the library.",
-                    "type": "multi_select",
+                    "id": "transfer_learning_lr",
+                    "name": "Transfer Learning Learning Rate",
+                    "default": 0.0001,
+                    "description": "Learning rate for the model weights during transfer learning ('hybrid' adaptation method only).",
+                    "type": "float"
+                },
+                {
+                    "id": "transfer_learning_model_trainable",
+                    "name": "Transfer Learning Trainable Weights",
+                    "default": "heads",
+                    "description": "Which model weights are trained: 'heads' (output heads only) or 'full' ('hybrid' adaptation method only).",
+                    "type": "dropdown",
                     "options": [
-                        "b", "y", "b_modloss", "y_modloss", "a", "c", "x", "z",
-                        "b_H2O", "y_H2O", "b_NH3", "y_NH3", "c_lossH", "z_addH"
+                        "heads",
+                        "full"
                     ]
                 },
                 {
-                    "id": "max_charge",
-                    "name": "Maximum charge",
-                    "default": 2,
-                    "description": "Maximum charge for fragments.",
+                    "id": "transfer_learning_val_fraction",
+                    "name": "Transfer Learning Validation Fraction",
+                    "default": 0.1,
+                    "description": "Fraction of precursors held out for validation during transfer learning ('hybrid' adaptation method only).",
+                    "type": "float"
+                },
+                {
+                    "id": "transfer_learning_keep_best_epoch",
+                    "name": "Transfer Learning Keep Best Epoch",
+                    "default": true,
+                    "description": "Keep the epoch with the lowest validation loss. If training never improves, the pretrained weights are kept ('hybrid' adaptation method only).",
+                    "type": "boolean"
+                },
+                {
+                    "id": "prediction_batch_size",
+                    "name": "Prediction Batch Size",
+                    "default": 1000,
+                    "description": "Number of precursors per batch during prediction.",
                     "type": "integer"
                 }
             ]

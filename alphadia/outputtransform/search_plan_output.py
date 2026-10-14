@@ -36,10 +36,7 @@ from alphadia.outputtransform.utils import (
     read_df,
     write_df,
 )
-from alphadia.transferlearning.context_extraction import (
-    ContextExtractor,
-    prepare_context_model_path,
-)
+from alphadia.transferlearning import kontext
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
 
@@ -47,7 +44,6 @@ logger = logging.getLogger(__name__)
 
 
 class SearchPlanOutput:
-    # extension omitted: format is determined at write time (e.g. .tsv or .parquet)
     PSM_INPUT = "psm"
     PRECURSOR_OUTPUT = "precursors"
     STAT_OUTPUT = "stat"
@@ -57,8 +53,7 @@ class SearchPlanOutput:
     TRANSFER_OUTPUT = "speclib.transfer"
     TRANSFER_MODEL = "peptdeep.transfer"
     TRANSFER_STATS_OUTPUT = "stats.transfer"
-    # extension included: format is always .json
-    CONTEXT_OUTPUT = "peptdeep_kontext.context.json"
+    KONTEXT_ADAPTATION_OUTPUT = "peptdeep_kontext.adaptation"
 
     def __init__(self, config: Config, output_folder: str):
         """Combine individual searches into and build combined outputs
@@ -133,8 +128,11 @@ class SearchPlanOutput:
         if self.config["transfer_learning"]["enabled"]:
             self._build_transfer_model(save=True)
 
-        if self.config.get("context_extraction", {}).get("enabled", False):
-            self._extract_context()
+        adaptation = self.config[ConfigKeys.PEPTDEEP_KONTEXT][
+            ConfigKeys.PEPTDEEP_KONTEXT.ADAPTATION
+        ]
+        if adaptation is not None:
+            self._run_kontext_adaptation(adaptation)
 
         # LFQ is the most memory-intensive step and runs last, so an OOM kill here
         # does not discard the MBR library and transfer model already on disk
@@ -148,30 +146,27 @@ class SearchPlanOutput:
             logger.info("Skipping label free quantification")
             self._save_precursor_table(psm_df)
 
-    def _extract_context(self) -> None:
-        """Extract the context of the raw files using peptdeep_kontext."""
-        context_extractor = ContextExtractor(
-            annotated_speclib_path=os.path.join(
-                self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
-            ),
+    def _run_kontext_adaptation(self, method: str) -> None:
+        """Adapt peptdeep_kontext to the transfer library ("tto" or "hybrid")."""
+        transfer_lib_path = os.path.join(
+            self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
+        )
+        if not os.path.exists(transfer_lib_path):
+            raise ValueError(
+                f"Transfer library not found at {transfer_lib_path}, did you enable library generation?"
+            )
+
+        kontext.run_adaptation(
+            method=method,
+            transfer_library_path=transfer_lib_path,
+            output_dir=os.path.join(self.output_folder, self.KONTEXT_ADAPTATION_OUTPUT),
+            kontext_config=self.config[ConfigKeys.PEPTDEEP_KONTEXT],
             charged_frag_types=fragment.get_charged_frag_types(
                 self.config["transfer_library"]["fragment_types"],
                 self.config["transfer_library"]["max_charge"],
             ),
-            pretrained_context_model_path=prepare_context_model_path(
-                self.config["context_extraction"],
-                version=self.config["context_extraction"]["context_model_version"],
-            ),
-            tto_epoch=self.config["context_extraction"]["tto_epochs"],
-            tto_batch_size=self.config["context_extraction"]["tto_batch_size"],
-            tto_lr=self.config["context_extraction"]["tto_lr"],
-            tto_warmup_epochs=self.config["context_extraction"]["tto_warmup_epochs"],
-            context_indicator_columns=self.config["context_extraction"][
-                "context_indicators"
-            ],
-            verbose=self.config["context_extraction"].get("verbose", False),
+            use_gpu=self.config["general"]["use_gpu"],
         )
-        context_extractor.run(os.path.join(self.output_folder, self.CONTEXT_OUTPUT))
 
     def _build_transfer_model(self, save=True):
         """
@@ -293,16 +288,13 @@ class SearchPlanOutput:
             f"Built transfer library using {len(folder_list)} folders and {number_of_processes} processes"
         )
         log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
-        # Add a constant context indicator column to the precursor df to let the peptdeep_kontext know that all precursors belong to the same context
-        transferAccumulator.consensus_speclibase.precursor_df[
-            "constant_context_indicator"
-        ] = "constant_context"
         if save:
             transfer_lib_path = os.path.join(
                 self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
             )
             logger.info(f"Writing transfer library to {transfer_lib_path}")
             transferAccumulator.consensus_speclibase.save_hdf(transfer_lib_path)
+
         return transferAccumulator.consensus_speclibase
 
     def _load_precursor_table(self):

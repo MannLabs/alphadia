@@ -46,6 +46,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
         },
         "transfer_library": {"enabled": False},
         "transfer_learning": {"enabled": False},
+        "peptdeep_kontext": {"adaptation": None},
         "search": {"channel_filter": "0"},
         "fdr": {
             "fdr": 0.01,
