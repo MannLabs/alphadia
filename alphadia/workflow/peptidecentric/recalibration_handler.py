@@ -23,7 +23,10 @@ class RecalibrationHandler:
     # between runs of the same file and, when low, floods the final search with low-score
     # candidates of which false targets pass far more often than decoys. The 3rd percentile
     # lies above that tail.
-    OPTIMIZED_FAC = 0.95
+    # The percentile falls the longer the calibration classifier trains on the same data (about
+    # 0.3 score units per further 10-epoch step), so the factor sets the cutoff that a long
+    # calibration used to reach instead of the number of calibration steps.
+    OPTIMIZED_FAC = 0.85
     OPTIMIZED_Q = 3
 
     def __init__(
