@@ -12,8 +12,10 @@ from alphadia.exceptions import TooFewPSMError
 
 logger = logging.getLogger()
 
-# Torch threads for the FDR classifier.
-MAX_FDR_TORCH_THREADS = 2
+# Torch threads for the FDR classifier. The network is small, so a training step on a batch of 4096
+# rows saturates at about 8 threads (1.85x of 2 threads); more threads on the same step got slower
+# (24 threads: 3.5x slower than 2, measured on 1.6 M plasma rows).
+MAX_FDR_TORCH_THREADS = 8
 
 
 def train_test_split_(
