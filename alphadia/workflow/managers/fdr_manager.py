@@ -174,11 +174,11 @@ class FDRManager(BaseManager):
         )
 
         if decoy_strategy == "precursor":
-            psm_df = fdr.perform_fdr(
+            psm_df = fdr.perform_fdr_on_psms(
                 classifier,
                 available_columns,
-                features_df[features_df["decoy"] == 0].copy(),
-                features_df[features_df["decoy"] == 1].copy(),
+                features_df,
+                features_df["decoy"].to_numpy() == 1,
                 competitive=competitive,
                 group_channels=True,
                 # TODO move this logic to perform_fdr():
