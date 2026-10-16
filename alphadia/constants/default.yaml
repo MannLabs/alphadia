@@ -217,8 +217,16 @@ calibration:
   # the maximum number of steps that a given optimizer is permitted to take
   max_steps: 20
 
-  # the minimum number of steps that a given optimizer must take before it can be said to have converged
-  min_steps: 5
+  # the minimum number of steps that a given automatic optimizer must take before it can be said to have converged
+  min_steps: 3
+
+  # the minimum number of steps for a targeted optimizer. The first step at the target still scores
+  # with the score cutoff estimated at the initial tolerance, so one more step is taken at the target.
+  targeted_min_steps: 2
+
+  # training epochs of a warm-started classifier during calibration. Successive calibration steps
+  # re-extract the same elution groups, so a few epochs from the previous weights suffice.
+  warm_start_epochs: 3
 
   # the maximum number of times an automatic optimizer can be skipped before it is considered to have converged
   max_skips: 1

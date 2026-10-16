@@ -68,7 +68,8 @@ class TargetedOptimizer(BaseOptimizer, ABC):
 
         """
         min_steps_reached = (
-            self._num_prev_optimizations >= self._config["calibration"]["min_steps"]
+            self._num_prev_optimizations
+            >= self._config["calibration"]["targeted_min_steps"]
         )
         return proposed_parameter <= self.target_parameter and min_steps_reached
 

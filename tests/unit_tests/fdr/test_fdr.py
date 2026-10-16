@@ -531,6 +531,27 @@ def test_apply_transform_keeps_out_of_distribution_values_finite():
     assert x_transformed[1, 1] == norm.ppf(classifiers._QUANTILE_CLIP)
 
 
+def test_fit_transform_estimates_quantiles_on_a_subsample(monkeypatch):
+    # Given: more rows than the quantile fit uses
+    monkeypatch.setattr(classifiers, "_MAX_ROWS_FOR_QUANTILE_FIT", 3000)
+    classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+    x = _gen_quantile_transform_data(n_samples=20000)
+
+    # When: the transform is fitted
+    x_transformed = classifier._fit_transform(x)
+
+    # Then: every row is still transformed and the table is close to the full-data quantiles
+    assert x_transformed.shape == x.shape
+    probabilities = np.arange(0.1, 1.0, 0.1)
+    assert np.allclose(
+        np.quantile(x_transformed[:, 1], probabilities),
+        norm.ppf(probabilities),
+        atol=0.05,
+    )
+
+
 def test_fit_transform_falls_back_to_raw_features_for_few_rows():
     # Given: a classifier with the quantile transform and fewer rows than the minimum
     classifier = BinaryClassifierLegacyNewBatching(

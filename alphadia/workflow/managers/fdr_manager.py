@@ -113,6 +113,7 @@ class FDRManager(BaseManager):
         decoy_channel: int = -1,
         version: int = -1,
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
+        warm_start_epochs: int | None = None,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -133,6 +134,9 @@ class FDRManager(BaseManager):
         fragment_provider: None | Callable[[pd.DataFrame], pd.DataFrame]
             Returns the fragments of the PSMs it is given, for fragment competition when `df_fragments` is not
             available up front. Only used with decoy_strategy "precursor".
+        warm_start_epochs: None | int
+            Training epochs if the classifier continues from stored weights. If None, the classifier's own number
+            of epochs is used. The stored classifier keeps its own number.
 
         Notes
         -----
@@ -162,6 +166,9 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"competitive: {competitive}")
 
         classifier = self.get_classifier(available_columns, version)
+        own_epochs = classifier.epochs
+        if warm_start_epochs is not None and classifier.fitted:
+            classifier.epochs = warm_start_epochs
         random_state = (
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
         )
@@ -233,6 +240,7 @@ class FDRManager(BaseManager):
         else:
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
+        classifier.epochs = own_epochs
         self._current_version += 1
         self.classifier_store[column_hash(available_columns)].append(classifier)
 

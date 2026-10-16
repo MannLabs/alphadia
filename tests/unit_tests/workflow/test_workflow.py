@@ -382,6 +382,40 @@ def test_fdr_manager_fit_predict():
     os.remove(temp_path)
 
 
+def test_fdr_manager_warm_start_epochs_apply_only_to_fitted_classifiers(monkeypatch):
+    # Given: an FDR manager whose fits record their number of epochs
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config=fdr_test_config(),
+        dia_cycle=None,
+    )
+    test_features_df = fdr_testdata(FDR_TEST_FEATURES)
+    fitted_epochs = []
+    original_fit = type(FDR_TEST_BASE_CLASSIFIER).fit
+
+    def recording_fit(self, x, y):
+        fitted_epochs.append(self.epochs)
+        original_fit(self, x, y)
+
+    monkeypatch.setattr(type(FDR_TEST_BASE_CLASSIFIER), "fit", recording_fit)
+    own_epochs = FDR_TEST_BASE_CLASSIFIER.epochs
+
+    # When: a cold fit and a warm-started fit are both asked for one epoch
+    for _ in range(2):
+        fdr_manager.fit_predict(
+            test_features_df,
+            decoy_strategy="precursor",
+            competitive=False,
+            df_fragments=None,
+            warm_start_epochs=1,
+        )
+
+    # Then: only the warm-started fit uses it, and the stored classifier keeps its own epochs
+    assert fitted_epochs == [own_epochs, 1]
+    assert fdr_manager.get_classifier(FDR_TEST_FEATURES).epochs == own_epochs
+
+
 def test_fdr_manager_skips_stored_two_output_classifiers():
     """The shipped classifier was saved with the former two-output softmax head.
 
@@ -438,7 +472,7 @@ def create_workflow_instance():
             Config(
                 {
                     "output_directory": tempfile.mkdtemp(),
-                    "calibration": {"min_steps": 2},
+                    "calibration": {"min_steps": 2, "targeted_min_steps": 2},
                 }
             )
         ]
@@ -842,7 +876,7 @@ def test_targeted_ms2_optimizer():
 
     assert optimizer.parameter_name == "ms2_error"
 
-    for current_step in range(workflow.config["calibration"]["min_steps"]):
+    for current_step in range(workflow.config["calibration"]["targeted_min_steps"]):
         assert optimizer.has_converged is False
 
         workflow._fdr_manager._current_version += 1
@@ -874,7 +908,7 @@ def test_targeted_rt_optimizer():
 
     assert optimizer.parameter_name == "rt_error"
 
-    for current_step in range(workflow.config["calibration"]["min_steps"]):
+    for current_step in range(workflow.config["calibration"]["targeted_min_steps"]):
         assert optimizer.has_converged is False
 
         workflow._fdr_manager._current_version += 1
@@ -906,7 +940,7 @@ def test_targeted_ms1_optimizer():
 
     assert optimizer.parameter_name == "ms1_error"
 
-    for current_step in range(workflow.config["calibration"]["min_steps"]):
+    for current_step in range(workflow.config["calibration"]["targeted_min_steps"]):
         assert optimizer.has_converged is False
 
         workflow._fdr_manager._current_version += 1
@@ -938,7 +972,7 @@ def test_targeted_mobility_optimizer():
 
     assert optimizer.parameter_name == "mobility_error"
 
-    for current_step in range(workflow.config["calibration"]["min_steps"]):
+    for current_step in range(workflow.config["calibration"]["targeted_min_steps"]):
         assert optimizer.has_converged is False
 
         workflow._fdr_manager._current_version += 1
