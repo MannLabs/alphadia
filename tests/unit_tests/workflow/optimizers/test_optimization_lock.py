@@ -82,6 +82,7 @@ def test_optlock_spot_on_target():
         "calibration": {
             "batch_size": 2000,
             "optimization_lock_target": 200,
+            "fdr": 0.01,
         }
     }
 
@@ -115,6 +116,7 @@ TEST_OPTLOCK_CONFIG = {
     "calibration": {
         "batch_size": 8000,
         "optimization_lock_target": 200,
+        "fdr": 0.01,
     }
 }
 

@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import torch
 from scipy.stats import norm
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 from torch import nn, optim
 from tqdm import tqdm
 
@@ -27,6 +29,8 @@ _QUANTILE_CLIP = 1e-4
 # Below this number of training rows the empirical quantiles are too coarse to be
 # a better input than the raw features.
 _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
+
+_LOGISTIC_REGRESSION_MAX_ITER = 500
 
 # The quantile table is estimated on at most this many rows: 1001 quantiles are just as well
 # resolved from 200k rows, and np.quantile over millions of rows costs seconds per fit.
@@ -615,6 +619,47 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         # in float64 the sigmoid keeps the ranking of logits far beyond where float32 rounds to 1
         proba = 1 / (1 + np.exp(-logit))
         return np.stack([1 - proba, proba], axis=1)
+
+
+class LogisticRegressionClassifier(Classifier):
+    """Logistic regression on standardized features.
+
+    Fits in a few seconds on millions of rows, but separates targets from decoys less well than the MLP.
+    """
+
+    def __init__(self):
+        self.scaler = StandardScaler()
+        self.model = LogisticRegression(max_iter=_LOGISTIC_REGRESSION_MAX_ITER)
+        self._fitted = False
+
+    @property
+    def fitted(self) -> bool:
+        return self._fitted
+
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+        if y.ndim == 2:  # noqa: PLR2004
+            y = y[:, 1]
+        self.model.fit(self.scaler.fit_transform(x), y)
+        self._fitted = True
+
+    def reset(self) -> None:
+        self.scaler = StandardScaler()
+        self.model = LogisticRegression(max_iter=_LOGISTIC_REGRESSION_MAX_ITER)
+        self._fitted = False
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        return self.model.predict(self.scaler.transform(x))
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        return self.model.predict_proba(self.scaler.transform(x))
+
+    def to_state_dict(self) -> dict:
+        return {"scaler": self.scaler, "model": self.model, "_fitted": self._fitted}
+
+    def from_state_dict(self, state_dict: dict) -> None:
+        self.scaler = state_dict["scaler"]
+        self.model = state_dict["model"]
+        self._fitted = state_dict["_fitted"]
 
 
 class FeedForwardNN(nn.Module):

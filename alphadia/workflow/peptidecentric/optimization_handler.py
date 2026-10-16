@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.constants.keys import CalibrationClassifier
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.raw_data import DiaData
@@ -388,6 +389,7 @@ class OptimizationHandler:
         warm_start_epochs = (
             self._config["calibration"]["warm_start_epochs"]
             if self._num_fits_after_lock > 0
+            and self._config["calibration"]["classifier"] == CalibrationClassifier.MLP
             else None
         )
 
@@ -460,6 +462,7 @@ class OptimizationHandler:
                 self._optlock.batch_library,
                 df_fragments=self._optlock.fragments_df,
                 warm_start_epochs=warm_start_epochs,
+                max_qval=self._config["calibration"]["fdr"],
             )
 
         self._reporter.log_string(
@@ -561,7 +564,7 @@ class OptimizationHandler:
                 2) belong to the top 500 fragments sorted by correlation otherwise.
             Fragments with abs(mass_error) greater than MAX_FRAGMENT_MZ_TOLERANCE (200) are removed.
         """
-        qval_mask = precursor_df["qval"] < 0.01
+        qval_mask = precursor_df["qval"] < self._config["calibration"]["fdr"]
         decoy_mask = precursor_df["decoy"] == 0
         precursor_df_filtered = precursor_df[qval_mask & decoy_mask]
 

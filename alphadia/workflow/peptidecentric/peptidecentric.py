@@ -4,7 +4,11 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.constants.keys import CalibrationClassifier
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    LogisticRegressionClassifier,
+)
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -128,6 +132,28 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.config["search"]["channel_filter"],
         )
 
+    def _calibration_fdr_manager(self) -> FDRManager:
+        """The FDR manager of the calibration steps.
+
+        A logistic regression gets its own manager, so its classifiers never reach the store the final search
+        warm-starts from, and the final search trains its MLP from scratch.
+        """
+        classifier = self.config["calibration"]["classifier"]
+        if classifier == CalibrationClassifier.MLP:
+            return self._fdr_manager
+        if classifier != CalibrationClassifier.LOGISTIC_REGRESSION:
+            raise ValueError(
+                f"Unknown calibration classifier: {classifier}. "
+                f"Valid options are {CalibrationClassifier.get_values()}"
+            )
+        return FDRManager(
+            feature_columns=self._fdr_manager.feature_columns,
+            classifier_base=LogisticRegressionClassifier(),
+            dia_cycle=self.dia_data.cycle,
+            config=self.config,
+            random_state=self._random_state_fdr_manager,
+        )
+
     def _save_managers(self):
         """Saves the optimization manager to disk so that it can be reused if needed.
         Note the timing manager is not saved at this point as it is saved with every call to it.
@@ -149,7 +175,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.config,
             self.optimization_manager,
             self.calibration_manager,
-            self._fdr_manager,
+            self._calibration_fdr_manager(),
             self.reporter,
             self.spectral_library,
             self.dia_data,

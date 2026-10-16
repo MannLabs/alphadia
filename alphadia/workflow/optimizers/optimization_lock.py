@@ -30,6 +30,7 @@ class OptimizationLock:
         rng.shuffle(self._elution_group_order)
 
         self._precursor_target_count = config["calibration"]["optimization_lock_target"]
+        self._fdr = config["calibration"]["fdr"]
         self._batch_size = config["calibration"]["batch_size"]
 
         self.batch_idx = 0
@@ -139,7 +140,7 @@ class OptimizationLock:
         """
 
         self._precursor_at_fdr_count = np.sum(
-            (precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)
+            (precursor_df["qval"] < self._fdr) & (precursor_df["decoy"] == 0)
         )
         self.has_target_num_precursors = (
             self._precursor_at_fdr_count >= self._precursor_target_count

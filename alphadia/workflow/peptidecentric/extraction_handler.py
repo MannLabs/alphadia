@@ -277,6 +277,7 @@ class ExtractionHandler(ABC):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
+        max_qval: float | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -302,6 +303,9 @@ class ExtractionHandler(ABC):
 
         warm_start_epochs : int, optional
             Training epochs if the classifier continues from stored weights, see `FDRManager.fit_predict`.
+
+        max_qval : float, optional
+            q-value up to which precursors are kept. Defaults to `fdr.fdr`.
 
         Returns
         -------
@@ -705,6 +709,7 @@ class NgExtractionHandler(ExtractionHandler):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
+        max_qval: float | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -748,9 +753,9 @@ class NgExtractionHandler(ExtractionHandler):
             version=self._optimization_manager.classifier_version,
             warm_start_epochs=warm_start_epochs,
         )
-        precursor_fdr_df = precursor_fdr_df[
-            precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
-        ]
+        if max_qval is None:
+            max_qval = self._config["fdr"]["fdr"]
+        precursor_fdr_df = precursor_fdr_df[precursor_fdr_df["qval"] <= max_qval]
 
         # filter2: candidates by precursors
         candidates_filtered = candidates_df[

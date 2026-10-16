@@ -9,7 +9,11 @@ from scipy.stats import norm
 
 from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr import classifiers, fdr
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    Classifier,
+    LogisticRegressionClassifier,
+)
 
 
 def test_keep_best():
@@ -235,6 +239,22 @@ def test_feed_forward():
 
     y_proba = classifier.predict_proba(x)[:, 1]  # noqa: F841  # TODO fix this test
     # assert np.all(np.round(y_proba) == y)
+
+
+def test_logistic_regression_classifier_separates_and_round_trips():
+    # Given: two well separated classes
+    x, y = gen_data_np()
+
+    # When: the logistic regression is fitted and restored from its state dict
+    classifier = LogisticRegressionClassifier()
+    classifier.fit(x, y)
+    restored = LogisticRegressionClassifier()
+    restored.from_state_dict(classifier.to_state_dict())
+
+    # Then: it separates the classes and the restored copy predicts the same
+    assert restored.fitted
+    assert np.mean(classifier.predict(x) == y) > 0.99
+    assert np.array_equal(restored.predict_proba(x), classifier.predict_proba(x))
 
 
 def test_feed_forward_save():

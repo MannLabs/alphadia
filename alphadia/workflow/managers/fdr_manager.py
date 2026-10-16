@@ -166,8 +166,9 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"competitive: {competitive}")
 
         classifier = self.get_classifier(available_columns, version)
-        own_epochs = classifier.epochs
+        own_epochs = None
         if warm_start_epochs is not None and classifier.fitted:
+            own_epochs = classifier.epochs
             classifier.epochs = warm_start_epochs
         random_state = (
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
@@ -240,7 +241,8 @@ class FDRManager(BaseManager):
         else:
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
-        classifier.epochs = own_epochs
+        if own_epochs is not None:
+            classifier.epochs = own_epochs
         self._current_version += 1
         self.classifier_store[column_hash(available_columns)].append(classifier)
 
