@@ -117,7 +117,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
-     Currently, it does not scale above 2 threads also for large problems, so thread number is limited to `MAX_FDR_TORCH_THREADS`.
+     The torch threads are limited to `MAX_FDR_TORCH_THREADS`, above which the classifier training gets no faster.
      `df` is not modified: the PSMs are copied once, the targets ahead of the decoys.
 
     Parameters
