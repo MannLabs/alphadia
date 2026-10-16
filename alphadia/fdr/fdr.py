@@ -245,10 +245,6 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
 
     psm_df["proba"] = predicted_proba
-    psm_df.sort_values(
-        ["proba", "precursor_idx"], ascending=True, inplace=True
-    )  # last sort to break ties
-
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
@@ -316,12 +312,15 @@ def keep_best(
     """
     if group_columns is None:
         group_columns = ["channel", "precursor_idx"]
-    df = df.reset_index(drop=True)
-    df = df.sort_values(
-        [score_column, *group_columns], ascending=True
-    )  # last sort to break ties
-    df = df.groupby(group_columns).head(1)
-    return df.sort_index().reset_index(drop=True)
+    # the same selection as a stable sort by score and group followed by groupby(...).head(1), on
+    # arrays: the pandas version copied the whole frame for every step
+    keys = [df[column].to_numpy() for column in [score_column, *group_columns]]
+    order = np.lexsort(keys[::-1])
+    group_ids = df.groupby(group_columns, sort=False).ngroup().to_numpy()
+    is_first = ~pd.Series(group_ids[order]).duplicated().to_numpy()
+    keep = np.sort(order[is_first])
+    keep = keep[group_ids[keep] >= 0]
+    return df.iloc[keep].reset_index(drop=True)
 
 
 def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
