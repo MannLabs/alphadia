@@ -12,6 +12,9 @@ from alphadia.exceptions import TooFewPSMError
 
 logger = logging.getLogger()
 
+# Torch threads for the FDR classifier.
+MAX_FDR_TORCH_THREADS = 2
+
 
 def train_test_split_(
     X: np.ndarray,
@@ -50,6 +53,38 @@ def train_test_split_(
         raise exception(str(e)) from e
     else:
         return X_train, X_test, y_train, y_test, indices_train, indices_test
+
+
+def train_test_split_indices(
+    n_samples: int,
+    *,
+    exception: type[Exception] = TooFewPSMError,
+    **kwargs,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Row indices of the split `train_test_split_` makes for `n_samples` rows with the same arguments.
+
+    Parameters
+    ----------
+    n_samples : int
+        The number of rows.
+    exception : type[Exception], default=TooFewPSMError
+        The exception to raise if train_test_split fails.
+
+    **kwargs
+        Additional arguments passed to sklearn's train_test_split.
+
+    Returns
+    -------
+    indices_train, indices_test : np.ndarray
+        The row indices of the training and the test set.
+
+    """
+    try:
+        indices_train, indices_test = train_test_split(np.arange(n_samples), **kwargs)
+    except ValueError as e:
+        raise exception(str(e)) from e
+    else:
+        return indices_train, indices_test
 
 
 def manage_torch_threads(max_threads: int = 2) -> Callable[..., Any]:

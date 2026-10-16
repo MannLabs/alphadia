@@ -527,8 +527,8 @@ def test_apply_transform_keeps_out_of_distribution_values_finite():
 
     # Then: they stay at the edge of the distribution instead of outside it
     assert np.all(np.isfinite(x_transformed))
-    assert x_transformed[0, 1] == norm.ppf(1 - classifiers._QUANTILE_CLIP)
-    assert x_transformed[1, 1] == norm.ppf(classifiers._QUANTILE_CLIP)
+    assert x_transformed[0, 1] == np.float32(norm.ppf(1 - classifiers._QUANTILE_CLIP))
+    assert x_transformed[1, 1] == np.float32(norm.ppf(classifiers._QUANTILE_CLIP))
 
 
 def test_fit_transform_estimates_quantiles_on_a_subsample(monkeypatch):

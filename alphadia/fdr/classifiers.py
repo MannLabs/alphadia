@@ -3,6 +3,7 @@
 import logging
 import warnings
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from typing import Any
 
@@ -14,7 +15,11 @@ from torch import nn, optim
 from tqdm import tqdm
 
 from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr.utils import manage_torch_threads, train_test_split_
+from alphadia.fdr.utils import (
+    MAX_FDR_TORCH_THREADS,
+    manage_torch_threads,
+    train_test_split_indices,
+)
 
 logger = logging.getLogger()
 
@@ -32,6 +37,10 @@ _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 # resolved from 200k rows, and np.quantile over millions of rows costs seconds per fit.
 _MAX_ROWS_FOR_QUANTILE_FIT = 200_000
 _QUANTILE_SUBSAMPLE_SEED = 42
+
+# Rows predicted at once. A forward pass over all rows at once holds the activations of every
+# layer for every row, gigabytes for the 10 M+ rows of a final search.
+_PREDICT_CHUNK_ROWS = 250_000
 
 
 class Classifier(ABC):
@@ -408,31 +417,35 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         Returns
         -------
         x_transformed : np.ndarray, dtype=float
-            Transformed data of shape (n_samples, n_features). The input is returned
-            unchanged if no quantile table was fitted.
+            Transformed data of shape (n_samples, n_features), as float32 (the precision the
+            network computes in). The input is returned unchanged if no quantile table was fitted.
 
         """
         if self._quantiles is None:
             return x
 
         probabilities = np.linspace(0, 1, self._quantiles.shape[0])
-        x_transformed = np.zeros_like(x, dtype=np.float64)
+        x_transformed = np.zeros(x.shape, dtype=np.float32)
 
-        for i in range(x.shape[1]):
+        def transform_feature(i: int) -> None:
             feature_quantiles = self._quantiles[:, i]
             # A constant feature has no invertible CDF and carries no information,
             # so it stays at the center of the distribution.
             if feature_quantiles[0] == feature_quantiles[-1]:
-                continue
+                return
 
             cdf = np.interp(x[:, i], feature_quantiles, probabilities)
             x_transformed[:, i] = norm.ppf(
                 np.clip(cdf, _QUANTILE_CLIP, 1 - _QUANTILE_CLIP)
             )
 
+        # np.interp and the ppf ufunc release the GIL, so the features are transformed in parallel
+        with ThreadPoolExecutor(max_workers=torch.get_num_threads()) as pool:
+            list(pool.map(transform_feature, range(x.shape[1])))
+
         return x_transformed
 
-    @manage_torch_threads(max_threads=2)
+    @manage_torch_threads(max_threads=MAX_FDR_TORCH_THREADS)
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements
         """Fit the classifier to the data.
 
@@ -478,11 +491,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         random_state = self._np_rng.integers(0, 1_000_000)
         logger.info(f"Using random state {random_state} for train-test-split")
-        x_train, x_test, y_train, y_test, *_ = train_test_split_(
-            x, y, test_size=self.test_size, random_state=random_state
+        idx_train, idx_test = train_test_split_indices(
+            len(x), test_size=self.test_size, random_state=random_state
         )
-        x_test = torch.Tensor(x_test)
-        y_test = torch.Tensor(y_test)
+        x_test = torch.as_tensor(x[idx_test], dtype=torch.float32)
+        y_test = torch.Tensor(y[idx_test])
 
         optimizer = optim.Adam(
             self.network.parameters(),
@@ -497,8 +510,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         # Set model to training mode for BatchNorm
         self.network.train()
 
-        x_train = torch.Tensor(x_train)
-        y_train = torch.Tensor(y_train)
+        x_train = torch.as_tensor(x[idx_train], dtype=torch.float32)
+        y_train = torch.Tensor(y[idx_train])
+        del x
 
         num_batches = (x_train.shape[0] // self.batch_size) - 1
         batch_start_list = np.arange(num_batches) * self.batch_size
@@ -553,7 +567,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         self._fitted = True
 
-    @manage_torch_threads(max_threads=2)
+    @manage_torch_threads(max_threads=MAX_FDR_TORCH_THREADS)
     def predict(self, x: np.ndarray) -> np.ndarray:
         """Predict the class of the data.
 
@@ -579,11 +593,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
-        x = self._apply_transform(x)
-        self.network.eval()
-        return (self.network(torch.Tensor(x)).detach().numpy() > 0).astype(int)
+        return (self._predict_logit(x) > 0).astype(int)
 
-    @manage_torch_threads(max_threads=2)
+    @manage_torch_threads(max_threads=MAX_FDR_TORCH_THREADS)
     def predict_proba(self, x: np.ndarray) -> np.ndarray:
         """Predict the class probabilities of the data.
 
@@ -609,12 +621,23 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
-        x = self._apply_transform(x)
-        self.network.eval()
-        logit = self.network(torch.Tensor(x)).detach().numpy().astype(np.float64)
+        logit = self._predict_logit(x).astype(np.float64)
         # in float64 the sigmoid keeps the ranking of logits far beyond where float32 rounds to 1
         proba = 1 / (1 + np.exp(-logit))
         return np.stack([1 - proba, proba], axis=1)
+
+    def _predict_logit(self, x: np.ndarray) -> np.ndarray:
+        """Return the network's float32 logit of every row, transforming and predicting in chunks."""
+        self.network.eval()
+        logit = np.empty(len(x), dtype=np.float32)
+        with torch.no_grad():
+            for start in range(0, len(x), _PREDICT_CHUNK_ROWS):
+                stop = start + _PREDICT_CHUNK_ROWS
+                x_chunk = torch.as_tensor(
+                    self._apply_transform(x[start:stop]), dtype=torch.float32
+                )
+                logit[start:stop] = self.network(x_chunk).numpy()
+        return logit
 
 
 class FeedForwardNN(nn.Module):

@@ -11,7 +11,11 @@ import pandas as pd
 
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.plotting import plot_fdr
-from alphadia.fdr.utils import manage_torch_threads, train_test_split_
+from alphadia.fdr.utils import (
+    MAX_FDR_TORCH_THREADS,
+    manage_torch_threads,
+    train_test_split_indices,
+)
 from alphadia.fragcomp.fragcomp import compete_for_fragments
 
 if TYPE_CHECKING:
@@ -48,25 +52,17 @@ def _is_collapsed(proba: np.ndarray) -> bool:
     )
 
 
-@manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
+def perform_fdr(
     classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
-    *,
-    competitive: bool = False,
-    group_channels: bool = True,
-    figure_path: str | None = None,
-    df_fragments: pd.DataFrame | None = None,
-    fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
-    dia_cycle: np.ndarray | None = None,
-    fdr_heuristic: float = 0.1,
-    random_state: int | None = None,
+    **kwargs,
 ) -> pd.DataFrame:
-    """Performs FDR calculation on a dataframe of PSMs.
+    """Performs FDR calculation on separate dataframes of target and decoy PSMs.
 
-     Currently, it does not scale above 2 threads also for large problems, so thread number is limited to 2.
+    The PSMs of `df_decoy` are the decoys of the target-decoy competition, whatever their
+    `decoy` column says. See `perform_fdr_on_psms` for the keyword arguments and the result.
 
     Parameters
     ----------
@@ -81,6 +77,62 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     df_decoy : pd.DataFrame
         A dataframe of decoy PSMs
+
+    **kwargs
+        Passed to `perform_fdr_on_psms`.
+
+    Returns
+    -------
+    psm_df : pd.DataFrame
+        A dataframe of PSMs with q-values and probabilities.
+
+    """
+    is_decoy = np.concatenate(
+        [np.zeros(len(df_target), dtype=bool), np.ones(len(df_decoy), dtype=bool)]
+    )
+    return perform_fdr_on_psms(
+        classifier,
+        available_columns,
+        pd.concat([df_target, df_decoy]),
+        is_decoy,
+        **kwargs,
+    )
+
+
+@manage_torch_threads(max_threads=MAX_FDR_TORCH_THREADS)
+def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
+    classifier: Classifier,
+    available_columns: list[str],
+    df: pd.DataFrame,
+    is_decoy: np.ndarray,
+    *,
+    competitive: bool = False,
+    group_channels: bool = True,
+    figure_path: str | None = None,
+    df_fragments: pd.DataFrame | None = None,
+    fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
+    dia_cycle: np.ndarray | None = None,
+    fdr_heuristic: float = 0.1,
+    random_state: int | None = None,
+) -> pd.DataFrame:
+    """Performs FDR calculation on a dataframe of target and decoy PSMs.
+
+     Currently, it does not scale above 2 threads also for large problems, so thread number is limited to `MAX_FDR_TORCH_THREADS`.
+     `df` is not modified: the PSMs are copied once, the targets ahead of the decoys.
+
+    Parameters
+    ----------
+    classifier : Classifier
+        A classifier that implements the fit and predict_proba methods
+
+    available_columns : list[str]
+        A list of column names that are available for the classifier
+
+    df : pd.DataFrame
+        A dataframe of target and decoy PSMs
+
+    is_decoy : np.ndarray, dtype=bool
+        Whether each row of `df` is a decoy of the target-decoy competition
 
     competitive : bool
         Whether to perform competitive FDR calculation where only the highest scoring PSM in a target-decoy pair is retained
@@ -112,16 +164,14 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     -------
     psm_df : pd.DataFrame
         A dataframe of PSMs with q-values and probabilities.
-        The columns `qval` and `proba` are added to the input dataframes.
+        The columns `qval` and `proba` are added.
 
     """
-    target_len, decoy_len = len(df_target), len(df_decoy)
-    df_target.dropna(subset=available_columns, inplace=True)
-    df_decoy.dropna(subset=available_columns, inplace=True)
-    target_dropped, decoy_dropped = (
-        target_len - len(df_target),
-        decoy_len - len(df_decoy),
-    )
+    complete = df[available_columns].notna().all(axis=1).to_numpy()
+    target_rows = np.flatnonzero(~is_decoy & complete)
+    decoy_rows = np.flatnonzero(is_decoy & complete)
+    target_dropped = int((~is_decoy).sum()) - len(target_rows)
+    decoy_dropped = int(is_decoy.sum()) - len(decoy_rows)
 
     if target_dropped > 0:
         logger.warning(f"dropped {target_dropped} target PSMs due to missing features")
@@ -129,12 +179,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     if decoy_dropped > 0:
         logger.warning(f"dropped {decoy_dropped} decoy PSMs due to missing features")
 
-    if (
-        np.abs(len(df_target) - len(df_decoy)) / ((len(df_target) + len(df_decoy)) / 2)
-        > 0.1  # noqa: PLR2004
-    ):
+    n_target, n_decoy = len(target_rows), len(decoy_rows)
+    if np.abs(n_target - n_decoy) / ((n_target + n_decoy) / 2) > 0.1:  # noqa: PLR2004
         logger.warning(
-            f"FDR calculation for {len(df_target)} target and {len(df_decoy)} decoy PSMs"
+            f"FDR calculation for {n_target} target and {n_decoy} decoy PSMs"
         )
         logger.warning(
             "FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
@@ -143,30 +191,25 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     if random_state is not None:
         logger.info(f"Using random state {random_state} for FDR calculation")
 
-    X_target = df_target[available_columns].to_numpy()
-    X_decoy = df_decoy[available_columns].to_numpy()
-    y_target = np.zeros(len(X_target))
-    y_decoy = np.ones(len(X_decoy))
-
-    X = np.concatenate([X_target, X_decoy])
-    y = np.concatenate([y_target, y_decoy])
+    psm_df = df.take(np.concatenate([target_rows, decoy_rows]))
+    X = psm_df[available_columns].to_numpy()
+    y = np.concatenate([np.zeros(n_target), np.ones(n_decoy)])
 
     try:
-        X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-            X, y, test_size=0.2, random_state=random_state
+        idxs_train, idxs_test = train_test_split_indices(
+            len(X), test_size=0.2, random_state=random_state
         )
     except TooFewPSMError:
         logger.warning(
             "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
         )
-        psm_df = pd.concat([df_target, df_decoy])
         psm_df["qval"] = 1.0
         psm_df["proba"] = 1.0
         return psm_df
 
-    classifier.fit(X_train, y_train)
+    y_train, y_test = y[idxs_train], y[idxs_test]
+    classifier.fit(X[idxs_train], y_train)
 
-    psm_df = pd.concat([df_target, df_decoy])
     psm_df["_decoy"] = y
 
     if competitive:
@@ -191,8 +234,9 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
         classifier.reset()
-        classifier.fit(X_train, y_train)
+        classifier.fit(X[idxs_train], y_train)
         predicted_proba = classifier.predict_proba(X)[:, 1]
+    del X
 
     if _is_collapsed(predicted_proba):
         logger.warning(
