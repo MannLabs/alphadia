@@ -222,7 +222,7 @@ calibration:
 
   # the minimum number of steps for a targeted optimizer. The first step at the target still scores
   # with the score cutoff estimated at the initial tolerance, so one more step is taken at the target.
-  targeted_min_steps: 2
+  targeted_min_steps: 3
 
   # training epochs of a warm-started classifier during calibration. Successive calibration steps
   # re-extract the same elution groups, so a few epochs from the previous weights suffice.
