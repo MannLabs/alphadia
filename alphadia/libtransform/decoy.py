@@ -4,10 +4,19 @@ import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.decoy import DIANNDecoyGenerator, decoy_lib_provider
 
-from alphadia.constants.keys import DecoyType
+from alphadia.constants.keys import FORCED_DECOY_TYPE, DecoyType
 from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
+
+
+def forced_decoy_type(configured: str) -> str:
+    """The decoy scheme to generate with: always FORCED_DECOY_TYPE, overriding the configured one."""
+    if configured != FORCED_DECOY_TYPE:
+        logger.warning(
+            f"fdr.decoy_type '{configured}' is overridden: decoys are generated with '{FORCED_DECOY_TYPE}'"
+        )
+    return FORCED_DECOY_TYPE
 
 
 class DIANNKeepProlineDecoyGenerator(DIANNDecoyGenerator):

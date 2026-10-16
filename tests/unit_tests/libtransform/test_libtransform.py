@@ -6,7 +6,7 @@ import pytest
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.libtransform.base import ProcessingPipeline
-from alphadia.libtransform.decoy import DecoyGenerator
+from alphadia.libtransform.decoy import DecoyGenerator, forced_decoy_type
 from alphadia.libtransform.flatten import (
     FlattenLibrary,
     InitFlatColumns,
@@ -209,3 +209,8 @@ def test_precursor_initializer_keep_decoys():
 
     assert len(result.precursor_df) == 4
     assert result.precursor_df["decoy"].sum() == 2
+
+
+@pytest.mark.parametrize("configured", ["diann", "pseudo_reverse", "diann_inner"])
+def test_forced_decoy_type_overrides_the_configured_scheme(configured):
+    assert forced_decoy_type(configured) == "diann_inner"

@@ -24,7 +24,7 @@ from alphadia.exceptions import (
     NoLibraryAvailableError,
 )
 from alphadia.libtransform.base import ProcessingPipeline
-from alphadia.libtransform.decoy import DecoyGenerator
+from alphadia.libtransform.decoy import DecoyGenerator, forced_decoy_type
 from alphadia.libtransform.fasta_digest import FastaDigest
 from alphadia.libtransform.flatten import (
     FlattenLibrary,
@@ -374,7 +374,7 @@ class SearchStep:
         prepare_pipeline = ProcessingPipeline(
             [
                 DecoyGenerator(
-                    decoy_type=self.config["fdr"]["decoy_type"],
+                    decoy_type=forced_decoy_type(self.config["fdr"]["decoy_type"]),
                     mp_process_num=thread_count,
                 ),
                 FlattenLibrary(

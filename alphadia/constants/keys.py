@@ -111,6 +111,11 @@ class DecoyType(metaclass=ConstantsClass):
     DIANN_INNER = "diann_inner"
 
 
+# Generated decoys always use this scheme, whatever fdr.decoy_type says: test cases that set the plain DIA-NN scheme
+# get decoys that never end in xP[KR], which made about half of the plasma IDs false through the y2 "PK" ion.
+FORCED_DECOY_TYPE = DecoyType.DIANN_INNER
+
+
 class QuantificationLevelName(metaclass=ConstantsClass):
     """String constants for accessing the quantification level."""
 
