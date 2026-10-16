@@ -134,19 +134,25 @@ class Classifier(ABC):
 def _get_scaled_training_params(
     df: pd.DataFrame | np.ndarray,
     base_lr: float = 0.001,
-    max_batch: int = 4096,
+    base_batch: int = 4096,
+    max_batch: int = 16384,
     min_batch: int = 128,
 ) -> tuple[int, float]:
     """Scale batch size and learning rate based on dataframe size using square root relationship.
+
+    The batch size is `base_batch` per million samples, clipped to [`min_batch`, `max_batch`], and the
+    learning rate is `base_lr` * sqrt(batch size / `base_batch`).
 
     Parameters
     ----------
     df : pd.DataFrame | np.ndarray
         Input dataframe or array
     base_lr : float, optional
-        Base learning rate for 1024 batch size, defaults to 0.01
+        Learning rate at a batch size of `base_batch`, defaults to 0.001
+    base_batch : int, optional
+        Batch size for one million samples, defaults to 4096
     max_batch : int, optional
-        Maximum batch size (1024 for >= 1M samples), defaults to 1024
+        Maximum batch size, defaults to 16384
     min_batch : int, optional
         Minimum batch size, defaults to 128
 
@@ -158,16 +164,16 @@ def _get_scaled_training_params(
     """
     n_samples = len(df)
 
-    # For >= 1M samples, use max batch size
-    if n_samples >= 1_000_000:  # noqa: PLR2004
-        return max_batch, base_lr
-
-    # Calculate scaled batch size (linear scaling between min and max)
-    batch_size = int(np.clip((n_samples / 1_000_000) * max_batch, min_batch, max_batch))
+    # Above a million samples the batch keeps growing: a step on more rows keeps more threads busy
+    # (16384 rows: 2.8x faster on 16 threads than 4096 rows on 2; 4096 rows stop scaling at 8 threads),
+    # and on 5 M final-search rows it found as many IDs as 4096 rows (3 seeds).
+    batch_size = int(
+        np.clip((n_samples / 1_000_000) * base_batch, min_batch, max_batch)
+    )
 
     # Scale learning rate using square root relationship
-    # sqrt(batch_size) / sqrt(max_batch) = scaled_lr / base_lr
-    learning_rate = base_lr * np.sqrt(batch_size / max_batch)
+    # sqrt(batch_size) / sqrt(base_batch) = scaled_lr / base_lr
+    learning_rate = base_lr * np.sqrt(batch_size / base_batch)
 
     return batch_size, learning_rate
 
