@@ -53,9 +53,11 @@ def test_target_decoy_fdr(mock_show):
 @pytest.mark.parametrize(
     "n_samples,expected_batch,expected_lr",
     [
-        # Large dataset case (≥1M samples)
+        # Large dataset cases (≥1M samples): the batch keeps growing up to the maximum
         (1_000_000, 4096, 0.001),
-        (2_000_000, 4096, 0.001),
+        (2_000_000, 8192, 0.001 * np.sqrt(2)),
+        (4_000_000, 16384, 0.002),
+        (10_000_000, 16384, 0.002),
         # Mid-size dataset cases
         (500_000, 2048, 0.001 * np.sqrt(2048 / 4096)),  # 50% of max
         (250_000, 1024, 0.001 * np.sqrt(1024 / 4096)),  # 25% of max
