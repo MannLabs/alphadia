@@ -23,13 +23,20 @@ def mock_config():
 def test_filters_precursors_and_fragments_correctly(mock_config):
     """Test that the filter_dfs method filters precursors and fragments correctly."""
     precursor_df = pd.DataFrame(
-        {"qval": [0.005, 0.005, 0.011], "decoy": [0, 1, 0], "precursor_idx": [1, 2, 3]}
+        {
+            "qval": [0.005, 0.005, 0.011],
+            "decoy": [0, 1, 0],
+            "precursor_idx": [1, 2, 3],
+            "rank": [0, 0, 0],
+        }
     )
+    # the last fragment belongs to another candidate (rank 1) of the accepted precursor
     fragments_df = pd.DataFrame(
         {
-            "precursor_idx": [1, 1, 1, 2, 1, 1],
-            "mass_error": [1, 3, -2, 5, -201, 1],
-            "correlation": [0.7, 0.5, 0.8, 0.6, 0.9, 0.95],
+            "precursor_idx": [1, 1, 1, 2, 1, 1, 1],
+            "rank": [0, 0, 0, 0, 0, 0, 1],
+            "mass_error": [1, 3, -2, 5, -201, 1, 4],
+            "correlation": [0.7, 0.5, 0.8, 0.6, 0.9, 0.95, 0.99],
         }
     )
     instance = PeptideCentricWorkflow("test_instance", mock_config)
@@ -59,6 +66,7 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
                 "qval": [0.005],
                 "decoy": [0],
                 "precursor_idx": [1],
+                "rank": [0],
             }
         ),
     )
@@ -68,6 +76,7 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         pd.DataFrame(
             {
                 "precursor_idx": [1, 1, 1],
+                "rank": [0, 0, 0],
                 "mass_error": [1, -2, 1],
                 "correlation": [0.95, 0.8, 0.7],
             }

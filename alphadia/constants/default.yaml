@@ -413,7 +413,8 @@ optimization:
   rt_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_percentile_range: 0.999
+      # the 99.9 % interval of ~1000 precursors is set by its few most extreme residuals, mostly false IDs
+      automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.5
       try_narrower_values: True
       maximal_decrease: 0.1

@@ -556,7 +556,7 @@ class OptimizationHandler:
             Filtered precursor dataframe. Decoy precursors and those found at worse than 1% FDR are removed from the precursor dataframe.
 
         fragments_df_filtered : pd.DataFrame
-            Filtered fragment dataframe. Retained fragments must either:
+            Filtered fragment dataframe. Retained fragments belong to the accepted candidate of a precursor and must either:
                 1) have a correlation greater than 0.7 and belong to the top 5000 fragments sorted by correlation, if there are more than 500 with a correlation greater than 0.7, or
                 2) belong to the top 500 fragments sorted by correlation otherwise.
             Fragments with abs(mass_error) greater than MAX_FRAGMENT_MZ_TOLERANCE (200) are removed.
@@ -565,8 +565,12 @@ class OptimizationHandler:
         decoy_mask = precursor_df["decoy"] == 0
         precursor_df_filtered = precursor_df[qval_mask & decoy_mask]
 
-        precursor_idx_mask = fragments_df["precursor_idx"].isin(
-            precursor_df_filtered["precursor_idx"]
+        # The lock holds the fragments of every candidate of a precursor; only the accepted
+        # candidate's fragments come from the identified peak.
+        precursor_idx_mask = pd.MultiIndex.from_frame(
+            fragments_df[["precursor_idx", "rank"]]
+        ).isin(
+            pd.MultiIndex.from_frame(precursor_df_filtered[["precursor_idx", "rank"]])
         )
         mass_error_mask = (
             np.abs(fragments_df["mass_error"]) <= MAX_FRAGMENT_MZ_TOLERANCE
