@@ -226,7 +226,7 @@ calibration:
 
   # training epochs of a warm-started classifier during calibration. Successive calibration steps
   # re-extract the same elution groups, so a few epochs from the previous weights suffice.
-  warm_start_epochs: 3
+  warm_start_epochs: 10
 
   # the maximum number of times an automatic optimizer can be skipped before it is considered to have converged
   max_skips: 1
