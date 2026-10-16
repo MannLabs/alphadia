@@ -28,6 +28,11 @@ _QUANTILE_CLIP = 1e-4
 # a better input than the raw features.
 _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 
+# The quantile table is estimated on at most this many rows: 1001 quantiles are just as well
+# resolved from 200k rows, and np.quantile over millions of rows costs seconds per fit.
+_MAX_ROWS_FOR_QUANTILE_FIT = 200_000
+_QUANTILE_SUBSAMPLE_SEED = 42
+
 
 class Classifier(ABC):
     """Abstract base class for classifiers.
@@ -378,7 +383,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             self._quantiles = None
             return x
 
-        self._quantiles = np.quantile(x, np.linspace(0, 1, _N_QUANTILES), axis=0)
+        x_fit = x
+        if len(x) > _MAX_ROWS_FOR_QUANTILE_FIT:
+            rows = np.random.default_rng(_QUANTILE_SUBSAMPLE_SEED).choice(
+                len(x), _MAX_ROWS_FOR_QUANTILE_FIT, replace=False
+            )
+            x_fit = x[rows]
+        self._quantiles = np.quantile(x_fit, np.linspace(0, 1, _N_QUANTILES), axis=0)
 
         return self._apply_transform(x)
 

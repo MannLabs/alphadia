@@ -61,6 +61,7 @@ class OptimizationHandler:
         self._optlock: OptimizationLock = OptimizationLock(
             self._spectral_library, self._config
         )
+        self._num_fits_after_lock = 0
 
         self._column_name_handler = ColumnNameHandler(
             self._calibration_manager,
@@ -382,6 +383,14 @@ class OptimizationHandler:
             self._optlock.batch_library,
         )
 
+        # The first fit after the lock still sees new data (more candidates per precursor, calibrated
+        # values), so only the fits after it continue with fewer epochs.
+        warm_start_epochs = (
+            self._config["calibration"]["warm_start_epochs"]
+            if self._num_fits_after_lock > 0
+            else None
+        )
+
         if self._config["search"]["extraction_backend"] == "python":
             precursor_quantified_w_features_df, fragments_df = (
                 extraction_handler.score_and_quantify_candidates(
@@ -407,6 +416,7 @@ class OptimizationHandler:
                 competitive=self._config["fdr"]["competitive_scoring"],
                 df_fragments=self._optlock.fragments_df,
                 version=self._optimization_manager.classifier_version,
+                warm_start_epochs=warm_start_epochs,
             )
         else:
             precursor_w_features_df = extraction_handler.score_candidates(
@@ -449,6 +459,7 @@ class OptimizationHandler:
                 self._dia_data,
                 self._optlock.batch_library,
                 df_fragments=self._optlock.fragments_df,
+                warm_start_epochs=warm_start_epochs,
             )
 
         self._reporter.log_string(
@@ -457,6 +468,8 @@ class OptimizationHandler:
         )
 
         self._optlock.update_with_fdr(precursor_df)
+        if self._optlock.previously_calibrated:
+            self._num_fits_after_lock += 1
 
         self._reporter.log_string(
             f"=== FDR correction performed with classifier version {self._optimization_manager.classifier_version} ===",
