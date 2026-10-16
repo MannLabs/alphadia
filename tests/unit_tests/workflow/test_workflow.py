@@ -400,19 +400,22 @@ def test_fdr_manager_warm_start_epochs_apply_only_to_fitted_classifiers(monkeypa
 
     monkeypatch.setattr(type(FDR_TEST_BASE_CLASSIFIER), "fit", recording_fit)
     own_epochs = FDR_TEST_BASE_CLASSIFIER.epochs
+    warm_start_epochs = own_epochs + 1
 
-    # When: a cold fit and a warm-started fit are both asked for one epoch
+    # When: a cold fit and a warm-started fit are both asked for a different number of epochs
     for _ in range(2):
         fdr_manager.fit_predict(
             test_features_df,
             decoy_strategy="precursor",
             competitive=False,
             df_fragments=None,
-            warm_start_epochs=1,
+            warm_start_epochs=warm_start_epochs,
         )
 
     # Then: only the warm-started fit uses it, and the stored classifier keeps its own epochs
-    assert fitted_epochs == [own_epochs, 1]
+    # (the random test data can trigger the refit after a tie collapse, which adds a fit)
+    assert fitted_epochs[0] == own_epochs
+    assert fitted_epochs[-1] == warm_start_epochs
     assert fdr_manager.get_classifier(FDR_TEST_FEATURES).epochs == own_epochs
 
 
