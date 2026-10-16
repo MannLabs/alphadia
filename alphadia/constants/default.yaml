@@ -224,8 +224,8 @@ calibration:
   # with the score cutoff estimated at the initial tolerance, so one more step is taken at the target.
   targeted_min_steps: 2
 
-  # training epochs of a warm-started classifier during calibration. Successive calibration steps
-  # re-extract the same elution groups, so a few epochs from the previous weights suffice.
+  # training epochs of a warm-started classifier during calibration. The final search starts from the
+  # last calibration classifier: with 3 epochs it found 4 % fewer precursors at 5 ng than with 10.
   warm_start_epochs: 10
 
   # the maximum number of times an automatic optimizer can be skipped before it is considered to have converged
