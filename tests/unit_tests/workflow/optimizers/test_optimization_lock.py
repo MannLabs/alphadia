@@ -6,6 +6,8 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.workflow.optimizers.optimization_lock import OptimizationLock
 
+TEST_FDR = 0.01
+
 
 def test_get_exponential_batch_plan_correctly():
     """Tests that the exponential batch plan is constructed correctly."""
@@ -82,7 +84,6 @@ def test_optlock_spot_on_target():
         "calibration": {
             "batch_size": 2000,
             "optimization_lock_target": 200,
-            "fdr": 0.01,
         }
     }
 
@@ -104,7 +105,7 @@ def test_optlock_spot_on_target():
             "decoy": np.zeros(1000),
         }
     )
-    optlock.update_with_fdr(precursor_df)
+    optlock.update_with_fdr(precursor_df, TEST_FDR)
     optlock.update()
 
     assert optlock.start_idx == 0
@@ -116,7 +117,6 @@ TEST_OPTLOCK_CONFIG = {
     "calibration": {
         "batch_size": 8000,
         "optimization_lock_target": 200,
-        "fdr": 0.01,
     }
 }
 
@@ -139,7 +139,7 @@ def test_optlock():
             "decoy": np.zeros(1100),
         }
     )
-    optlock.update_with_fdr(precursor_df)
+    optlock.update_with_fdr(precursor_df, TEST_FDR)
 
     assert not optlock.has_target_num_precursors
     assert not optlock.previously_calibrated
@@ -161,7 +161,7 @@ def test_optlock():
         }
     )
 
-    optlock.update_with_fdr(precursor_df)
+    optlock.update_with_fdr(precursor_df, TEST_FDR)
 
     assert optlock.has_target_num_precursors
     assert not optlock.previously_calibrated
@@ -189,7 +189,7 @@ def test_optlock_batch_idx():
 
     precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005), "decoy": np.zeros(4500)})
 
-    optlock.update_with_fdr(precursor_df)
+    optlock.update_with_fdr(precursor_df, TEST_FDR)
 
     optlock.has_target_num_precursors = True
     optlock.update()

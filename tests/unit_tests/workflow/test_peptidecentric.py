@@ -83,7 +83,7 @@ def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
         handler = OptimizationHandler(
-            {"calibration": {"max_steps": 20}},
+            {"calibration": {"max_steps": 20, "fdr": 0.01}},
             SimpleNamespace(ms2_error=100.0),
             MagicMock(),
             MagicMock(),
@@ -130,3 +130,57 @@ def test_search_parameter_optimization_recovers_with_insufficient_precursors():
 
     # then
     optimizer.proceed_with_insufficient_precursors.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("n_found", "expect_linear"),
+    [(150, False), (250, True)],
+)
+def test_linear_calibration_falls_back_to_the_mlp_below_the_lock_target(
+    n_found, expect_linear
+):
+    """The logistic regression scores a step only if it finds as many precursors as the lock needs."""
+    # given: a logistic regression that finds n_found targets at q < linear_fdr
+    config = {
+        "calibration": {
+            "fdr": 0.01,
+            "linear_fdr": 0.05,
+            "optimization_lock_target": 200,
+        }
+    }
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
+    ):
+        handler = OptimizationHandler(
+            config,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            linear_fdr_manager=MagicMock(),
+        )
+    precursor_df = pd.DataFrame({"qval": [0.03] * n_found, "decoy": [0] * n_found})
+    extraction_handler = MagicMock()
+    extraction_handler.perform_fdr_and_filter_candidates.return_value = (
+        None,
+        precursor_df,
+    )
+
+    # when
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.ExtractionHandler.create_handler",
+        return_value=extraction_handler,
+    ):
+        result = handler._perform_linear_fdr(pd.DataFrame())
+
+    # then: enough precursors keep the logistic regression and its q-value cutoff, too few fall back for good
+    if expect_linear:
+        assert result is precursor_df
+        assert handler._step_fdr == 0.05
+        assert handler._linear_fdr_manager is not None
+    else:
+        assert result is None
+        assert handler._step_fdr == 0.01
+        assert handler._linear_fdr_manager is None

@@ -278,6 +278,7 @@ class ExtractionHandler(ABC):
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
         max_qval: float | None = None,
+        version: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -306,6 +307,9 @@ class ExtractionHandler(ABC):
 
         max_qval : float, optional
             q-value up to which precursors are kept. Defaults to `fdr.fdr`.
+
+        version : int, optional
+            Classifier version to start from. Defaults to the optimization manager's classifier version.
 
         Returns
         -------
@@ -710,6 +714,7 @@ class NgExtractionHandler(ExtractionHandler):
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
         max_qval: float | None = None,
+        version: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -750,7 +755,9 @@ class NgExtractionHandler(ExtractionHandler):
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=df_fragments,
             fragment_provider=quantified_fragments if df_fragments is None else None,
-            version=self._optimization_manager.classifier_version,
+            version=self._optimization_manager.classifier_version
+            if version is None
+            else version,
             warm_start_epochs=warm_start_epochs,
         )
         if max_qval is None:

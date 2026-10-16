@@ -30,7 +30,6 @@ class OptimizationLock:
         rng.shuffle(self._elution_group_order)
 
         self._precursor_target_count = config["calibration"]["optimization_lock_target"]
-        self._fdr = config["calibration"]["fdr"]
         self._batch_size = config["calibration"]["batch_size"]
 
         self.batch_idx = 0
@@ -130,17 +129,20 @@ class OptimizationLock:
 
         self.total_elution_groups = self.features_df["elution_group_idx"].nunique()
 
-    def update_with_fdr(self, precursor_df: pd.DataFrame):
-        """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization.
+    def update_with_fdr(self, precursor_df: pd.DataFrame, fdr: float):
+        """Calculates the number of target precursors below the q-value cutoff for the current optimization lock and determines if it is sufficient to perform calibration and optimization.
 
         Parameters
         ----------
         precursor_df: pd.DataFrame
             The precursor dataframe for the current batch of the optimization lock (from workflow.perform_fdr).
+
+        fdr: float
+            q-value cutoff of the precursors that count.
         """
 
         self._precursor_at_fdr_count = np.sum(
-            (precursor_df["qval"] < self._fdr) & (precursor_df["decoy"] == 0)
+            (precursor_df["qval"] < fdr) & (precursor_df["decoy"] == 0)
         )
         self.has_target_num_precursors = (
             self._precursor_at_fdr_count >= self._precursor_target_count

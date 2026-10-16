@@ -224,12 +224,16 @@ calibration:
   # with the score cutoff estimated at the initial tolerance, so one more step is taken at the target.
   targeted_min_steps: 2
 
-  # classifier of the calibration FDR: mlp (the search classifier) or logistic_regression (fits in seconds;
-  # the final search then trains its MLP from scratch)
-  classifier: logistic_regression
-
   # q-value cutoff of the precursors that count towards the optimization lock and are used for calibration
-  fdr: 0.05
+  fdr: 0.01
+
+  # once the lock is reached, score each calibration step with a logistic regression (fits in seconds) instead of
+  # the MLP (rust backend only). If it finds fewer precursors than optimization_lock_target, the step is scored with
+  # the MLP instead and the MLP is used for the rest of the raw file.
+  linear_classifier: true
+
+  # q-value cutoff for the logistic regression, which separates less well than the MLP
+  linear_fdr: 0.05
 
   # training epochs of a warm-started classifier during calibration. Successive calibration steps
   # re-extract the same elution groups, so a few epochs from the previous weights suffice.

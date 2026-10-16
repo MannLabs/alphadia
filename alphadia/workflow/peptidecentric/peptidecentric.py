@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import CalibrationClassifier
 from alphadia.fdr.classifiers import (
     BinaryClassifierLegacyNewBatching,
     LogisticRegressionClassifier,
@@ -132,20 +131,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.config["search"]["channel_filter"],
         )
 
-    def _calibration_fdr_manager(self) -> FDRManager:
-        """The FDR manager of the calibration steps.
+    def _linear_calibration_fdr_manager(self) -> FDRManager | None:
+        """The FDR manager of the logistic regression for the calibration steps, None if it is disabled.
 
-        A logistic regression gets its own manager, so its classifiers never reach the store the final search
-        warm-starts from, and the final search trains its MLP from scratch.
+        It is separate from the search FDR manager, so its classifiers never reach the store the final search
+        warm-starts from.
         """
-        classifier = self.config["calibration"]["classifier"]
-        if classifier == CalibrationClassifier.MLP:
-            return self._fdr_manager
-        if classifier != CalibrationClassifier.LOGISTIC_REGRESSION:
-            raise ValueError(
-                f"Unknown calibration classifier: {classifier}. "
-                f"Valid options are {CalibrationClassifier.get_values()}"
-            )
+        if not self.config["calibration"]["linear_classifier"]:
+            return None
         return FDRManager(
             feature_columns=self._fdr_manager.feature_columns,
             classifier_base=LogisticRegressionClassifier(),
@@ -175,11 +168,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.config,
             self.optimization_manager,
             self.calibration_manager,
-            self._calibration_fdr_manager(),
+            self._fdr_manager,
             self.reporter,
             self.spectral_library,
             self.dia_data,
             self._figure_path,
+            linear_fdr_manager=self._linear_calibration_fdr_manager(),
         )
 
         optimization_handler.search_parameter_optimization()

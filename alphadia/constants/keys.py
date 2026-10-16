@@ -95,13 +95,6 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
-class CalibrationClassifier(metaclass=ConstantsClass):
-    """String constants for the classifier of the calibration FDR."""
-
-    MLP = "mlp"
-    LOGISTIC_REGRESSION = "logistic_regression"
-
-
 class FeatureTransform(metaclass=ConstantsClass):
     """String constants for the feature transform applied before FDR classification."""
 

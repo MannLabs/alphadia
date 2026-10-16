@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import CalibrationClassifier
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.raw_data import DiaData
@@ -48,6 +47,7 @@ class OptimizationHandler:
         spectral_library: SpecLibFlat,
         dia_data: "DiaData | DiaDataNG",  # noqa: F821
         figure_path: str | None = None,
+        linear_fdr_manager: FDRManager | None = None,
     ):
         self._config = config
         self._optimization_manager = optimization_manager
@@ -63,6 +63,9 @@ class OptimizationHandler:
             self._spectral_library, self._config
         )
         self._num_fits_after_lock = 0
+        self._linear_fdr_manager = linear_fdr_manager
+        # q-value cutoff of the classifier that scored the current step
+        self._step_fdr = self._config["calibration"]["fdr"]
 
         self._column_name_handler = ColumnNameHandler(
             self._calibration_manager,
@@ -389,9 +392,9 @@ class OptimizationHandler:
         warm_start_epochs = (
             self._config["calibration"]["warm_start_epochs"]
             if self._num_fits_after_lock > 0
-            and self._config["calibration"]["classifier"] == CalibrationClassifier.MLP
             else None
         )
+        self._step_fdr = self._config["calibration"]["fdr"]
 
         if self._config["search"]["extraction_backend"] == "python":
             precursor_quantified_w_features_df, fragments_df = (
@@ -455,22 +458,30 @@ class OptimizationHandler:
                 precursor_quantified_w_features_df, fragments_df
             )
 
-            _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
-                self._optlock.features_df,
-                candidates_df,
-                self._dia_data,
-                self._optlock.batch_library,
-                df_fragments=self._optlock.fragments_df,
-                warm_start_epochs=warm_start_epochs,
-                max_qval=self._config["calibration"]["fdr"],
-            )
+            precursor_df = None
+            if (
+                self._linear_fdr_manager is not None
+                and self._optlock.previously_calibrated
+            ):
+                precursor_df = self._perform_linear_fdr(candidates_df)
+
+            if precursor_df is None:
+                _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
+                    self._optlock.features_df,
+                    candidates_df,
+                    self._dia_data,
+                    self._optlock.batch_library,
+                    df_fragments=self._optlock.fragments_df,
+                    warm_start_epochs=warm_start_epochs,
+                    max_qval=self._step_fdr,
+                )
 
         self._reporter.log_string(
             f"=== Extracted {len(self._optlock.features_df)} precursors and {len(self._optlock.fragments_df)} fragments ===",
             verbosity="progress",
         )
 
-        self._optlock.update_with_fdr(precursor_df)
+        self._optlock.update_with_fdr(precursor_df, self._step_fdr)
         if self._optlock.previously_calibrated:
             self._num_fits_after_lock += 1
 
@@ -480,6 +491,51 @@ class OptimizationHandler:
 
         log_precursor_df(self._reporter, precursor_df)
 
+        return precursor_df
+
+    def _perform_linear_fdr(self, candidates_df: pd.DataFrame) -> pd.DataFrame | None:
+        """Scores the current step with the logistic regression.
+
+        Returns None, and disables the logistic regression for the rest of the raw file, if it finds fewer
+        precursors than the optimization lock needs: the step is then scored with the MLP, so the lock never
+        fails because of the cheaper classifier.
+        """
+        linear_fdr = self._config["calibration"]["linear_fdr"]
+        extraction_handler = ExtractionHandler.create_handler(
+            self._config,
+            self._optimization_manager,
+            self._linear_fdr_manager,
+            self._reporter,
+            self._column_name_handler,
+        )
+        # a logistic regression is refitted from scratch, so the stored version is irrelevant
+        _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
+            self._optlock.features_df,
+            candidates_df,
+            self._dia_data,
+            self._optlock.batch_library,
+            df_fragments=self._optlock.fragments_df,
+            max_qval=linear_fdr,
+            version=-1,
+        )
+        n_found = int(
+            ((precursor_df["qval"] < linear_fdr) & (precursor_df["decoy"] == 0)).sum()
+        )
+        target = self._config["calibration"]["optimization_lock_target"]
+        if n_found < target:
+            self._reporter.log_string(
+                f"Logistic regression found {n_found:,} precursors at q < {linear_fdr}, fewer than the "
+                f"{target:,} the optimization lock needs. Scoring with the MLP for the rest of this raw file.",
+                verbosity="progress",
+            )
+            self._linear_fdr_manager = None
+            return None
+
+        self._reporter.log_string(
+            f"Logistic regression found {n_found:,} precursors at q < {linear_fdr}.",
+            verbosity="progress",
+        )
+        self._step_fdr = linear_fdr
         return precursor_df
 
     def _initiate_search_parameter_optimization(self):
@@ -564,7 +620,7 @@ class OptimizationHandler:
                 2) belong to the top 500 fragments sorted by correlation otherwise.
             Fragments with abs(mass_error) greater than MAX_FRAGMENT_MZ_TOLERANCE (200) are removed.
         """
-        qval_mask = precursor_df["qval"] < self._config["calibration"]["fdr"]
+        qval_mask = precursor_df["qval"] < self._step_fdr
         decoy_mask = precursor_df["decoy"] == 0
         precursor_df_filtered = precursor_df[qval_mask & decoy_mask]
 
