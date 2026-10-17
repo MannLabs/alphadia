@@ -217,6 +217,7 @@ class FDRManager(BaseManager):
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
+                refit_after_fragment_competition=is_final,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
