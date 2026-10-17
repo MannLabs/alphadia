@@ -7,6 +7,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.flatten import (
+    DropShortFragments,
     FlattenLibrary,
     InitFlatColumns,
     LogFlatLibraryStats,
@@ -201,3 +202,26 @@ def test_precursor_initializer_keep_decoys():
 
     assert len(result.precursor_df) == 4
     assert result.precursor_df["decoy"].sum() == 2
+
+
+def test_drop_short_fragments_zeroes_b_and_y_ions_up_to_three_residues():
+    library = SpecLibBase(charged_frag_types=["b_z1", "y_z1"])
+    library._precursor_df = pd.DataFrame(
+        {"sequence": ["PEPTIDEK", "AGK"], "mods": "", "mod_sites": "", "charge": 2}
+    )
+    library.calc_precursor_mz()
+    library.calc_fragment_mz_df()
+    library._fragment_intensity_df = library.fragment_mz_df.copy()
+    library._fragment_intensity_df[:] = 1.0
+
+    library = DropShortFragments(max_number=3)(library)
+
+    intensity = library.fragment_intensity_df
+    rows = library.precursor_df.set_index("sequence")[
+        ["frag_start_idx", "frag_stop_idx"]
+    ]
+    peptide = intensity.iloc[slice(*rows.loc["PEPTIDEK"])]
+    # PEPTIDEK has 7 rows: b1..b7 and y7..y1
+    assert peptide["b_z1"].tolist() == [0, 0, 0, 1, 1, 1, 1]
+    assert peptide["y_z1"].tolist() == [1, 1, 1, 1, 0, 0, 0]
+    assert intensity.iloc[slice(*rows.loc["AGK"])].to_numpy().sum() == 0
