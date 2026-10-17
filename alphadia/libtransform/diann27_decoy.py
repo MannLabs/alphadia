@@ -10,6 +10,10 @@ The first and the last residue are kept; residues 2 and n-1 always change:
 
 Modifications move with their residue; a mutated residue loses its modification. The seed is the peptide itself, so
 every charge state of a peptide gets the same decoy.
+
+With `keep_outer_ions`, the scheme runs on residues 2 .. n-1 instead, so residues 3 and n-2 change and every decoy keeps
+its target's b2 and y2. DIA-NN 2.7's mutation and swap rules leave the decoys' b2 / y2 with rarer residue compositions
+than a false target's (fewer L-type residues), so they match fewer co-isolated fragments by chance.
 """
 
 import multiprocessing as mp
@@ -83,7 +87,10 @@ def _interior_shifts_pass(target: list[float], decoy: list[float]) -> bool:
 class DIANN27DecoyGenerator:
     """Picklable worker that turns (sequence, mods, mod_sites) tuples into decoy tuples."""
 
-    def __init__(self, aa_weights: dict[str, float]) -> None:
+    def __init__(
+        self, aa_weights: dict[str, float], keep_outer_ions: bool = False
+    ) -> None:
+        self.keep_outer_ions = keep_outer_ions
         self.mutation_aas = [aa for aa in MUTATION_AAS if aa_weights.get(aa, 0) > 0]
         self.mutation_weights = [aa_weights[aa] for aa in self.mutation_aas]
 
@@ -93,6 +100,34 @@ class DIANN27DecoyGenerator:
         return [self.decoy(*peptide) for peptide in peptides]
 
     def decoy(self, sequence: str, mods: str, mod_sites: str) -> tuple[str, str, str]:
+        if not self.keep_outer_ions:
+            return self._decoy(sequence, mods, mod_sites)
+        n = len(sequence)
+        outer, core = [], []
+        if mods:
+            for mod, site in zip(mods.split(";"), mod_sites.split(";"), strict=True):
+                position = int(site)
+                if 2 <= position <= n - 1:
+                    core.append((mod, str(position - 1)))
+                else:
+                    outer.append((mod, site))
+        core_seq, core_mods, core_sites = self._decoy(
+            sequence[1:-1], ";".join(m for m, _ in core), ";".join(s for _, s in core)
+        )
+        if core_mods:
+            outer += [
+                (mod, str(int(site) + 1))
+                for mod, site in zip(
+                    core_mods.split(";"), core_sites.split(";"), strict=True
+                )
+            ]
+        return (
+            sequence[0] + core_seq + sequence[-1],
+            ";".join(m for m, _ in outer),
+            ";".join(s for _, s in outer),
+        )
+
+    def _decoy(self, sequence: str, mods: str, mod_sites: str) -> tuple[str, str, str]:
         n = len(sequence)
         if n < 4:
             return sequence, mods, mod_sites
@@ -165,12 +200,14 @@ def interior_aa_weights(sequences: pd.Series) -> dict[str, float]:
 
 
 def diann27_decoy_precursors(
-    precursor_df: pd.DataFrame, mp_process_num: int = 8
+    precursor_df: pd.DataFrame, mp_process_num: int = 8, keep_outer_ions: bool = False
 ) -> pd.DataFrame:
     """Return a copy of `precursor_df` with decoy sequences, mods and mod_sites; decoys equal to a target are dropped."""
     keys = ["sequence", "mods", "mod_sites"]
     peptides = precursor_df[keys].drop_duplicates()
-    generator = DIANN27DecoyGenerator(interior_aa_weights(peptides["sequence"]))
+    generator = DIANN27DecoyGenerator(
+        interior_aa_weights(peptides["sequence"]), keep_outer_ions=keep_outer_ions
+    )
     tuples = list(peptides.itertuples(index=False, name=None))
 
     if mp_process_num <= 1 or len(tuples) < MP_BATCH_SIZE:

@@ -24,7 +24,7 @@ from alphadia.exceptions import (
     NoLibraryAvailableError,
 )
 from alphadia.libtransform.base import ProcessingPipeline
-from alphadia.libtransform.decoy import DIANN27, DecoyGenerator
+from alphadia.libtransform.decoy import DIANN27_INNER, DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
 from alphadia.libtransform.flatten import (
     FlattenLibrary,
@@ -374,7 +374,7 @@ class SearchStep:
         prepare_pipeline = ProcessingPipeline(
             [
                 DecoyGenerator(
-                    decoy_type=DIANN27,
+                    decoy_type=DIANN27_INNER,
                     mp_process_num=thread_count,
                 ),
                 FlattenLibrary(

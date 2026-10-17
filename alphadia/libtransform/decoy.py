@@ -12,6 +12,7 @@ logger = logging.getLogger()
 DIANN_KEEP_PROLINE = "diann_keep_proline"
 DIANN_INNER = "diann_inner"
 DIANN27 = "diann27"
+DIANN27_INNER = "diann27_inner"
 
 
 class DIANNKeepProlineDecoyGenerator(DIANNDecoyGenerator):
@@ -72,7 +73,7 @@ class DecoyGenerator(ProcessingStep):
         Parameters
         ----------
         decoy_type : str, optional
-            Type of decoys to generate: `pseudo_reverse`, `diann`, `diann_keep_proline`, `diann_inner` or `diann27`. Default is `diann`.
+            Type of decoys to generate: `pseudo_reverse`, `diann`, `diann_keep_proline`, `diann_inner`, `diann27` or `diann27_inner`. Default is `diann`.
 
         """
         super().__init__()
@@ -93,10 +94,12 @@ class DecoyGenerator(ProcessingStep):
             logger.info("Decoys already present, skipping decoy generation")
             return input
 
-        if self.decoy_type == DIANN27:
+        if self.decoy_type in (DIANN27, DIANN27_INNER):
             decoy_lib = input.copy()
             decoy_lib._precursor_df = diann27_decoy_precursors(
-                input.precursor_df, mp_process_num=self.mp_process_num
+                input.precursor_df,
+                mp_process_num=self.mp_process_num,
+                keep_outer_ions=self.decoy_type == DIANN27_INNER,
             )
         else:
             decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())

@@ -96,3 +96,19 @@ def test_diann27_decoy_precursors_give_every_charge_the_same_decoy():
     decoy_df = diann27_decoy_precursors(precursor_df, mp_process_num=1)
     assert decoy_df["sequence"].tolist()[:2] == ["AVLLDEFK", "AVLLDEFK"]
     assert decoy_df["charge"].tolist() == [2, 3, 2]
+
+
+def test_diann27_inner_decoy_keeps_the_outer_two_residues_and_swaps_the_third():
+    assert DIANN27DecoyGenerator(DIANN27_WEIGHTS, keep_outer_ions=True).decoy(
+        "AGFLLDEVTK", "", ""
+    ) == ("AGVLLDEFTK", "", "")
+
+
+def test_diann27_inner_decoy_moves_modifications_with_their_residue():
+    assert DIANN27DecoyGenerator(DIANN27_WEIGHTS, keep_outer_ions=True).decoy(
+        "MGCLLDEVTK", "Acetyl@Protein_N-term;Oxidation@M;Carbamidomethyl@C", "0;1;3"
+    ) == (
+        "MGVLLDECTK",
+        "Acetyl@Protein_N-term;Oxidation@M;Carbamidomethyl@C",
+        "0;1;8",
+    )

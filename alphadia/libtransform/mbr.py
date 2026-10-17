@@ -8,7 +8,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import CalibCols
 from alphadia.libtransform.base import ProcessingStep
-from alphadia.libtransform.decoy import DIANN27, DecoyGenerator
+from alphadia.libtransform.decoy import DIANN27_INNER, DecoyGenerator
 
 logger = logging.getLogger()
 
@@ -215,7 +215,7 @@ class MbrLibraryBuilder(ProcessingStep):
         mbr_speclib.remove_unused_fragments()
 
         if self.keep_decoys:
-            decoy_generator = DecoyGenerator(decoy_type=DIANN27)
+            decoy_generator = DecoyGenerator(decoy_type=DIANN27_INNER)
             mbr_speclib = decoy_generator(mbr_speclib)
             # Decoys inherit target hashes from DecoyGenerator, rehash to get unique hashes
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
