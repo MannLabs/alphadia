@@ -106,3 +106,27 @@ def _norm_to_rt(
     upper_rt = dia_rt_values[-1]
 
     return np.interp(norm_values, [0, 1], [lower_rt, upper_rt])
+
+
+# the runs do not save their flat library, so the dump carries what maps a precursor_idx to its peptide and decoy
+LIBRARY_PRECURSOR_COLUMNS = [
+    "precursor_idx",
+    "elution_group_idx",
+    "decoy",
+    "sequence",
+    "mods",
+    "mod_sites",
+    "charge",
+    "proteins",
+    "channel",
+    "mz_library",
+    "precursor_mz",
+    "rt_library",
+]
+
+
+def save_library_precursors(spectral_library: SpecLibBase, path: str) -> None:
+    """Write the identity columns of the searched precursor table to `path` as parquet."""
+    precursor_df = spectral_library.precursor_df
+    columns = [column for column in LIBRARY_PRECURSOR_COLUMNS if column in precursor_df]
+    precursor_df[columns].to_parquet(path, index=False)
