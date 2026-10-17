@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.constants.keys import SearchStepFiles
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -13,7 +14,10 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
-from alphadia.workflow.peptidecentric.library_init import init_spectral_library
+from alphadia.workflow.peptidecentric.library_init import (
+    init_spectral_library,
+    save_library_precursors,
+)
 from alphadia.workflow.peptidecentric.multiplexing_requantification_handler import (
     MultiplexingRequantificationHandler,
 )
@@ -130,6 +134,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library,
             self.config["search"]["channel_filter"],
         )
+
+        if self._config["fdr"]["save_feature_matrix"]:
+            save_library_precursors(
+                self.spectral_library,
+                os.path.join(self.path, SearchStepFiles.LIBRARY_PRECURSORS_FILE_NAME),
+            )
 
     def _save_managers(self):
         """Saves the optimization manager to disk so that it can be reused if needed.
