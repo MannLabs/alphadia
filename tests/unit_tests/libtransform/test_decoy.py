@@ -96,3 +96,24 @@ def test_diann27_decoy_precursors_give_every_charge_the_same_decoy():
     decoy_df = diann27_decoy_precursors(precursor_df, mp_process_num=1)
     assert decoy_df["sequence"].tolist()[:2] == ["AVLLDEFK", "AVLLDEFK"]
     assert decoy_df["charge"].tolist() == [2, 3, 2]
+
+
+def test_diann27_decoy_with_fallback_keeps_the_swap():
+    generator = DIANN27DecoyGenerator(
+        DIANN27_WEIGHTS, fallback=DIANNInnerDecoyGenerator()._decoy
+    )
+    assert generator.decoy("ACLLDEVK", "Carbamidomethyl@C", "2") == (
+        "AVLLDECK",
+        "Carbamidomethyl@C",
+        "7",
+    )
+
+
+def test_diann27_decoy_with_fallback_uses_it_where_no_swap_is_allowed():
+    inner = DIANNInnerDecoyGenerator()
+    generator = DIANN27DecoyGenerator(DIANN27_WEIGHTS, fallback=inner._decoy)
+    assert generator.decoy("AELLDGFLK", "Oxidation@M", "4") == (
+        inner._decoy("AELLDGFLK"),
+        "Oxidation@M",
+        "4",
+    )

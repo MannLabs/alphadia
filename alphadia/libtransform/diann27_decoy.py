@@ -16,6 +16,7 @@ import multiprocessing as mp
 import random
 import zlib
 from collections import Counter
+from collections.abc import Callable
 
 import pandas as pd
 from alphabase.constants.aa import AA_ASCII_MASS
@@ -83,9 +84,16 @@ def _interior_shifts_pass(target: list[float], decoy: list[float]) -> bool:
 class DIANN27DecoyGenerator:
     """Picklable worker that turns (sequence, mods, mod_sites) tuples into decoy tuples."""
 
-    def __init__(self, aa_weights: dict[str, float]) -> None:
+    def __init__(
+        self,
+        aa_weights: dict[str, float],
+        fallback: Callable[[str], str] | None = None,
+    ) -> None:
+        """`fallback`, if given, replaces the generalised swaps and the mutations: a peptide whose residues 2 and
+        n-1 may not be swapped gets `fallback(sequence)`, with its modifications left in place."""
         self.mutation_aas = [aa for aa in MUTATION_AAS if aa_weights.get(aa, 0) > 0]
         self.mutation_weights = [aa_weights[aa] for aa in self.mutation_aas]
+        self.fallback = fallback
 
     def __call__(
         self, peptides: list[tuple[str, str, str]]
@@ -102,6 +110,8 @@ class DIANN27DecoyGenerator:
             AA_ASCII_MASS[ord(aa)] + sum(MOD_MASS[mod] for mod in site)
             for aa, site in zip(residues, residue_mods, strict=True)
         ]
+        if self.fallback is not None and not _allowed(masses[1] - masses[n - 2]):
+            return self.fallback(sequence), mods, mod_sites
         rng = random.Random(zlib.crc32(f"{sequence}|{mods}|{mod_sites}".encode()))
 
         order = self._permutation(masses, rng)
@@ -165,12 +175,19 @@ def interior_aa_weights(sequences: pd.Series) -> dict[str, float]:
 
 
 def diann27_decoy_precursors(
-    precursor_df: pd.DataFrame, mp_process_num: int = 8
+    precursor_df: pd.DataFrame,
+    mp_process_num: int = 8,
+    fallback: Callable[[str], str] | None = None,
 ) -> pd.DataFrame:
-    """Return a copy of `precursor_df` with decoy sequences, mods and mod_sites; decoys equal to a target are dropped."""
+    """Return a copy of `precursor_df` with decoy sequences, mods and mod_sites; decoys equal to a target are dropped.
+
+    `fallback` is passed to `DIANN27DecoyGenerator`.
+    """
     keys = ["sequence", "mods", "mod_sites"]
     peptides = precursor_df[keys].drop_duplicates()
-    generator = DIANN27DecoyGenerator(interior_aa_weights(peptides["sequence"]))
+    generator = DIANN27DecoyGenerator(
+        interior_aa_weights(peptides["sequence"]), fallback=fallback
+    )
     tuples = list(peptides.itertuples(index=False, name=None))
 
     if mp_process_num <= 1 or len(tuples) < MP_BATCH_SIZE:

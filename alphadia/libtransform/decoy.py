@@ -95,8 +95,12 @@ class DecoyGenerator(ProcessingStep):
 
         if self.decoy_type == DIANN27:
             decoy_lib = input.copy()
+            # hybrid: DIA-NN's swap where DIA-NN swaps, the inner decoy of the best build where it would fall back to
+            # generalised swaps or mutations; those two modes carried the excess of false targets over their decoys
             decoy_lib._precursor_df = diann27_decoy_precursors(
-                input.precursor_df, mp_process_num=self.mp_process_num
+                input.precursor_df,
+                mp_process_num=self.mp_process_num,
+                fallback=DIANNInnerDecoyGenerator()._decoy,
             )
         else:
             decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())
