@@ -114,6 +114,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    refit_after_fragment_competition: bool = False,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
@@ -160,6 +161,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     random_state : int, optional
         The random state for train-test split reproducibility.
 
+    refit_after_fragment_competition : bool, default=False
+        Whether to remove the PSMs that lose fragment competition before a second, final fit of the classifier,
+        as DIA-NN removes interfering precursors before it trains its networks. Fragment competition then runs
+        again on the refitted probabilities.
+
     Returns
     -------
     psm_df : pd.DataFrame
@@ -192,6 +198,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         logger.info(f"Using random state {random_state} for FDR calculation")
 
     psm_df = df.take(np.concatenate([target_rows, decoy_rows]))
+    psm_df["_row"] = np.arange(len(psm_df))
     X = psm_df[available_columns].to_numpy()
     y = np.concatenate([np.zeros(n_target), np.ones(n_decoy)])
 
@@ -236,7 +243,6 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         classifier.reset()
         classifier.fit(X[idxs_train], y_train)
         predicted_proba = classifier.predict_proba(X)[:, 1]
-    del X
 
     if _is_collapsed(predicted_proba):
         logger.warning(
@@ -244,31 +250,50 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             "separation failed and q-values will not filter PSMs."
         )
 
+    all_psm_df = psm_df
     psm_df["proba"] = predicted_proba
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
-    if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
-        # use a FDR of 10% as starting point
-        # if there are no PSMs with a FDR < 10% use all PSMs
-        start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
-        if start_idx == 0:
-            start_idx = len(psm_df)
+    competes = (
+        dia_cycle is not None
+        and dia_cycle.shape[2] <= max_dia_cycle_shape
+        and (df_fragments is not None or fragment_provider is not None)
+    )
+    logger.info(
+        f"fragment competition: {'on' if competes else 'off'}, dia_cycle shape "
+        f"{None if dia_cycle is None else dia_cycle.shape}, refit {refit_after_fragment_competition}"
+    )
 
-        if df_fragments is None and fragment_provider is not None:
-            df_fragments = fragment_provider(psm_df.iloc[:start_idx])
+    if competes and refit_after_fragment_competition:
+        pool = _fragment_competition_pool(psm_df, fdr_heuristic)
+        winners = _compete(pool, df_fragments, fragment_provider, dia_cycle)
+        keep = np.ones(len(X), dtype=bool)
+        keep[np.setdiff1d(pool["_row"].to_numpy(), winners["_row"].to_numpy())] = False
+        logger.info(
+            f"refitting the classifier without the {int((~keep).sum()):,} PSMs that lost fragment competition"
+        )
+        first_proba = predicted_proba
+        train = idxs_train[keep[idxs_train]]
+        classifier.fit(X[train], y[train])
+        predicted_proba = classifier.predict_proba(X)[:, 1]
+        if _is_collapsed(predicted_proba):
+            logger.warning("refitted FDR classifier collapsed; keeping the first fit")
+            predicted_proba = first_proba
+        psm_df = all_psm_df[keep].assign(proba=predicted_proba[keep])
+        psm_df = get_q_values(psm_df, "proba", "_decoy")
+    del X
 
-        # make sure fragments are not reused
-        if df_fragments is not None:
-            if dia_cycle is None:
-                raise ValueError(
-                    "dia_cycle must be provided if df_fragments is provided"
-                )
-            psm_df = compete_for_fragments(
-                psm_df.iloc[:start_idx], df_fragments, dia_cycle
-            )
+    if competes:
+        psm_df = _compete(
+            _fragment_competition_pool(psm_df, fdr_heuristic),
+            df_fragments,
+            fragment_provider,
+            dia_cycle,
+        )
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values_by_length(psm_df, "proba", "_decoy")
+    psm_df = psm_df.drop(columns="_row")
 
     if figure_path is not None:
         plot_fdr(
@@ -281,6 +306,25 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
 
     return psm_df
+
+
+def _fragment_competition_pool(
+    psm_df: pd.DataFrame, fdr_heuristic: float
+) -> pd.DataFrame:
+    """The PSMs up to q `fdr_heuristic` of a q-sorted frame, or all of them if none is below it."""
+    start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
+    return psm_df.iloc[: start_idx if start_idx > 0 else len(psm_df)]
+
+
+def _compete(
+    pool: pd.DataFrame,
+    df_fragments: pd.DataFrame | None,
+    fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None,
+    dia_cycle: np.ndarray,
+) -> pd.DataFrame:
+    """The PSMs of `pool` that win fragment competition. The provider quantifies the pool's fragments on demand."""
+    fragments = df_fragments if df_fragments is not None else fragment_provider(pool)
+    return compete_for_fragments(pool, fragments, dia_cycle)
 
 
 def keep_best(
