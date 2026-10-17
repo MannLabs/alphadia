@@ -482,6 +482,54 @@ def test_perform_fdr_prefers_given_fragments_over_the_provider():
     assert 1 not in psm_df["precursor_idx"].to_numpy()
 
 
+class _RecordingClassifier(_CollapsingClassifier):
+    """Remember the number of training rows of every fit."""
+
+    def __init__(self):
+        super().__init__(n_collapses=0)
+        self.fit_sizes = []
+
+    def fit(self, x, y):
+        super().fit(x, y)
+        self.fit_sizes.append(len(x))
+
+
+def test_perform_fdr_refits_without_the_psms_that_lost_fragment_competition():
+    # Given: PSMs 0 and 1 claim the same fragments at the same time, and PSM 0 scores better
+    classifier = _RecordingClassifier()
+    target_df, decoy_df = _gen_competing_psms()
+    requested = []
+
+    def provider(psm_df):
+        requested.append(psm_df)
+        return _fragments_of(psm_df)
+
+    # When: perform_fdr refits after fragment competition
+    psm_df = fdr.perform_fdr(
+        classifier,
+        ["feature"],
+        target_df,
+        decoy_df,
+        fragment_provider=provider,
+        dia_cycle=_DIA_CYCLE,
+        random_state=0,
+        refit_after_fragment_competition=True,
+    )
+
+    # Then: the classifier is fitted twice, the second time without the loser if it was a training row
+    assert len(classifier.fit_sizes) == 2
+    assert classifier.fit_sizes[1] in (
+        classifier.fit_sizes[0],
+        classifier.fit_sizes[0] - 1,
+    )
+    # and the competition runs before and after the refit
+    assert len(requested) == 2
+    assert 1 not in requested[1]["precursor_idx"].to_numpy()
+    assert 1 not in psm_df["precursor_idx"].to_numpy()
+    assert {0, 2, 3} <= set(psm_df["precursor_idx"])
+    assert "_row" not in psm_df.columns
+
+
 def _gen_quantile_transform_data(n_samples: int = 5000, random_state: int = 42):
     """Return a matrix with a constant and a heavy-tailed column."""
     rng = np.random.default_rng(random_state)
