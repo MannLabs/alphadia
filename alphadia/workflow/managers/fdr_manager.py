@@ -28,6 +28,12 @@ _FEATURE_MATRIX_ID_COLUMNS = [
     "channel",
     "decoy",
     "rank",
+    # the runs do not save their library, so the dump carries what maps a candidate to its peptide and protein
+    "sequence",
+    "mods",
+    "mod_sites",
+    "charge",
+    "proteins",
 ]
 
 
