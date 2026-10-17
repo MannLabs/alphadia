@@ -27,6 +27,7 @@ from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DIANN27, DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
 from alphadia.libtransform.flatten import (
+    DropShortFragments,
     FlattenLibrary,
     InitFlatColumns,
     LogFlatLibraryStats,
@@ -377,6 +378,7 @@ class SearchStep:
                     decoy_type=DIANN27,
                     mp_process_num=thread_count,
                 ),
+                DropShortFragments(),
                 FlattenLibrary(
                     max(
                         self.config["search"]["top_k_fragments_selection"],

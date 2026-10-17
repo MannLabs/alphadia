@@ -11,6 +11,41 @@ from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_s
 
 logger = logging.getLogger()
 
+SHORT_ION_MAX_NUMBER = 3
+
+
+class DropShortFragments(ProcessingStep):
+    def __init__(self, max_number: int = SHORT_ION_MAX_NUMBER) -> None:
+        """Zero the intensities of b and y ions up to `max_number` residues, so flattening leaves them out.
+
+        Short ions of real peptides follow position-specific residue frequencies, so a false target's short ions
+        coincide with those of co-eluting peptides more often than a decoy's do once the decoy changes the residues
+        next to the termini. Not scoring them for anyone removes that chance-match advantage of false targets.
+        """
+        self.max_number = max_number
+        super().__init__()
+
+    def validate(self, input: SpecLibBase) -> bool:
+        """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
+        return isinstance(input, SpecLibBase)
+
+    def forward(self, input: SpecLibBase) -> SpecLibBase:
+        """Zero the short-ion intensities of every precursor."""
+        intensity_df = input._fragment_intensity_df
+        start = input.precursor_df["frag_start_idx"].to_numpy()
+        stop = input.precursor_df["frag_stop_idx"].to_numpy()
+        b_columns = [i for i, c in enumerate(intensity_df.columns) if c.startswith("b")]
+        y_columns = [i for i, c in enumerate(intensity_df.columns) if c.startswith("y")]
+        for k in range(1, self.max_number + 1):
+            # row i of a precursor holds b(i+1) and y(n-1-i); peptides too short for ion k have no such row
+            has_ion = stop - start >= k
+            b_rows = (start + k - 1)[has_ion]
+            y_rows = (stop - k)[has_ion]
+            intensity_df.iloc[b_rows, b_columns] = 0.0
+            intensity_df.iloc[y_rows, y_columns] = 0.0
+        logger.info(f"Zeroed b and y ions up to {self.max_number} residues")
+        return input
+
 
 class FlattenLibrary(ProcessingStep):
     def __init__(
