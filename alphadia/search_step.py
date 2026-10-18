@@ -381,6 +381,7 @@ class SearchStep:
                     max(
                         self.config["search"]["top_k_fragments_selection"],
                         self.config["search"]["top_k_fragments_scoring"],
+                        self.config["search"]["rust_scoring_top_k_fragments"],
                     ),
                     self.config["search"]["min_fragment_intensity"],
                 ),

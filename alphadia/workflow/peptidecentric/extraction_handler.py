@@ -606,7 +606,7 @@ class NgExtractionHandler(ExtractionHandler):
         scoring_params = ScoringParameters()
         scoring_params.update(
             {
-                "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
+                "top_k_fragments": self._config["search"]["rust_scoring_top_k_fragments"],
                 "mass_tolerance": self._optimization_manager.ms2_error,
             }
         )
