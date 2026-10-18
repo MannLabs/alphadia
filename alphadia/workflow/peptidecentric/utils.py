@@ -5,6 +5,7 @@ import pandas as pd
 from alphadia.constants.keys import CalibCols
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    get_context_feature_names,
     get_feature_names,
 )
 
@@ -94,14 +95,26 @@ DECOY_SCHEME_FEATURES = (
 )
 
 
+# Context features that weigh fragments shared with HIGHER-scoring competitors. The crowding features (density,
+# competitor counts, any-share) recognised inner decoys a priori; this subset was the clean one in earlier replays.
+TRAINED_CONTEXT_FEATURES = (
+    "ctx_shared_frac_higher",
+    "ctx_shared_lib_intensity_frac_higher",
+    "ctx_competitor_log_ratio",
+)
+
+
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on."""
     if extraction_backend != "rust":
         return feature_columns
 
-    # The context features are computed for the feature matrix dump only; training on them inflated the
-    # low-input FDR, so the classifier keeps the base features.
-    return [name for name in get_feature_names() if name not in DECOY_SCHEME_FEATURES]
+    trained_context = [
+        name for name in get_context_feature_names() if name in TRAINED_CONTEXT_FEATURES
+    ]
+    return [
+        name for name in get_feature_names() if name not in DECOY_SCHEME_FEATURES
+    ] + trained_context
 
 
 def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:
