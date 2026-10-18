@@ -17,6 +17,8 @@ from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 from alphadia.raw_data import DiaData
 
 CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
+# library isotope abundance columns (alphabase) scored against the MS1 isotope XICs
+MS1_ISOTOPE_COLUMNS = ["i_0", "i_1", "i_2"]
 
 
 def set_ng_thread_count(thread_count: int) -> None:
@@ -66,7 +68,7 @@ def speclib_to_ng(
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
 
-    return SpecLibFlatNG.from_arrays(
+    speclib_ng = SpecLibFlatNG.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
         precursor_df["mz_library"].values.astype(np.float32),
         precursor_df[precursor_mz_column].values.astype(np.float32),
@@ -85,6 +87,18 @@ def speclib_to_ng(
         fragment_df["position"].values.astype(np.uint8),
         fragment_df["type"].values.astype(np.uint8),
     )
+
+    # without isotope abundances the MS1 features take their missing values
+    if all(column in precursor_df for column in MS1_ISOTOPE_COLUMNS):
+        speclib_ng.set_isotopes(
+            precursor_df["precursor_idx"].values.astype(np.uint64),
+            precursor_df["charge"].values.astype(np.uint8),
+            np.ascontiguousarray(
+                precursor_df[MS1_ISOTOPE_COLUMNS].values, dtype=np.float32
+            ),
+        )
+
+    return speclib_ng
 
 
 def get_feature_names() -> list[str]:
