@@ -103,6 +103,8 @@ class IndexBuilder:
 # The MBR library takes precursors up to this first-pass q-value; the MBR step re-scores and re-controls them, so a
 # looser precursor cut only widens what the MBR search can rescue. Protein groups stay at the reported level.
 MBR_LIBRARY_PRECURSOR_FDR = 0.05
+# Diagnostic only: no protein-group cut, so entrapment proteins reach the MBR library and its FDP can be measured.
+MBR_LIBRARY_PROTEIN_FDR = 1.0
 
 
 class MbrLibraryBuilder(ProcessingStep):

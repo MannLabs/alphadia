@@ -14,6 +14,7 @@ from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
 from alphadia.libtransform.mbr import (
     MBR_LIBRARY_PRECURSOR_FDR,
+    MBR_LIBRARY_PROTEIN_FDR,
     MbrLibraryBuilder,
     bound_by_library_pg_qval,
 )
@@ -524,7 +525,7 @@ class SearchPlanOutput:
             return None
 
         libbuilder = MbrLibraryBuilder(
-            fdr=0.01,
+            fdr=MBR_LIBRARY_PROTEIN_FDR,
             precursor_fdr=MBR_LIBRARY_PRECURSOR_FDR,
             keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
         )
