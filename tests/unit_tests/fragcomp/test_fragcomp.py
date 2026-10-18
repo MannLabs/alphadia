@@ -111,6 +111,36 @@ def test_fragment_competition_only_within_targets_and_within_decoys():
     assert kept([1, 0]) == [0, 1]
 
 
+def test_fragment_competition_removes_the_decoy_of_a_target_that_lost():
+    # Given: target 1 shares all its ions with the better target 0; decoy 2 is in the elution group of target 1
+    psm_df, frag_df, cycle = _two_psms_sharing(10)
+    decoy = psm_df.iloc[[1]].assign(
+        precursor_idx=np.uint32(2), rt_observed=100.0, proba=0.3
+    )
+    psm_df = pd.concat([psm_df, decoy], ignore_index=True).assign(
+        _decoy=[0, 0, 1], elution_group_idx=[10, 11, 11]
+    )
+    frag_df = pd.concat(
+        [
+            frag_df,
+            pd.DataFrame(
+                {
+                    "precursor_idx": np.uint32(2),
+                    "mz_observed": np.arange(700, 710.0),
+                    "rank": np.uint8(0),
+                }
+            ),
+        ],
+        ignore_index=True,
+    )
+
+    # When: fragment competition runs
+    kept = compete_for_fragments(psm_df, frag_df, cycle)
+
+    # Then: target 1 and its decoy leave together
+    assert kept["precursor_idx"].tolist() == [0]
+
+
 def test_fragment_competition_matches_rust_at_three_ions():
     rust = pytest.importorskip("alphadia_search_rs")
     rng = np.random.default_rng(0)

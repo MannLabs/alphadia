@@ -35,6 +35,21 @@ def _fragment_overlap(
     return count
 
 
+def _orphaned_decoys(
+    elution_group_idx: np.ndarray, is_decoy: np.ndarray, valid: np.ndarray
+) -> np.ndarray:
+    """Decoys whose elution group had targets in the competition and lost all of them.
+
+    A target that loses its fragments to a better target leaves the target-decoy competition. Its decoy would then
+    win the elution group without a competitor, so the decoys would count more nulls than the false targets that are
+    left. Removing the decoy with its targets keeps every elution group either complete or out.
+    """
+    targets = ~is_decoy
+    had_target = np.isin(elution_group_idx, elution_group_idx[targets])
+    kept_target = np.isin(elution_group_idx, elution_group_idx[targets & valid])
+    return is_decoy & had_target & ~kept_target
+
+
 def _window_index(precursor_mz: np.ndarray, cycle: np.ndarray) -> np.ndarray:
     """Window of each precursor, window 0 if none contains it (as in the Rust version)."""
     lower = cycle[0, :, :, 0].min(axis=1)
@@ -97,7 +112,8 @@ def compete_for_fragments(
 
     PSMs only compete against others in the same DIA window and within
     `rt_tol_seconds`, and the lower `proba` wins. Targets compete only with targets and decoys
-    (`_decoy` == 1) only with decoys. Row order does not matter and is preserved.
+    (`_decoy` == 1) only with decoys. A decoy also leaves when its elution group loses all its targets.
+    Row order does not matter and is preserved.
 
     Parameters
     ----------
@@ -164,8 +180,14 @@ def compete_for_fragments(
         min_overlap,
         is_decoy,
     )
+    n_removed = int((~valid).sum())
+    if "elution_group_idx" in psm_df.columns:
+        valid &= ~_orphaned_decoys(
+            psm_df["elution_group_idx"].to_numpy(), is_decoy, valid
+        )
     logger.info(
-        f"fragment competition (min {min_overlap} shared ions, within targets and within decoys): {int((~valid).sum()):,} of {len(valid):,} PSMs removed"
+        f"fragment competition (min {min_overlap} shared ions, within targets and within decoys): {n_removed:,} of "
+        f"{len(valid):,} PSMs removed, plus {int((~valid).sum()) - n_removed:,} decoys whose elution group lost all its targets"
     )
 
     # these only exist to point the sweep at each PSM's fragments
