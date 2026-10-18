@@ -15,6 +15,7 @@ import alphadia
 from alphadia.constants.keys import SearchStepFiles
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
+from alphadia.fdr.gap_trace import TRACE
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -324,6 +325,8 @@ class FDRManager(BaseManager):
             self._feature_matrix_path, SearchStepFiles.FDR_FEATURES_FILE_NAME
         )
         features_df[dump_columns].to_parquet(matrix_path, index=False)
+        TRACE.record("features", features_df, dump_columns)
+        TRACE.write(self._feature_matrix_path)
 
         self.reporter.log_string(
             f"Saved FDR feature matrix ({len(features_df):,} rows, "

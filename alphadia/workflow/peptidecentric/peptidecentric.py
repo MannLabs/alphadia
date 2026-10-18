@@ -6,6 +6,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import SearchStepFiles
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.gap_trace import TRACE
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -140,6 +141,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 self.spectral_library,
                 os.path.join(self.path, SearchStepFiles.LIBRARY_PRECURSORS_FILE_NAME),
             )
+            TRACE.init(self.spectral_library.precursor_df).to_parquet(
+                os.path.join(self.path, "gap_library.parquet"), index=False
+            )
 
     def _save_managers(self):
         """Saves the optimization manager to disk so that it can be reused if needed.
@@ -194,11 +198,28 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ),
         )
 
+        trace = self._config["fdr"]["save_feature_matrix"]
         candidates_df = extraction_handler.select_candidates(
             self.dia_data,
             self.spectral_library,
-            apply_cutoff=True,
+            apply_cutoff=not trace,
         )
+        if trace:
+            # the candidates before the raw-score cutoff, to tell "never selected" from "cut by the score"
+            selection = TRACE.subset(candidates_df).assign(
+                rt_center=lambda df: self.dia_data.rt_values[
+                    np.clip(
+                        df["frame_center"].to_numpy().astype(np.int64),
+                        0,
+                        len(self.dia_data.rt_values) - 1,
+                    )
+                ],
+                score_cutoff=self.optimization_manager.score_cutoff,
+            )
+            selection.to_parquet(
+                os.path.join(self.path, "gap_selection.parquet"), index=False
+            )
+            candidates_df = extraction_handler._apply_score_cutoff(candidates_df)
 
         if self._config["search"]["extraction_backend"] == "python":
             precursor_quantified_w_features_df, fragments_df = (
