@@ -605,6 +605,7 @@ class NgExtractionHandler(ExtractionHandler):
             {
                 "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
                 "mass_tolerance": self._optimization_manager.ms2_error,
+                "ms1_mass_tolerance": self._optimization_manager.ms1_error,
             }
         )
 
