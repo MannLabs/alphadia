@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from alphadia.fragcomp.fragcomp import compete_for_fragments
 from alphadia.fragcomp.utils import candidate_hash
@@ -55,3 +56,98 @@ def test_candidate_hash():
 
     assert all(hash_values == np.array([1, 4294967298, 8590934592]))
     assert hash_values.dtype == np.uint64
+
+
+def _two_psms_sharing(n_shared: int) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
+    cycle = np.array([[[[90, 110]]]])
+    psm_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(2, dtype=np.uint32),
+            "rt_observed": np.array([10.0, 11.0]),
+            "mz_observed": np.array([100.0, 100.0]),
+            "proba": np.array([0.1, 0.2]),
+            "rank": np.zeros(2, dtype=np.uint8),
+        }
+    )
+    other = np.concatenate(
+        [np.arange(300, 300 + n_shared), np.arange(500, 510 - n_shared)]
+    )
+    frag_df = pd.DataFrame(
+        {
+            "precursor_idx": np.repeat(np.arange(2, dtype=np.uint32), 10),
+            "mz_observed": np.concatenate([np.arange(300, 310), other]).astype(float),
+            "rank": np.zeros(20, dtype=np.uint8),
+        }
+    )
+    return psm_df, frag_df, cycle
+
+
+def test_fragment_competition_two_shared_ions():
+    psm_df, frag_df, cycle = _two_psms_sharing(2)
+
+    kept_two = compete_for_fragments(
+        psm_df.copy(), frag_df.copy(), cycle, min_overlap=2
+    )
+    kept_default = compete_for_fragments(psm_df.copy(), frag_df.copy(), cycle)
+
+    assert kept_two["precursor_idx"].tolist() == [0]
+    assert kept_default["precursor_idx"].tolist() == [0, 1]
+
+
+def test_fragment_competition_only_within_targets_and_within_decoys():
+    # Given: PSM 1 shares all its ions with the better PSM 0
+    psm_df, frag_df, cycle = _two_psms_sharing(10)
+
+    def kept(decoy_flags):
+        out = compete_for_fragments(
+            psm_df.assign(_decoy=decoy_flags), frag_df.copy(), cycle
+        )
+        return out["precursor_idx"].tolist()
+
+    # Then: PSM 1 loses only to a PSM of its own kind
+    assert kept([0, 0]) == [0]
+    assert kept([1, 1]) == [0]
+    assert kept([0, 1]) == [0, 1]
+    assert kept([1, 0]) == [0, 1]
+
+
+def test_fragment_competition_matches_rust_at_three_ions():
+    rust = pytest.importorskip("alphadia_search_rs")
+    rng = np.random.default_rng(0)
+    n_psm, n_frag = 400, 8
+    cycle = np.array([[[[400, 500]], [[500, 600]], [[600, 700]]]], dtype=np.float32)
+    psm_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(n_psm, dtype=np.uint32),
+            "rt_observed": rng.uniform(0, 20, n_psm),
+            "mz_observed": rng.uniform(400, 700, n_psm),
+            "proba": rng.uniform(0, 1, n_psm),
+            "rank": np.zeros(n_psm, dtype=np.uint8),
+        }
+    )
+    frag_df = pd.DataFrame(
+        {
+            "precursor_idx": np.repeat(np.arange(n_psm, dtype=np.uint32), n_frag),
+            "mz_observed": rng.integers(200, 230, n_psm * n_frag).astype(float),
+            "rank": np.zeros(n_psm * n_frag, dtype=np.uint8),
+        }
+    )
+
+    kept = compete_for_fragments(psm_df.copy(), frag_df.copy(), cycle)
+
+    frag_df["_candidate_idx"] = candidate_hash(
+        frag_df["precursor_idx"].values, frag_df["rank"].values
+    )
+    starts = np.arange(n_psm, dtype=np.int64) * n_frag
+    valid = rust.FragmentCompetition(3.0, 15.0).compete(
+        psm_df["mz_observed"].to_numpy(dtype=np.float32),
+        psm_df["precursor_idx"].to_numpy(dtype=np.int64),
+        psm_df["proba"].to_numpy(dtype=np.float64),
+        psm_df["rt_observed"].to_numpy(dtype=np.float32),
+        starts,
+        starts + n_frag,
+        frag_df["mz_observed"].to_numpy(dtype=np.float32),
+        cycle,
+    )
+    assert 0 < valid.sum() < n_psm
+    assert kept["precursor_idx"].tolist() == psm_df["precursor_idx"][valid].tolist()
