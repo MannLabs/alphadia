@@ -187,7 +187,7 @@ search:
   top_k_fragments_selection: 12
 
   # the number of most intense fragments to use in the scoring
-  top_k_fragments_scoring: 12
+  top_k_fragments_scoring: 24
 
   # the minimum intensity of a fragment to be used in the search
   min_fragment_intensity: 0.01
