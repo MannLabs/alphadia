@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia.exceptions import TooFewPSMError
+from alphadia.fdr.gap_trace import TRACE
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import (
     MAX_FDR_TORCH_THREADS,
@@ -246,6 +247,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     psm_df["proba"] = predicted_proba
     psm_df = get_q_values(psm_df, "proba", "_decoy")
+    TRACE.record(
+        "scored",
+        psm_df,
+        ["precursor_idx", "rank", "elution_group_idx", "decoy", "proba", "qval"],
+    )
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
@@ -266,9 +272,15 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             psm_df = compete_for_fragments(
                 psm_df.iloc[:start_idx], df_fragments, dia_cycle
             )
+            TRACE.record("fragcomp", psm_df, ["precursor_idx", "rank"])
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values_by_length(psm_df, "proba", "_decoy")
+    TRACE.record(
+        "final",
+        psm_df,
+        ["precursor_idx", "rank", "elution_group_idx", "decoy", "proba", "qval"],
+    )
 
     if figure_path is not None:
         plot_fdr(
