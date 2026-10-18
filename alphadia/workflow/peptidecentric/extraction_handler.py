@@ -207,7 +207,7 @@ class ExtractionHandler(ABC):
             "=== Search parameters used ===",
             f"{'rt_error':<15}: {self._optimization_manager.rt_error}",
             f"{'mobility_error':<15}: {self._optimization_manager.mobility_error}",
-            f"{'num_candidates':<15}: { self._optimization_manager.num_candidates}",
+            f"{'num_candidates':<15}: {self._optimization_manager.num_candidates}",
             f"{'ms1_error':<15}: {self._optimization_manager.ms1_error}",
             f"{'ms2_error':<15}: {self._optimization_manager.ms2_error}",
             f"{'fwhm_rt':<15}: {self._optimization_manager.fwhm_rt}",
