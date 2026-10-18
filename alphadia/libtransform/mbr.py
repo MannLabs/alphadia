@@ -100,10 +100,21 @@ class IndexBuilder:
         return result
 
 
+# The MBR library takes precursors up to this first-pass q-value; the MBR step re-scores and re-controls them, so a
+# looser precursor cut only widens what the MBR search can rescue. Protein groups stay at the reported level.
+MBR_LIBRARY_PRECURSOR_FDR = 0.05
+
+
 class MbrLibraryBuilder(ProcessingStep):
-    def __init__(self, fdr: float = 0.01, keep_decoys: bool = False) -> None:
+    def __init__(
+        self,
+        fdr: float = 0.01,
+        keep_decoys: bool = False,
+        precursor_fdr: float | None = None,
+    ) -> None:
         super().__init__()
         self.fdr = fdr
+        self.precursor_fdr = fdr if precursor_fdr is None else precursor_fdr
         self.keep_decoys = keep_decoys
         self.rt_by_run: pd.DataFrame | None = None
         self.pg_qval: pd.DataFrame | None = None
@@ -188,7 +199,9 @@ class MbrLibraryBuilder(ProcessingStep):
         # The precursor table reaching here is filtered at the configured fdr.fdr, which entrapment and other
         # diagnostic runs raise above 1 %. Protein groups that only passed at that looser level would enter the MBR
         # library, where the MBR step's own protein FDR, computed over the pre-selected groups, cannot reject them.
-        psm_df = psm_df[(psm_df["qval"] <= self.fdr) & (psm_df["pg_qval"] <= self.fdr)]
+        psm_df = psm_df[
+            (psm_df["qval"] <= self.precursor_fdr) & (psm_df["pg_qval"] <= self.fdr)
+        ]
 
         self.pg_qval = psm_df.groupby("pg", as_index=False)["pg_qval"].max()
 

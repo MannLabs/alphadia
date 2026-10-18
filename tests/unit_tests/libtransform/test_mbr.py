@@ -418,3 +418,10 @@ class TestMbrProteinFdr:
 
         # then: raised to the library q-value, never lowered, unknown groups kept
         np.testing.assert_allclose(result["pg_qval"], [0.008, 0.02, 0.003])
+
+
+def test_mbr_library_builder_keeps_precursors_up_to_the_precursor_fdr():
+    builder = MbrLibraryBuilder(fdr=0.01, precursor_fdr=0.05)
+    assert builder.precursor_fdr == 0.05
+    assert builder.fdr == 0.01
+    assert MbrLibraryBuilder(fdr=0.01).precursor_fdr == 0.01

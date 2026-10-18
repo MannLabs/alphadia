@@ -12,7 +12,11 @@ from alphadia.constants.keys import (
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
-from alphadia.libtransform.mbr import MbrLibraryBuilder, bound_by_library_pg_qval
+from alphadia.libtransform.mbr import (
+    MBR_LIBRARY_PRECURSOR_FDR,
+    MbrLibraryBuilder,
+    bound_by_library_pg_qval,
+)
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
     build_run_stat_df,
@@ -521,6 +525,7 @@ class SearchPlanOutput:
 
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
+            precursor_fdr=MBR_LIBRARY_PRECURSOR_FDR,
             keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
