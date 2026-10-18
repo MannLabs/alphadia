@@ -95,12 +95,16 @@ DECOY_SCHEME_FEATURES = (
 )
 
 
-# Context features that weigh fragments shared with HIGHER-scoring competitors. The crowding features (density,
-# competitor counts, any-share) recognised inner decoys a priori; this subset was the clean one in earlier replays.
+# All eight context features, crowding ones included: tests whether they still leak with these decoys and fc2.
 TRAINED_CONTEXT_FEATURES = (
     "ctx_shared_frac_higher",
     "ctx_shared_lib_intensity_frac_higher",
     "ctx_competitor_log_ratio",
+    "ctx_n_competitors_higher",
+    "ctx_claimant_rank",
+    "ctx_candidate_density",
+    "ctx_n_competitors",
+    "ctx_shared_frac_any",
 )
 
 
