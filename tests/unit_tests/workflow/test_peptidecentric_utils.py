@@ -1,5 +1,6 @@
 """Unit tests for the peptidecentric workflow utils."""
 
+from alphadia.fdr.utils import SCORE_TO_NEXT_CANDIDATE
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     get_context_feature_names,
     get_feature_names,
@@ -20,7 +21,7 @@ def test_get_classifier_feature_columns_for_rust_backend():
         name
         for name in get_feature_names() + get_context_feature_names()
         if name not in DECOY_SCHEME_FEATURES
-    ]
+    ] + [SCORE_TO_NEXT_CANDIDATE]
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():

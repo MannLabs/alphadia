@@ -15,6 +15,7 @@ import alphadia
 from alphadia.constants.keys import SearchStepFiles
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
+from alphadia.fdr.utils import SCORE_TO_NEXT_CANDIDATE, add_score_to_next_candidate
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -170,6 +171,12 @@ class FDRManager(BaseManager):
         -----
             The classifier_hash must be identical for every call of fit_predict for self._current_version to give the right index in self.classifier_store.
         """
+        if SCORE_TO_NEXT_CANDIDATE in self.feature_columns and {
+            "score",
+            "precursor_idx",
+        }.issubset(features_df.columns):
+            add_score_to_next_candidate(features_df)
+
         available_columns = list(
             set(features_df.columns).intersection(set(self.feature_columns))
         )

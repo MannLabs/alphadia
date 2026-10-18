@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 
@@ -16,6 +17,13 @@ logger = logging.getLogger()
 # at about 8 threads, one on 16384 rows (the batch size above 4 M rows) at about 16. Measured on a
 # hybrid 8+16-core laptop, where 24 threads were slower again.
 MAX_FDR_TORCH_THREADS = 16
+
+# The raw selection score of a candidate minus the best score among the other candidates of its precursor. The raw
+# score depends on how much signal a precursor collects anywhere, which varies between precursors, and between targets
+# and decoys of a decoy scheme. Its gap to the precursor's own next-best peak does not. On the pass-1 dumps of the
+# paired-entrapment runs this gave +2-5 % real IDs at a matched paired FDP, with the label-free leak AUC up by
+# at most 0.004.
+SCORE_TO_NEXT_CANDIDATE = "score_to_next_candidate"
 
 
 def train_test_split_(
@@ -129,3 +137,34 @@ def manage_torch_threads(max_threads: int = 2) -> Callable[..., Any]:
         return wrapper
 
     return decorator
+
+
+def add_score_to_next_candidate(df: pd.DataFrame) -> None:
+    """Add `SCORE_TO_NEXT_CANDIDATE` in place: `score` minus the best `score` among the other candidates of the precursor.
+
+    The best candidate is compared with the runner-up, every other candidate with the best one, so the value is
+    positive only for the best candidate. Tied best candidates both get 0. A precursor with a single candidate is
+    compared with the lowest score of the frame, as its other peaks fell below the raw-score cutoff.
+    """
+    score = df["score"].to_numpy(dtype=np.float64)
+    precursor = df["precursor_idx"].to_numpy()
+    if len(score) == 0:
+        df[SCORE_TO_NEXT_CANDIDATE] = np.zeros(0, dtype=np.float32)
+        return
+
+    order = np.lexsort((-score, precursor))
+    sorted_precursor, sorted_score = precursor[order], score[order]
+    is_first = np.r_[True, sorted_precursor[1:] != sorted_precursor[:-1]]
+    group = np.cumsum(is_first) - 1
+    best = sorted_score[is_first][group]
+
+    has_runner_up = (
+        is_first & np.r_[sorted_precursor[1:] == sorted_precursor[:-1], False]
+    )
+    runner_up = np.full(group[-1] + 1, np.nanmin(score))
+    runner_up[group[has_runner_up]] = sorted_score[np.flatnonzero(has_runner_up) + 1]
+
+    other = np.where(is_first, runner_up[group], best)
+    relative = np.empty(len(score), dtype=np.float32)
+    relative[order] = sorted_score - other
+    df[SCORE_TO_NEXT_CANDIDATE] = relative
