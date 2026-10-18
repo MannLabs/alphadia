@@ -36,6 +36,10 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     to_features_df,
 )
 
+# Apex cycle offsets at which the context features are measured again and subtracted, several peak widths away
+# from the apex: the chance level of a candidate's fragment masses differs between decoys and targets.
+CONTEXT_BACKGROUND_OFFSETS = [-20, -10, 10, 20]
+
 
 class ExtractionHandler(ABC):
     """Base class for managing precursor and fragment extraction operations."""
@@ -606,7 +610,9 @@ class NgExtractionHandler(ExtractionHandler):
         scoring_params = ScoringParameters()
         scoring_params.update(
             {
-                "top_k_fragments": self._config["search"]["rust_scoring_top_k_fragments"],
+                "top_k_fragments": self._config["search"][
+                    "rust_scoring_top_k_fragments"
+                ],
                 "mass_tolerance": self._optimization_manager.ms2_error,
             }
         )
@@ -623,6 +629,7 @@ class NgExtractionHandler(ExtractionHandler):
             context_features = CandidateContext(
                 mass_tolerance=self._optimization_manager.ms2_error,
                 top_k_fragments=self._config["search"]["top_k_fragments_scoring"],
+                background_offsets=CONTEXT_BACKGROUND_OFFSETS,
             ).compute(dia_data, self._speclib_ng, candidates)
             features_df = merge_context_features(features_df, context_features)
 
