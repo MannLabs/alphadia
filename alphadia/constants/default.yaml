@@ -187,7 +187,11 @@ search:
   top_k_fragments_selection: 12
 
   # the number of most intense fragments to use in the scoring
-  top_k_fragments_scoring: 24
+  top_k_fragments_scoring: 12
+
+  # test build: the number of most intense fragments the rust feature scoring uses (separate key so that run configs
+  # written with top_k_fragments_scoring do not override it)
+  rust_scoring_top_k_fragments: 24
 
   # the minimum intensity of a fragment to be used in the search
   min_fragment_intensity: 0.01

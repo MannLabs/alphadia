@@ -26,6 +26,7 @@ def test_score_candidates_adds_context_features_if_enabled(
     config = {
         "search": {
             "top_k_fragments_scoring": 12,
+            "rust_scoring_top_k_fragments": 12,
             "candidate_context_features": candidate_context_features,
         }
     }
