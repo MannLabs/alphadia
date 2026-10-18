@@ -152,10 +152,10 @@ class RawFileManager(BaseManager):
         rt_duration = self.stats["rt_limit_max"] - self.stats["rt_limit_min"]
 
         logger.info(
-            f"{'RT (min)':<20}: {self.stats['rt_limit_min']/60:.1f} - {self.stats['rt_limit_max']/60:.1f}"
+            f"{'RT (min)':<20}: {self.stats['rt_limit_min'] / 60:.1f} - {self.stats['rt_limit_max'] / 60:.1f}"
         )
         logger.info(f"{'RT duration (sec)':<20}: {rt_duration:.1f}")
-        logger.info(f"{'RT duration (min)':<20}: {rt_duration/60:.1f}")
+        logger.info(f"{'RT duration (min)':<20}: {rt_duration / 60:.1f}")
 
         logger.info(f"{'Cycle len (scans)':<20}: {self.stats['cycle_length']:.0f}")
         logger.info(f"{'Cycle len (sec)':<20}: {self.stats['cycle_duration']:.2f}")
