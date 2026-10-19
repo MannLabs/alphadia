@@ -35,7 +35,13 @@ def test_score_candidates_adds_context_features_if_enabled(
     handler._speclib_ng = MagicMock(name="speclib_ng")
     dia_data = MagicMock(name="dia_data")
     mock_to_features_df.return_value = pd.DataFrame(
-        {"precursor_idx": [1, 2], "rank": [0, 0], "score": [1.0, 2.0]}
+        {
+            "precursor_idx": [1, 2],
+            "rank": [0, 0],
+            "score": [1.0, 2.0],
+            "hyperscore_intensity_observation": [3.0, 4.0],
+            "mean_correlation": [0.5, 0.6],
+        }
     )
     mock_candidate_context.return_value.compute.return_value = mock_context_features(
         [2, 1], [0, 0]

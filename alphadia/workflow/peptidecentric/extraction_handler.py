@@ -28,6 +28,7 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    add_rank_delta_features,
     candidates_to_ng,
     merge_context_features,
     parse_candidates,
@@ -207,7 +208,7 @@ class ExtractionHandler(ABC):
             "=== Search parameters used ===",
             f"{'rt_error':<15}: {self._optimization_manager.rt_error}",
             f"{'mobility_error':<15}: {self._optimization_manager.mobility_error}",
-            f"{'num_candidates':<15}: { self._optimization_manager.num_candidates}",
+            f"{'num_candidates':<15}: {self._optimization_manager.num_candidates}",
             f"{'ms1_error':<15}: {self._optimization_manager.ms1_error}",
             f"{'ms2_error':<15}: {self._optimization_manager.ms2_error}",
             f"{'fwhm_rt':<15}: {self._optimization_manager.fwhm_rt}",
@@ -626,7 +627,7 @@ class NgExtractionHandler(ExtractionHandler):
             ).compute(dia_data, self._speclib_ng, candidates)
             features_df = merge_context_features(features_df, context_features)
 
-        return features_df
+        return add_rank_delta_features(features_df)
 
     def quantify_candidates(
         self,
