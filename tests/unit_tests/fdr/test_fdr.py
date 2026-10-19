@@ -302,21 +302,3 @@ def test_quantile_transform_state_dict_round_trip():
 
     # Then: the predictions are identical
     assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
-
-
-def test_from_state_dict_without_transformer_uses_raw_features():
-    # Given: a state dict without a quantile transformer, like the shipped warm-start classifier
-    x, y = gen_data_np(n_samples=2000)
-    classifier = BinaryClassifierLegacyNewBatching(batch_size=100)
-    classifier.fit(x, y)
-    state_dict = classifier.to_state_dict()
-    del state_dict["_quantile_transformer"]
-
-    # When: it is loaded into a classifier requesting the quantile transform
-    new_classifier = BinaryClassifierLegacyNewBatching(
-        feature_transform=FeatureTransform.QUANTILE
-    )
-    new_classifier.from_state_dict(state_dict)
-
-    # Then: the loaded weights predict on the raw features
-    assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))

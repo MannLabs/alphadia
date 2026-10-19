@@ -320,9 +320,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         """
         _state_dict = deepcopy(state_dict)
 
-        # The shipped warm-start classifier in constants/classifier predates the transform
-        # and was trained on raw features.
-        self._quantile_transformer = _state_dict.pop("_quantile_transformer", None)
+        self._quantile_transformer = _state_dict.pop("_quantile_transformer")
 
         if "network_state_dict" in _state_dict:
             self.network = FeedForwardNN(
