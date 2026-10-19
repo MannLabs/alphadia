@@ -25,7 +25,7 @@ MIN_OVERLAPPING_FRAGMENTS = 2
 # A worse PSM also loses if the ions a better PSM shares with it carry this fraction of its observed fragment
 # intensity, even below MIN_OVERLAPPING_FRAGMENTS: its evidence is mostly the better PSM's signal. This is the
 # claimed-intensity information of the CandidateContext features as a decoy-symmetric removal rule.
-MIN_CLAIMED_INTENSITY_FRACTION = 0.5
+MIN_CLAIMED_INTENSITY_FRACTION = 0.3
 
 
 @nb.njit(cache=True)
