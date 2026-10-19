@@ -2,8 +2,10 @@ from alphabase.spectral_library.decoy import DIANNDecoyGenerator, decoy_lib_prov
 
 from alphadia.libtransform.decoy import (
     DIANN_INNER,
+    DIANN_INNER_FREQUENCY,
     DIANN_KEEP_PROLINE,
     DIANNInnerDecoyGenerator,
+    DIANNInnerFrequencyDecoyGenerator,
     DIANNKeepProlineDecoyGenerator,
 )
 
@@ -44,4 +46,22 @@ def test_inner_decoy_moves_a_mutation_off_a_proline():
 def test_inner_decoy_is_registered():
     assert isinstance(
         decoy_lib_provider.decoy_dict[DIANN_INNER](), DIANNInnerDecoyGenerator
+    )
+
+
+def test_frequency_inner_decoy_keeps_short_ions_and_is_deterministic():
+    generator = DIANNInnerFrequencyDecoyGenerator()
+    sequence = "LGEHNIDVLEGNEQFINAAK"
+    decoy = generator._decoy(sequence)
+    assert decoy[:2] == sequence[:2] and decoy[-2:] == sequence[-2:]
+    assert decoy[2] != sequence[2] and decoy[-3] != sequence[-3]
+    assert decoy[3:-3] == sequence[3:-3]
+    assert generator._decoy(sequence) == decoy
+    assert decoy[2] not in "CP" and decoy[-3] not in "CP"
+
+
+def test_frequency_inner_decoy_is_registered():
+    assert isinstance(
+        decoy_lib_provider.decoy_dict[DIANN_INNER_FREQUENCY](),
+        DIANNInnerFrequencyDecoyGenerator,
     )

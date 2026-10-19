@@ -1,4 +1,5 @@
 import logging
+import zlib
 
 import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
@@ -10,6 +11,27 @@ logger = logging.getLogger()
 
 DIANN_KEEP_PROLINE = "diann_keep_proline"
 DIANN_INNER = "diann_inner"
+DIANN_INNER_FREQUENCY = "diann_inner_frequency"
+# Interior residue frequencies of the human tryptic library (I counted as L); C and P are never drawn.
+INTERIOR_RESIDUE_FREQUENCY = {
+    "A": 0.0766,
+    "D": 0.0540,
+    "E": 0.0814,
+    "F": 0.0410,
+    "G": 0.0712,
+    "H": 0.0294,
+    "K": 0.0216,
+    "L": 0.1611,
+    "M": 0.0217,
+    "N": 0.0406,
+    "Q": 0.0537,
+    "R": 0.0212,
+    "S": 0.0914,
+    "T": 0.0581,
+    "V": 0.0667,
+    "W": 0.0136,
+    "Y": 0.0297,
+}
 
 
 class DIANNKeepProlineDecoyGenerator(DIANNDecoyGenerator):
@@ -60,6 +82,38 @@ class DIANNInnerDecoyGenerator(DIANNKeepProlineDecoyGenerator):
 
 
 decoy_lib_provider.register(DIANN_INNER, DIANNInnerDecoyGenerator)
+
+
+class DIANNInnerFrequencyDecoyGenerator(DIANNInnerDecoyGenerator):
+    """Inner decoy whose replacement residues are drawn at library frequency instead of taken from the fixed map.
+
+    The fixed map sends most residues to L, V or S, so inner decoys' b3+ / y3+ compositions are ~1.2x as common among
+    library peptides as a false target's. Decoys then share fragments with co-eluting candidates more often than false
+    targets do, which features describing that competition learn to recognise. A residue drawn at the library's own
+    frequency (never the original, C or P) gives decoys a false target's ion commonness. The draw is seeded by the
+    sequence, so every charge state of a peptide gets the same decoy.
+    """
+
+    def _decoy(self, sequence: str) -> str:
+        rng = np.random.default_rng(zlib.crc32(sequence.encode()))
+        first, second = 2, len(sequence) - 3
+        if sequence[second] == "P":
+            second -= 1
+        if sequence[first] == "P" and first + 1 < second:
+            first += 1
+        residues = list(sequence)
+        for position in (first, second):
+            choices = [
+                aa for aa in INTERIOR_RESIDUE_FREQUENCY if aa != sequence[position]
+            ]
+            weights = np.array([INTERIOR_RESIDUE_FREQUENCY[aa] for aa in choices])
+            residues[position] = choices[
+                rng.choice(len(choices), p=weights / weights.sum())
+            ]
+        return "".join(residues)
+
+
+decoy_lib_provider.register(DIANN_INNER_FREQUENCY, DIANNInnerFrequencyDecoyGenerator)
 
 
 class DecoyGenerator(ProcessingStep):
