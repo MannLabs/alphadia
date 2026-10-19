@@ -1,11 +1,11 @@
 import os
+from unittest.mock import MagicMock
 
 import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
 
-from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.managers.fdr_manager import FDRManager
 
@@ -82,10 +82,7 @@ def test_fdr():
     fdr_manager = FDRManager(
         feature_columns=feature_columns,
         classifier_base=classifier_base,
-        config={
-            "search": {"compete_for_fragments": False},
-            "fdr": {"feature_transform": FeatureTransform.QUANTILE},
-        },
+        config=MagicMock(),
     )
 
     psm_df = fdr_manager.fit_predict(

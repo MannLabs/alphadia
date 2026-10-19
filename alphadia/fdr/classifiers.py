@@ -211,7 +211,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         feature_transform : str, default="none"
             Transform applied to the features before they enter the network,
-            either "none" or "quantile". See `_apply_transform`.
+            either "none" or "quantile". See `_transform_features`.
 
         experimental_hyperparameter_tuning: bool, default=False
             Whether to use experimental hyperparameter tuning.
@@ -225,6 +225,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         """
         if layers is None:
             layers = [100, 50, 20, 5]
+        if feature_transform not in FeatureTransform.get_values():
+            raise ValueError(
+                f"Unknown feature transform: {feature_transform}. "
+                f"Valid options are {FeatureTransform.get_values()}"
+            )
         self.test_size = test_size
         self.batch_size = batch_size
         self.epochs = epochs
@@ -291,11 +296,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             "metric_interval": self.metric_interval,
             "metrics": self.metrics,
             "feature_transform": self.feature_transform,
+            "_quantile_transformer": self._quantile_transformer,
         }
 
         if self._fitted:
             state_dict["network_state_dict"] = self.network.state_dict()
-            state_dict["_quantile_transformer"] = self._quantile_transformer
 
         return state_dict
 
@@ -315,10 +320,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         """
         _state_dict = deepcopy(state_dict)
 
-        # State dicts written before the transform existed hold weights trained on raw features.
-        self.feature_transform = _state_dict.pop(
-            "feature_transform", FeatureTransform.NONE
-        )
+        # The shipped warm-start classifier in constants/classifier predates the transform
+        # and was trained on raw features.
         self._quantile_transformer = _state_dict.pop("_quantile_transformer", None)
 
         if "network_state_dict" in _state_dict:
@@ -343,12 +346,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.network = None
         self.optimizer = None
         self._fitted = False
-        self._quantile_transformer = None
         for values in self.metrics.values():
             values.clear()
 
-    def _fit_transform(self, x: np.ndarray) -> np.ndarray:
-        """Fit the feature transform on the training data and apply it.
+    def _fit_feature_transform(self, x: np.ndarray) -> QuantileTransformer | None:
+        """Fit the configured feature transform on the training data.
 
         Parameters
         ----------
@@ -357,34 +359,25 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Returns
         -------
-        x_transformed : np.ndarray, dtype=float
-            Transformed training data of shape (n_samples, n_features).
+        QuantileTransformer | None
+            The fitted transformer, or None if the raw features are used.
 
         """
         if self.feature_transform == FeatureTransform.NONE:
-            self._quantile_transformer = None
-            return x
-
-        if self.feature_transform != FeatureTransform.QUANTILE:
-            raise ValueError(
-                f"Unknown feature transform: {self.feature_transform}. "
-                f"Valid options are {FeatureTransform.get_values()}"
-            )
+            return None
 
         if len(x) < _MIN_ROWS_FOR_QUANTILE_TRANSFORM:
             logger.warning(
                 f"Only {len(x):,} rows available for the quantile feature transform "
                 f"(minimum {_MIN_ROWS_FOR_QUANTILE_TRANSFORM:,}), using the raw features instead."
             )
-            self._quantile_transformer = None
-            return x
+            return None
 
-        self._quantile_transformer = QuantileTransformer(
+        return QuantileTransformer(
             n_quantiles=_N_QUANTILES, output_distribution="normal", subsample=None
-        )
-        return self._quantile_transformer.fit_transform(x)
+        ).fit(x)
 
-    def _apply_transform(self, x: np.ndarray) -> np.ndarray:
+    def _transform_features(self, x: np.ndarray) -> np.ndarray:
         """Map every feature to a standard normal score through its empirical CDF.
 
         Extreme candidates would otherwise lie outside the training range, where the
@@ -420,7 +413,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
-        x = self._fit_transform(x)
+        self._quantile_transformer = self._fit_feature_transform(x)
+        x = self._transform_features(x)
 
         if self.experimental_hyperparameter_tuning:
             self.batch_size, self.learning_rate = _get_scaled_training_params(x)
@@ -559,7 +553,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
-        x = self._apply_transform(x)
+        x = self._transform_features(x)
         self.network.eval()
         return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
@@ -589,7 +583,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
-        x = self._apply_transform(x)
+        x = self._transform_features(x)
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
 

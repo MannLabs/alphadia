@@ -267,7 +267,7 @@ def test_perform_fdr_stops_after_max_reinits():
     assert psm_df["proba"].std() == 0.0
 
 
-def test_fit_transform_falls_back_to_raw_features_for_few_rows():
+def test_fit_feature_transform_falls_back_to_raw_features_for_few_rows():
     # Given: a classifier with the quantile transform and fewer rows than the minimum
     classifier = BinaryClassifierLegacyNewBatching(
         feature_transform=FeatureTransform.QUANTILE
@@ -275,20 +275,16 @@ def test_fit_transform_falls_back_to_raw_features_for_few_rows():
     x, _ = gen_data_np(n_samples=100)
 
     # When: the transform is fitted
-    x_transformed = classifier._fit_transform(x)
+    transformer = classifier._fit_feature_transform(x)
 
-    # Then: the features are passed through unchanged
-    assert classifier._quantile_transformer is None
-    assert np.array_equal(x_transformed, x)
+    # Then: no transformer is fitted, so the raw features are used
+    assert transformer is None
 
 
-def test_fit_transform_raises_for_unknown_transform():
-    # Given: a classifier with an unknown feature transform
-    classifier = BinaryClassifierLegacyNewBatching(feature_transform="rank")
-
-    # When/Then: fitting the transform fails explicitly
+def test_classifier_raises_for_unknown_transform():
+    # When/Then: constructing a classifier with an unknown transform fails explicitly
     with pytest.raises(ValueError, match="Unknown feature transform"):
-        classifier._fit_transform(gen_data_np()[0])
+        BinaryClassifierLegacyNewBatching(feature_transform="unknown")
 
 
 def test_quantile_transform_state_dict_round_trip():
@@ -308,13 +304,12 @@ def test_quantile_transform_state_dict_round_trip():
     assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
 
 
-def test_from_state_dict_defaults_to_no_transform():
-    # Given: a state dict written before the feature transform existed
+def test_from_state_dict_without_transformer_uses_raw_features():
+    # Given: a state dict without a quantile transformer, like the shipped warm-start classifier
     x, y = gen_data_np(n_samples=2000)
     classifier = BinaryClassifierLegacyNewBatching(batch_size=100)
     classifier.fit(x, y)
     state_dict = classifier.to_state_dict()
-    del state_dict["feature_transform"]
     del state_dict["_quantile_transformer"]
 
     # When: it is loaded into a classifier requesting the quantile transform
@@ -323,6 +318,5 @@ def test_from_state_dict_defaults_to_no_transform():
     )
     new_classifier.from_state_dict(state_dict)
 
-    # Then: the loaded weights keep being used with raw features
-    assert new_classifier.feature_transform == FeatureTransform.NONE
-    assert new_classifier._quantile_transformer is None
+    # Then: the loaded weights predict on the raw features
+    assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
