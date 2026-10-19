@@ -1,7 +1,7 @@
-"""Removal of each run's retention-time dependent intensity drift before LFQ.
+"""Retention time (RT) dependent intensity drift correction of the fragment table.
 
-The estimator lives in `alphadia_search_rs.correct_intensity_drift`, this module only
-converts the dataframes for it.
+Converts the dataframes to the run-major matrices of
+`alphadia_search_rs.correct_intensity_drift`, which defines the correction.
 """
 
 import logging
@@ -25,19 +25,18 @@ PSM_COLUMNS = [PRECURSOR_IDX_COLUMN, RUN_COLUMN, CalibCols.RT_OBSERVED]
 def correct_intensity_drift(
     intensity_df: pd.DataFrame, correlation_df: pd.DataFrame, psm_df: pd.DataFrame
 ) -> None:
-    """Divide the RT-dependent drift out of every run column of `intensity_df`, in place.
+    """Correct the RT-dependent intensity drift of every run column of `intensity_df`, in place.
 
-    Correcting in place avoids holding a second full fragment matrix through the rest of
-    the quantification.
+    In place, so that no second fragment table is held during quantification.
 
     Parameters
     ----------
     intensity_df : pd.DataFrame
-        Linear fragment intensities with columns precursor_idx, ion, run1, run2, ...
-        and the quantification level columns. Zero marks a missing value.
+        Linear fragment intensities, one row per ion, with precursor_idx, ion, the
+        quantification level columns and one column per run. 0 marks a missing value.
     correlation_df : pd.DataFrame
-        Fragment correlations with the same rows, in the same order, and run columns as
-        intensity_df.
+        Cross-run fragment correlations with the rows and run columns of intensity_df,
+        in the same order.
     psm_df : pd.DataFrame
         PSM table with precursor_idx, run and rt_observed.
 
@@ -70,10 +69,10 @@ def correct_intensity_drift(
 
 
 def _run_major(df: pd.DataFrame) -> np.ndarray:
-    """Return `df` as a C-contiguous `(n_columns, n_rows)` matrix.
+    """Return `df` as a C-contiguous float64 matrix of shape `(n_columns, n_rows)`.
 
-    The estimator borrows the matrices run-major. pandas hands a single-dtype frame out
-    F-contiguous, so the transpose is a view rather than a copy.
+    `to_numpy` of a single-dtype frame is F-contiguous, so its transpose is C-contiguous
+    without a copy.
     """
     return np.ascontiguousarray(df.to_numpy(dtype=np.float64).T)
 
@@ -81,7 +80,7 @@ def _run_major(df: pd.DataFrame) -> np.ndarray:
 def _rt_by_run(
     psm_df: pd.DataFrame, precursors: np.ndarray, run_columns: list[str]
 ) -> pd.DataFrame:
-    """Observed RT of every precursor in every run, NaN where a run has no psm entry."""
+    """Observed RT with one row per entry of `precursors` and one column per run, NaN where the run has no psm entry."""
     return (
         psm_df[PSM_COLUMNS]
         .astype({PRECURSOR_IDX_COLUMN: np.int64})

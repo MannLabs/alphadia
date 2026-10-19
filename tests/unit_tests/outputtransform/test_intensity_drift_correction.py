@@ -29,9 +29,9 @@ def _make_tables(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Synthetic fragment intensity, correlation and psm tables.
 
-    Every precursor elutes at a uniform RT in [0, GRADIENT_SECONDS]. The drifting runs
-    (run A1 by default) are multiplied by 2 ** (drift_log2 * rt / GRADIENT_SECONDS), so
-    their deviation from the other runs grows linearly along the gradient.
+    Precursor RTs are uniform in [0, GRADIENT_SECONDS], the RT is identical in every run.
+    The intensities of `drifting_runs` (default A1) are multiplied by
+    2 ** (drift_log2 * rt / GRADIENT_SECONDS).
     """
     drifting_runs = ["A1"] if drifting_runs is None else drifting_runs
     rng = np.random.default_rng(seed)
@@ -75,7 +75,7 @@ def _ion_rt(intensity_df: pd.DataFrame, psm_df: pd.DataFrame, run: str) -> np.nd
 
 
 def _deviation(intensity_df: pd.DataFrame, drifting_runs: list[str]) -> np.ndarray:
-    """Per-ion log2 difference between the drifting runs and the other runs."""
+    """Per-ion mean log2 intensity of `drifting_runs` minus that of the other runs."""
     log = np.log2(intensity_df[RUNS].to_numpy())
     drifting = [RUNS.index(run) for run in drifting_runs]
     others = [i for i in range(len(RUNS)) if i not in drifting]
@@ -89,7 +89,7 @@ def _slope_per_1000s(rt: np.ndarray, values: np.ndarray) -> float:
 def _corrected(
     intensity_df: pd.DataFrame, correlation_df: pd.DataFrame, psm_df: pd.DataFrame
 ) -> pd.DataFrame:
-    """Corrected copy of intensity_df, leaving the original for comparison."""
+    """Return a corrected copy of intensity_df."""
     result_df = intensity_df.copy()
     correct_intensity_drift(result_df, correlation_df, psm_df)
     return result_df
