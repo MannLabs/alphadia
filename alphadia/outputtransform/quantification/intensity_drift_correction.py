@@ -1,18 +1,7 @@
-"""Correction of the retention-time dependent (shape-only) intensity drift of every run.
+"""Removal of each run's retention-time dependent intensity drift before LFQ.
 
-Intensities can drift along the gradient in a run-specific way (e.g. one condition being
-0.3-0.6 log2 low after 1000 s). Per run, the log2 deviation from the across-run level of
-every ion is binned along RT over well-measured ions, the per-bin location is interpolated
-to every ion and divided out.
-
-The curve is re-centred to zero mean over the run's ions before it is applied, so that
-only the *shape* along RT is removed. The global level of a run is deliberately left to the
-downstream LFQ normalization; removing it here would silently force the majority species
-to ratio 1.
-
-The estimator lives in Rust (`alphadia_search_rs.correct_intensity_drift`). What is left
-here is the dataframe bookkeeping it needs: placing every precursor in retention time per
-run, handing the matrices over run-major and writing the corrected intensities back.
+The estimator lives in `alphadia_search_rs.correct_intensity_drift`, this module only
+converts the dataframes for it.
 """
 
 import logging
@@ -50,8 +39,7 @@ def correct_intensity_drift(
         Fragment correlations with the same rows, in the same order, and run columns as
         intensity_df.
     psm_df : pd.DataFrame
-        PSM table with precursor_idx, run and rt_observed, used to place every precursor
-        in RT for each run.
+        PSM table with precursor_idx, run and rt_observed.
 
     Raises
     ------
@@ -75,6 +63,7 @@ def correct_intensity_drift(
     rt = _run_major(_rt_by_run(psm_df, precursors, run_columns))
 
     _correct_intensity_drift(intensity, correlation, rt, precursor.astype(np.uintp))
+    # free the correlation copy before the write-back allocates
     del correlation
 
     intensity_df[run_columns] = intensity.T
@@ -83,9 +72,8 @@ def correct_intensity_drift(
 def _run_major(df: pd.DataFrame) -> np.ndarray:
     """Return `df` as a C-contiguous `(n_columns, n_rows)` matrix.
 
-    The estimator works per run and therefore takes the matrices run-major. pandas hands
-    the columns of a single-dtype frame out as one F-contiguous block, which makes the
-    transpose a view rather than a copy.
+    The estimator borrows the matrices run-major. pandas hands a single-dtype frame out
+    F-contiguous, so the transpose is a view rather than a copy.
     """
     return np.ascontiguousarray(df.to_numpy(dtype=np.float64).T)
 
@@ -93,11 +81,7 @@ def _run_major(df: pd.DataFrame) -> np.ndarray:
 def _rt_by_run(
     psm_df: pd.DataFrame, precursors: np.ndarray, run_columns: list[str]
 ) -> pd.DataFrame:
-    """Observed RT of every precursor in every run, NaN where a run has no psm entry.
-
-    The estimator places a precursor the run has no entry for at its mean RT over the
-    other runs, so a cell with an intensity but no psm entry is still corrected.
-    """
+    """Observed RT of every precursor in every run, NaN where a run has no psm entry."""
     return (
         psm_df[PSM_COLUMNS]
         .astype({PRECURSOR_IDX_COLUMN: np.int64})
