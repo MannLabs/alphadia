@@ -2,7 +2,7 @@ from functools import wraps
 
 import pandas as pd
 
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import CalibCols, IdfFeatures
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     get_context_feature_names,
@@ -82,17 +82,37 @@ feature_columns = [
 ]
 
 
-def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
+IDF_FEATURE_COLUMNS = (
+    "idf_hyperscore",
+    "idf_xic_dot_product",
+    "idf_intensity_dot_product",
+    "num_over_0_top6_idf",
+    "num_over_50_top6_idf",
+)
+
+
+def get_classifier_feature_columns(
+    extraction_backend: str, idf_features: str
+) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
     The candidate context features are always listed for the rust backend: the FDR manager
     only uses the listed columns that the features actually carry, so the config flag that
     computes them does not need to be repeated here.
+    The IDF features are left out if `idf_features` is "none".
     """
+    if idf_features not in IdfFeatures.get_values():
+        raise ValueError(
+            f"Unknown idf_features: {idf_features}. Valid options are {IdfFeatures.get_values()}"
+        )
+
     if extraction_backend != "rust":
         return feature_columns
 
-    return get_feature_names() + get_context_feature_names()
+    columns = get_feature_names() + get_context_feature_names()
+    if idf_features == IdfFeatures.NONE:
+        return [column for column in columns if column not in IDF_FEATURE_COLUMNS]
+    return columns
 
 
 def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:

@@ -16,6 +16,7 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
+from alphadia.constants.keys import IdfFeatures
 from alphadia.raw_data import DiaData
 
 logger = logging.getLogger()
@@ -70,11 +71,13 @@ def speclib_to_ng(
     rt_column: str,
     precursor_mz_column: str,
     fragment_mz_column: str,
+    idf_features: str,
 ) -> "SpecLibFlatNG":  # noqa: F821
     """Convert speclib from classic to ng format.
 
-    The fragment IDF is set from `decoy_idf_from_targets`: decoy fragments take the IDF of the corresponding target
-    fragment, and only target fragments count towards it.
+    With `idf_features` "inherit", the fragment IDF is set from `decoy_idf_from_targets`: decoy fragments take the IDF
+    of the corresponding target fragment, and only target fragments count towards it. Otherwise every fragment's IDF
+    is taken at its own library m/z over all library fragments.
     """
 
     precursor_df = speclib.precursor_df
@@ -99,7 +102,8 @@ def speclib_to_ng(
         fragment_df["position"].values.astype(np.uint8),
         fragment_df["type"].values.astype(np.uint8),
     )
-    speclib_ng.set_idf(*decoy_idf_from_targets(precursor_df, fragment_df))
+    if idf_features == IdfFeatures.INHERIT:
+        speclib_ng.set_idf(*decoy_idf_from_targets(precursor_df, fragment_df))
     return speclib_ng
 
 

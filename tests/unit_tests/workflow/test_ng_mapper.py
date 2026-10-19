@@ -1,5 +1,7 @@
 """Unit tests for the NG mapper helpers around the context features and the decoy IDF."""
 
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -14,6 +16,7 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     decoy_idf_from_targets,
     get_context_feature_names,
     merge_context_features,
+    speclib_to_ng,
 )
 
 _LIBRARY_TSV = """PrecursorMz	ProductMz	Annotation	ProteinId	GeneName	PeptideSequence	ModifiedPeptideSequence	PrecursorCharge	LibraryIntensity	NormalizedRetentionTime	PrecursorIonMobility	FragmentType	FragmentCharge	FragmentSeriesNumber	FragmentLossType
@@ -208,3 +211,27 @@ def test_decoy_idf_from_targets_keeps_the_own_mz_where_there_is_no_single_matchi
     )
     expected_counted = [1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0]
     np.testing.assert_array_equal(counted, np.array(expected_counted, dtype=bool))
+
+
+@pytest.mark.parametrize(
+    ("idf_features", "sets_idf"), [("inherit", True), ("own", False), ("none", False)]
+)
+@patch("alphadia.workflow.peptidecentric.ng.ng_mapper.SpecLibFlatNG")
+def test_speclib_to_ng_sets_the_decoy_idf_only_if_inherited(
+    mock_speclib_ng, tmp_path, idf_features, sets_idf
+):
+    # given
+    speclib = _flat_library_with_decoys(tmp_path)
+
+    # when
+    speclib_ng = speclib_to_ng(
+        speclib,
+        rt_column="rt_library",
+        precursor_mz_column="mz_library",
+        fragment_mz_column="mz_library",
+        idf_features=idf_features,
+    )
+
+    # then
+    assert speclib_ng is mock_speclib_ng.from_arrays.return_value
+    assert speclib_ng.set_idf.called == sets_idf

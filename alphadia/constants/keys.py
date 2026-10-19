@@ -102,6 +102,14 @@ class FeatureTransform(metaclass=ConstantsClass):
     QUANTILE = "quantile"
 
 
+class IdfFeatures(metaclass=ConstantsClass):
+    """String constants for how the rust backend's IDF features are used."""
+
+    NONE = "none"
+    INHERIT = "inherit"
+    OWN = "own"
+
+
 class DecoyType(metaclass=ConstantsClass):
     """String constants for decoy generation schemes."""
 
