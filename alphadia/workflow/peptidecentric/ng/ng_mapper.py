@@ -127,7 +127,7 @@ def get_rank_delta_feature_names() -> list[str]:
 
 def get_final_round_feature_names() -> list[str]:
     """Features the FDR classifier uses only in the final round, not in the calibration rounds."""
-    return get_rank_delta_feature_names()
+    return get_rank_delta_feature_names() + get_sibling_feature_names()
 
 
 def add_rank_delta_features(features_df: pd.DataFrame) -> pd.DataFrame:
