@@ -8,6 +8,7 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     get_context_feature_names,
     get_feature_names,
     get_rank_delta_feature_names,
+    get_sibling_feature_names,
 )
 
 feature_columns = [
@@ -106,11 +107,15 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     if extraction_backend != "rust":
         return feature_columns
 
-    return [
-        name
-        for name in get_feature_names() + get_context_feature_names()
-        if name not in DECOY_SCHEME_FEATURES
-    ] + get_rank_delta_feature_names()
+    return (
+        [
+            name
+            for name in get_feature_names() + get_context_feature_names()
+            if name not in DECOY_SCHEME_FEATURES
+        ]
+        + get_rank_delta_feature_names()
+        + get_sibling_feature_names()
+    )
 
 
 def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:

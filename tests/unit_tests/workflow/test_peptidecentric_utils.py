@@ -4,6 +4,7 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     get_context_feature_names,
     get_feature_names,
     get_rank_delta_feature_names,
+    get_sibling_feature_names,
 )
 from alphadia.workflow.peptidecentric.utils import (
     DECOY_SCHEME_FEATURES,
@@ -25,6 +26,7 @@ def test_get_classifier_feature_columns_for_rust_backend():
             if name not in DECOY_SCHEME_FEATURES
         ]
         + get_rank_delta_feature_names()
+        + get_sibling_feature_names()
     )
 
 

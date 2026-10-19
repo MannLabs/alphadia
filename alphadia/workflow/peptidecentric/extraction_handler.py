@@ -29,6 +29,7 @@ from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     add_rank_delta_features,
+    add_sibling_features,
     candidates_to_ng,
     merge_context_features,
     parse_candidates,
@@ -627,7 +628,8 @@ class NgExtractionHandler(ExtractionHandler):
             ).compute(dia_data, self._speclib_ng, candidates)
             features_df = merge_context_features(features_df, context_features)
 
-        return add_rank_delta_features(features_df)
+        features_df = add_rank_delta_features(features_df)
+        return add_sibling_features(features_df, spectral_library.precursor_df)
 
     def quantify_candidates(
         self,

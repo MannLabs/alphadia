@@ -41,6 +41,7 @@ def test_score_candidates_adds_context_features_if_enabled(
             "score": [1.0, 2.0],
             "hyperscore_intensity_observation": [3.0, 4.0],
             "mean_correlation": [0.5, 0.6],
+            "rt_observed": [10.0, 20.0],
         }
     )
     mock_candidate_context.return_value.compute.return_value = mock_context_features(
@@ -48,7 +49,18 @@ def test_score_candidates_adds_context_features_if_enabled(
     )
 
     # when
-    features_df = handler.score_candidates(MagicMock(), dia_data, MagicMock())
+    spectral_library = MagicMock(name="spectral_library")
+    spectral_library.precursor_df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2],
+            "sequence": ["PEPTIDEK", "OTHERK"],
+            "mods": ["", ""],
+            "mod_sites": ["", ""],
+            "decoy": [0, 0],
+            "channel": [0, 0],
+        }
+    )
+    features_df = handler.score_candidates(MagicMock(), dia_data, spectral_library)
 
     # then
     has_context = set(get_context_feature_names()) <= set(features_df.columns)

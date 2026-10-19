@@ -7,8 +7,10 @@ from conftest import mock_context_features
 
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     add_rank_delta_features,
+    add_sibling_features,
     get_context_feature_names,
     get_rank_delta_feature_names,
+    get_sibling_feature_names,
     merge_context_features,
 )
 
@@ -83,3 +85,37 @@ def test_add_rank_delta_features():
     )
     assert result["n_other_candidates"].tolist() == [2.0, 0.0, 2.0, 2.0]
     assert set(get_rank_delta_feature_names()) <= set(result.columns)
+
+
+def test_add_sibling_features():
+    # given: precursors 1 and 2 are charge states of one peptide, 3 another peptide, 4 the decoy of the first
+    precursor_df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2, 3, 4],
+            "sequence": ["PEPTIDEK", "PEPTIDEK", "OTHERK", "PEPTIDEK"],
+            "mods": ["", "", "", ""],
+            "mod_sites": ["", "", "", ""],
+            "decoy": [0, 0, 0, 1],
+            "channel": [0, 0, 0, 0],
+        }
+    )
+    features_df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2, 2, 3, 4],
+            "rank": [0, 0, 1, 0, 0],
+            "rt_observed": [100.0, 101.0, 150.0, 100.0, 100.0],
+            "score": [5.0, 4.0, 9.0, 3.0, 2.0],
+            "mean_correlation": [0.5, -0.2, 0.9, 0.1, 0.3],
+        }
+    )
+
+    # when
+    result = add_sibling_features(features_df, precursor_df)
+
+    # then: only the co-eluting rank-0 candidates of 1 and 2 see each other
+    assert result["n_sibling_coeluting"].tolist() == [1.0, 1.0, 0.0, 0.0, 0.0]
+    assert result["sibling_best_score"].tolist() == [4.0, 5.0, 0.0, 0.0, 0.0]
+    np.testing.assert_allclose(
+        result["sibling_best_mean_correlation"], [-0.2, 0.5, 0.0, 0.0, 0.0], atol=1e-6
+    )
+    assert set(get_sibling_feature_names()) <= set(result.columns)
