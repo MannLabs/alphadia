@@ -116,7 +116,9 @@ def test_fragment_competition_matches_rust_at_three_ions():
         }
     )
 
-    kept = compete_for_fragments(psm_df.copy(), frag_df.copy(), cycle, min_overlap=3)
+    kept = compete_for_fragments(
+        psm_df.copy(), frag_df.copy(), cycle, min_overlap=3, min_claimed_fraction=None
+    )
 
     frag_df["_candidate_idx"] = candidate_hash(
         frag_df["precursor_idx"].values, frag_df["rank"].values
@@ -134,3 +136,31 @@ def test_fragment_competition_matches_rust_at_three_ions():
     )
     assert 0 < valid.sum() < n_psm
     assert kept["precursor_idx"].tolist() == psm_df["precursor_idx"][valid].tolist()
+
+
+def test_fragment_competition_claimed_intensity():
+    psm_df, frag_df, cycle = _two_psms_sharing(1)
+    # the one ion the better PSM shares with the worse one carries 60 % of the worse PSM's intensity
+    frag_df["intensity"] = np.concatenate([np.ones(10), [13.5], np.ones(9)])
+
+    kept_default = compete_for_fragments(psm_df.copy(), frag_df.copy(), cycle)
+    kept_strict = compete_for_fragments(
+        psm_df.copy(), frag_df.copy(), cycle, min_claimed_fraction=0.7
+    )
+    kept_off = compete_for_fragments(
+        psm_df.copy(), frag_df.copy(), cycle, min_claimed_fraction=None
+    )
+
+    assert kept_default["precursor_idx"].tolist() == [0]
+    assert kept_strict["precursor_idx"].tolist() == [0, 1]
+    assert kept_off["precursor_idx"].tolist() == [0, 1]
+
+
+def test_fragment_competition_better_psm_is_never_removed_by_a_worse_one():
+    psm_df, frag_df, cycle = _two_psms_sharing(1)
+    # the shared ion carries most of the BETTER PSM's intensity, little of the worse one's
+    frag_df["intensity"] = np.concatenate([[20.0], np.ones(9), [0.1], np.ones(9)])
+
+    kept = compete_for_fragments(psm_df.copy(), frag_df.copy(), cycle)
+
+    assert kept["precursor_idx"].tolist() == [0, 1]

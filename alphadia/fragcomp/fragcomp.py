@@ -22,6 +22,10 @@ DEFAULT_MASS_TOLERANCE_PPM = 15.0
 # DIA-NN-like interference removal: a shuffled entrapment twin often shares only two ions
 # with the real peptide whose peak it rides, so the Rust default of 3 lets it survive.
 MIN_OVERLAPPING_FRAGMENTS = 2
+# A worse PSM also loses if the ions a better PSM shares with it carry this fraction of its observed fragment
+# intensity, even below MIN_OVERLAPPING_FRAGMENTS: its evidence is mostly the better PSM's signal. This is the
+# claimed-intensity information of the CandidateContext features as a decoy-symmetric removal rule.
+MIN_CLAIMED_INTENSITY_FRACTION = 0.5
 
 
 @nb.njit(cache=True)
@@ -47,6 +51,25 @@ def _window_index(precursor_mz: np.ndarray, cycle: np.ndarray) -> np.ndarray:
 
 
 @nb.njit(cache=True)
+def _claimed_fraction(
+    frag_mz_better: np.ndarray,
+    frag_mz_worse: np.ndarray,
+    intensity_worse: np.ndarray,
+    mass_tol_ppm: float,
+) -> float:
+    total = intensity_worse.sum()
+    if total <= 0:
+        return 0.0
+    claimed = 0.0
+    for k, mz in enumerate(frag_mz_worse):
+        for other in frag_mz_better:
+            if abs(mz - other) / mz * 1e6 < mass_tol_ppm:
+                claimed += intensity_worse[k]
+                break
+    return claimed / total
+
+
+@nb.njit(cache=True)
 def _sweep(
     order: np.ndarray,
     window_idx: np.ndarray,
@@ -54,9 +77,11 @@ def _sweep(
     frag_start_idx: np.ndarray,
     frag_stop_idx: np.ndarray,
     fragment_mz: np.ndarray,
+    fragment_intensity: np.ndarray,
     rt_tol_seconds: float,
     mass_tol_ppm: float,
     min_overlap: int,
+    min_claimed_fraction: float,
 ) -> np.ndarray:
     valid = np.ones(len(order), dtype=np.bool_)
     start = 0
@@ -69,14 +94,27 @@ def _sweep(
             if not valid[row_i]:
                 continue
             frags_i = fragment_mz[frag_start_idx[row_i] : frag_stop_idx[row_i]]
-            for j in range(start, stop):
+            # only a better PSM removes a worse one: the claimed-intensity rule is not symmetric
+            for j in range(i + 1, stop):
                 row_j = order[j]
-                if i == j or not valid[row_j]:
+                if not valid[row_j]:
                     continue
                 if abs(rt_observed[row_i] - rt_observed[row_j]) >= rt_tol_seconds:
                     continue
                 frags_j = fragment_mz[frag_start_idx[row_j] : frag_stop_idx[row_j]]
-                if _fragment_overlap(frags_i, frags_j, mass_tol_ppm) >= min_overlap:
+                overlap = _fragment_overlap(frags_i, frags_j, mass_tol_ppm)
+                if overlap >= min_overlap or (
+                    overlap > 0
+                    and _claimed_fraction(
+                        frags_i,
+                        frags_j,
+                        fragment_intensity[
+                            frag_start_idx[row_j] : frag_stop_idx[row_j]
+                        ],
+                        mass_tol_ppm,
+                    )
+                    >= min_claimed_fraction
+                ):
                     valid[row_j] = False
         start = stop
     return valid
@@ -89,6 +127,7 @@ def compete_for_fragments(
     rt_tol_seconds: float = DEFAULT_RT_TOLERANCE_SECONDS,
     mass_tol_ppm: float = DEFAULT_MASS_TOLERANCE_PPM,
     min_overlap: int = MIN_OVERLAPPING_FRAGMENTS,
+    min_claimed_fraction: float | None = MIN_CLAIMED_INTENSITY_FRACTION,
 ) -> pd.DataFrame:
     """Remove PSMs that share fragments with other PSMs.
 
@@ -115,6 +154,10 @@ def compete_for_fragments(
 
     min_overlap: int
         Two PSMs compete if they share at least this number of ions.
+
+    min_claimed_fraction: float | None
+        A worse PSM also loses if the ions it shares with a better one carry at least this fraction of its observed
+        fragment intensity; None switches the rule off. Without an `intensity` column all fragments weigh the same.
 
     Returns
     -------
@@ -150,12 +193,16 @@ def compete_for_fragments(
         psm_df["_frag_start_idx"].to_numpy(dtype=np.int64),
         psm_df["_frag_stop_idx"].to_numpy(dtype=np.int64),
         frag_df[CalibCols.MZ_OBSERVED].to_numpy(dtype=np.float32),
+        frag_df["intensity"].to_numpy(dtype=np.float32)
+        if "intensity" in frag_df.columns
+        else np.ones(len(frag_df), dtype=np.float32),
         rt_tol_seconds,
         mass_tol_ppm,
         min_overlap,
+        np.inf if min_claimed_fraction is None else min_claimed_fraction,
     )
     logger.info(
-        f"fragment competition (min {min_overlap} shared ions): {int((~valid).sum()):,} of {len(valid):,} PSMs removed"
+        f"fragment competition (min {min_overlap} shared ions or {min_claimed_fraction} claimed intensity): {int((~valid).sum()):,} of {len(valid):,} PSMs removed"
     )
 
     # these only exist to point the sweep at each PSM's fragments
