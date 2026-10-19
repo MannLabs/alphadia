@@ -14,7 +14,7 @@ from torch import nn, optim
 from tqdm import tqdm
 
 from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr.utils import manage_torch_threads, train_test_split_
+from alphadia.fdr.utils import manage_torch_threads, train_test_split_indices
 
 logger = logging.getLogger()
 
@@ -23,6 +23,10 @@ _N_QUANTILES = 1001
 # Below this number of training rows the empirical quantiles are too coarse to be
 # a better input than the raw features.
 _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
+
+# Rows predicted at once. A forward pass over all rows at once holds the activations of every
+# layer for every row, gigabytes for the 10 M+ rows of a final search.
+_PREDICT_CHUNK_ROWS = 250_000
 
 
 class Classifier(ABC):
@@ -446,11 +450,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         random_state = self._np_rng.integers(0, 1_000_000)
         logger.info(f"Using random state {random_state} for train-test-split")
-        x_train, x_test, y_train, y_test, *_ = train_test_split_(
-            x, y, test_size=self.test_size, random_state=random_state
+        idx_train, idx_test = train_test_split_indices(
+            len(x), test_size=self.test_size, random_state=random_state
         )
-        x_test = torch.Tensor(x_test)
-        y_test = torch.Tensor(y_test)
+        x_test = torch.as_tensor(x[idx_test], dtype=torch.float32)
+        y_test = torch.Tensor(y[idx_test])
 
         optimizer = optim.Adam(
             self.network.parameters(),
@@ -463,8 +467,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         # Set model to training mode for BatchNorm
         self.network.train()
 
-        x_train = torch.Tensor(x_train)
-        y_train = torch.Tensor(y_train)
+        x_train = torch.as_tensor(x[idx_train], dtype=torch.float32)
+        y_train = torch.Tensor(y[idx_train])
+        del x
 
         num_batches = (x_train.shape[0] // self.batch_size) - 1
         batch_start_list = np.arange(num_batches) * self.batch_size
@@ -546,14 +551,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         assert (
             x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
-        assert (
-            x.shape[1] == self.input_dim
-        ), "Input data must have the same number of features as the fitted classifier."
+        assert x.shape[1] == self.input_dim, (
+            "Input data must have the same number of features as the fitted classifier."
+        )
 
         assert self.network is not None, "Network must be initialized after fitting"
-        x = self._transform_features(x)
-        self.network.eval()
-        return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
+        return np.argmax(self._predict_output(x), axis=1)
 
     @manage_torch_threads(max_threads=2)
     def predict_proba(self, x: np.ndarray) -> np.ndarray:
@@ -576,14 +579,25 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         assert (
             x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
-        assert (
-            x.shape[1] == self.input_dim
-        ), "Input data must have the same number of features as the fitted classifier."
+        assert x.shape[1] == self.input_dim, (
+            "Input data must have the same number of features as the fitted classifier."
+        )
 
         assert self.network is not None, "Network must be initialized after fitting"
-        x = self._transform_features(x)
+        return self._predict_output(x)
+
+    def _predict_output(self, x: np.ndarray) -> np.ndarray:
+        """Return the network's output for every row, transforming and predicting in chunks."""
         self.network.eval()
-        return self.network(torch.Tensor(x)).detach().numpy()
+        output = np.empty((len(x), self.output_dim), dtype=np.float32)
+        with torch.no_grad():
+            for start in range(0, len(x), _PREDICT_CHUNK_ROWS):
+                stop = start + _PREDICT_CHUNK_ROWS
+                x_chunk = torch.as_tensor(
+                    self._transform_features(x[start:stop]), dtype=torch.float32
+                )
+                output[start:stop] = self.network(x_chunk).numpy()
+        return output
 
 
 class FeedForwardNN(nn.Module):
