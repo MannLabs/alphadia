@@ -95,6 +95,13 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
+class DecoyType(metaclass=ConstantsClass):
+    """String constants for decoy generation schemes."""
+
+    DIANN = "diann"
+    PSEUDO_REVERSE = "pseudo_reverse"
+
+
 class QuantificationLevelName(metaclass=ConstantsClass):
     """String constants for accessing the quantification level."""
 
