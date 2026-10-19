@@ -312,6 +312,9 @@ fdr:
   keep_decoys: false
   # whether to keep decoy PSMs in the MBR library
   keep_decoys_in_mbr_library: false
+  # decoy generation scheme for the search library and the MBR library: "diann" or "pseudo_reverse"
+  # ignored if the provided library already contains decoys
+  decoy_type: "diann"
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
@@ -341,7 +344,7 @@ search_output:
   # Minimum number of non-missing values required for quantification
   min_nonnan: 3
 
-  # LFQ method for quantification ("directlfq" or "quantselect")
+  # LFQ method for quantification ("directlfq", "quantselect" or "none"). "none" skips LFQ: no quantification tables are written
   normalization_method: directlfq
   # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directlfq")
   normalize_directlfq: True

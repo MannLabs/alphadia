@@ -372,7 +372,7 @@ class SearchStep:
         prepare_pipeline = ProcessingPipeline(
             [
                 DecoyGenerator(
-                    decoy_type="diann",
+                    decoy_type=self.config["fdr"]["decoy_type"],
                     mp_process_num=thread_count,
                 ),
                 FlattenLibrary(
