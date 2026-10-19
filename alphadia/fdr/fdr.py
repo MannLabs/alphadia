@@ -312,14 +312,11 @@ def get_q_values(
     if extra_sort_columns is None:
         extra_sort_columns = ["precursor_idx"]
 
-    # q-values come from a running decoy/target count down the sorted table, so inside a
-    # block of tied scores the sort order alone decides that count: targets first makes
-    # the block look decoy-free, decoys first charges every row in it with the block's
-    # full decoy count. That is what keeps a classifier whose scores collapsed onto a
-    # single value from passing its entire output.
+    # Decoys sort before targets on tied scores. q-values come from a running decoy count,
+    # so targets first would let a block of tied scores pass as decoy-free.
+    sort_order = [True, False, *[True] * len(extra_sort_columns)]
     df = df.sort_values(
-        [score_column, decoy_column, *extra_sort_columns],
-        ascending=[True, False, *[True] * len(extra_sort_columns)],
+        [score_column, decoy_column, *extra_sort_columns], ascending=sort_order
     )
     target_values = 1 - df[decoy_column].to_numpy()
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
