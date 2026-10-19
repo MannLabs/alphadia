@@ -7,7 +7,10 @@ import pytest
 from conftest import mock_context_features
 
 from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHandler
-from alphadia.workflow.peptidecentric.ng.ng_mapper import get_context_feature_names
+from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    get_context_feature_names,
+    get_final_round_feature_names,
+)
 
 
 @pytest.mark.parametrize("candidate_context_features", [True, False])
@@ -161,3 +164,34 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["df_fragments"] is fragments_df
     assert kwargs["fragment_provider"] is None
+
+
+@pytest.mark.parametrize("is_final", [True, False])
+def test_perform_fdr_and_filter_candidates_uses_final_round_features_only_when_final(
+    is_final,
+):
+    # given
+    received = {}
+
+    def fit_predict(features_df, **kwargs):
+        received["columns"] = set(features_df.columns)
+        return features_df.assign(qval=0.0)
+
+    handler, _ = _fdr_handler(fit_predict)
+    features_df, candidates_df, spectral_library = _fdr_inputs()
+    for name in get_final_round_feature_names():
+        features_df[name] = 1.0
+
+    # when
+    handler.perform_fdr_and_filter_candidates(
+        features_df,
+        candidates_df,
+        MagicMock(),
+        spectral_library,
+        df_fragments=pd.DataFrame({"precursor_idx": [1], "mz_observed": [1.0]}),
+        is_final=is_final,
+    )
+
+    # then
+    has_final_features = set(get_final_round_feature_names()) <= received["columns"]
+    assert has_final_features == is_final

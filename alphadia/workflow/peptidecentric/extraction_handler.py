@@ -31,6 +31,7 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     add_rank_delta_features,
     add_sibling_features,
     candidates_to_ng,
+    get_final_round_feature_names,
     merge_context_features,
     parse_candidates,
     parse_quantification,
@@ -744,6 +745,13 @@ class NgExtractionHandler(ExtractionHandler):
                 competing, None, dia_data, spectral_library
             )
             return fragments_df
+
+        # The calibration rounds set the raw-score cutoff from their IDs (0.85 x P3); features that let
+        # low-score candidates pass there lower the cutoff and flood the final extraction with weak ones.
+        if not is_final:
+            features_df = features_df.drop(
+                columns=get_final_round_feature_names(), errors="ignore"
+            )
 
         # apply FDR to PSMs
         precursor_fdr_df = self._fdr_manager.fit_predict(
