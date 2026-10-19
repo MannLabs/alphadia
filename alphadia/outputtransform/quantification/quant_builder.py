@@ -17,6 +17,7 @@ from alphadia.workflow.config import Config
 logger = logging.getLogger()
 
 PRECURSOR_IDX_COLUMN = "precursor_idx"
+RUN_COLUMN = "run"
 # directLFQ's name for the lowest quantified unit, fragments here
 ION_COLUMN = "ion"
 # Run columns of the accumulated fragment matrices are everything not listed here

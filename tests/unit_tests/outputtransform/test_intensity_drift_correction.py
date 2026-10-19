@@ -1,12 +1,9 @@
-import logging
-
 import numpy as np
 import pandas as pd
 import pytest
 
 from alphadia.outputtransform.quantification.intensity_drift_correction import (
-    IntensityDriftCorrector,
-    IntensityDriftStatistic,
+    correct_intensity_drift,
 )
 
 # two conditions with three replicates each, as in a typical benchmark design
@@ -20,7 +17,8 @@ FRAGMENTS_PER_PRECURSOR = 3
 DRIFT_LOG2 = 0.3
 ION_NOISE_LOG2 = 0.1
 METADATA_COLUMNS = ["precursor_idx", "ion", "pg", "mod_seq_hash", "mod_seq_charge_hash"]
-STATISTICS = [IntensityDriftStatistic.MODE, IntensityDriftStatistic.MEDIAN]
+# runs with fewer usable ions are left unchanged, hardcoded in alphadia_search_rs
+MIN_IONS_PER_RUN = 500
 
 
 def _make_tables(
@@ -88,13 +86,21 @@ def _slope_per_1000s(rt: np.ndarray, values: np.ndarray) -> float:
     return np.polyfit(rt / 1000.0, values, 1)[0]
 
 
+def _corrected(
+    intensity_df: pd.DataFrame, correlation_df: pd.DataFrame, psm_df: pd.DataFrame
+) -> pd.DataFrame:
+    """Corrected copy of intensity_df, leaving the original for comparison."""
+    result_df = intensity_df.copy()
+    correct_intensity_drift(result_df, correlation_df, psm_df)
+    return result_df
+
+
 def _log2_change(result_df: pd.DataFrame, intensity_df: pd.DataFrame, run: str):
     return np.log2(result_df[run].to_numpy() / intensity_df[run].to_numpy())
 
 
-class TestIntensityDriftCorrector:
-    @pytest.mark.parametrize("statistic", STATISTICS)
-    def test_removes_drift_of_a_single_run(self, statistic):
+class TestCorrectIntensityDrift:
+    def test_removes_drift_of_a_single_run(self):
         """Given one run drifting along RT, when corrected, then its deviation from the other runs is flat along RT."""
         # Given
         intensity_df, correlation_df, psm_df = _make_tables(drifting_runs=["A1"])
@@ -102,15 +108,12 @@ class TestIntensityDriftCorrector:
         assert _slope_per_1000s(rt, _deviation(intensity_df, ["A1"])) > 0.15
 
         # When
-        result_df = IntensityDriftCorrector(psm_df, statistic=statistic).correct(
-            intensity_df, correlation_df
-        )
+        result_df = _corrected(intensity_df, correlation_df, psm_df)
 
         # Then
         assert abs(_slope_per_1000s(rt, _deviation(result_df, ["A1"]))) < 0.02
 
-    @pytest.mark.parametrize("statistic", STATISTICS)
-    def test_removes_drift_of_a_whole_condition(self, statistic):
+    def test_removes_drift_of_a_whole_condition(self):
         """Given one of two balanced conditions drifting along RT, when corrected, then most of the deviation between the conditions is removed."""
         # Given
         intensity_df, correlation_df, psm_df = _make_tables(drifting_runs=CONDITION_A)
@@ -119,13 +122,11 @@ class TestIntensityDriftCorrector:
         assert slope_before > 0.15
 
         # When
-        result_df = IntensityDriftCorrector(psm_df, statistic=statistic).correct(
-            intensity_df, correlation_df
-        )
+        result_df = _corrected(intensity_df, correlation_df, psm_df)
 
         # Then: the across-run median sits between the conditions and halves a run's
         # deviation whenever that run is one of the two middle values, which skews the
-        # deviation distribution; the mode therefore removes slightly less than the median
+        # deviation distribution, so not all of it is removed
         slope_after = _slope_per_1000s(rt, _deviation(result_df, CONDITION_A))
         assert abs(slope_after) < 0.2 * slope_before
 
@@ -135,9 +136,7 @@ class TestIntensityDriftCorrector:
         intensity_df, correlation_df, psm_df = _make_tables(drifting_runs=CONDITION_A)
 
         # When
-        result_df = IntensityDriftCorrector(psm_df).correct(
-            intensity_df, correlation_df
-        )
+        result_df = _corrected(intensity_df, correlation_df, psm_df)
 
         # Then
         for run in RUNS:
@@ -151,9 +150,7 @@ class TestIntensityDriftCorrector:
         intensity_df, correlation_df, psm_df = _make_tables(drift_log2=0.0)
 
         # When
-        result_df = IntensityDriftCorrector(psm_df).correct(
-            intensity_df, correlation_df
-        )
+        result_df = _corrected(intensity_df, correlation_df, psm_df)
 
         # Then
         for run in RUNS:
@@ -167,9 +164,7 @@ class TestIntensityDriftCorrector:
         zero_mask = intensity_df["A1"].to_numpy() == 0.0
 
         # When
-        result_df = IntensityDriftCorrector(psm_df).correct(
-            intensity_df, correlation_df
-        )
+        result_df = _corrected(intensity_df, correlation_df, psm_df)
 
         # Then
         assert list(result_df.columns) == list(intensity_df.columns)
@@ -180,18 +175,18 @@ class TestIntensityDriftCorrector:
             result_df[METADATA_COLUMNS], intensity_df[METADATA_COLUMNS]
         )
 
-    def test_does_not_modify_inputs(self):
-        """Given intensity and correlation tables, when corrected, then the inputs are untouched."""
+    def test_corrects_intensities_in_place_and_leaves_correlations(self):
+        """Given drifting runs, when corrected, then the intensity table is corrected in place and the correlation table is untouched."""
         # Given
         intensity_df, correlation_df, psm_df = _make_tables()
         intensity_copy = intensity_df.copy()
         correlation_copy = correlation_df.copy()
 
         # When
-        IntensityDriftCorrector(psm_df).correct(intensity_df, correlation_df)
+        correct_intensity_drift(intensity_df, correlation_df, psm_df)
 
         # Then
-        pd.testing.assert_frame_equal(intensity_df, intensity_copy)
+        assert not intensity_df["A1"].equals(intensity_copy["A1"])
         pd.testing.assert_frame_equal(correlation_df, correlation_copy)
 
     def test_uses_only_well_correlating_ions_for_the_curve(self):
@@ -205,46 +200,31 @@ class TestIntensityDriftCorrector:
         correlation_df.loc[bad, RUNS] = 0.3
 
         # When
-        result_df = IntensityDriftCorrector(psm_df, min_correlation=0.8).correct(
-            intensity_df, correlation_df
-        )
+        result_df = _corrected(intensity_df, correlation_df, psm_df)
 
         # Then: the good ions were not distorted by the bad ions' drift
         change = _log2_change(result_df, intensity_df, "A1")
         assert abs(_slope_per_1000s(rt[~bad], change[~bad])) < 0.02
 
     @pytest.mark.parametrize("missing_column", ["rt_observed", "run"])
-    def test_skips_with_warning_when_psm_columns_are_missing(
-        self, missing_column, caplog
-    ):
-        """Given a psm table without rt_observed or run, when corrected, then the table is returned unchanged with a warning."""
+    def test_raises_when_psm_columns_are_missing(self, missing_column):
+        """Given a psm table without rt_observed or run, when corrected, then a ValueError names the missing column."""
         # Given
         intensity_df, correlation_df, psm_df = _make_tables(n_precursors=10)
         psm_df = psm_df.drop(columns=[missing_column])
 
-        # When
-        with caplog.at_level(logging.WARNING):
-            result_df = IntensityDriftCorrector(psm_df).correct(
-                intensity_df, correlation_df
-            )
-
-        # Then
-        pd.testing.assert_frame_equal(result_df, intensity_df)
-        assert any(
-            missing_column in record.message and record.levelno == logging.WARNING
-            for record in caplog.records
-        )
+        # When / Then
+        with pytest.raises(ValueError, match=missing_column):
+            correct_intensity_drift(intensity_df, correlation_df, psm_df)
 
     def test_skips_runs_with_too_few_ions(self):
         """Given fewer usable ions than the minimum per run, when corrected, then the table is returned unchanged."""
         # Given
         intensity_df, correlation_df, psm_df = _make_tables(n_precursors=100)
-        assert len(intensity_df) < IntensityDriftCorrector.DEFAULT_MIN_IONS_PER_RUN
+        assert len(intensity_df) < MIN_IONS_PER_RUN
 
         # When
-        result_df = IntensityDriftCorrector(psm_df).correct(
-            intensity_df, correlation_df
-        )
+        result_df = _corrected(intensity_df, correlation_df, psm_df)
 
         # Then
         pd.testing.assert_frame_equal(result_df, intensity_df)
@@ -261,17 +241,31 @@ class TestIntensityDriftCorrector:
         rt = _ion_rt(intensity_df, psm_df, "B1")
 
         # When
-        result_df = IntensityDriftCorrector(psm_df).correct(
-            intensity_df, correlation_df
-        )
+        result_df = _corrected(intensity_df, correlation_df, psm_df)
 
         # Then
         change = _log2_change(result_df, intensity_df, "A1")
         neighbours = (np.abs(rt - rt[rows][0]) < 30) & ~rows
         assert np.isclose(change[rows].mean(), change[neighbours].mean(), atol=0.03)
 
-    def test_rejects_unknown_statistic(self):
-        """Given an unknown statistic, when constructed, then a ValueError is raised."""
-        # When / Then
-        with pytest.raises(ValueError, match="statistic"):
-            IntensityDriftCorrector(pd.DataFrame(), statistic="mean")
+    def test_matches_ions_to_precursors_independent_of_row_order(self):
+        """Given shuffled rows and sparse precursor indices, when corrected, then every ion gets the same correction as in the ordered table."""
+        # Given
+        intensity_df, correlation_df, psm_df = _make_tables()
+        offset = 1_000_000
+        for df in (intensity_df, correlation_df, psm_df):
+            df["precursor_idx"] = df["precursor_idx"] * 7 + offset
+        order = np.random.default_rng(1).permutation(len(intensity_df))
+        shuffled_intensity_df = intensity_df.iloc[order].reset_index(drop=True)
+        shuffled_correlation_df = correlation_df.iloc[order].reset_index(drop=True)
+
+        # When
+        result_df = _corrected(intensity_df, correlation_df, psm_df)
+        shuffled_result_df = _corrected(
+            shuffled_intensity_df, shuffled_correlation_df, psm_df
+        )
+
+        # Then
+        np.testing.assert_allclose(
+            shuffled_result_df[RUNS].to_numpy(), result_df[RUNS].to_numpy()[order]
+        )
