@@ -3,8 +3,10 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 
+from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
@@ -263,3 +265,40 @@ def test_perform_fdr_stops_after_max_reinits():
     # Then: perform_fdr stops after the maximum number of retries
     assert classifier.reset_count == fdr._MAX_FDR_CLASSIFIER_REINITS
     assert psm_df["proba"].std() == 0.0
+
+
+def test_fit_feature_transform_falls_back_to_raw_features_for_few_rows():
+    # Given: a classifier with the quantile transform and fewer rows than the minimum
+    classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+    x, _ = gen_data_np(n_samples=100)
+
+    # When: the transform is fitted
+    transformer = classifier._fit_feature_transform(x)
+
+    # Then: no transformer is fitted, so the raw features are used
+    assert transformer is None
+
+
+def test_classifier_raises_for_unknown_transform():
+    # When/Then: constructing a classifier with an unknown transform fails explicitly
+    with pytest.raises(ValueError, match="Unknown feature transform"):
+        BinaryClassifierLegacyNewBatching(feature_transform="unknown")
+
+
+def test_quantile_transform_state_dict_round_trip():
+    # Given: a classifier fitted with the quantile transform
+    x, y = gen_data_np(n_samples=2000)
+    classifier = BinaryClassifierLegacyNewBatching(
+        batch_size=100, feature_transform=FeatureTransform.QUANTILE
+    )
+    classifier.fit(x, y)
+    assert classifier._quantile_transformer is not None
+
+    # When: the state dict is round tripped through a new classifier
+    new_classifier = BinaryClassifierLegacyNewBatching()
+    new_classifier.from_state_dict(classifier.to_state_dict())
+
+    # Then: the predictions are identical
+    assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
