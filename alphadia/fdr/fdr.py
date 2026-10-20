@@ -22,6 +22,9 @@ if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
 
 max_dia_cycle_shape = 2
+# the loose pool and overlap of the interference removal before the refit
+INTERFERENCE_POOL_Q = 0.5
+INTERFERENCE_MIN_SHARED_IONS = 2
 
 logger = logging.getLogger()
 
@@ -211,6 +214,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     classifier.fit(X[idxs_train], y_train)
 
     psm_df["_decoy"] = y
+    all_psms = psm_df
 
     if competitive:
         group_columns = (
@@ -244,31 +248,57 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             "separation failed and q-values will not filter PSMs."
         )
 
+    psm_df["_row"] = np.arange(len(psm_df))
     psm_df["proba"] = predicted_proba
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
-        # use a FDR of 10% as starting point
-        # if there are no PSMs with a FDR < 10% use all PSMs
-        start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
-        if start_idx == 0:
-            start_idx = len(psm_df)
+        # DIA-NN removes the precursors whose fragments a better precursor of the same kind explains before
+        # it trains its classifier; decoys never lose to targets. Removing them only after the fit, from the
+        # 10 % pool and at 3 shared ions, left the riding false targets in the training data.
+        pool_end = psm_df["qval"].searchsorted(INTERFERENCE_POOL_Q, side="right")
+        if pool_end == 0:
+            pool_end = len(psm_df)
 
         if df_fragments is None and fragment_provider is not None:
-            df_fragments = fragment_provider(psm_df.iloc[:start_idx])
+            df_fragments = fragment_provider(psm_df.iloc[:pool_end])
 
-        # make sure fragments are not reused
         if df_fragments is not None:
-            if dia_cycle is None:
-                raise ValueError(
-                    "dia_cycle must be provided if df_fragments is provided"
-                )
-            psm_df = compete_for_fragments(
-                psm_df.iloc[:start_idx], df_fragments, dia_cycle
+            winners = compete_for_fragments(
+                psm_df.iloc[:pool_end],
+                df_fragments,
+                dia_cycle,
+                min_overlap=INTERFERENCE_MIN_SHARED_IONS,
             )
+            keep = np.ones(len(predicted_proba), dtype=bool)
+            keep[
+                np.setdiff1d(
+                    psm_df["_row"].to_numpy()[:pool_end], winners["_row"].to_numpy()
+                )
+            ] = False
+            logger.info(
+                f"refitting the classifier without the {int((~keep).sum()):,} PSMs that lost "
+                f"the within-class fragment competition"
+            )
+            X = all_psms[available_columns].to_numpy()
+            train = idxs_train[keep[idxs_train]]
+            classifier.fit(X[train], y[train])
+            refitted = classifier.predict_proba(X)[:, 1]
+            del X
+            if not _is_collapsed(refitted):
+                predicted_proba = refitted
+            else:
+                logger.warning(
+                    "refitted FDR classifier collapsed; keeping the first fit"
+                )
+            psm_df = all_psms[keep].assign(
+                _row=np.flatnonzero(keep), proba=predicted_proba[keep]
+            )
+            psm_df = get_q_values(psm_df, "proba", "_decoy")
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values_by_length(psm_df, "proba", "_decoy")
+    psm_df = psm_df.drop(columns="_row")
 
     if figure_path is not None:
         plot_fdr(
