@@ -448,9 +448,9 @@ def test_perform_fdr_fragment_provider_removes_the_weaker_of_two_psms_sharing_fr
         dia_cycle=_DIA_CYCLE,
     )
 
-    # Then: the provider is asked once, only for the PSMs below the heuristic q-value
+    # Then: the provider is asked once, only for the PSMs of the interference-removal pool
     assert len(requested) == 1
-    assert requested[0]["qval"].max() < 0.1
+    assert requested[0]["qval"].max() <= fdr.INTERFERENCE_POOL_Q
     # and PSM 1 lost its fragments to PSM 0, while PSM 0 and the lone PSMs survive
     assert 1 not in psm_df["precursor_idx"].to_numpy()
     assert {0, 2, 3} <= set(psm_df["precursor_idx"])
