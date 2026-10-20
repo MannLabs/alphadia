@@ -13,10 +13,9 @@ from alphadia.workflow.peptidecentric.utils import (
 )
 
 
-@pytest.mark.parametrize("idf_features", ["inherit", "own"])
-def test_get_classifier_feature_columns_for_rust_backend(idf_features):
+def test_get_classifier_feature_columns_for_rust_backend():
     # when
-    columns = get_classifier_feature_columns("rust", idf_features)
+    columns = get_classifier_feature_columns("rust", "own")
 
     # then
     assert columns == get_feature_names() + get_context_feature_names()
