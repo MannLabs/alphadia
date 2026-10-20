@@ -217,6 +217,10 @@ calibration:
   # the maximum number of steps that a given optimizer is permitted to take
   max_steps: 20
 
+  # after optimization, correct every precursor's calibrated RT by a sequence model of the calibration
+  # identifications' RT residual (the library RT model's sequence-dependent error in this run)
+  rt_sequence_refinement: true
+
   # the minimum number of steps that a given automatic optimizer must take before it can be said to have converged
   min_steps: 3
 

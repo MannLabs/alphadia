@@ -62,6 +62,8 @@ class OptimizationHandler:
             self._spectral_library, self._config
         )
         self._num_fits_after_lock = 0
+        # the target identifications of the latest calibration, for the RT refinement after optimization
+        self.calibration_identifications: pd.DataFrame | None = None
 
         self._column_name_handler = ColumnNameHandler(
             self._calibration_manager,
@@ -303,6 +305,7 @@ class OptimizationHandler:
                     precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
                         precursor_df, self._optlock.fragments_df
                     )
+                    self.calibration_identifications = precursor_df_filtered
 
                     self._optlock.update()
                     recalibration_handler.recalibrate(
@@ -338,6 +341,7 @@ class OptimizationHandler:
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
                 precursor_df, self._optlock.fragments_df
             )
+            self.calibration_identifications = precursor_df_filtered
             if precursor_df_filtered.shape[0] >= 6:
                 recalibration_handler.recalibrate(
                     precursor_df_filtered, fragments_df_filtered

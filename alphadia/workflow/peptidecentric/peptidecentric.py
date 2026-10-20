@@ -18,6 +18,7 @@ from alphadia.workflow.peptidecentric.multiplexing_requantification_handler impo
     MultiplexingRequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
+from alphadia.workflow.peptidecentric.rt_refinement import refine_calibrated_rt
 from alphadia.workflow.peptidecentric.transfer_library_requantification_handler import (
     TransferLibraryRequantificationHandler,
 )
@@ -166,6 +167,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.predict(
             self.spectral_library.fragment_df, CalibrationGroups.FRAGMENT
         )
+
+        if (
+            self.config["calibration"]["rt_sequence_refinement"]
+            and optimization_handler.calibration_identifications is not None
+        ):
+            refine_calibrated_rt(
+                self.spectral_library.precursor_df,
+                optimization_handler.calibration_identifications,
+            )
 
     @use_timing_manager("extraction")
     def extraction(self):
