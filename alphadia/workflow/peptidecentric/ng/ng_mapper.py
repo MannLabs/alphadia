@@ -14,6 +14,7 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
+from alphadia.constants.keys import CalibCols
 from alphadia.raw_data import DiaData
 
 CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
@@ -212,11 +213,15 @@ def to_features_df(
                 "elution_group_idx",
                 "channel",
                 "proteins",
+                CalibCols.MZ_LIBRARY,
             ]
         ],
         on="precursor_idx",
         how="left",
     )
+    # As in the quantified precursors: fragment competition assigns each PSM to its
+    # isolation window by this m/z, so scored and quantified PSMs must use the same one.
+    features_df[CalibCols.MZ_OBSERVED] = features_df[CalibCols.MZ_LIBRARY]
 
     return features_df
 
