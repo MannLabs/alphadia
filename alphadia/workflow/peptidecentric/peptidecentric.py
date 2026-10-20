@@ -217,6 +217,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 competitive=self._config["fdr"]["competitive_scoring"],
                 df_fragments=fragments_df,
                 version=self.optimization_manager.classifier_version,
+                is_final=True,
             )
 
             precursor_df = precursor_df[
@@ -248,6 +249,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     candidates_df,
                     self.dia_data,
                     self.spectral_library,
+                    is_final=True,
                 )
             )
 

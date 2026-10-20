@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RT_TOLERANCE_SECONDS = 3.0
 DEFAULT_MASS_TOLERANCE_PPM = 15.0
+# A shuffled entrapment peptide riding a real peptide's peak often shares only two of its
+# ions with it, so with the Rust default of 3 it survives the competition.
+DEFAULT_MIN_OVERLAPPING_FRAGMENTS = 2
 
 
 def compete_for_fragments(
@@ -27,6 +30,7 @@ def compete_for_fragments(
     cycle: np.ndarray,
     rt_tol_seconds: float = DEFAULT_RT_TOLERANCE_SECONDS,
     mass_tol_ppm: float = DEFAULT_MASS_TOLERANCE_PPM,
+    min_overlapping_fragments: int = DEFAULT_MIN_OVERLAPPING_FRAGMENTS,
 ) -> pd.DataFrame:
     """Remove PSMs that share fragments with other PSMs.
 
@@ -51,6 +55,9 @@ def compete_for_fragments(
     mass_tol_ppm: float
         The mass tolerance in ppm.
 
+    min_overlapping_fragments: int
+        Two PSMs compete if they share at least this number of ions.
+
     Returns
     -------
     pd.DataFrame
@@ -70,7 +77,9 @@ def compete_for_fragments(
 
     psm_df = add_frag_start_stop_idx(psm_df, frag_df)
 
-    valid = FragmentCompetition(rt_tol_seconds, mass_tol_ppm).compete(
+    valid = FragmentCompetition(
+        rt_tol_seconds, mass_tol_ppm, min_overlapping_fragments
+    ).compete(
         psm_df[CalibCols.MZ_OBSERVED].to_numpy(dtype=np.float32),
         psm_df["precursor_idx"].to_numpy(dtype=np.int64),
         psm_df["proba"].to_numpy(dtype=np.float64),

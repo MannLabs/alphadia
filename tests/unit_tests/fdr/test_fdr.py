@@ -384,3 +384,47 @@ def test_perform_fdr_prefers_given_fragments_over_the_provider():
 
     # Then: the given fragments decide the competition
     assert 1 not in psm_df["precursor_idx"].to_numpy()
+
+
+class _RecordingClassifier(_CollapsingClassifier):
+    """Separates targets from decoys and records the rows of every fit."""
+
+    def __init__(self):
+        super().__init__(n_collapses=0)
+        self.fits = []
+
+    def fit(self, x, y):
+        super().fit(x, y)
+        self.fits.append((x.copy(), y.copy()))
+
+
+def test_perform_fdr_refits_without_the_losers_of_fragment_competition():
+    # Given: target 1 shares its fragments with the better target 0 at the same time
+    classifier = _RecordingClassifier()
+    target_df, decoy_df = _gen_competing_psms()
+    loser_feature = target_df.loc[target_df["precursor_idx"] == 1, "feature"].iloc[0]
+
+    # When: perform_fdr refits after fragment competition
+    psm_df = fdr.perform_fdr(
+        classifier,
+        ["feature"],
+        target_df,
+        decoy_df,
+        fragment_provider=_fragments_of,
+        dia_cycle=_DIA_CYCLE,
+        refit_after_fragment_competition=True,
+        random_state=0,
+    )
+
+    # Then: the classifier is fitted twice, the second time without the loser
+    assert len(classifier.fits) == 2
+    (x_first, y_first), (x_refit, y_refit) = classifier.fits
+
+    def is_loser(x, y):
+        return (x[:, 0] == loser_feature) & (y == 0)
+
+    assert not is_loser(x_refit, y_refit).any()
+    assert len(x_refit) == len(x_first) - is_loser(x_first, y_first).sum()
+    # and the loser is still not reported
+    assert 1 not in psm_df["precursor_idx"].to_numpy()
+    assert "_row" not in psm_df.columns
