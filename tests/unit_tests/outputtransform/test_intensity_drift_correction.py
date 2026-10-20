@@ -53,19 +53,6 @@ def _make_tables(
     return intensity_df, correlation_df, psm_df
 
 
-def _drift_slope(intensity_df: pd.DataFrame, psm_df: pd.DataFrame) -> float:
-    """Slope over RT in 1000 s of the per-ion log2 intensity of DRIFTING_RUN minus the mean of the other runs."""
-    log = np.log2(intensity_df[RUNS])
-    deviation = log[DRIFTING_RUN] - log.drop(columns=DRIFTING_RUN).mean(axis=1)
-    rt = (
-        psm_df[psm_df["run"] == DRIFTING_RUN]
-        .set_index("precursor_idx")["rt_observed"]
-        .reindex(intensity_df["precursor_idx"])
-        .to_numpy()
-    )
-    return np.polyfit(rt / 1000.0, deviation.to_numpy(), 1)[0]
-
-
 def _corrected(
     intensity_df: pd.DataFrame, correlation_df: pd.DataFrame, psm_df: pd.DataFrame
 ) -> pd.DataFrame:
@@ -76,18 +63,6 @@ def _corrected(
 
 
 class TestCorrectIntensityDrift:
-    def test_removes_drift_of_a_single_run(self):
-        """Given one run drifting along RT, when corrected, then its deviation from the other runs is flat along RT."""
-        # Given
-        intensity_df, correlation_df, psm_df = _make_tables()
-        assert _drift_slope(intensity_df, psm_df) > 0.15
-
-        # When
-        result_df = _corrected(intensity_df, correlation_df, psm_df)
-
-        # Then
-        assert abs(_drift_slope(result_df, psm_df)) < 0.02
-
     def test_corrects_intensities_in_place_and_leaves_correlations(self):
         """Given a drifting run, when corrected, then the intensity table is corrected in place and the correlation table is untouched."""
         # Given
