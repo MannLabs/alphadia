@@ -31,6 +31,10 @@ from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandle
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
+# Experiment exp/fc2-rtauto, not for merging: the benchmark configs fix target_rt_tolerance at 200 s, which covers
+# the whole 134 s gradient of the 2 min runs; test the automatic RT optimisation instead.
+FORCE_AUTOMATIC_RT = True
+
 
 class OptimizationHandler:
     """
@@ -125,7 +129,7 @@ class OptimizationHandler:
                 AutomaticMS2Optimizer, self._optimization_manager.ms2_error
             )
 
-        if config_search["target_rt_tolerance"] > 0:
+        if config_search["target_rt_tolerance"] > 0 and not FORCE_AUTOMATIC_RT:
             gradient_length = self._dia_data.rt_values.max()
             target_rt_error = (
                 config_search["target_rt_tolerance"]
