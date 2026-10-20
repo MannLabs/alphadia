@@ -18,16 +18,6 @@ from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 from alphadia.raw_data import DiaData
 
 CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
-# How much better a candidate is than the best other candidate (peak) of the same precursor. A real peptide usually
-# has one peak that stands out; a false target several similar ones. In alphaDIA's uncertain band on hela1ft_entr these
-# separate real from false targets beyond every per-candidate feature (+0.03 AUC each).
-RANK_DELTA_SOURCE_FEATURES = (
-    "score",
-    "hyperscore_intensity_observation",
-    "mean_correlation",
-)
-RANK_DELTA_PREFIX = "rank_delta_"
-N_OTHER_CANDIDATES = "n_other_candidates"
 # Other charge states of the same peptide that peak at the same time. A real peptide often shows up in several charge
 # states at one apex, a false target only by chance. In alphaDIA's uncertain band on hela1ft_entr 18.7 % of HUMAN vs
 # 1.1 % of ARATH targets have such a sibling; decoys get one slightly more often than false targets (A / D_A 0.84-0.89),
@@ -118,47 +108,9 @@ def get_context_feature_names() -> list[str]:
     return list(CandidateContext.get_feature_names())
 
 
-def get_rank_delta_feature_names() -> list[str]:
-    """Names of the columns `add_rank_delta_features` adds."""
-    return [RANK_DELTA_PREFIX + name for name in RANK_DELTA_SOURCE_FEATURES] + [
-        N_OTHER_CANDIDATES
-    ]
-
-
 def get_final_round_feature_names() -> list[str]:
     """Features the FDR classifier uses only in the final round, not in the calibration rounds."""
     return get_sibling_feature_names()
-
-
-def add_rank_delta_features(features_df: pd.DataFrame) -> pd.DataFrame:
-    """Add each source feature minus its best value among the other candidates of the same precursor, and their number.
-
-    A precursor without other candidates gets the feature minus 0.
-    """
-    precursor_idx = features_df["precursor_idx"].to_numpy()
-    group_size = features_df.groupby("precursor_idx")["precursor_idx"].transform("size")
-    features_df[N_OTHER_CANDIDATES] = (group_size - 1).to_numpy(dtype=np.float32)
-    for name in RANK_DELTA_SOURCE_FEATURES:
-        values = features_df[name].to_numpy(dtype=np.float64)
-        order = np.lexsort((-values, precursor_idx))
-        sorted_precursor = precursor_idx[order]
-        sorted_values = values[order]
-        is_first = np.ones(len(order), dtype=bool)
-        is_first[1:] = sorted_precursor[1:] != sorted_precursor[:-1]
-        first_position = np.maximum.accumulate(
-            np.where(is_first, np.arange(len(order)), 0)
-        )
-        best = sorted_values[first_position]
-        next_position = np.minimum(first_position + 1, len(order) - 1)
-        has_second = (first_position + 1 < len(order)) & (
-            sorted_precursor[next_position] == sorted_precursor
-        )
-        second = np.where(has_second, sorted_values[next_position], 0.0)
-        best_other = np.where(is_first, second, best)
-        delta = np.empty(len(order))
-        delta[order] = sorted_values - best_other
-        features_df[RANK_DELTA_PREFIX + name] = delta.astype(np.float32)
-    return features_df
 
 
 def get_sibling_feature_names() -> list[str]:

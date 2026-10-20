@@ -6,10 +6,8 @@ import pytest
 from conftest import mock_context_features
 
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-    add_rank_delta_features,
     add_sibling_features,
     get_context_feature_names,
-    get_rank_delta_feature_names,
     get_sibling_feature_names,
     merge_context_features,
 )
@@ -55,36 +53,6 @@ def test_merge_context_features_raises_on_duplicate_candidate():
     with pytest.raises(ValueError, match="duplicate candidates") as error:
         merge_context_features(features_df, context_features)
     assert "1" in str(error.value)
-
-
-def test_add_rank_delta_features():
-    # given: precursor 7 has three candidates, precursor 9 one
-    features_df = pd.DataFrame(
-        {
-            "precursor_idx": [7, 9, 7, 7],
-            "rank": [0, 0, 1, 2],
-            "score": [5.0, 3.0, 2.0, 4.0],
-            "hyperscore_intensity_observation": [1.0, 2.0, 3.0, 3.0],
-            "mean_correlation": [0.5, 0.1, 0.2, 0.2],
-        }
-    )
-
-    # when
-    result = add_rank_delta_features(features_df)
-
-    # then
-    assert result["rank_delta_score"].tolist() == [1.0, 3.0, -3.0, -1.0]
-    assert result["rank_delta_hyperscore_intensity_observation"].tolist() == [
-        -2.0,
-        2.0,
-        0.0,
-        0.0,
-    ]
-    np.testing.assert_allclose(
-        result["rank_delta_mean_correlation"], [0.3, 0.1, -0.3, -0.3], atol=1e-6
-    )
-    assert result["n_other_candidates"].tolist() == [2.0, 0.0, 2.0, 2.0]
-    assert set(get_rank_delta_feature_names()) <= set(result.columns)
 
 
 def test_add_sibling_features():
