@@ -92,6 +92,20 @@ def get_feature_names() -> list[str]:
     return [f for f in CandidateFeatureCollection.get_feature_names()]
 
 
+# rust features of which ions carry the peak (short ions match by chance, long ones are specific)
+ION_IDENTITY_FEATURES = [
+    "ion_position_mean",
+    "num_over_50_long_ions",
+    "num_over_50_short_ions",
+    "long_ion_intensity_share",
+]
+
+
+def get_final_round_feature_names() -> list[str]:
+    """Features the FDR classifier uses only in the final round, not in the calibration rounds."""
+    return ION_IDENTITY_FEATURES
+
+
 def get_context_feature_names() -> list[str]:
     """Get the competition and context feature names from NG CandidateContext."""
     return list(CandidateContext.get_feature_names())
