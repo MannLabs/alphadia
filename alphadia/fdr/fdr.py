@@ -6,7 +6,6 @@ import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.plotting import plot_fdr
@@ -14,6 +13,8 @@ from alphadia.fdr.utils import manage_torch_threads, train_test_split_indices
 from alphadia.fragcomp.fragcomp import compete_for_fragments
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from alphadia.fdr.classifiers import Classifier
 
 max_dia_cycle_shape = 2
