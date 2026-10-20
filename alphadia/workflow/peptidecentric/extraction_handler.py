@@ -276,7 +276,6 @@ class ExtractionHandler(ABC):
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
-        is_final: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -299,9 +298,6 @@ class ExtractionHandler(ABC):
         df_fragments : pd.DataFrame, optional
             Quantified fragments of all candidates. If not given, the fragments of the
             candidates that enter fragment competition are quantified on demand.
-
-        is_final : bool, default=False
-            Whether this is the FDR round whose results are reported.
 
         Returns
         -------
@@ -704,7 +700,6 @@ class NgExtractionHandler(ExtractionHandler):
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
-        is_final: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -746,7 +741,6 @@ class NgExtractionHandler(ExtractionHandler):
             df_fragments=df_fragments,
             fragment_provider=quantified_fragments if df_fragments is None else None,
             version=self._optimization_manager.classifier_version,
-            is_final=is_final,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
