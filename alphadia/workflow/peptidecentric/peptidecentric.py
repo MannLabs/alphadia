@@ -112,7 +112,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
             feature_columns=get_classifier_feature_columns(
-                self._config["search"]["extraction_backend"]
+                self._config["search"]["extraction_backend"],
+                self._config["search"]["use_idf_features"],
             ),
             classifier_base=_get_classifier_base(
                 enable_nn_hyperparameter_tuning=config_fdr[
