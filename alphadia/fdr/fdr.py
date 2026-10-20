@@ -27,55 +27,8 @@ _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 _MAX_FDR_CLASSIFIER_REINITS = 3
 
 
-def perform_fdr(
-    classifier: Classifier,
-    available_columns: list[str],
-    df_target: pd.DataFrame,
-    df_decoy: pd.DataFrame,
-    **kwargs,
-) -> pd.DataFrame:
-    """Performs FDR calculation on separate dataframes of target and decoy PSMs.
-
-    The PSMs of `df_decoy` are the decoys of the target-decoy competition, whatever their
-    `decoy` column says. See `perform_fdr_on_psms` for the keyword arguments and the result.
-
-    Parameters
-    ----------
-    classifier : Classifier
-        A classifier that implements the fit and predict_proba methods
-
-    available_columns : list[str]
-        A list of column names that are available for the classifier
-
-    df_target : pd.DataFrame
-        A dataframe of target PSMs
-
-    df_decoy : pd.DataFrame
-        A dataframe of decoy PSMs
-
-    **kwargs
-        Passed to `perform_fdr_on_psms`.
-
-    Returns
-    -------
-    psm_df : pd.DataFrame
-        A dataframe of PSMs with q-values and probabilities.
-
-    """
-    is_decoy = np.concatenate(
-        [np.zeros(len(df_target), dtype=bool), np.ones(len(df_decoy), dtype=bool)]
-    )
-    return perform_fdr_on_psms(
-        classifier,
-        available_columns,
-        pd.concat([df_target, df_decoy]),
-        is_decoy,
-        **kwargs,
-    )
-
-
 @manage_torch_threads(max_threads=2)
-def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
+def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
     classifier: Classifier,
     available_columns: list[str],
     df: pd.DataFrame,

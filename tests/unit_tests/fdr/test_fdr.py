@@ -226,7 +226,7 @@ class _CollapsingClassifier(Classifier):
         pass
 
 
-def _gen_target_decoy_dfs(n_samples: int = 200):
+def _gen_psm_df(n_samples: int = 200):
     feature = np.linspace(0.0, 1.0, n_samples)
     target_df = pd.DataFrame(
         {
@@ -238,16 +238,18 @@ def _gen_target_decoy_dfs(n_samples: int = 200):
     decoy_df = target_df.assign(
         precursor_idx=np.arange(n_samples, 2 * n_samples), decoy=1
     )
-    return target_df, decoy_df
+    return pd.concat([target_df, decoy_df], ignore_index=True)
 
 
 def test_perform_fdr_resets_collapsed_classifier():
     # Given: a classifier that collapses once, then separates targets from decoys
     classifier = _CollapsingClassifier(n_collapses=1)
-    target_df, decoy_df = _gen_target_decoy_dfs()
+    psm_df = _gen_psm_df()
 
     # When: perform_fdr runs
-    psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
+    psm_df = fdr.perform_fdr(
+        classifier, ["feature"], psm_df, psm_df["decoy"].to_numpy() == 1
+    )
 
     # Then: perform_fdr resets the classifier once and uses the new probabilities
     assert classifier.reset_count == 1
@@ -257,10 +259,12 @@ def test_perform_fdr_resets_collapsed_classifier():
 def test_perform_fdr_stops_after_max_reinits():
     # Given: a classifier that never recovers
     classifier = _CollapsingClassifier(n_collapses=1000)
-    target_df, decoy_df = _gen_target_decoy_dfs()
+    psm_df = _gen_psm_df()
 
     # When: perform_fdr runs
-    psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
+    psm_df = fdr.perform_fdr(
+        classifier, ["feature"], psm_df, psm_df["decoy"].to_numpy() == 1
+    )
 
     # Then: perform_fdr stops after the maximum number of retries
     assert classifier.reset_count == fdr._MAX_FDR_CLASSIFIER_REINITS
