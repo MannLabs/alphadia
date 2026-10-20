@@ -28,6 +28,7 @@ from alphadia.workflow.optimizers.targeted import (
 )
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
+from alphadia.workflow.peptidecentric.ng.ng_mapper import get_final_round_feature_names
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
@@ -457,8 +458,12 @@ class OptimizationHandler:
                 precursor_quantified_w_features_df, fragments_df
             )
 
+            # The calibration rounds set the raw-score cutoff from their IDs (0.85 x P3); a strong new
+            # feature lets low-score candidates pass there, lowers the cutoff and floods the final extraction.
             _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
-                self._optlock.features_df,
+                self._optlock.features_df.drop(
+                    columns=get_final_round_feature_names(), errors="ignore"
+                ),
                 candidates_df,
                 self._dia_data,
                 self._optlock.batch_library,
