@@ -198,6 +198,12 @@ search:
   # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
   candidate_context_features: False
 
+  # whether the FDR classifier uses the IDF features of the rust backend: "none" or "own"
+  # "none": the IDF features are left out of the FDR classifier
+  # "own": every fragment's IDF is taken at its own m/z over all library fragments, decoys included. The decoy mutation
+  # moves decoy fragments onto masses of their own, so the classifier can recognise decoys from the library alone.
+  idf_features: none
+
   # === python backend only ===
   # exclude fragments shared between multiple channels
   exclude_shared_ions: True
