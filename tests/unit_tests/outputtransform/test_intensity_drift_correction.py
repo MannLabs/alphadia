@@ -4,6 +4,7 @@ import pytest
 
 from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
+    validate_psm_columns,
 )
 
 RUNS = ["A1", "A2", "A3", "B1", "B2", "B3"]
@@ -32,6 +33,8 @@ def _make_tables(
     base = 2 ** rng.uniform(10, 20, n_ions)
     intensity = {run: base * 2 ** rng.normal(0, ION_NOISE_LOG2, n_ions) for run in RUNS}
     intensity[DRIFTING_RUN] *= 2 ** (DRIFT_LOG2 * rt[precursor_idx] / GRADIENT_SECONDS)
+    # the accumulated fragment tables hold float32
+    intensity = {run: values.astype(np.float32) for run, values in intensity.items()}
 
     metadata = {
         "precursor_idx": precursor_idx,
@@ -41,7 +44,9 @@ def _make_tables(
         "mod_seq_charge_hash": precursor_idx,
     }
     intensity_df = pd.DataFrame({**metadata, **intensity})
-    correlation_df = pd.DataFrame({**metadata, **{run: 0.95 for run in RUNS}})
+    correlation_df = pd.DataFrame(
+        {**metadata, **{run: np.float32(0.95) for run in RUNS}}
+    )
 
     psm_df = pd.DataFrame(
         {
@@ -53,40 +58,36 @@ def _make_tables(
     return intensity_df, correlation_df, psm_df
 
 
-def _corrected(
-    intensity_df: pd.DataFrame, correlation_df: pd.DataFrame, psm_df: pd.DataFrame
-) -> pd.DataFrame:
-    """Return a corrected copy of intensity_df."""
-    result_df = intensity_df.copy()
-    correct_intensity_drift(result_df, correlation_df, psm_df)
-    return result_df
-
-
 class TestCorrectIntensityDrift:
-    def test_corrects_intensities_in_place_and_leaves_correlations(self):
-        """Given a drifting run, when corrected, then the intensity table is corrected in place and the correlation table is untouched."""
+    def test_returns_a_corrected_float32_copy_and_leaves_the_inputs(self):
+        """Given a drifting run, when corrected, then a corrected float32 copy is returned and the input tables are untouched."""
         # Given
         intensity_df, correlation_df, psm_df = _make_tables()
         intensity_copy = intensity_df.copy()
         correlation_copy = correlation_df.copy()
 
         # When
-        correct_intensity_drift(intensity_df, correlation_df, psm_df)
+        result_df = correct_intensity_drift(intensity_df, correlation_df, psm_df)
 
         # Then
-        assert not intensity_df[DRIFTING_RUN].equals(intensity_copy[DRIFTING_RUN])
+        assert not result_df[DRIFTING_RUN].equals(intensity_df[DRIFTING_RUN])
+        assert (result_df[RUNS].dtypes == np.float32).all()
+        pd.testing.assert_frame_equal(
+            result_df.drop(columns=RUNS), intensity_df.drop(columns=RUNS)
+        )
+        pd.testing.assert_frame_equal(intensity_df, intensity_copy)
         pd.testing.assert_frame_equal(correlation_df, correlation_copy)
 
     @pytest.mark.parametrize("missing_column", ["rt_observed", "run"])
-    def test_raises_when_psm_columns_are_missing(self, missing_column):
-        """Given a psm table without rt_observed or run, when corrected, then a ValueError names the missing column."""
+    def test_validate_psm_columns_names_a_missing_column(self, missing_column):
+        """Given a psm table without rt_observed or run, when validated, then a ValueError names the missing column."""
         # Given
-        intensity_df, correlation_df, psm_df = _make_tables(n_precursors=10)
+        _, _, psm_df = _make_tables(n_precursors=10)
         psm_df = psm_df.drop(columns=[missing_column])
 
         # When / Then
         with pytest.raises(ValueError, match=missing_column):
-            correct_intensity_drift(intensity_df, correlation_df, psm_df)
+            validate_psm_columns(psm_df)
 
     def test_matches_ions_to_precursors_independent_of_row_order(self):
         """Given shuffled rows and sparse precursor indices, when corrected, then every ion gets the same correction as in the ordered table."""
@@ -100,8 +101,8 @@ class TestCorrectIntensityDrift:
         shuffled_correlation_df = correlation_df.iloc[order].reset_index(drop=True)
 
         # When
-        result_df = _corrected(intensity_df, correlation_df, psm_df)
-        shuffled_result_df = _corrected(
+        result_df = correct_intensity_drift(intensity_df, correlation_df, psm_df)
+        shuffled_result_df = correct_intensity_drift(
             shuffled_intensity_df, shuffled_correlation_df, psm_df
         )
 

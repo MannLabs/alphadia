@@ -348,6 +348,8 @@ search_output:
 
   # Remove each run's retention-time dependent intensity drift before label-free quantification.
   # Only the shape along the gradient is removed, the level of a run is left to the LFQ normalization.
+  # The ion selection uses its own thresholds, the defaults of alphadia_search_rs.IntensityDriftCorrection
+  # (correlation >= 0.8, observed in >= 3 runs, >= 500 usable ions per run), not search_output.min_correlation.
   intensity_drift_correction: True
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.

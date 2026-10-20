@@ -14,6 +14,7 @@ from alphadia.outputtransform.quantification.fragment_accumulator import (
 )
 from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
+    validate_psm_columns,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
     LFQOutputConfig,
@@ -64,6 +65,10 @@ class QuantOutputBuilder:
         self.psm_df = psm_df
         self.config = config
         psm_no_decoys = psm_df[psm_df["decoy"] == 0]
+        self._psm_no_decoys = psm_no_decoys
+
+        if config["search_output"]["intensity_drift_correction"]:
+            validate_psm_columns(psm_no_decoys)
 
         if (
             config["search_output"]["normalization_method"]
@@ -102,10 +107,10 @@ class QuantOutputBuilder:
             return {}, self.psm_df
 
         if self.config["search_output"]["intensity_drift_correction"]:
-            correct_intensity_drift(
+            feature_dfs_dict["intensity"] = correct_intensity_drift(
                 feature_dfs_dict["intensity"],
                 feature_dfs_dict["correlation"],
-                self.psm_df,
+                self._psm_no_decoys,
             )
 
         quantlevel_configs = self._create_quant_level_configs()
