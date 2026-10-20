@@ -60,12 +60,8 @@ def _fdr_handler(fit_predict):
     config = {"fdr": {"competitive_scoring": True, "fdr": 0.01}}
     fdr_manager = MagicMock(name="fdr_manager")
     fdr_manager.fit_predict.side_effect = fit_predict
-    column_name_handler = MagicMock(name="column_name_handler")
-    column_name_handler.get_precursor_mz_column.return_value = "mz_calibrated"
     return (
-        NgExtractionHandler(
-            config, MagicMock(), fdr_manager, MagicMock(), column_name_handler
-        ),
+        NgExtractionHandler(config, MagicMock(), fdr_manager, MagicMock(), MagicMock()),
         fdr_manager,
     )
 
@@ -75,11 +71,7 @@ def _fdr_inputs():
     candidates_df = pd.DataFrame(
         {"precursor_idx": [1, 2, 3], "rank": [0, 0, 1], "score": [3.0, 2.0, 1.0]}
     )
-    spectral_library = MagicMock(name="spectral_library")
-    spectral_library.precursor_df = pd.DataFrame(
-        {"precursor_idx": [3, 2, 1], "mz_calibrated": [503.0, 502.0, 501.0]}
-    )
-    return features_df, candidates_df, spectral_library
+    return features_df, candidates_df, MagicMock(name="spectral_library")
 
 
 def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candidates():
@@ -114,8 +106,6 @@ def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candida
     assert "_candidate_idx" not in quantified.columns
     assert mock_quantify.call_args.args[2:] == (dia_data, spectral_library)
     assert received["fragments"] is fragments_df
-    # and every PSM carries its precursor m/z for the isolation window assignment
-    assert received["features_df"]["mz_observed"].tolist() == [501.0, 502.0, 503.0]
     # and the candidates are filtered by the FDR result
     assert candidates_filtered["precursor_idx"].tolist() == [1, 3]
     assert precursor_fdr_df["precursor_idx"].tolist() == [1, 3]

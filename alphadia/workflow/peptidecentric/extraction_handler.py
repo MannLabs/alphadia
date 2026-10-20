@@ -713,18 +713,9 @@ class NgExtractionHandler(ExtractionHandler):
             candidates_df["precursor_idx"].values, candidates_df["rank"].values
         )
 
-        if CalibCols.MZ_OBSERVED not in features_df.columns:
-            # fragment competition assigns every PSM to its isolation window by this m/z
-            precursor_mz = spectral_library.precursor_df.set_index("precursor_idx")[
-                self._column_name_handler.get_precursor_mz_column()
-            ]
-            features_df[CalibCols.MZ_OBSERVED] = (
-                features_df["precursor_idx"].map(precursor_mz).to_numpy()
-            )
-
         def quantified_fragments(psm_df: pd.DataFrame) -> pd.DataFrame:
-            # Scoring does not quantify fragments, and quantifying every candidate would
-            # cost far more than the few that are close enough to the threshold to compete.
+            # Scoring does not quantify fragments. Only the candidates up to the competition
+            # q-value (10 %) need them, a fraction of all candidates.
             competing = candidates_df[
                 candidates_df["_candidate_idx"].isin(psm_df["_candidate_idx"])
             ].drop(columns="_candidate_idx")

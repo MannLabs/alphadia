@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia.fragcomp.fragcomp import compete_for_fragments
-from alphadia.fragcomp.utils import candidate_hash
+from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 
 
 def test_fragment_competition():
@@ -55,3 +55,46 @@ def test_candidate_hash():
 
     assert all(hash_values == np.array([1, 4294967298, 8590934592]))
     assert hash_values.dtype == np.uint64
+
+
+def test_add_frag_start_stop_idx_keeps_psms_without_fragments():
+    # given: PSM 7 has no fragments
+    psm_df = pd.DataFrame({"_candidate_idx": np.array([3, 7, 5], dtype=np.uint64)})
+    frag_df = pd.DataFrame(
+        {"_candidate_idx": np.array([3, 3, 5], dtype=np.uint64), "mz_observed": 1.0}
+    )
+
+    # when
+    psm_df = add_frag_start_stop_idx(psm_df, frag_df)
+
+    # then: it stays, with an empty fragment range, so it cannot compete
+    assert psm_df["_candidate_idx"].tolist() == [3, 7, 5]
+    assert psm_df["_frag_start_idx"].tolist() == [0, 0, 2]
+    assert psm_df["_frag_stop_idx"].tolist() == [2, 0, 3]
+
+
+def test_fragment_competition_keeps_psm_without_fragments():
+    # given: PSM 1 co-elutes with the better PSM 0 but has no quantified fragments
+    cycle = np.array([[[[90, 110]]]])
+    psm_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(2, dtype=np.uint32),
+            "rt_observed": np.array([10.0, 10.0]),
+            "mz_observed": np.array([100, 100]),
+            "proba": np.array([0.1, 0.2]),
+            "rank": np.zeros(2, dtype=np.uint8),
+        }
+    )
+    frag_df = pd.DataFrame(
+        {
+            "precursor_idx": np.zeros(3, dtype=np.uint32),
+            "mz_observed": np.array([300.0, 400.0, 500.0]),
+            "rank": np.zeros(3, dtype=np.uint8),
+        }
+    )
+
+    # when
+    psm_df = compete_for_fragments(psm_df, frag_df, cycle)
+
+    # then: both PSMs survive
+    assert psm_df["precursor_idx"].tolist() == [0, 1]

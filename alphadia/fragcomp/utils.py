@@ -42,7 +42,11 @@ def add_frag_start_stop_idx(
     )
     index_df["_frag_stop_idx"] += 1
 
-    return psm_df.merge(index_df, "inner", on="_candidate_idx")
+    # A PSM without fragments gets an empty range: it cannot compete, but it stays.
+    psm_df = psm_df.merge(index_df, "left", on="_candidate_idx")
+    for column in ["_frag_start_idx", "_frag_stop_idx"]:
+        psm_df[column] = psm_df[column].fillna(0).astype(np.int64)
+    return psm_df
 
 
 def candidate_hash(precursor_idx: np.ndarray, rank: np.ndarray) -> np.ndarray:
