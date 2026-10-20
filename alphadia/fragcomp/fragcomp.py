@@ -24,7 +24,7 @@ DEFAULT_MASS_TOLERANCE_PPM = 15.0
 DEFAULT_MIN_OVERLAPPING_FRAGMENTS = 2
 
 
-def compete_for_fragments(
+def compete_for_fragments(  # noqa: PLR0913 # too many arguments
     psm_df: pd.DataFrame,
     frag_df: pd.DataFrame,
     cycle: np.ndarray,
