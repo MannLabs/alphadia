@@ -444,7 +444,11 @@ class OptimizationHandler:
             )
 
             _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
-                self._optlock.features_df, candidates_df
+                self._optlock.features_df,
+                candidates_df,
+                self._dia_data,
+                self._optlock.batch_library,
+                df_fragments=self._optlock.fragments_df,
             )
 
         self._reporter.log_string(
