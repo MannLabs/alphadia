@@ -100,10 +100,19 @@ ION_IDENTITY_FEATURES = [
     "long_ion_intensity_share",
 ]
 
+# rust features of how the observed fragments agree with the library spectrum, interfered fragments set apart
+FRAGMENT_AGREEMENT_FEATURES = [
+    "lib_explained",
+    "correlation_gap",
+    "log_ratio_std",
+    "y_intensity_correlation",
+    "complementary_pairs",
+]
+
 
 def get_final_round_feature_names() -> list[str]:
     """Features the FDR classifier uses only in the final round, not in the calibration rounds."""
-    return ION_IDENTITY_FEATURES
+    return ION_IDENTITY_FEATURES + FRAGMENT_AGREEMENT_FEATURES
 
 
 def get_context_feature_names() -> list[str]:
