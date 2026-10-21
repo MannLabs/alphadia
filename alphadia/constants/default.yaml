@@ -196,7 +196,7 @@ search:
   optimized_peak_group_score: False
 
   # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
-  candidate_context_features: True
+  candidate_context_features: False
 
   # add the IDF features to the FDR classifier (rust backend only)
   # True is the legacy behaviour and is discouraged: every fragment's IDF is taken at its own m/z over all library
