@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -22,6 +23,10 @@ if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
 
 max_dia_cycle_shape = 2
+# In the final round (which alone carries this feature) the probabilities of several fits on different splits are
+# averaged: on plasma one fit in three put a few decoys at the very top of the ranking (q-cliffs at 0.1 % FDR).
+ENSEMBLE_TRIGGER_FEATURE = "lib_explained"
+N_ENSEMBLE_FITS = 3
 
 logger = logging.getLogger()
 
@@ -208,6 +213,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         return psm_df
 
     y_train, y_test = y[idxs_train], y[idxs_test]
+    initial_classifier = copy.deepcopy(classifier)
     classifier.fit(X[idxs_train], y_train)
 
     psm_df["_decoy"] = y
@@ -236,6 +242,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         classifier.reset()
         classifier.fit(X[idxs_train], y_train)
         predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    if ENSEMBLE_TRIGGER_FEATURE in available_columns:
+        predicted_proba = _average_extra_fits(
+            initial_classifier, X, y, predicted_proba, random_state
+        )
     del X
 
     if _is_collapsed(predicted_proba):
@@ -281,6 +292,30 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
 
     return psm_df
+
+
+def _average_extra_fits(
+    initial_classifier: Classifier,
+    X: np.ndarray,  # noqa: N803
+    y: np.ndarray,
+    predicted_proba: np.ndarray,
+    random_state: int | None,
+) -> np.ndarray:
+    """Average `predicted_proba` with N_ENSEMBLE_FITS - 1 further fits of the unfitted classifier on other splits."""
+    probas = [predicted_proba]
+    for k in range(1, N_ENSEMBLE_FITS):
+        member = copy.deepcopy(initial_classifier)
+        idxs_train, _ = train_test_split_indices(
+            len(X),
+            test_size=0.2,
+            random_state=None if random_state is None else random_state + k,
+        )
+        member.fit(X[idxs_train], y[idxs_train])
+        member_proba = member.predict_proba(X)[:, 1]
+        if not _is_collapsed(member_proba):
+            probas.append(member_proba)
+    logger.info(f"averaged the probabilities of {len(probas)} final-round fits")
+    return np.mean(probas, axis=0)
 
 
 def keep_best(

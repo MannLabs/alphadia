@@ -615,3 +615,43 @@ def test_from_state_dict_defaults_to_no_transform():
     # Then: the loaded weights keep being used with raw features
     assert new_classifier.feature_transform == FeatureTransform.NONE
     assert new_classifier._quantiles is None
+
+
+class _CountingClassifier(_CollapsingClassifier):
+    """Count the fits of all copies."""
+
+    n_fits = 0
+
+    def fit(self, x, y):
+        type(self).n_fits += 1
+        super().fit(x, y)
+
+
+def test_perform_fdr_averages_several_fits_in_the_final_round():
+    # Given: PSMs carrying a final-round feature
+    _CountingClassifier.n_fits = 0
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    target_df[fdr.ENSEMBLE_TRIGGER_FEATURE] = target_df["feature"]
+    decoy_df[fdr.ENSEMBLE_TRIGGER_FEATURE] = decoy_df["feature"]
+
+    # When: perform_fdr runs
+    fdr.perform_fdr(
+        _CountingClassifier(n_collapses=0),
+        ["feature", fdr.ENSEMBLE_TRIGGER_FEATURE],
+        target_df,
+        decoy_df,
+    )
+
+    # Then: the classifier was fitted once per ensemble member
+    assert _CountingClassifier.n_fits == fdr.N_ENSEMBLE_FITS
+
+
+def test_perform_fdr_fits_once_outside_the_final_round():
+    _CountingClassifier.n_fits = 0
+    target_df, decoy_df = _gen_target_decoy_dfs()
+
+    fdr.perform_fdr(
+        _CountingClassifier(n_collapses=0), ["feature"], target_df, decoy_df
+    )
+
+    assert _CountingClassifier.n_fits == 1
