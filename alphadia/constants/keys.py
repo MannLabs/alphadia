@@ -95,6 +95,13 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
+class FeatureTransform(metaclass=ConstantsClass):
+    """String constants for the feature transform applied before FDR classification."""
+
+    NONE = "none"
+    QUANTILE = "quantile"
+
+
 class DecoyType(metaclass=ConstantsClass):
     """String constants for decoy generation schemes."""
 
