@@ -82,3 +82,20 @@ def test_refine_calibrated_rt_skips_too_few_identifications():
     refine_calibrated_rt(library, ids)
 
     pd.testing.assert_series_equal(library["rt_calibrated"], original)
+
+
+def test_refine_calibrated_rt_skips_a_residual_without_sequence_dependence():
+    rng = np.random.default_rng(3)
+    library = _library(rng)
+    original = library["rt_calibrated"].copy()
+    targets = library[library["decoy"] == 0]
+    ids = pd.DataFrame(
+        {
+            "precursor_idx": targets["precursor_idx"],
+            "rt_observed": targets["rt_calibrated"] + rng.normal(0, 5, len(targets)),
+        }
+    )
+
+    refine_calibrated_rt(library, ids)
+
+    pd.testing.assert_series_equal(library["rt_calibrated"], original)

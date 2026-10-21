@@ -3,6 +3,11 @@
 The RT calibration is a smooth function of the library RT, so a prediction error that depends on the peptide's
 sequence (the library's RT model against this run's chromatography) is left in every precursor's calibrated RT. A
 gradient-boosting model of the calibration identifications' residual on sequence descriptors removes most of it.
+
+The model is cross-fitted: an identification gets the prediction of the fold that did not see it, because an in-sample
+fit on ~1k plasma identifications cut their residual from 10 to 2 s while held-out identifications only reached 7 s.
+Where the cross-validated residual is not clearly smaller than the uncorrected one the refinement is skipped; on some
+low-input files the correction made held-out identifications worse.
 """
 
 import logging
@@ -10,6 +15,7 @@ import logging
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.model_selection import GroupKFold
 
 logger = logging.getLogger()
 
@@ -20,6 +26,8 @@ LEARNING_RATE = 0.05
 # fewer identifications than this do not determine the per-residue effects
 MIN_IDENTIFICATIONS = 300
 RANDOM_STATE = 42
+N_FOLDS = 5
+MAX_CROSS_VALIDATED_RESIDUAL_RATIO = 0.9
 
 
 def sequence_descriptors(precursor_df: pd.DataFrame) -> pd.DataFrame:
@@ -70,28 +78,52 @@ def refine_calibrated_rt(
         return
 
     residual = (ids["rt_observed"] - ids["rt_calibrated"]).to_numpy()
-    model = HistGradientBoostingRegressor(
-        max_iter=MAX_ITER,
-        learning_rate=LEARNING_RATE,
-        categorical_features=list(TERMINAL_POSITIONS),
-        random_state=RANDOM_STATE,
-    )
-    model.fit(sequence_descriptors(ids), residual)
-
+    id_descriptors = sequence_descriptors(ids)
     targets = library_precursor_df[library_precursor_df["decoy"] == 0]
+    target_descriptors = sequence_descriptors(targets)
+
+    out_of_fold = np.zeros_like(residual)
+    target_prediction = np.zeros(len(targets))
+    # folds split by sequence, so the other charge states of a peptide do not leak its RT into its own prediction
+    folds = GroupKFold(N_FOLDS)
+    for train, test in folds.split(id_descriptors, groups=ids["sequence"]):
+        model = HistGradientBoostingRegressor(
+            max_iter=MAX_ITER,
+            learning_rate=LEARNING_RATE,
+            categorical_features=list(TERMINAL_POSITIONS),
+            random_state=RANDOM_STATE,
+        )
+        model.fit(id_descriptors.iloc[train], residual[train])
+        out_of_fold[test] = model.predict(id_descriptors.iloc[test])
+        target_prediction += model.predict(target_descriptors) / N_FOLDS
+
+    uncorrected = np.median(np.abs(residual))
+    cross_validated = np.median(np.abs(residual - out_of_fold))
+    if cross_validated > MAX_CROSS_VALIDATED_RESIDUAL_RATIO * uncorrected:
+        logger.info(
+            f"RT refinement skipped: cross-validated median |residual| {cross_validated:.2f} s vs "
+            f"{uncorrected:.2f} s uncorrected on {len(ids):,} identifications"
+        )
+        return
+
     target_correction = pd.Series(
-        model.predict(sequence_descriptors(targets)),
-        index=targets["elution_group_idx"].to_numpy(),
+        target_prediction, index=targets["precursor_idx"].to_numpy()
     )
+    target_correction.loc[ids["precursor_idx"].to_numpy()] = out_of_fold
+    is_identification = target_correction.index.isin(ids["precursor_idx"])
+    target_correction.index = targets["elution_group_idx"].to_numpy()
+    # an elution group with an identification takes that identification's out-of-fold correction
+    target_correction = target_correction.iloc[
+        np.argsort(~is_identification, kind="stable")
+    ]
     target_correction = target_correction[~target_correction.index.duplicated()]
     correction = (
         library_precursor_df["elution_group_idx"].map(target_correction).fillna(0.0)
     )
     library_precursor_df["rt_calibrated"] += correction.to_numpy()
 
-    fitted = residual - model.predict(sequence_descriptors(ids))
     logger.info(
         f"RT refinement on {len(ids):,} identifications: median |residual| "
-        f"{np.median(np.abs(residual)):.2f} -> {np.median(np.abs(fitted)):.2f} s (in sample), "
+        f"{uncorrected:.2f} -> {cross_validated:.2f} s (cross-validated), "
         f"median |correction| {np.median(np.abs(correction)):.2f} s"
     )
