@@ -92,6 +92,10 @@ DECOY_SCHEME_FEATURES = (
     "idf_intensity_dot_product",
     "num_over_0_top6_idf",
     "num_over_50_top6_idf",
+    # fragment-agreement ablation: do these features let 5 ng 2 min false targets past the decoys?
+    "lib_explained",
+    "log_ratio_std",
+    "y_intensity_correlation",
 )
 
 
