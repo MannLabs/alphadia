@@ -350,6 +350,10 @@ def isobaric_losing_groups(psm_df: pd.DataFrame) -> np.ndarray:
     losing target's whole elution group goes, so that its decoy does not stay unopposed.
     """
     pool = psm_df[(psm_df["qval"] <= ISOBARIC_POOL_Q) & (psm_df["_decoy"] == 0)]
+    # the other candidates of a precursor share its mass, so only the best candidate of each group competes
+    pool = pool.sort_values("proba", ascending=False).drop_duplicates(
+        "elution_group_idx"
+    )
     pool = pool.sort_values("mz_library")
     loser = _isobaric_losers(
         pool["mz_library"].to_numpy(np.float64),
