@@ -110,7 +110,6 @@ class SearchStep:
         self._config = self._init_config(
             config, cli_config, extra_config, self.output_folder
         )
-        self._limit_thread_count(self._config)
         self._validate_config()
         self._save_config(self.output_folder)
 
@@ -196,24 +195,6 @@ class SearchStep:
         config.set_value(ConfigKeys.VERSION, alphadia_version)
 
         return config
-
-    @staticmethod
-    def _limit_thread_count(config: Config) -> None:
-        """Limit the thread count to what multiprocessing supports on the current platform."""
-        thread_count = config[ConfigKeys.GENERAL][ConfigKeys.GENERAL.THREAD_COUNT]
-        if (
-            sys.platform == "win32"
-            and sys.version_info < (3, 13)
-            and thread_count > MAX_WINDOWS_PROCESS_COUNT
-        ):
-            logger.warning(
-                f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.THREAD_COUNT}={thread_count} exceeds the maximum "
-                f"of {MAX_WINDOWS_PROCESS_COUNT} supported on Windows with Python < 3.13, using {MAX_WINDOWS_PROCESS_COUNT} instead."
-            )
-            config.set_value(
-                (ConfigKeys.GENERAL, ConfigKeys.GENERAL.THREAD_COUNT),
-                MAX_WINDOWS_PROCESS_COUNT,
-            )
 
     @staticmethod
     def _load_default_config(file_name="default.yaml") -> Config:
@@ -777,6 +758,19 @@ class SearchStep:
                 str(reuse_quant_from),
                 "final",
                 f"Requires '{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT}' to be set.",
+            )
+
+        thread_count = general_config[ConfigKeys.GENERAL.THREAD_COUNT]
+        if (
+            sys.platform == "win32"
+            and sys.version_info < (3, 13)
+            and thread_count > MAX_WINDOWS_PROCESS_COUNT
+        ):
+            raise ConfigError(
+                f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.THREAD_COUNT}",
+                str(thread_count),
+                "final",
+                f"At most {MAX_WINDOWS_PROCESS_COUNT} threads are supported on Windows with Python < 3.13.",
             )
 
 

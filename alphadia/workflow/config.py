@@ -67,9 +67,7 @@ class Config(UserDict):
         """
         raise NotImplementedError("Use set_value() or update() to update the config.")
 
-    def set_value(
-        self, key: str | tuple[str, ...], path: str | list[str] | int
-    ) -> None:
+    def set_value(self, key: str | tuple[str, ...], path: str | list[str]) -> None:
         """Set a config key.
 
         Only certain keys are allowed to be set.
@@ -88,7 +86,6 @@ class Config(UserDict):
                 ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH,
             ),
             (ConfigKeys.GENERAL, ConfigKeys.GENERAL.REUSE_QUANT_FROM),
-            (ConfigKeys.GENERAL, ConfigKeys.GENERAL.THREAD_COUNT),
         ]:
             raise NotImplementedError(
                 "Only certain values may be set directly, use update() to update the config otherwise."
