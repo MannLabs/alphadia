@@ -118,6 +118,7 @@ def main():
 
         target_df = features_df[features_df["decoy"] == 0].sample(frac=args.size / 100)
         decoy_df = features_df[features_df["decoy"] == 1].sample(frac=args.size / 100)
+        sampled_df = pd.concat([target_df, decoy_df])
 
         start_time = time.time()
 
@@ -135,8 +136,8 @@ def main():
         psm_df = fdr.perform_fdr(
             classifier,
             available_columns,
-            target_df,
-            decoy_df,
+            sampled_df,
+            sampled_df["decoy"].to_numpy() == 1,
             competitive=True,
         )
 
