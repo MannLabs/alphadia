@@ -78,7 +78,7 @@ def speclib_to_ng(
     speclib_ng = SpecLibFlatNG.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
         precursor_df["mz_library"].values.astype(np.float32),
-        precursor_df[precursor_mz_column].values.astype(np.float32),
+        isolation_mz(precursor_df, precursor_mz_column).astype(np.float32),
         precursor_df["rt_library"].values.astype(np.float32),
         precursor_df[rt_column].values.astype(np.float32),
         precursor_df["nAA"].values.astype(np.uint8),
@@ -141,6 +141,25 @@ def recenter_ms1_mass_error(features_df: pd.DataFrame) -> pd.Series:
     )
     error = (features_df["ms1_ppm_signed"] - offset).abs()
     return error.where(features_df["ms1_log_m0_apex"] > 0, MS1_MISSING_PPM_ERROR)
+
+
+def isolation_mz(precursor_df: pd.DataFrame, precursor_mz_column: str) -> np.ndarray:
+    """Precursor m/z that selects the DIA isolation windows: a decoy takes its target's.
+
+    A decoy's mutated sequence shifts its precursor mass by ~14/z Th, which with narrow windows puts its fragments into
+    another window than its target's. A false target's chance fragment matches come from the peptides co-isolated in
+    its own window, a decoy's from an unrelated one, so the decoys stop modelling false targets (DIA-NN keeps decoys at
+    their target's mass).
+    """
+    targets = (
+        precursor_df.loc[
+            precursor_df["decoy"] == 0, ["elution_group_idx", precursor_mz_column]
+        ]
+        .drop_duplicates("elution_group_idx")
+        .set_index("elution_group_idx")[precursor_mz_column]
+    )
+    target_mz = precursor_df["elution_group_idx"].map(targets)
+    return target_mz.fillna(precursor_df[precursor_mz_column]).to_numpy()
 
 
 def get_feature_names() -> list[str]:

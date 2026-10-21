@@ -4,6 +4,7 @@ import pandas as pd
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     MS1_MISSING_PPM_ERROR,
     MS1_OFFSET_MIN_CANDIDATES,
+    isolation_mz,
     ms1_reference,
     recenter_ms1_mass_error,
 )
@@ -48,3 +49,15 @@ def test_recenter_ms1_mass_error_removes_the_run_offset():
 
     assert error.iloc[0] == MS1_MISSING_PPM_ERROR
     assert error.iloc[1:].median() < 0.2
+
+
+def test_isolation_mz_puts_a_decoy_into_its_targets_window():
+    precursor_df = pd.DataFrame(
+        {
+            "elution_group_idx": [5, 5, 9],
+            "decoy": [0, 1, 1],
+            "mz_library": [500.0, 507.0, 610.0],
+        }
+    )
+
+    assert isolation_mz(precursor_df, "mz_library").tolist() == [500.0, 500.0, 610.0]
