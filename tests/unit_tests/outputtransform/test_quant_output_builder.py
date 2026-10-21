@@ -29,6 +29,7 @@ def config():
             "file_format": "parquet",
             "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
+            "intensity_drift_correction": True,
         },
     }
 
@@ -48,6 +49,7 @@ def psm_df():
             "mod_sites": ["", "5", "", "", ""],
             "charge": [2, 2, 3, 2, 2],
             "run": ["run1", "run1", "run2", "run2", "run1"],
+            "rt_observed": [100.0, 200.0, 300.0, 400.0, 500.0],
         }
     )
 
