@@ -1,5 +1,6 @@
 import os
 import tempfile
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -304,83 +305,57 @@ def test_quantile_transform_state_dict_round_trip():
     assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
 
 
-def _gen_competing_psms(n_samples: int = 200):
-    """Targets 0 and 1 elute together and share their fragments; every other PSM elutes alone."""
-    target_df, decoy_df = _gen_target_decoy_dfs(n_samples)
-    for df in (target_df, decoy_df):
-        df["rank"] = 0
-        df["mz_observed"] = 500.0
-        df["rt_observed"] = df["precursor_idx"] * 10.0
-    target_df.loc[target_df["precursor_idx"] == 1, "rt_observed"] = 0.0
-    return target_df, decoy_df
-
-
-def _fragments_of(psm_df: pd.DataFrame) -> pd.DataFrame:
-    """Three fragments per PSM; PSMs 0 and 1 have the same ones, all others unique ones."""
-    precursor_idx = psm_df["precursor_idx"].to_numpy()
-    base_mz = np.where(precursor_idx == 1, 0, precursor_idx) * 10.0 + 200.0
-    return pd.DataFrame(
-        {
-            "precursor_idx": np.repeat(precursor_idx, 3),
-            "rank": 0,
-            "mz_observed": (base_mz[:, None] + np.array([0.0, 1.0, 2.0])).ravel(),
-        }
-    )
-
-
 # one isolation window from 400 to 600 m/z, no mobility
 _DIA_CYCLE = np.array([[[[400.0, 600.0]]]])
 
 
-def test_perform_fdr_fragment_provider_removes_the_weaker_of_two_psms_sharing_fragments():
-    # Given: PSMs 0 and 1 claim the same fragments at the same time, and PSM 0 scores better
-    classifier = _CollapsingClassifier(n_collapses=0)
-    target_df, decoy_df = _gen_competing_psms()
-    requested = []
+def _run_perform_fdr_with_mocked_competition(**fragment_kwargs):
+    """Run perform_fdr with compete_for_fragments replaced by a pass-through mock.
 
-    def provider(psm_df):
-        requested.append(psm_df)
-        return _fragments_of(psm_df)
+    The competition itself is tested in alphadia-search-rs; this only checks which
+    fragments perform_fdr hands to it.
+    """
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    with patch.object(
+        fdr, "compete_for_fragments", side_effect=lambda psm_df, *_: psm_df
+    ) as mock_compete:
+        fdr.perform_fdr(
+            _CollapsingClassifier(n_collapses=0),
+            ["feature"],
+            target_df,
+            decoy_df,
+            dia_cycle=_DIA_CYCLE,
+            **fragment_kwargs,
+        )
+    return mock_compete
 
-    # When: perform_fdr gets the fragments on demand
-    psm_df = fdr.perform_fdr(
-        classifier,
-        ["feature"],
-        target_df,
-        decoy_df,
-        fragment_provider=provider,
-        dia_cycle=_DIA_CYCLE,
-    )
+
+def test_perform_fdr_quantifies_fragments_on_demand_for_the_competing_psms():
+    # Given: a provider instead of fragments
+    provider = MagicMock(name="provider")
+
+    # When: perform_fdr runs
+    mock_compete = _run_perform_fdr_with_mocked_competition(fragment_provider=provider)
 
     # Then: the provider is asked once, only for the PSMs below the heuristic q-value
-    assert len(requested) == 1
-    assert requested[0]["qval"].max() < 0.1
-    # and PSM 1 lost its fragments to PSM 0, while PSM 0 and the lone PSMs survive
-    assert 1 not in psm_df["precursor_idx"].to_numpy()
-    assert {0, 2, 3} <= set(psm_df["precursor_idx"])
+    provider.assert_called_once()
+    requested_psms = provider.call_args.args[0]
+    assert len(requested_psms) > 0
+    assert requested_psms["qval"].max() < 0.1
+    # and its fragments go to the competition
+    assert mock_compete.call_args.args[1] is provider.return_value
 
 
 def test_perform_fdr_prefers_given_fragments_over_the_provider():
-    # Given: the fragments of all PSMs up front, and a provider that must not be needed
-    classifier = _CollapsingClassifier(n_collapses=0)
-    target_df, decoy_df = _gen_competing_psms()
-    all_psms = pd.concat([target_df, decoy_df])
-
-    def provider(psm_df):
-        raise AssertionError(
-            "the provider must not be called when df_fragments is given"
-        )
+    # Given: fragments up front, and a provider
+    df_fragments = pd.DataFrame()
+    provider = MagicMock(name="provider")
 
     # When: perform_fdr runs with both
-    psm_df = fdr.perform_fdr(
-        classifier,
-        ["feature"],
-        target_df,
-        decoy_df,
-        df_fragments=_fragments_of(all_psms),
-        fragment_provider=provider,
-        dia_cycle=_DIA_CYCLE,
+    mock_compete = _run_perform_fdr_with_mocked_competition(
+        df_fragments=df_fragments, fragment_provider=provider
     )
 
-    # Then: the given fragments decide the competition
-    assert 1 not in psm_df["precursor_idx"].to_numpy()
+    # Then: the given fragments go to the competition, and the provider is not asked
+    provider.assert_not_called()
+    assert mock_compete.call_args.args[1] is df_fragments
