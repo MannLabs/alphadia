@@ -306,9 +306,12 @@ def get_q_values(
     if extra_sort_columns is None:
         extra_sort_columns = ["precursor_idx"]
 
+    # Decoys sort before targets on tied scores. q-values come from a running decoy count,
+    # so targets first would let a block of tied scores pass as decoy-free.
+    sort_order = [True, False, *[True] * len(extra_sort_columns)]
     psm_df = psm_df.sort_values(
-        [score_column, decoy_column, *extra_sort_columns], ascending=True
-    )  # last sort to break ties
+        [score_column, decoy_column, *extra_sort_columns], ascending=sort_order
+    )
     target_values = 1 - psm_df[decoy_column].to_numpy()
     decoy_cumsum = np.cumsum(psm_df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
