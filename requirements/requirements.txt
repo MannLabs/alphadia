@@ -16,7 +16,7 @@ xxhash
 torchmetrics
 transformers
 # IO backend
-pyarrow>=20.0.0
+pyarrow>=20.0.0,<26 # pyarrow 26 requires numpy >= 2
 # not direct dependencies but we have to restrict the versions
 pandas<3
 numpy<2 # test: tolerate_version avoid the breaking change in numpy >= 2
