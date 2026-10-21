@@ -196,7 +196,13 @@ search:
   optimized_peak_group_score: False
 
   # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
-  candidate_context_features: True
+  candidate_context_features: False
+
+  # add the IDF features to the FDR classifier (rust backend only)
+  # True is the legacy behaviour and is discouraged: every fragment's IDF is taken at its own m/z over all library
+  # fragments, decoys included. The decoy mutation moves decoy fragments onto masses of their own, so the IDF features
+  # leak the target/decoy label from the library and the classifier can recognise decoys without looking at the data.
+  use_idf_features: False
 
   # === python backend only ===
   # exclude fragments shared between multiple channels
@@ -312,10 +318,16 @@ fdr:
   keep_decoys: false
   # whether to keep decoy PSMs in the MBR library
   keep_decoys_in_mbr_library: false
+  # decoy generation scheme for the search library and the MBR library: "diann" or "pseudo_reverse"
+  # ignored if the provided library already contains decoys
+  decoy_type: "diann"
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
+  # feature transform before the neural network, either "none" or "quantile".
+  # "quantile" keeps extreme values inside the range the network was trained on.
+  feature_transform: quantile
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
@@ -342,6 +354,13 @@ search_output:
   normalization_method: directlfq
   # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directlfq")
   normalize_directlfq: True
+
+  # Remove each run's retention-time dependent intensity drift before label-free quantification.
+  # The correction curve of each run is centred on zero, so it only flattens how the intensity changes along the gradient.
+  # It does not shift the overall intensity of a run; differences in overall run intensity are corrected by the LFQ normalization.
+  # The ion selection uses its own thresholds, the defaults of alphadia_search_rs.IntensityDriftCorrection
+  # (correlation >= 0.8, observed in >= 3 runs, >= 500 usable ions per run), not search_output.min_correlation.
+  intensity_drift_correction: True
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:

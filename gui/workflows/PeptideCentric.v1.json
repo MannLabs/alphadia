@@ -437,6 +437,17 @@
                     "type": "boolean"
                 },
                 {
+                    "id": "decoy_type",
+                    "name": "Decoy Type",
+                    "default": "diann",
+                    "description": "Scheme used to generate decoys for the search library and the MBR library. Ignored if the library already contains decoys. \n diann: mutates the second and second-to-last amino acid (DIA-NN style). \n pseudo_reverse: reverses the sequence while keeping the C-terminal amino acid.",
+                    "type": "dropdown",
+                    "options": [
+                        "diann",
+                        "pseudo_reverse"
+                    ]
+                },
+                {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
                     "default": true,
