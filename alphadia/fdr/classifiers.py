@@ -25,7 +25,8 @@ _N_QUANTILES = 1001
 _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 
 # Rows predicted at once. A forward pass over all rows at once holds the activations of every
-# layer for every row, gigabytes for the 10 M+ rows of a final search. # TODO find optimal value for this
+# layer for every row, gigabytes for the 10 M+ rows of a final search.
+# TODO: find optimal value for this
 _PREDICT_ROWS_CHUNK_SIZE = 250_000
 
 
