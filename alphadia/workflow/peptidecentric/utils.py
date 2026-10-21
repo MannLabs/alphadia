@@ -110,8 +110,10 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
 
     return [
         name
-        for name in get_feature_names() + get_context_feature_names()
-        if name not in DECOY_SCHEME_FEATURES
+        for name in get_feature_names()
+        + ["ms1_ppm_error"]
+        + get_context_feature_names()
+        if name not in DECOY_SCHEME_FEATURES and name != "ms1_ppm_signed"
     ]
 
 

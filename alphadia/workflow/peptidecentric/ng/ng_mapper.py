@@ -18,6 +18,15 @@ from alphadia.raw_data import DiaData
 
 CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
 
+# library isotope abundances (IsotopeGenerator) scored against the MS1 isotope XICs
+MS1_ISOTOPE_COLUMNS = ["i_0", "i_1", "i_2", "i_3"]
+# candidates with at least this many apex isotopes, in the top score quantile, give the run's MS1 mass offset
+MS1_OFFSET_MIN_ISOTOPES = 3
+MS1_OFFSET_SCORE_QUANTILE = 0.9
+MS1_OFFSET_MIN_CANDIDATES = 50
+# mass error given to candidates without monoisotopic signal at the apex: the rust extraction tolerance (ppm)
+MS1_MISSING_PPM_ERROR = 10.0
+
 
 def set_ng_thread_count(thread_count: int) -> None:
     """Set the number of threads for NG computations."""
@@ -66,7 +75,7 @@ def speclib_to_ng(
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
 
-    return SpecLibFlatNG.from_arrays(
+    speclib_ng = SpecLibFlatNG.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
         precursor_df["mz_library"].values.astype(np.float32),
         precursor_df[precursor_mz_column].values.astype(np.float32),
@@ -85,6 +94,53 @@ def speclib_to_ng(
         fragment_df["position"].values.astype(np.uint8),
         fragment_df["type"].values.astype(np.uint8),
     )
+
+    if all(column in precursor_df for column in MS1_ISOTOPE_COLUMNS):
+        ms1 = ms1_reference(precursor_df, precursor_mz_column)
+        speclib_ng.set_isotopes(
+            precursor_df["precursor_idx"].values.astype(np.uint64),
+            ms1["charge"].values.astype(np.uint8),
+            ms1[precursor_mz_column].values.astype(np.float32),
+            np.ascontiguousarray(ms1[MS1_ISOTOPE_COLUMNS].values, dtype=np.float32),
+        )
+
+    return speclib_ng
+
+
+def ms1_reference(precursor_df: pd.DataFrame, precursor_mz_column: str) -> pd.DataFrame:
+    """Charge, MS1 m/z and isotope abundances at which each precursor's MS1 is scored, row-aligned with `precursor_df`.
+
+    A decoy takes those of the target in its elution group. alphaDIA decoys get their own, shifted precursor mass;
+    MS1 evidence at that mass would let the classifier recognise decoys, while DIA-NN scores a decoy at its target's
+    mass so that only MS1 agreeing with the fragment peak counts.
+    """
+    columns = ["charge", precursor_mz_column] + MS1_ISOTOPE_COLUMNS
+    targets = (
+        precursor_df.loc[precursor_df["decoy"] == 0, ["elution_group_idx"] + columns]
+        .drop_duplicates("elution_group_idx")
+        .set_index("elution_group_idx")
+    )
+    reference = targets.reindex(precursor_df["elution_group_idx"].to_numpy())
+    reference.index = precursor_df.index
+    has_target = reference["charge"].notna()
+    reference.loc[~has_target, columns] = precursor_df.loc[~has_target, columns]
+    return reference
+
+
+def recenter_ms1_mass_error(features_df: pd.DataFrame) -> pd.Series:
+    """Absolute MS1 mass error around the run's offset, which the rust path does not calibrate."""
+    has_signal = features_df["ms1_n_isotopes"] >= MS1_OFFSET_MIN_ISOTOPES
+    confident = has_signal & (
+        features_df["score"]
+        >= features_df.loc[has_signal, "score"].quantile(MS1_OFFSET_SCORE_QUANTILE)
+    )
+    offset = (
+        features_df.loc[confident, "ms1_ppm_signed"].median()
+        if confident.sum() >= MS1_OFFSET_MIN_CANDIDATES
+        else 0.0
+    )
+    error = (features_df["ms1_ppm_signed"] - offset).abs()
+    return error.where(features_df["ms1_log_m0_apex"] > 0, MS1_MISSING_PPM_ERROR)
 
 
 def get_feature_names() -> list[str]:
@@ -110,9 +166,22 @@ FRAGMENT_AGREEMENT_FEATURES = [
 ]
 
 
+# apex-local MS1 isotope features; ms1_ppm_signed enters the classifier recentred as ms1_ppm_error
+MS1_FEATURES = [
+    "ms1_iso_cosine",
+    "ms1_n_isotopes",
+    "ms1_log_m0_apex",
+    "ms1_contrast",
+    "ms1_m_minus1_share",
+    "ms1_frag_corr",
+    "ms1_iso_m1_err",
+    "ms1_ppm_error",
+]
+
+
 def get_final_round_feature_names() -> list[str]:
     """Features the FDR classifier uses only in the final round, not in the calibration rounds."""
-    return ION_IDENTITY_FEATURES + FRAGMENT_AGREEMENT_FEATURES
+    return ION_IDENTITY_FEATURES + FRAGMENT_AGREEMENT_FEATURES + MS1_FEATURES
 
 
 def get_context_feature_names() -> list[str]:
@@ -226,6 +295,7 @@ def to_features_df(
     features_dict = candidate_features.to_dict_arrays()
 
     features_df = pd.DataFrame(features_dict)
+    features_df["ms1_ppm_error"] = recenter_ms1_mass_error(features_df)
 
     features_df = features_df.merge(
         spectral_library.precursor_df[
