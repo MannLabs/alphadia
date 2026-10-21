@@ -14,7 +14,6 @@ from alphadia.outputtransform.quantification.fragment_accumulator import (
 )
 from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
-    validate_psm_columns,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
     LFQOutputConfig,
@@ -105,7 +104,6 @@ class QuantOutputBuilder:
             return {}, self.psm_df
 
         if self.config["search_output"]["intensity_drift_correction"]:
-            validate_psm_columns(self._psm_no_decoys_df)
             feature_dfs_dict["intensity"] = correct_intensity_drift(
                 feature_dfs_dict["intensity"],
                 feature_dfs_dict["correlation"],

@@ -4,7 +4,6 @@ import pytest
 
 from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
-    validate_psm_columns,
 )
 
 RUNS = ["A1", "A2", "A3", "B1", "B2", "B3"]
@@ -31,10 +30,16 @@ def _make_tables(
     rt = rng.uniform(0, GRADIENT_SECONDS, n_precursors)
 
     base = 2 ** rng.uniform(10, 20, n_ions)
-    intensity = {run: base * 2 ** rng.normal(0, ION_NOISE_LOG2, n_ions) for run in RUNS}
-    intensity[DRIFTING_RUN] *= 2 ** (DRIFT_LOG2 * rt[precursor_idx] / GRADIENT_SECONDS)
+    intensity_by_run = {
+        run: base * 2 ** rng.normal(0, ION_NOISE_LOG2, n_ions) for run in RUNS
+    }
+    intensity_by_run[DRIFTING_RUN] *= 2 ** (
+        DRIFT_LOG2 * rt[precursor_idx] / GRADIENT_SECONDS
+    )
     # the accumulated fragment tables hold float32
-    intensity = {run: values.astype(np.float32) for run, values in intensity.items()}
+    intensity_by_run = {
+        run: values.astype(np.float32) for run, values in intensity_by_run.items()
+    }
 
     metadata = {
         "precursor_idx": precursor_idx,
@@ -43,7 +48,7 @@ def _make_tables(
         "mod_seq_hash": precursor_idx,
         "mod_seq_charge_hash": precursor_idx,
     }
-    intensity_df = pd.DataFrame({**metadata, **intensity})
+    intensity_df = pd.DataFrame({**metadata, **intensity_by_run})
     correlation_df = pd.DataFrame(
         {**metadata, **{run: np.float32(0.95) for run in RUNS}}
     )
@@ -79,15 +84,15 @@ class TestCorrectIntensityDrift:
         pd.testing.assert_frame_equal(correlation_df, correlation_copy)
 
     @pytest.mark.parametrize("missing_column", ["rt_observed", "run"])
-    def test_validate_psm_columns_names_a_missing_column(self, missing_column):
-        """Given a psm table without rt_observed or run, when validated, then a ValueError names the missing column."""
+    def test_raises_if_a_psm_column_is_missing(self, missing_column):
+        """Given a psm table without rt_observed or run, when corrected, then a ValueError names the missing column."""
         # Given
-        _, _, psm_df = _make_tables(n_precursors=10)
+        intensity_df, correlation_df, psm_df = _make_tables(n_precursors=10)
         psm_df = psm_df.drop(columns=[missing_column])
 
         # When / Then
         with pytest.raises(ValueError, match=missing_column):
-            validate_psm_columns(psm_df)
+            correct_intensity_drift(intensity_df, correlation_df, psm_df)
 
     def test_matches_ions_to_precursors_independent_of_row_order(self):
         """Given shuffled rows and sparse precursor indices, when corrected, then every ion gets the same correction as in the ordered table."""

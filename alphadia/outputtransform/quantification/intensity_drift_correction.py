@@ -22,8 +22,12 @@ logger = logging.getLogger(__name__)
 _RUN_COLUMN = "run"
 _REQUIRED_PSM_COLUMNS = [PRECURSOR_IDX_COLUMN, _RUN_COLUMN, CalibCols.RT_OBSERVED]
 
+# keys of the per-run summary returned by IntensityDriftCorrection.correct
+_SUMMARY_CORRECTED = "corrected"
+_SUMMARY_MAX_ABS_CORRECTION = "max_abs_correction"
 
-def validate_psm_columns(psm_df: pd.DataFrame) -> None:
+
+def _validate_psm_columns(psm_df: pd.DataFrame) -> None:
     """Raise a ValueError if `psm_df` lacks a column needed to place the precursors in RT."""
     missing_columns = set(_REQUIRED_PSM_COLUMNS) - set(psm_df.columns)
     if missing_columns:
@@ -46,21 +50,28 @@ def correct_intensity_drift(
         Cross-run fragment correlations with the rows and run columns of intensity_df,
         in the same order.
     psm_df : pd.DataFrame
-        PSM table with the columns checked by `validate_psm_columns`.
+        PSM table with precursor_idx, run and rt_observed.
 
     Returns
     -------
     pd.DataFrame
         Copy of intensity_df with corrected float32 run columns. The inputs are not changed.
+
+    Raises
+    ------
+    ValueError
+        If `psm_df` lacks one of the required columns.
     """
+    _validate_psm_columns(psm_df)
     run_columns = get_run_columns(intensity_df)
     ion_precursor_codes, unique_precursor_idx = pd.factorize(
         intensity_df[PRECURSOR_IDX_COLUMN].to_numpy(np.int64)
     )
-    intensity = _runs_as_rows(intensity_df[run_columns])
+    intensity_matrix = _runs_as_rows(intensity_df[run_columns])
 
+    # correct() overwrites intensity_matrix in place, the corrected values are read back from it
     summary = IntensityDriftCorrection().correct(
-        intensity,
+        intensity_matrix,
         _runs_as_rows(correlation_df[run_columns]),
         _rt_by_run(psm_df, unique_precursor_idx, run_columns),
         ion_precursor_codes.astype(np.uintp),
@@ -68,7 +79,7 @@ def correct_intensity_drift(
     _log_summary(run_columns, summary)
 
     corrected_df = intensity_df.copy(deep=False)
-    corrected_df[run_columns] = intensity.T
+    corrected_df[run_columns] = intensity_matrix.T
     return corrected_df
 
 
@@ -97,16 +108,18 @@ def _rt_by_run(
 
 
 def _log_summary(run_columns: list[str], summary: dict[str, np.ndarray]) -> None:
-    corrected = summary["corrected"]
-    max_abs_correction = summary["max_abs_correction"]
+    corrected_mask = summary[_SUMMARY_CORRECTED]
+    max_abs_correction = summary[_SUMMARY_MAX_ABS_CORRECTION]
     logger.info(
-        f"Corrected the RT dependent intensity drift of {corrected.sum()} of "
+        f"Corrected the RT dependent intensity drift of {corrected_mask.sum()} of "
         f"{len(run_columns)} runs, largest correction {max_abs_correction.max(initial=0.0):.3f} log2"
     )
-    for run, run_corrected, run_max in zip(
-        run_columns, corrected, max_abs_correction, strict=True
+    for run, is_run_corrected, run_max_abs_correction in zip(
+        run_columns, corrected_mask, max_abs_correction, strict=True
     ):
-        if run_corrected:
-            logger.debug(f"Run {run}: largest correction {run_max:.3f} log2")
+        if is_run_corrected:
+            logger.debug(
+                f"Run {run}: largest correction {run_max_abs_correction:.3f} log2"
+            )
         else:
             logger.debug(f"Run {run}: not corrected, too few usable ions for a curve")
