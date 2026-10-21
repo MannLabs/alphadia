@@ -305,6 +305,9 @@ def to_features_df(
                 "elution_group_idx",
                 "channel",
                 "proteins",
+                # the isobaric target competition of the final FDR round compares precursor masses and charges
+                "mz_library",
+                "charge",
             ]
         ],
         on="precursor_idx",
