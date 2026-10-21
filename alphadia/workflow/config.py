@@ -67,7 +67,9 @@ class Config(UserDict):
         """
         raise NotImplementedError("Use set_value() or update() to update the config.")
 
-    def set_value(self, key: str | tuple[str, ...], path: str | list[str]) -> None:
+    def set_value(
+        self, key: str | tuple[str, ...], path: str | list[str] | int
+    ) -> None:
         """Set a config key.
 
         Only certain keys are allowed to be set.
