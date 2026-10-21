@@ -37,3 +37,8 @@ def test_targets_outside_the_pool_do_not_compete():
 def test_candidates_of_the_same_elution_group_do_not_compete():
     psms = _psms(elution_group_idx=[0, 0, 2, 3])
     assert isobaric_losing_groups(psms).tolist() == []
+
+
+def test_only_a_confident_target_removes_another():
+    psms = _psms(qval=[0.05, 0.1, 0.1, 0.1])
+    assert isobaric_losing_groups(psms).tolist() == []

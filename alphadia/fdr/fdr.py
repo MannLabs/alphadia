@@ -27,6 +27,8 @@ max_dia_cycle_shape = 2
 # how close a better target must be in precursor m/z (ppm) and RT (in peak widths) to remove a target
 ISOBARIC_TRIGGER_FEATURE = "ms1_ppm_error"
 ISOBARIC_POOL_Q = 0.5
+# only confident targets remove others: at q <= 0.5 most library targets are in the pool and junk removes junk
+ISOBARIC_WINNER_Q = 0.01
 ISOBARIC_PPM = 10.0
 ISOBARIC_RT_FWHM = 1.0
 
@@ -317,10 +319,11 @@ def _isobaric_losers(
     fwhm: np.ndarray,
     charge: np.ndarray,
     proba: np.ndarray,
+    winner: np.ndarray,
     ppm: float,
     rt_fwhm: float,
 ) -> np.ndarray:
-    """Rows (sorted by mz) with a better row of the same charge within `ppm` and `rt_fwhm` peak widths."""
+    """Rows (sorted by mz) with a better `winner` row of the same charge within `ppm` and `rt_fwhm` peak widths."""
     n = len(mz)
     loser = np.zeros(n, dtype=np.bool_)
     start = 0
@@ -331,6 +334,7 @@ def _isobaric_losers(
         while j < n and mz[j] <= mz[i] * (1 + ppm * 1e-6):
             if (
                 j != i
+                and winner[j]
                 and charge[j] == charge[i]
                 and proba[j] > proba[i]
                 and abs(rt[j] - rt[i]) <= rt_fwhm * max(fwhm[i], fwhm[j])
@@ -342,7 +346,7 @@ def _isobaric_losers(
 
 
 def isobaric_losing_groups(psm_df: pd.DataFrame) -> np.ndarray:
-    """Elution groups whose target an isobaric, co-eluting target with a higher probability explains.
+    """Elution groups whose target an isobaric, co-eluting, confident target with a higher probability explains.
 
     With MS1 features a false target on the peak of a real peptide of the same precursor mass also gets that
     peptide's MS1 evidence, which its decoy never gets: on ARATH entrapment the false targets at q 1 % tripled.
@@ -361,6 +365,7 @@ def isobaric_losing_groups(psm_df: pd.DataFrame) -> np.ndarray:
         pool["fwhm_rt"].to_numpy(np.float64),
         pool["charge"].to_numpy(np.int64),
         pool["proba"].to_numpy(np.float64),
+        (pool["qval"] <= ISOBARIC_WINNER_Q).to_numpy(),
         ISOBARIC_PPM,
         ISOBARIC_RT_FWHM,
     )
