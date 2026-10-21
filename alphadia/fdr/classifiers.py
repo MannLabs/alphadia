@@ -25,8 +25,8 @@ _N_QUANTILES = 1001
 _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 
 # Rows predicted at once. A forward pass over all rows at once holds the activations of every
-# layer for every row, gigabytes for the 10 M+ rows of a final search.
-_PREDICT_CHUNK_ROWS = 250_000
+# layer for every row, gigabytes for the 10 M+ rows of a final search. # TODO find optimal value for this
+_PREDICT_ROWS_CHUNK_SIZE = 250_000
 
 
 class Classifier(ABC):
@@ -450,11 +450,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         random_state = self._np_rng.integers(0, 1_000_000)
         logger.info(f"Using random state {random_state} for train-test-split")
-        idx_train, idx_test = train_test_split_indices(
+        indices_train, indices_test = train_test_split_indices(
             len(x), test_size=self.test_size, random_state=random_state
         )
-        x_test = torch.as_tensor(x[idx_test], dtype=torch.float32)
-        y_test = torch.Tensor(y[idx_test])
+        x_test = torch.as_tensor(x[indices_test], dtype=torch.float32)
+        y_test = torch.Tensor(y[indices_test])
 
         optimizer = optim.Adam(
             self.network.parameters(),
@@ -467,8 +467,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         # Set model to training mode for BatchNorm
         self.network.train()
 
-        x_train = torch.as_tensor(x[idx_train], dtype=torch.float32)
-        y_train = torch.Tensor(y[idx_train])
+        x_train = torch.as_tensor(x[indices_train], dtype=torch.float32)
+        y_train = torch.Tensor(y[indices_train])
         del x
 
         num_batches = (x_train.shape[0] // self.batch_size) - 1
@@ -591,8 +591,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.network.eval()
         output = np.empty((len(x), self.output_dim), dtype=np.float32)
         with torch.no_grad():
-            for start in range(0, len(x), _PREDICT_CHUNK_ROWS):
-                stop = start + _PREDICT_CHUNK_ROWS
+            for start in range(0, len(x), _PREDICT_ROWS_CHUNK_SIZE):
+                stop = start + _PREDICT_ROWS_CHUNK_SIZE
                 x_chunk = torch.as_tensor(
                     self._transform_features(x[start:stop]), dtype=torch.float32
                 )
