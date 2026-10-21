@@ -6,6 +6,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+import numba as nb
 import numpy as np
 import pandas as pd
 
@@ -22,6 +23,12 @@ if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
 
 max_dia_cycle_shape = 2
+# isobaric target competition: present when the classifier scores MS1, the pool of the first fit it runs on, and
+# how close a better target must be in precursor m/z (ppm) and RT (in peak widths) to remove a target
+ISOBARIC_TRIGGER_FEATURE = "ms1_ppm_error"
+ISOBARIC_POOL_Q = 0.5
+ISOBARIC_PPM = 10.0
+ISOBARIC_RT_FWHM = 1.0
 
 logger = logging.getLogger()
 
@@ -247,6 +254,26 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     psm_df["proba"] = predicted_proba
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
+    if ISOBARIC_TRIGGER_FEATURE in available_columns:
+        losing_groups = isobaric_losing_groups(psm_df)
+        keep = ~psm_df["elution_group_idx"].isin(losing_groups).to_numpy()
+        logger.info(
+            f"refitting the classifier without the {len(losing_groups):,} elution groups whose target lost "
+            f"to an isobaric co-eluting target ({int((~keep).sum()):,} PSMs)"
+        )
+        psm_df = psm_df[keep]
+        X = psm_df[available_columns].to_numpy()
+        y = psm_df["_decoy"].to_numpy()
+        idxs_train, idxs_test = train_test_split_indices(
+            len(X), test_size=0.2, random_state=random_state
+        )
+        y_train, y_test = y[idxs_train], y[idxs_test]
+        classifier.fit(X[idxs_train], y_train)
+        predicted_proba = classifier.predict_proba(X)[:, 1]
+        del X
+        psm_df = psm_df.assign(proba=predicted_proba)
+        psm_df = get_q_values(psm_df, "proba", "_decoy")
+
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
         # if there are no PSMs with a FDR < 10% use all PSMs
@@ -281,6 +308,59 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
 
     return psm_df
+
+
+@nb.njit(cache=True)
+def _isobaric_losers(
+    mz: np.ndarray,
+    rt: np.ndarray,
+    fwhm: np.ndarray,
+    charge: np.ndarray,
+    proba: np.ndarray,
+    ppm: float,
+    rt_fwhm: float,
+) -> np.ndarray:
+    """Rows (sorted by mz) with a better row of the same charge within `ppm` and `rt_fwhm` peak widths."""
+    n = len(mz)
+    loser = np.zeros(n, dtype=np.bool_)
+    start = 0
+    for i in range(n):
+        while mz[start] < mz[i] * (1 - ppm * 1e-6):
+            start += 1
+        j = start
+        while j < n and mz[j] <= mz[i] * (1 + ppm * 1e-6):
+            if (
+                j != i
+                and charge[j] == charge[i]
+                and proba[j] > proba[i]
+                and abs(rt[j] - rt[i]) <= rt_fwhm * max(fwhm[i], fwhm[j])
+            ):
+                loser[i] = True
+                break
+            j += 1
+    return loser
+
+
+def isobaric_losing_groups(psm_df: pd.DataFrame) -> np.ndarray:
+    """Elution groups whose target an isobaric, co-eluting target with a higher probability explains.
+
+    With MS1 features a false target on the peak of a real peptide of the same precursor mass also gets that
+    peptide's MS1 evidence, which its decoy never gets: on ARATH entrapment the false targets at q 1 % tripled.
+    DIA-NN removes the weaker of two precursors on one peak before it trains, decoys never lose to targets. The
+    losing target's whole elution group goes, so that its decoy does not stay unopposed.
+    """
+    pool = psm_df[(psm_df["qval"] <= ISOBARIC_POOL_Q) & (psm_df["_decoy"] == 0)]
+    pool = pool.sort_values("mz_library")
+    loser = _isobaric_losers(
+        pool["mz_library"].to_numpy(np.float64),
+        pool["rt_observed"].to_numpy(np.float64),
+        pool["fwhm_rt"].to_numpy(np.float64),
+        pool["charge"].to_numpy(np.int64),
+        pool["proba"].to_numpy(np.float64),
+        ISOBARIC_PPM,
+        ISOBARIC_RT_FWHM,
+    )
+    return np.unique(pool["elution_group_idx"].to_numpy()[loser])
 
 
 def keep_best(
