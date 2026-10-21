@@ -32,7 +32,7 @@ _MAX_FDR_CLASSIFIER_REINITS = 3
 def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
     classifier: Classifier,
     available_columns: list[str],
-    psm_df: pd.DataFrame,
+    df: pd.DataFrame,
     decoy_mask: np.ndarray,
     *,
     competitive: bool = False,
@@ -46,7 +46,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
      Currently, it does not scale above 2 threads also for large problems, so thread number is limited to 2.
-     `psm_df` is not modified: the PSMs are copied once, the targets ahead of the decoys.
+     `df` is not modified: the PSMs are copied once, the targets ahead of the decoys.
 
     Parameters
     ----------
@@ -56,11 +56,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     available_columns : list[str]
         A list of column names that are available for the classifier
 
-    psm_df : pd.DataFrame
+    df : pd.DataFrame
         A dataframe of target and decoy PSMs
 
     decoy_mask : np.ndarray, dtype=bool
-        Whether each row of `psm_df` is a decoy of the target-decoy competition
+        Whether each row of `df` is a decoy of the target-decoy competition
 
     competitive : bool
         Whether to perform competitive FDR calculation where only the highest scoring PSM in a target-decoy pair is retained
@@ -90,7 +90,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         The columns `qval` and `proba` are added.
 
     """
-    complete = psm_df[available_columns].notna().all(axis=1).to_numpy()
+    complete = df[available_columns].notna().all(axis=1).to_numpy()
     target_rows = np.flatnonzero(~decoy_mask & complete)
     decoy_rows = np.flatnonzero(decoy_mask & complete)
     target_dropped = int((~decoy_mask).sum()) - len(target_rows)
@@ -114,7 +114,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     if random_state is not None:
         logger.info(f"Using random state {random_state} for FDR calculation")
 
-    psm_df = psm_df.take(np.concatenate([target_rows, decoy_rows]))
+    psm_df = df.take(np.concatenate([target_rows, decoy_rows]))
     X = psm_df[available_columns].to_numpy()
     y = np.concatenate([np.zeros(n_target), np.ones(n_decoy)])
 
@@ -211,7 +211,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
 
 def keep_best(
-    psm_df: pd.DataFrame,
+    df: pd.DataFrame,
     score_column: str = "proba",
     group_columns: list[str] | None = None,
 ) -> pd.DataFrame:
@@ -222,7 +222,7 @@ def keep_best(
 
     Parameters
     ----------
-    psm_df : pd.DataFrame
+    df : pd.DataFrame
         The dataframe containing the PSMs.
 
     score_column : str
@@ -239,12 +239,12 @@ def keep_best(
     """
     if group_columns is None:
         group_columns = ["channel", "precursor_idx"]
-    psm_df = psm_df.reset_index(drop=True)
-    psm_df = psm_df.sort_values(
+    df = df.reset_index(drop=True)
+    df = df.sort_values(
         [score_column, *group_columns], ascending=True
     )  # last sort to break ties
-    psm_df = psm_df.groupby(group_columns).head(1)
-    return psm_df.sort_index().reset_index(drop=True)
+    df = df.groupby(group_columns).head(1)
+    return df.sort_index().reset_index(drop=True)
 
 
 def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
@@ -270,7 +270,7 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
 
 
 def get_q_values(
-    psm_df: pd.DataFrame,
+    df: pd.DataFrame,
     score_column: str = "proba",
     decoy_column: str = "_decoy",
     qval_column: str = "qval",
@@ -280,7 +280,7 @@ def get_q_values(
 
     Parameters
     ----------
-    psm_df : pd.DataFrame
+    df : pd.DataFrame
         The dataframe containing the PSMs.
 
     score_column : str, default='proba'
@@ -309,14 +309,14 @@ def get_q_values(
     # Decoys sort before targets on tied scores. q-values come from a running decoy count,
     # so targets first would let a block of tied scores pass as decoy-free.
     sort_order = [True, False, *[True] * len(extra_sort_columns)]
-    psm_df = psm_df.sort_values(
+    df = df.sort_values(
         [score_column, decoy_column, *extra_sort_columns], ascending=sort_order
     )
-    target_values = 1 - psm_df[decoy_column].to_numpy()
-    decoy_cumsum = np.cumsum(psm_df[decoy_column].to_numpy())
+    target_values = 1 - df[decoy_column].to_numpy()
+    decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
     fdr_values = (
         decoy_cumsum / target_cumsum
     )  # TODO: RuntimeWarning: divide by zero encountered in divide
-    psm_df[qval_column] = _fdr_to_q_values(fdr_values)
-    return psm_df
+    df[qval_column] = _fdr_to_q_values(fdr_values)
+    return df
