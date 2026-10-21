@@ -1,6 +1,6 @@
 """Retention time (RT) dependent intensity drift correction of the fragment table.
 
-Converts the dataframes to the run-major matrices of
+Converts the dataframes to the one-row-per-run matrices of
 `alphadia_search_rs.IntensityDriftCorrection`, which defines the correction and its
 thresholds.
 """
@@ -54,16 +54,16 @@ def correct_intensity_drift(
         Copy of intensity_df with corrected float32 run columns. The inputs are not changed.
     """
     run_columns = get_run_columns(intensity_df)
-    precursor, precursors = pd.factorize(
+    ion_precursor_codes, unique_precursor_idx = pd.factorize(
         intensity_df[PRECURSOR_IDX_COLUMN].to_numpy(np.int64)
     )
-    intensity = _run_major(intensity_df[run_columns])
+    intensity = _runs_as_rows(intensity_df[run_columns])
 
     summary = IntensityDriftCorrection().correct(
         intensity,
-        _run_major(correlation_df[run_columns]),
-        _rt_by_run(psm_df, precursors, run_columns),
-        precursor.astype(np.uintp),
+        _runs_as_rows(correlation_df[run_columns]),
+        _rt_by_run(psm_df, unique_precursor_idx, run_columns),
+        ion_precursor_codes.astype(np.uintp),
     )
     _log_summary(run_columns, summary)
 
@@ -72,25 +72,27 @@ def correct_intensity_drift(
     return corrected_df
 
 
-def _run_major(df: pd.DataFrame) -> np.ndarray:
+def _runs_as_rows(df: pd.DataFrame) -> np.ndarray:
     """Return `df` as a C-contiguous float32 matrix of shape `(n_columns, n_rows)`."""
     return np.ascontiguousarray(df.to_numpy(dtype=np.float32).T)
 
 
 def _rt_by_run(
-    psm_df: pd.DataFrame, precursors: np.ndarray, run_columns: list[str]
+    psm_df: pd.DataFrame, unique_precursor_idx: np.ndarray, run_columns: list[str]
 ) -> np.ndarray:
     """Observed RT of shape `(n_runs, n_precursors)`, NaN where the run has no psm of the precursor."""
-    rt = np.full((len(run_columns), len(precursors)), np.nan, dtype=np.float32)
-    run = pd.Index(run_columns).get_indexer(psm_df[_RUN_COLUMN])
-    precursor = pd.Index(precursors).get_indexer(
+    rt = np.full(
+        (len(run_columns), len(unique_precursor_idx)), np.nan, dtype=np.float32
+    )
+    psm_run_codes = pd.Index(run_columns).get_indexer(psm_df[_RUN_COLUMN])
+    psm_precursor_codes = pd.Index(unique_precursor_idx).get_indexer(
         psm_df[PRECURSOR_IDX_COLUMN].to_numpy(np.int64)
     )
     # psms of runs or precursors outside the fragment table have no cell
-    found = (run >= 0) & (precursor >= 0)
-    rt[run[found], precursor[found]] = psm_df[CalibCols.RT_OBSERVED].to_numpy(
-        np.float32
-    )[found]
+    found_mask = (psm_run_codes >= 0) & (psm_precursor_codes >= 0)
+    rt[psm_run_codes[found_mask], psm_precursor_codes[found_mask]] = psm_df[
+        CalibCols.RT_OBSERVED
+    ].to_numpy(np.float32)[found_mask]
     return rt
 
 

@@ -356,7 +356,8 @@ search_output:
   normalize_directlfq: True
 
   # Remove each run's retention-time dependent intensity drift before label-free quantification.
-  # Only the shape along the gradient is removed, the level of a run is left to the LFQ normalization.
+  # The correction curve of each run is centred on zero, so it only flattens how the intensity changes along the gradient.
+  # It does not shift the overall intensity of a run; differences in overall run intensity are corrected by the LFQ normalization.
   # The ion selection uses its own thresholds, the defaults of alphadia_search_rs.IntensityDriftCorrection
   # (correlation >= 0.8, observed in >= 3 runs, >= 500 usable ions per run), not search_output.min_correlation.
   intensity_drift_correction: True

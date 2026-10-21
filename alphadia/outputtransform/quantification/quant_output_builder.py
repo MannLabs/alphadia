@@ -64,11 +64,7 @@ class QuantOutputBuilder:
         """
         self.psm_df = psm_df
         self.config = config
-        psm_no_decoys = psm_df[psm_df["decoy"] == 0]
-        self._psm_no_decoys = psm_no_decoys
-
-        if config["search_output"]["intensity_drift_correction"]:
-            validate_psm_columns(psm_no_decoys)
+        self._psm_no_decoys_df = psm_df[psm_df["decoy"] == 0]
 
         if (
             config["search_output"]["normalization_method"]
@@ -78,8 +74,10 @@ class QuantOutputBuilder:
         else:
             columns = self.DEFAULT_COLUMNS
 
-        self.fragment_loader = FragmentQuantLoader(psm_no_decoys, columns=columns)
-        self.quant_builder = QuantBuilder(psm_no_decoys, columns=columns)
+        self.fragment_loader = FragmentQuantLoader(
+            self._psm_no_decoys_df, columns=columns
+        )
+        self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
 
     def build(
         self, folder_list: list[str]
@@ -107,10 +105,11 @@ class QuantOutputBuilder:
             return {}, self.psm_df
 
         if self.config["search_output"]["intensity_drift_correction"]:
+            validate_psm_columns(self._psm_no_decoys_df)
             feature_dfs_dict["intensity"] = correct_intensity_drift(
                 feature_dfs_dict["intensity"],
                 feature_dfs_dict["correlation"],
-                self._psm_no_decoys,
+                self._psm_no_decoys_df,
             )
 
         quantlevel_configs = self._create_quant_level_configs()
