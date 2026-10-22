@@ -88,6 +88,31 @@ class SearchStepFiles(metaclass=ConstantsClass):
     FRAG_TRANSFER_FILE_NAME = "frag.transfer.parquet"
 
 
+class SearchPlanFiles(metaclass=ConstantsClass):
+    """File names written by `SearchPlanOutput` into the output folder of a search step.
+
+    Tables are given as stems, as their extension depends on the table format they are written in.
+    """
+
+    PRECURSORS_FILE_STEM = "precursors"
+    STAT_FILE_STEM = "stat"
+    INTERNAL_FILE_STEM = "internal"
+    TRANSFER_STATS_FILE_STEM = "stats.transfer"
+    # appended to the quantification level name, e.g. `pg.matrix`
+    QUANT_MATRIX_SUFFIX = ".matrix"
+
+    MBR_LIBRARY_FILE_NAME = "speclib.mbr.hdf"
+    TRANSFER_LIBRARY_FILE_NAME = "speclib.transfer.hdf"
+    TRANSFER_MODEL_FOLDER_NAME = "peptdeep.transfer"
+
+
+class TableFormats(metaclass=ConstantsClass):
+    """String constants for the formats tables can be read from and written to."""
+
+    PARQUET = "parquet"
+    TSV = "tsv"
+
+
 class InferenceStrategy(metaclass=ConstantsClass):
     """String constants for protein inference strategies."""
 

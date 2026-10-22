@@ -11,6 +11,7 @@ from alphadia.constants.keys import (
     PrecursorOutputCols,
     ProteinGroupOutputCols,
     QuantificationLevelName,
+    SearchPlanFiles,
 )
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
@@ -127,7 +128,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
 
     # then
     psm_df = pd.read_parquet(
-        os.path.join(temp_folder, f"{SearchPlanOutput.PRECURSOR_OUTPUT}.parquet")
+        os.path.join(temp_folder, f"{SearchPlanFiles.PRECURSORS_FILE_STEM}.parquet")
     )
     assert psm_df["raw.name"].nunique() == 3
     assert all(
@@ -147,7 +148,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
     )
 
     stat_df = pd.read_csv(
-        os.path.join(temp_folder, f"{SearchPlanOutput.STAT_OUTPUT}.tsv"), sep="\t"
+        os.path.join(temp_folder, f"{SearchPlanFiles.STAT_FILE_STEM}.tsv"), sep="\t"
     )
     assert len(stat_df) == 3
     assert stat_df["optimization.ms2_error"][0] == 6
@@ -179,7 +180,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
     )
 
     internal_df = pd.read_csv(
-        os.path.join(temp_folder, f"{SearchPlanOutput.INTERNAL_OUTPUT}.tsv"), sep="\t"
+        os.path.join(temp_folder, f"{SearchPlanFiles.INTERNAL_FILE_STEM}.tsv"), sep="\t"
     )
     assert isinstance(internal_df["duration_extraction"][0], float)
 

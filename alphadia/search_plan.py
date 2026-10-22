@@ -8,11 +8,13 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from alphadia.constants.keys import ConfigKeys, StatOutputCols
-from alphadia.exceptions import CustomError
-from alphadia.outputtransform.search_plan_output import (
-    SearchPlanOutput,
+from alphadia.constants.keys import (
+    ConfigKeys,
+    SearchPlanFiles,
+    StatOutputCols,
+    TableFormats,
 )
+from alphadia.exceptions import CustomError
 from alphadia.reporting import reporting
 from alphadia.reporting.logging import print_environment, print_logo
 from alphadia.search_step import (
@@ -142,7 +144,8 @@ class SearchPlan:
             extra_config_from_transfer_step = {
                 ConfigKeys.LIBRARY_PREDICTION: {
                     ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH: os.path.join(
-                        self._transfer_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
+                        self._transfer_step_output_dir,
+                        SearchPlanFiles.TRANSFER_MODEL_FOLDER_NAME,
                     ),
                     "enabled": True,  # the step following the 'transfer' step needs to have this
                 }
@@ -180,7 +183,7 @@ class SearchPlan:
                 )
 
             mbr_step_library_path = str(
-                self._library_step_output_dir / f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
+                self._library_step_output_dir / SearchPlanFiles.MBR_LIBRARY_FILE_NAME
             )
 
             mbr_step_extra_config = (
@@ -223,7 +226,8 @@ class SearchPlan:
         """Extract optimized values from a previous step and return an update to the config."""
 
         df = pd.read_csv(
-            output_folder / f"{SearchPlanOutput.STAT_OUTPUT}.tsv", sep="\t"
+            output_folder / f"{SearchPlanFiles.STAT_FILE_STEM}.{TableFormats.TSV}",
+            sep="\t",
         )
         target_ms1_tolerance = np.nanmedian(
             df[f"{StatOutputCols.OPTIMIZATION_PREFIX}{StatOutputCols.MS1_ERROR}"]

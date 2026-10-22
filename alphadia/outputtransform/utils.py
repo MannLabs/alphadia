@@ -8,15 +8,17 @@ from alphabase.peptide import precursor
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
     InferenceStrategy,
+    SearchStepFiles,
+    TableFormats,
 )
 from alphadia.outputtransform import grouping
 from alphadia.workflow.config import MULTIPLEXING_CHANNELS_DELIM
 
 logger = logging.getLogger()
-supported_formats = ["parquet", "tsv"]
+supported_formats = TableFormats.get_values()
 
 
-def read_df(path_no_format, file_format="parquet"):
+def read_df(path_no_format, file_format=TableFormats.PARQUET):
     """Read dataframe from disk with choosen file format
 
     Parameters
@@ -43,10 +45,10 @@ def read_df(path_no_format, file_format="parquet"):
 
     logger.info(f"Reading {file_path} from disk")
 
-    if file_format == "parquet":
+    if file_format == TableFormats.PARQUET:
         return pd.read_parquet(file_path)
 
-    elif file_format == "tsv":
+    elif file_format == TableFormats.TSV:
         return pd.read_csv(file_path, sep="\t")
 
     else:
@@ -84,7 +86,7 @@ def apply_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_df(
-    df: pd.DataFrame, path_no_format: str, file_format: str = "parquet"
+    df: pd.DataFrame, path_no_format: str, file_format: str = TableFormats.PARQUET
 ) -> None:
     """Write dataframe from disk with chosen file format.
 
@@ -111,10 +113,10 @@ def write_df(
 
     logger.info(f"Saving {file_path} to disk")
 
-    if file_format == "parquet":
+    if file_format == TableFormats.PARQUET:
         df.to_parquet(file_path, index=False)
 
-    elif file_format == "tsv":
+    elif file_format == TableFormats.TSV:
         df.to_csv(file_path, sep="\t", index=False, float_format="%.6f")
 
 
@@ -179,17 +181,13 @@ def log_protein_fdr_summary(psm_df: pd.DataFrame) -> None:
     )
 
 
-def load_psm_files_from_folders(
-    folder_list: list[str], psm_file_name: str
-) -> list[pd.DataFrame]:
+def load_psm_files_from_folders(folder_list: list[str]) -> list[pd.DataFrame]:
     """Load PSM files from multiple folders.
 
     Parameters
     ----------
     folder_list : list[str]
         List of folders containing PSM files
-    psm_file_name : str
-        Name of the PSM file (without extension)
 
     Returns
     -------
@@ -200,7 +198,7 @@ def load_psm_files_from_folders(
 
     for folder in folder_list:
         raw_name = os.path.basename(folder)
-        psm_path = os.path.join(folder, f"{psm_file_name}.parquet")
+        psm_path = os.path.join(folder, SearchStepFiles.PSM_FILE_NAME)
 
         logger.info(f"Building output for {raw_name}")
 

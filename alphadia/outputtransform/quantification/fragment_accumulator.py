@@ -5,6 +5,7 @@ from collections.abc import Iterator
 import pandas as pd
 import pyarrow.parquet as pq
 
+from alphadia.constants.keys import SearchStepFiles
 from alphadia.outputtransform.quantification.quant_builder import (
     ION_HASH_COLUMNS,
     precursor_idx_from_ion,
@@ -126,7 +127,7 @@ class FragmentQuantLoader:
         """
         for folder in folder_list:
             raw_name = os.path.basename(folder)
-            frag_path = os.path.join(folder, "frag.parquet")
+            frag_path = os.path.join(folder, SearchStepFiles.FRAG_FILE_NAME)
 
             if not os.path.exists(frag_path):
                 logger.warning(f"no frag file found for {raw_name}")
