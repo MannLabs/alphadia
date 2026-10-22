@@ -107,6 +107,7 @@ FRAGMENT_AGREEMENT_FEATURES = [
     "log_ratio_std",
     "y_intensity_correlation",
     "complementary_pairs",
+    "lib_cosine_coherent",
 ]
 
 
