@@ -26,7 +26,7 @@ class RecalibrationHandler:
     # The percentile falls the longer the calibration classifier trains on the same data (about
     # 0.3 score units per further 10-epoch step), so the factor sets the cutoff that a long
     # calibration used to reach instead of the number of calibration steps.
-    OPTIMIZED_FAC = 0.85
+    OPTIMIZED_FAC = 0.70
     OPTIMIZED_Q = 3
 
     def __init__(
