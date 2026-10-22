@@ -9,6 +9,7 @@ from alphadia.outputtransform.utils import (
     load_psm_files_from_folders,
     read_df,
     write_df,
+    write_tsv,
 )
 
 
@@ -30,6 +31,18 @@ def test_read_write(format, should_fail):
         write_df(df, path, file_format=format)
         _df = read_df(path, file_format=format)
         assert df.equals(_df)
+
+
+def test_write_tsv_writes_to_the_given_file_name():
+    # given
+    df = pd.DataFrame({"a": [1.0, 2.0]})
+    file_path = os.path.join(random_tempfolder(), "stat.tsv")
+
+    # when
+    write_tsv(df, file_path)
+
+    # then
+    assert pd.read_csv(file_path, sep="\t").equals(df)
 
 
 def test_load_psm_files_from_folders_reads_psm_file_and_skips_missing():
