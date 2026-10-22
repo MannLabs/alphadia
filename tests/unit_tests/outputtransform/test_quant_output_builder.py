@@ -25,7 +25,6 @@ def config():
             "min_correlation": 0.5,
             "min_nonnan": 1,
             "num_samples_quadratic": 50,
-            "save_fragment_quant_matrix": False,
             "file_format": "parquet",
             "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,

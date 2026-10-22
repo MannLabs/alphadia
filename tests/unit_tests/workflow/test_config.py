@@ -296,6 +296,32 @@ def test_config_update_default_config():
     assert config_1 == config_2
 
 
+def test_config_update_default_config_tolerates_removed_fragment_quant_matrix():
+    """Test that user configs still setting the removed fragment matrix export are accepted."""
+    # given
+    config_base_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "..",
+        "alphadia",
+        "constants",
+        "default.yaml",
+    )
+    config = Config(name="default")
+    config.from_yaml(config_base_path)
+
+    user_config = Config(
+        {"search_output": {"save_fragment_quant_matrix": True}}, "user"
+    )
+
+    # when
+    config.update([user_config], do_print=False)
+
+    # then
+    assert "save_fragment_quant_matrix" not in config["search_output"]
+
+
 def test_config_update_none_values():
     """Test updating configs with None values in both directions."""
     config_with_none = Config(
