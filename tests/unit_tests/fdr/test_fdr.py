@@ -1,5 +1,6 @@
 import os
 import tempfile
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -368,3 +369,59 @@ def test_quantile_transform_state_dict_round_trip():
 
     # Then: the predictions are identical
     assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
+
+
+# one isolation window from 400 to 600 m/z, no mobility
+_DIA_CYCLE = np.array([[[[400.0, 600.0]]]])
+
+
+def _run_perform_fdr_with_mocked_competition(**fragment_kwargs):
+    """Run perform_fdr with compete_for_fragments replaced by a pass-through mock.
+
+    The competition itself is tested in alphadia-search-rs; this only checks which
+    fragments perform_fdr hands to it.
+    """
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    with patch.object(
+        fdr, "compete_for_fragments", side_effect=lambda psm_df, *_: psm_df
+    ) as mock_compete:
+        fdr.perform_fdr(
+            _CollapsingClassifier(n_collapses=0),
+            ["feature"],
+            target_df,
+            decoy_df,
+            dia_cycle=_DIA_CYCLE,
+            **fragment_kwargs,
+        )
+    return mock_compete
+
+
+def test_perform_fdr_quantifies_fragments_on_demand_for_the_competing_psms():
+    # Given: a provider instead of fragments
+    provider = MagicMock(name="provider")
+
+    # When: perform_fdr runs
+    mock_compete = _run_perform_fdr_with_mocked_competition(fragment_provider=provider)
+
+    # Then: the provider is asked once, only for the PSMs below the heuristic q-value
+    provider.assert_called_once()
+    requested_psms = provider.call_args.args[0]
+    assert len(requested_psms) > 0
+    assert requested_psms["qval"].max() < 0.1
+    # and its fragments go to the competition
+    assert mock_compete.call_args.args[1] is provider.return_value
+
+
+def test_perform_fdr_prefers_given_fragments_over_the_provider():
+    # Given: fragments up front, and a provider
+    df_fragments = pd.DataFrame()
+    provider = MagicMock(name="provider")
+
+    # When: perform_fdr runs with both
+    mock_compete = _run_perform_fdr_with_mocked_competition(
+        df_fragments=df_fragments, fragment_provider=provider
+    )
+
+    # Then: the given fragments go to the competition, and the provider is not asked
+    provider.assert_not_called()
+    assert mock_compete.call_args.args[1] is df_fragments
