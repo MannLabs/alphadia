@@ -21,6 +21,7 @@ from alphadia.outputtransform.quantification.quant_builder import (
     LFQOutputConfig,
     QuantBuilder,
 )
+from alphadia.outputtransform.settings import LfqSettings
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
@@ -36,8 +37,8 @@ class QuantOutputBuilder:
     ----------
     psm_df : pd.DataFrame
         PSM dataframe containing precursor identifications
-    config : dict
-        Configuration dictionary with quantification settings
+    settings : LfqSettings
+        Label-free quantification settings
     """
 
     QUANTSELECT_COLUMNS = [
@@ -53,24 +54,21 @@ class QuantOutputBuilder:
     ]
     DEFAULT_COLUMNS = ["intensity", "correlation"]
 
-    def __init__(self, psm_df: pd.DataFrame, config: dict):
+    def __init__(self, psm_df: pd.DataFrame, settings: LfqSettings):
         """Initialize the QuantOutputBuilder.
 
         Parameters
         ----------
         psm_df : pd.DataFrame
             PSM dataframe with precursor identifications
-        config : dict
-            Configuration dictionary containing search_output and general settings
+        settings : LfqSettings
+            Label-free quantification settings
         """
         self.psm_df = psm_df
-        self.config = config
+        self.settings = settings
         self._psm_no_decoys_df = psm_df[psm_df["decoy"] == 0]
 
-        if (
-            config["search_output"]["normalization_method"]
-            == NormalizationMethods.QUANTSELECT
-        ):
+        if settings.normalization_method == NormalizationMethods.QUANTSELECT:
             columns = self.QUANTSELECT_COLUMNS
         else:
             columns = self.DEFAULT_COLUMNS
@@ -105,7 +103,7 @@ class QuantOutputBuilder:
             logger.warning("No fragment data found, skipping quantification")
             return {}, self.psm_df
 
-        if self.config["search_output"]["intensity_drift_correction"]:
+        if self.settings.intensity_drift_correction:
             feature_dfs_dict["intensity"] = correct_intensity_drift(
                 feature_dfs_dict["intensity"],
                 feature_dfs_dict["correlation"],
@@ -117,10 +115,7 @@ class QuantOutputBuilder:
 
         # TODO cover the QuantSelect branch with a build-level test: every requested
         #  level is routed to quantselect_lfq and the directLFQ fragment filter is skipped
-        if (
-            self.config["search_output"]["normalization_method"]
-            == NormalizationMethods.QUANTSELECT
-        ):
+        if self.settings.normalization_method == NormalizationMethods.QUANTSELECT:
             level_dfs = self._quantify_with_quantselect(
                 requested_configs, feature_dfs_dict
             )
@@ -170,7 +165,7 @@ class QuantOutputBuilder:
                     "mod_sites",
                     "charge",
                 ],
-                should_process=self.config["search_output"]["precursor_level_lfq"],
+                should_process=self.settings.precursor_level_lfq,
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PEPTIDE,
@@ -182,7 +177,7 @@ class QuantOutputBuilder:
                     "mods",
                     "mod_sites",
                 ],
-                should_process=self.config["search_output"]["peptide_level_lfq"],
+                should_process=self.settings.peptide_level_lfq,
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PROTEIN,
@@ -284,8 +279,8 @@ class QuantOutputBuilder:
             filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
                 feature_dfs_dict["intensity"],
                 feature_dfs_dict["correlation"],
-                top_n=self.config["search_output"]["min_k_fragments"],
-                min_correlation=self.config["search_output"]["min_correlation"],
+                top_n=self.settings.min_k_fragments,
+                min_correlation=self.settings.min_correlation,
                 group_column=quantlevel_config.quant_level,
             )
             if len(filtered_intensity_df) == 0:
@@ -294,7 +289,7 @@ class QuantOutputBuilder:
             level_dfs[quantlevel_config.level_name] = self.quant_builder.direct_lfq(
                 intensity_df=filtered_intensity_df,
                 lfq_config=quantlevel_config,
-                config=self.config,
+                settings=self.settings,
             )
         return level_dfs
 

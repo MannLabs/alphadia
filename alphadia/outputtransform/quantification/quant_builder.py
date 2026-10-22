@@ -11,8 +11,8 @@ import pandas as pd
 from quantselect.output import run_quantselect
 
 from alphadia.constants.keys import QuantificationLevelKey
+from alphadia.outputtransform.settings import LfqSettings
 from alphadia.utils import USE_NUMBA_CACHING
-from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
@@ -219,7 +219,7 @@ class QuantBuilder:
         self,
         intensity_df: pd.DataFrame,
         lfq_config: LFQOutputConfig,
-        config: Config,
+        settings: LfqSettings,
     ) -> pd.DataFrame:
         """Perform label-free quantification using directLFQ.
 
@@ -229,8 +229,8 @@ class QuantBuilder:
             Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
         lfq_config: LFQOutputConfig
             Configuration for this quantification level
-        config: Config
-            Global configuration object
+        settings: LfqSettings
+            Label-free quantification settings
 
         Returns
         -------
@@ -246,14 +246,14 @@ class QuantBuilder:
             return pd.DataFrame(
                 columns=[lfq_config.quant_level, *get_run_columns(intensity_df)]
             )
-        if config["search_output"]["normalize_directlfq"]:
-            lfq_df = self._normalize_ion_table(lfq_df, config)
+        if settings.normalize_directlfq:
+            lfq_df = self._normalize_ion_table(lfq_df, settings.num_samples_quadratic)
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
-            min_nonan=config["search_output"]["min_nonnan"],
-            num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
-            num_cores=config["general"]["thread_count"],
+            min_nonan=settings.min_nonnan,
+            num_samples_quadratic=settings.num_samples_quadratic,
+            num_cores=settings.thread_count,
         )
         return protein_df
 
@@ -297,7 +297,7 @@ class QuantBuilder:
         return lfqutils.remove_allnan_rows_input_df(lfq_df)
 
     def _normalize_ion_table(
-        self, lfq_df: pd.DataFrame, config: Config
+        self, lfq_df: pd.DataFrame, num_samples_quadratic: int
     ) -> pd.DataFrame:
         """Apply directLFQ sample normalization to a log2 ion table.
 
@@ -305,8 +305,8 @@ class QuantBuilder:
         ----------
         lfq_df: pd.DataFrame
             Log2 ion table as returned by _prepare_ion_table
-        config: Config
-            Global configuration object
+        num_samples_quadratic: int
+            Number of samples above which directLFQ switches to linear time normalization
 
         Returns
         -------
@@ -316,7 +316,7 @@ class QuantBuilder:
         logger.info("Applying directLFQ normalization")
         return lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
             lfq_df,
-            num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
+            num_samples_quadratic=num_samples_quadratic,
             selected_proteins_file=None,
         ).complete_dataframe
 

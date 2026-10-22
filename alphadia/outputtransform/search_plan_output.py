@@ -2,13 +2,11 @@ import logging
 import os
 
 import pandas as pd
-from alphabase.peptide import fragment
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia import utils
 from alphadia.constants.keys import (
-    ConfigKeys,
     NormalizationMethods,
     SearchPlanFiles,
     TableFormats,
@@ -28,10 +26,10 @@ from alphadia.outputtransform.outputaccumulator import (
 )
 from alphadia.outputtransform.protein_fdr import perform_protein_fdr
 from alphadia.outputtransform.quantification import QuantOutputBuilder
+from alphadia.outputtransform.settings import OutputSettings
 from alphadia.outputtransform.utils import (
     apply_output_column_names,
     apply_protein_inference,
-    get_channels_from_config,
     load_psm_files_from_folders,
     log_protein_fdr_summary,
     prepare_psm_dataframe,
@@ -70,12 +68,12 @@ class SearchPlanOutput:
         output_folder: str
             Output folder
         """
-        self.config = config
+        self._settings = OutputSettings.from_config(config)
         self.output_folder = output_folder
 
         self._figure_path = (
             os.path.join(self.output_folder, FIGURES_FOLDER_NAME)
-            if self.config[ConfigKeys.GENERAL][ConfigKeys.GENERAL.SAVE_FIGURES]
+            if self._settings.save_figures
             else None
         )
         if self._figure_path and not os.path.exists(self._figure_path):
@@ -118,7 +116,7 @@ class SearchPlanOutput:
             TableFormats.TSV,
         )
 
-        if self.config["general"]["save_mbr_library"]:
+        if self._settings.save_mbr_library:
             if base_spec_lib is None:
                 raise ValueError(
                     "Passing base spectral library is required for MBR library building."
@@ -127,13 +125,13 @@ class SearchPlanOutput:
             if mbr_spec_lib is not None:
                 self._write_library(mbr_spec_lib, SearchPlanFiles.MBR_LIBRARY_FILE_NAME)
 
-        if self.config["transfer_library"]["enabled"]:
+        if self._settings.transfer_library.enabled:
             self._write_library(
                 self._build_transfer_library(folder_list),
                 SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME,
             )
 
-        if self.config["transfer_learning"]["enabled"]:
+        if self._settings.transfer_learning.enabled:
             tune_mgr, transfer_stats_df = self._build_transfer_model()
             tune_mgr.save_models(
                 os.path.join(
@@ -149,11 +147,8 @@ class SearchPlanOutput:
         # LFQ is the most memory-intensive step and runs last, so an OOM kill here
         # does not discard the MBR library and transfer model already on disk
         # Assumption: no step upfront mutates psm_df in place
-        if (
-            self.config["search_output"]["normalization_method"].lower()
-            != NormalizationMethods.NONE
-        ):
-            quant_output_builder = QuantOutputBuilder(psm_df, self.config)
+        if self._settings.lfq.normalization_method != NormalizationMethods.NONE:
+            quant_output_builder = QuantOutputBuilder(psm_df, self._settings.lfq)
             lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
 
             self._write_precursor_table(psm_df_with_quant)
@@ -161,7 +156,7 @@ class SearchPlanOutput:
                 quant_output_builder.save_results(
                     lfq_results,
                     self.output_folder,
-                    file_format=self.config["search_output"]["file_format"],
+                    file_format=self._settings.file_format,
                 )
         else:
             logger.info("Skipping label free quantification")
@@ -171,7 +166,7 @@ class SearchPlanOutput:
         self._write_table(
             apply_output_column_names(psm_df),
             SearchPlanFiles.PRECURSORS_FILE_STEM,
-            self.config["search_output"]["file_format"],
+            self._settings.file_format,
         )
 
     def _write_table(self, df: pd.DataFrame, file_stem: str, file_format: str) -> None:
@@ -206,25 +201,21 @@ class SearchPlanOutput:
             load_mod_seq=True,
         )
 
-        device = utils.get_torch_device(self.config["general"]["use_gpu"])
-
+        transfer_learning = self._settings.transfer_learning
         tune_mgr = FinetuneManager(
-            device=device,
-            lr_patience=self.config["transfer_learning"]["lr_patience"],
-            test_interval=self.config["transfer_learning"]["test_interval"],
-            train_fraction=self.config["transfer_learning"]["train_fraction"],
-            validation_fraction=self.config["transfer_learning"]["validation_fraction"],
-            test_fraction=self.config["transfer_learning"]["test_fraction"],
-            epochs=self.config["transfer_learning"]["epochs"],
-            warmup_epochs=self.config["transfer_learning"]["warmup_epochs"],
-            batch_size=self.config["transfer_learning"]["batch_size"],
-            max_lr=self.config["transfer_learning"]["max_lr"],
-            nce=self.config["transfer_learning"]["nce"],
-            instrument=self.config["transfer_learning"]["instrument"],
-            charged_frag_types=fragment.get_charged_frag_types(
-                self.config["transfer_library"]["fragment_types"],
-                self.config["transfer_library"]["max_charge"],
-            ),
+            device=utils.get_torch_device(transfer_learning.use_gpu),
+            lr_patience=transfer_learning.lr_patience,
+            test_interval=transfer_learning.test_interval,
+            train_fraction=transfer_learning.train_fraction,
+            validation_fraction=transfer_learning.validation_fraction,
+            test_fraction=transfer_learning.test_fraction,
+            epochs=transfer_learning.epochs,
+            warmup_epochs=transfer_learning.warmup_epochs,
+            batch_size=transfer_learning.batch_size,
+            max_lr=transfer_learning.max_lr,
+            nce=transfer_learning.nce,
+            instrument=transfer_learning.instrument,
+            charged_frag_types=self._settings.transfer_library.charged_frag_types,
         )
         rt_stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
         charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
@@ -255,24 +246,18 @@ class SearchPlanOutput:
             The transfer Learning library
         """
         logger.progress("======== Building transfer library ========")
+        transfer_library = self._settings.transfer_library
         transferAccumulator = TransferLearningAccumulator(
-            keep_top=self.config["transfer_library"]["top_k_samples"],
-            norm_delta_max=self.config["transfer_library"]["norm_delta_max"],
-            precursor_correlation_cutoff=self.config["transfer_library"][
-                "precursor_correlation_cutoff"
-            ],
-            fragment_correlation_ratio=self.config["transfer_library"][
-                "fragment_correlation_ratio"
-            ],
+            keep_top=transfer_library.top_k_samples,
+            norm_delta_max=transfer_library.norm_delta_max,
+            precursor_correlation_cutoff=transfer_library.precursor_correlation_cutoff,
+            fragment_correlation_ratio=transfer_library.fragment_correlation_ratio,
         )
         accumulationBroadcaster = AccumulationBroadcaster(
             folder_list=folder_list,
             number_of_processes=number_of_processes,
             processing_kwargs={
-                "charged_frag_types": fragment.get_charged_frag_types(
-                    self.config["transfer_library"]["fragment_types"],
-                    self.config["transfer_library"]["max_charge"],
-                )
+                "charged_frag_types": transfer_library.charged_frag_types
             },
         )
 
@@ -298,7 +283,7 @@ class SearchPlanOutput:
 
         return read_df(
             os.path.join(self.output_folder, SearchPlanFiles.PRECURSORS_FILE_STEM),
-            file_format=self.config["search_output"]["file_format"],
+            file_format=self._settings.file_format,
         )
 
     def _build_precursor_table(self, folder_list: list[str]) -> pd.DataFrame:
@@ -334,18 +319,18 @@ class SearchPlanOutput:
 
         psm_df = apply_protein_inference(
             psm_df,
-            self.config["fdr"]["inference_strategy"],
-            self.config["fdr"]["group_level"],
+            self._settings.fdr.inference_strategy,
+            self._settings.fdr.group_level,
         )
 
         logger.info("Performing protein FDR")
 
         psm_df = perform_protein_fdr(psm_df, self._figure_path)
-        psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
+        psm_df = psm_df[psm_df["pg_qval"] <= self._settings.fdr.fdr]
 
         log_protein_fdr_summary(psm_df)
 
-        if not self.config["fdr"]["keep_decoys"]:
+        if not self._settings.fdr.keep_decoys:
             psm_df = psm_df[psm_df["decoy"] == 0]
 
         return psm_df
@@ -374,8 +359,6 @@ class SearchPlanOutput:
         """
         logger.progress("Building search statistics")
 
-        all_channels = get_channels_from_config(self.config)
-
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         stat_df_list = []
@@ -386,7 +369,7 @@ class SearchPlanOutput:
                     folder,
                     raw_name,
                     psm_df[psm_df["run"] == raw_name],
-                    all_channels,
+                    self._settings.channels,
                 )
             )
 
@@ -449,8 +432,8 @@ class SearchPlanOutput:
 
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
-            keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
-            decoy_type=self.config["fdr"]["decoy_type"],
+            keep_decoys=self._settings.fdr.keep_decoys_in_mbr_library,
+            decoy_type=self._settings.fdr.decoy_type,
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 

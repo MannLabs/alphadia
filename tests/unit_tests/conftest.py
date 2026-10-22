@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from alphadia.constants.keys import NormalizationMethods
+from alphadia.outputtransform.settings import LfqSettings
+from alphadia.workflow.config import Config
 from alphadia.workflow.peptidecentric.ng.ng_mapper import get_context_feature_names
 
 matplotlib.use("Agg")
@@ -233,3 +236,34 @@ def random_tempfolder():  # TODO remove in favor of tempdir
     os.makedirs(path, exist_ok=True)
     print(f"Created temp folder: {path}")
     return path
+
+
+DEFAULT_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "alphadia", "constants", "default.yaml"
+)
+
+
+def make_config(overrides: dict | None = None) -> Config:
+    """Create the default config, updated with the given overrides."""
+    config = Config(name="default")
+    config.from_yaml(DEFAULT_CONFIG_PATH)
+    if overrides:
+        config.update([Config(overrides, "test")], do_print=False)
+    return config
+
+
+def make_lfq_settings(**overrides) -> LfqSettings:
+    """Create label-free quantification settings for small test datasets."""
+    defaults = {
+        "normalization_method": NormalizationMethods.DIRECTLFQ,
+        "intensity_drift_correction": True,
+        "precursor_level_lfq": True,
+        "peptide_level_lfq": True,
+        "min_k_fragments": 3,
+        "min_correlation": 0.5,
+        "normalize_directlfq": True,
+        "min_nonnan": 1,
+        "num_samples_quadratic": 50,
+        "thread_count": 1,
+    }
+    return LfqSettings(**(defaults | overrides))

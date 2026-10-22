@@ -1,10 +1,11 @@
 import platform
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from unittest.mock import patch
 
 import pandas as pd
 import pytest
+from conftest import make_lfq_settings
 
 from alphadia.constants.keys import NormalizationMethods
 from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
@@ -86,21 +87,8 @@ def lfq_data():
 
 
 @pytest.fixture
-def search_config():
-    return {
-        "search_output": {
-            "num_cores": 4,
-            "num_samples_quadratic": 50,
-            "min_nonnan": 1,
-            "min_k_fragments": 1,
-            "min_correlation": 0,
-            "normalization_method": NormalizationMethods.DIRECTLFQ,
-            "normalize_directlfq": True,
-        },
-        "general": {
-            "thread_count": 1,
-        },
-    }
+def lfq_settings():
+    return make_lfq_settings(min_k_fragments=1, min_correlation=0)
 
 
 @pytest.fixture
@@ -554,17 +542,17 @@ class TestLfq:
             }
 
     def test_performs_quantification(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+        self, lfq_data, psm_df, lfq_config, lfq_settings, mock_directlfq
     ):
         """Given filtered intensity data, when direct_lfq is run, then returns protein quantification."""
         # Given
         filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
         lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
-        config = search_config
+        settings = lfq_settings
 
         # When
-        result_df = builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        result_df = builder.direct_lfq(filtered_intensity_df, lfq_config, settings)
 
         # Then
         assert isinstance(result_df, pd.DataFrame)
@@ -572,17 +560,17 @@ class TestLfq:
         assert len(result_df) == 2
 
     def test_configures_directlfq(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+        self, lfq_data, psm_df, lfq_config, lfq_settings, mock_directlfq
     ):
         """Given LFQ parameters, when run, then configures directLFQ correctly."""
         # Given
         filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
         lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
-        config = search_config
+        settings = lfq_settings
 
         # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        builder.direct_lfq(filtered_intensity_df, lfq_config, settings)
 
         # Then
         mock_config = mock_directlfq["config"]
@@ -596,7 +584,7 @@ class TestLfq:
         lfq_data,
         psm_df,
         lfq_config,
-        search_config,
+        lfq_settings,
         mock_directlfq,
         normalize_directlfq,
     ):
@@ -604,11 +592,10 @@ class TestLfq:
         # Given
         filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        config = search_config
-        config["search_output"]["normalize_directlfq"] = normalize_directlfq
+        settings = replace(lfq_settings, normalize_directlfq=normalize_directlfq)
 
         # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config("pg"), config)
+        builder.direct_lfq(filtered_intensity_df, lfq_config("pg"), settings)
 
         # Then
         mock_norm = mock_directlfq["norm"]
@@ -618,7 +605,7 @@ class TestLfq:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
 
     def test_returns_empty_frame_when_nothing_was_observed(
-        self, lfq_data, psm_df, lfq_config, search_config
+        self, lfq_data, psm_df, lfq_config, lfq_settings
     ):
         """Given fragments with zero intensity everywhere, when LFQ is run, then an empty frame is returned instead of failing inside directLFQ."""
         # Given
@@ -627,24 +614,24 @@ class TestLfq:
         builder = QuantBuilder(psm_df)
 
         # When
-        result_df = builder.direct_lfq(unobserved_df, lfq_config("pg"), search_config)
+        result_df = builder.direct_lfq(unobserved_df, lfq_config("pg"), lfq_settings)
 
         # Then
         assert result_df.empty
         assert list(result_df.columns) == ["pg", "run1", "run2", "run3"]
 
     def test_handles_custom_group_column(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+        self, lfq_data, psm_df, lfq_config, lfq_settings, mock_directlfq
     ):
         """Given custom group column, when LFQ is run, then groups by specified column."""
         # Given
         filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
         lfq_config = lfq_config("mod_seq_hash", NormalizationMethods.DIRECTLFQ)
-        config = search_config
+        settings = lfq_settings
 
         # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        builder.direct_lfq(filtered_intensity_df, lfq_config, settings)
 
         # Then
         mock_config = mock_directlfq["config"]

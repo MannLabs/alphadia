@@ -5,7 +5,7 @@ import tempfile
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
-from conftest import mock_fragment_df, mock_precursor_df
+from conftest import make_config, mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import (
     InferenceStrategy,
@@ -39,35 +39,37 @@ def prepare_input_data():
     """
     run_columns = ["run_0", "run_1", "run_2"]
 
-    config = {
-        "general": {
-            "thread_count": 8,
-            "save_figures": True,
-        },
-        "fdr": {
-            "fdr": 0.01,
-            "inference_strategy": InferenceStrategy.HEURISTIC,
-            "group_level": "proteins",
-            "keep_decoys": False,
-        },
-        "search_output": {
-            "min_k_fragments": 3,
-            "min_correlation": 0.25,
-            "num_samples_quadratic": 50,
-            "min_nonnan": 1,
-            "normalization_method": NormalizationMethods.DIRECTLFQ,
-            "normalize_directlfq": True,
-        },
-        "transfer_library": {
-            "enabled": True,
-            "fragment_types": ["b", "y"],
-            "max_charge": 2,
-            "top_k_samples": 3,
-            "norm_delta_max": True,
-            "precursor_correlation_cutoff": 0.5,
-            "fragment_correlation_ratio": 0.75,
-        },
-    }
+    config = make_config(
+        {
+            "general": {
+                "thread_count": 8,
+                "save_figures": True,
+            },
+            "fdr": {
+                "fdr": 0.01,
+                "inference_strategy": InferenceStrategy.HEURISTIC,
+                "group_level": "proteins",
+                "keep_decoys": False,
+            },
+            "search_output": {
+                "min_k_fragments": 3,
+                "min_correlation": 0.25,
+                "num_samples_quadratic": 50,
+                "min_nonnan": 1,
+                "normalization_method": NormalizationMethods.DIRECTLFQ,
+                "normalize_directlfq": True,
+            },
+            "transfer_library": {
+                "enabled": True,
+                "fragment_types": ["b", "y"],
+                "max_charge": 2,
+                "top_k_samples": 3,
+                "norm_delta_max": True,
+                "precursor_correlation_cutoff": 0.5,
+                "fragment_correlation_ratio": 0.75,
+            },
+        }
+    )
 
     temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
     os.makedirs(temp_folder, exist_ok=True)

@@ -2,8 +2,8 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
+from conftest import make_lfq_settings
 
-from alphadia.constants.keys import NormalizationMethods
 from alphadia.outputtransform.quantification import (
     QuantificationLevelName,
     QuantOutputBuilder,
@@ -14,23 +14,9 @@ from alphadia.outputtransform.quantification.quant_output_builder import (
 
 
 @pytest.fixture
-def config():
-    """Configuration for quantification with all three quant levels enabled."""
-    return {
-        "general": {"thread_count": 4},
-        "search_output": {
-            "precursor_level_lfq": True,
-            "peptide_level_lfq": True,
-            "min_k_fragments": 3,
-            "min_correlation": 0.5,
-            "min_nonnan": 1,
-            "num_samples_quadratic": 50,
-            "file_format": "parquet",
-            "normalization_method": NormalizationMethods.DIRECTLFQ,
-            "normalize_directlfq": True,
-            "intensity_drift_correction": True,
-        },
-    }
+def lfq_settings():
+    """Label-free quantification settings with all three quant levels enabled."""
+    return make_lfq_settings()
 
 
 @pytest.fixture
@@ -99,12 +85,12 @@ def lfq_side_effect(*args, **kwargs):
 class TestQuantOutputBuilder:
     """Test QuantOutputBuilder workflow."""
 
-    def test_initialization_filters_decoys(self, psm_df, config):
+    def test_initialization_filters_decoys(self, psm_df, lfq_settings):
         """Given PSM df with decoys, when initialized, then decoys are filtered for quantification."""
         # Given: psm_df contains 1 decoy (see fixture)
 
         # When
-        builder = QuantOutputBuilder(psm_df, config)
+        builder = QuantOutputBuilder(psm_df, lfq_settings)
 
         # Then
         assert len(builder.fragment_loader.psm_df) == 4
@@ -114,12 +100,12 @@ class TestQuantOutputBuilder:
         "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
     )
     def test_build_returns_empty_when_no_fragments(
-        self, mock_accumulate, psm_df, config
+        self, mock_accumulate, psm_df, lfq_settings
     ):
         """Given no fragment data, when build is called, then returns empty results."""
         # Given
         mock_accumulate.return_value = None
-        builder = QuantOutputBuilder(psm_df, config)
+        builder = QuantOutputBuilder(psm_df, lfq_settings)
 
         # When
         lfq_results, result_psm_df = builder.build(["folder1", "folder2"])
@@ -138,7 +124,13 @@ class TestQuantOutputBuilder:
         "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
     )
     def test_build_processes_all_levels_with_correct_annotations(
-        self, mock_accumulate, mock_filter, mock_direct_lfq, psm_df, config, feature_dfs
+        self,
+        mock_accumulate,
+        mock_filter,
+        mock_direct_lfq,
+        psm_df,
+        lfq_settings,
+        feature_dfs,
     ):
         """Given all three quantification levels enabled, when build is called, then all levels return output with correct annotations."""
         # Given
@@ -148,7 +140,7 @@ class TestQuantOutputBuilder:
             feature_dfs["correlation"],
         )
         mock_direct_lfq.side_effect = lfq_side_effect
-        builder = QuantOutputBuilder(psm_df, config)
+        builder = QuantOutputBuilder(psm_df, lfq_settings)
 
         # When
         lfq_results, _ = builder.build(["folder1", "folder2"])
@@ -178,7 +170,9 @@ class TestQuantOutputBuilder:
         )
 
     @patch("alphadia.outputtransform.utils.write_df")
-    def test_save_results_writes_non_empty_results(self, mock_write_df, psm_df, config):
+    def test_save_results_writes_non_empty_results(
+        self, mock_write_df, psm_df, lfq_settings
+    ):
         """Given LFQ results with data, when save_results is called, then writes files to disk."""
         # Given
         lfq_results = {
@@ -189,7 +183,7 @@ class TestQuantOutputBuilder:
                 {"pg": ["PG001"], "run1": [5000.0]}
             ),
         }
-        builder = QuantOutputBuilder(psm_df, config)
+        builder = QuantOutputBuilder(psm_df, lfq_settings)
 
         # When
         builder.save_results(lfq_results, "/output", file_format="parquet")
@@ -198,7 +192,9 @@ class TestQuantOutputBuilder:
         assert mock_write_df.call_count == 2
 
     @patch("alphadia.outputtransform.utils.write_df")
-    def test_save_results_skips_empty_results(self, mock_write_df, psm_df, config):
+    def test_save_results_skips_empty_results(
+        self, mock_write_df, psm_df, lfq_settings
+    ):
         """Given LFQ results with empty dataframes, when save_results is called, then skips empty results."""
         # Given
         lfq_results = {
@@ -206,7 +202,7 @@ class TestQuantOutputBuilder:
                 {"pg": ["PG001"], "run1": [5000.0]}
             ),
         }
-        builder = QuantOutputBuilder(psm_df, config)
+        builder = QuantOutputBuilder(psm_df, lfq_settings)
 
         # When
         builder.save_results(lfq_results, "/output", file_format="parquet")
@@ -214,7 +210,7 @@ class TestQuantOutputBuilder:
         # Then
         assert mock_write_df.call_count == 1
 
-    def test_annotate_precursor(self, psm_df, config):
+    def test_annotate_precursor(self, psm_df, lfq_settings):
         """Given precursor-level LFQ dataframe, when annotated, then adds pg, sequence, mods, mod_sites, and charge."""
         # Given
         lfq_df = pd.DataFrame(
@@ -226,7 +222,7 @@ class TestQuantOutputBuilder:
             intensity_column="precursor_lfq_intensity",
             aggregation_components=["pg", "sequence", "mods", "mod_sites", "charge"],
         )
-        builder = QuantOutputBuilder(psm_df, config)
+        builder = QuantOutputBuilder(psm_df, lfq_settings)
 
         # When
         annotated_df = builder._annotate_quant_df(lfq_df, psm_df, precursor_config)
@@ -245,7 +241,7 @@ class TestQuantOutputBuilder:
         )
         pd.testing.assert_frame_equal(annotated_df, expected_df)
 
-    def test_annotate_peptide(self, psm_df, config):
+    def test_annotate_peptide(self, psm_df, lfq_settings):
         """Given peptide-level LFQ dataframe, when annotated, then adds pg, sequence, mods, mod_sites but not charge."""
         # Given
         lfq_df = pd.DataFrame(
@@ -257,7 +253,7 @@ class TestQuantOutputBuilder:
             intensity_column="peptide_lfq_intensity",
             aggregation_components=["pg", "sequence", "mods", "mod_sites"],
         )
-        builder = QuantOutputBuilder(psm_df, config)
+        builder = QuantOutputBuilder(psm_df, lfq_settings)
 
         # When
         annotated_df = builder._annotate_quant_df(lfq_df, psm_df, peptide_config)
@@ -275,7 +271,7 @@ class TestQuantOutputBuilder:
         )
         pd.testing.assert_frame_equal(annotated_df, expected_df)
 
-    def test_annotate_protein(self, psm_df, config):
+    def test_annotate_protein(self, psm_df, lfq_settings):
         """Given protein-level LFQ dataframe, when annotated, then returns unchanged with no added annotations."""
         # Given
         lfq_df = pd.DataFrame(
@@ -291,7 +287,7 @@ class TestQuantOutputBuilder:
             intensity_column="pg_lfq_intensity",
             aggregation_components=[QuantificationLevelName.PROTEIN],
         )
-        builder = QuantOutputBuilder(psm_df, config)
+        builder = QuantOutputBuilder(psm_df, lfq_settings)
 
         # When
         annotated_df = builder._annotate_quant_df(lfq_df, psm_df, pg_config)

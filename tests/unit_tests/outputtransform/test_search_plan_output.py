@@ -2,7 +2,7 @@ import os
 
 import pandas as pd
 import pytest
-from conftest import mock_fragment_df, mock_precursor_df
+from conftest import make_config, mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import (
     InferenceStrategy,
@@ -40,47 +40,49 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
     # given
     run_columns = ["run_0", "run_1", "run_2"]
 
-    config = {
-        "general": {
-            "thread_count": 8,
-            "save_figures": False,
-            "save_mbr_library": False,
-        },
-        "transfer_library": {"enabled": False},
-        "transfer_learning": {"enabled": False},
-        "search": {"channel_filter": "0"},
-        "fdr": {
-            "fdr": 0.01,
-            "inference_strategy": InferenceStrategy.HEURISTIC,
-            "group_level": "proteins",
-            "keep_decoys": False,
-        },
-        "search_output": {
-            "precursor_level_lfq": True,
-            "peptide_level_lfq": True,
-            "min_k_fragments": 3,
-            "min_correlation": 0.25,
-            "num_samples_quadratic": 50,
-            "min_nonnan": 1,
-            "file_format": "parquet",
-            "normalization_method": normalization_method,
-            "normalize_directlfq": True,
-            "intensity_drift_correction": True,
-        },
-        "multiplexing": {"enabled": False},
-        "search_initial": {
-            "ms1_tolerance": 4,
-            "ms2_tolerance": 7,
-            "rt_tolerance": 200,
-            "mobility_tolerance": 0.04,
-            "num_candidates": 1,
-        },
-        "optimization_manager": {
-            "fwhm_rt": 2.75,
-            "fwhm_mobility": 2,
-            "score_cutoff": 50,
-        },
-    }
+    config = make_config(
+        {
+            "general": {
+                "thread_count": 8,
+                "save_figures": False,
+                "save_mbr_library": False,
+            },
+            "transfer_library": {"enabled": False},
+            "transfer_learning": {"enabled": False},
+            "search": {"channel_filter": "0"},
+            "fdr": {
+                "fdr": 0.01,
+                "inference_strategy": InferenceStrategy.HEURISTIC,
+                "group_level": "proteins",
+                "keep_decoys": False,
+            },
+            "search_output": {
+                "precursor_level_lfq": True,
+                "peptide_level_lfq": True,
+                "min_k_fragments": 3,
+                "min_correlation": 0.25,
+                "num_samples_quadratic": 50,
+                "min_nonnan": 1,
+                "file_format": "parquet",
+                "normalization_method": normalization_method,
+                "normalize_directlfq": True,
+                "intensity_drift_correction": True,
+            },
+            "multiplexing": {"enabled": False},
+            "search_initial": {
+                "ms1_tolerance": 4,
+                "ms2_tolerance": 7,
+                "rt_tolerance": 200,
+                "mobility_tolerance": 0.04,
+                "num_candidates": 1,
+            },
+            "optimization_manager": {
+                "fwhm_rt": 2.75,
+                "fwhm_mobility": 2,
+                "score_cutoff": 50,
+            },
+        }
+    )
 
     temp_folder = str(tmp_path)
     quant_path = os.path.join(temp_folder, QUANT_FOLDER_NAME)
@@ -275,11 +277,13 @@ def test_merge_quant_levels_to_psm_merges_all_levels():
 
 def test_build_stat_df_returns_stats_without_writing(tmp_path):
     # given
-    config = {
-        "general": {"save_figures": False},
-        "search": {"channel_filter": "0"},
-        "multiplexing": {"enabled": False},
-    }
+    config = make_config(
+        {
+            "general": {"save_figures": False},
+            "search": {"channel_filter": "0"},
+            "multiplexing": {"enabled": False},
+        }
+    )
     raw_folder = tmp_path / "run_0"
     raw_folder.mkdir()
     psm_df = pd.DataFrame(
