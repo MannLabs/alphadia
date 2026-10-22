@@ -683,6 +683,11 @@ def test_perform_fdr_fits_secondary_peaks_at_the_soft_label_in_the_final_round()
         decoy_df,
     )
 
-    # Then: every fit sees hard labels for rank 0 and the soft label for rank >= 1, in both classes
+    # Then: every fit sees hard labels for rank 0 and labels moved towards the other class for rank >= 1
     fitted = np.concatenate(_LabelRecordingClassifier.labels)
-    assert set(np.unique(fitted)) == {0.0, fdr.SECONDARY_PEAK_LABEL, 1.0}
+    assert set(np.unique(fitted)) == {
+        0.0,
+        fdr.SECONDARY_PEAK_SOFTENING,
+        1 - fdr.SECONDARY_PEAK_SOFTENING,
+        1.0,
+    }

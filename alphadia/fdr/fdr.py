@@ -27,10 +27,11 @@ max_dia_cycle_shape = 2
 # averaged: on plasma one fit in three put a few decoys at the very top of the ranking (q-cliffs at 0.1 % FDR).
 ENSEMBLE_TRIGGER_FEATURE = "lib_explained"
 N_ENSEMBLE_FITS = 3
-# In the final round every secondary candidate (rank >= 1) of either class is fitted at this label instead of 0 / 1:
-# rank >= 1 target peaks are mostly false, and fitting them as targets taught the classifier false-target peaks from
-# decoy peaks. q-values keep the hard labels.
-SECONDARY_PEAK_LABEL = 0.5
+# In the final round every secondary candidate (rank >= 1) is fitted with its label moved this far towards the other
+# class (target 0 -> 0.25, decoy 1 -> 0.75): rank >= 1 target peaks are mostly false, and fitting them as hard targets
+# taught the classifier false-target peaks from decoy peaks. A full move to 0.5 cost IDs on high-load runs.
+# q-values keep the hard labels.
+SECONDARY_PEAK_SOFTENING = 0.25
 
 logger = logging.getLogger()
 
@@ -219,7 +220,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     y_train, y_test = y[idxs_train], y[idxs_test]
     y_fit = y.copy()
     if ENSEMBLE_TRIGGER_FEATURE in available_columns and "rank" in psm_df.columns:
-        y_fit[psm_df["rank"].to_numpy() > 0] = SECONDARY_PEAK_LABEL
+        secondary = psm_df["rank"].to_numpy() > 0
+        y_fit[secondary] = np.where(
+            y[secondary] == 1, 1 - SECONDARY_PEAK_SOFTENING, SECONDARY_PEAK_SOFTENING
+        )
     initial_classifier = copy.deepcopy(classifier)
     classifier.fit(X[idxs_train], y_fit[idxs_train])
 
