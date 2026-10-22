@@ -150,7 +150,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
     )
 
     stat_df = pd.read_csv(
-        os.path.join(temp_folder, f"{SearchPlanFiles.STAT_FILE_STEM}.tsv"), sep="\t"
+        os.path.join(temp_folder, SearchPlanFiles.STAT_FILE_NAME), sep="\t"
     )
     assert len(stat_df) == 3
     assert stat_df["optimization.ms2_error"][0] == 6
@@ -182,7 +182,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
     )
 
     internal_df = pd.read_csv(
-        os.path.join(temp_folder, f"{SearchPlanFiles.INTERNAL_FILE_STEM}.tsv"), sep="\t"
+        os.path.join(temp_folder, SearchPlanFiles.INTERNAL_FILE_NAME), sep="\t"
     )
     assert isinstance(internal_df["duration_extraction"][0], float)
 
@@ -297,4 +297,4 @@ def test_build_stat_df_returns_stats_without_writing(tmp_path):
 
     # then
     assert stat_df[StatSearchCols.PRECURSORS].tolist() == [1]
-    assert not (tmp_path / f"{SearchPlanFiles.STAT_FILE_STEM}.tsv").exists()
+    assert not (tmp_path / SearchPlanFiles.STAT_FILE_NAME).exists()

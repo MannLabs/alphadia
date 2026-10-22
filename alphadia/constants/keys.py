@@ -91,13 +91,14 @@ class SearchStepFiles(metaclass=ConstantsClass):
 class SearchPlanFiles(metaclass=ConstantsClass):
     """File names written by `SearchPlanOutput` into the output folder of a search step.
 
-    Tables are given as stems, as their extension depends on the table format they are written in.
+    Tables written in the configurable `search_output.file_format` are given as stems,
+    as their extension depends on that format.
     """
 
     PRECURSORS_FILE_STEM = "precursors"
-    STAT_FILE_STEM = "stat"
-    INTERNAL_FILE_STEM = "internal"
-    TRANSFER_STATS_FILE_STEM = "stats.transfer"
+    STAT_FILE_NAME = "stat.tsv"
+    INTERNAL_FILE_NAME = "internal.tsv"
+    TRANSFER_STATS_FILE_NAME = "stats.transfer.tsv"
     # appended to the quantification level name, e.g. `pg.matrix`
     QUANT_MATRIX_SUFFIX = ".matrix"
 

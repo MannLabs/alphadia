@@ -9,7 +9,6 @@ from alphadia import utils
 from alphadia.constants.keys import (
     NormalizationMethods,
     SearchPlanFiles,
-    TableFormats,
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
@@ -35,6 +34,7 @@ from alphadia.outputtransform.utils import (
     prepare_psm_dataframe,
     read_df,
     write_df,
+    write_tsv,
 )
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
@@ -105,15 +105,11 @@ class SearchPlanOutput:
 
         # every output is written as soon as it is built, so a later failure does not
         # discard the outputs already on disk
-        self._write_table(
-            self._build_stat_df(folder_list, psm_df),
-            SearchPlanFiles.STAT_FILE_STEM,
-            TableFormats.TSV,
+        self._write_tsv(
+            self._build_stat_df(folder_list, psm_df), SearchPlanFiles.STAT_FILE_NAME
         )
-        self._write_table(
-            self._build_internal_df(folder_list),
-            SearchPlanFiles.INTERNAL_FILE_STEM,
-            TableFormats.TSV,
+        self._write_tsv(
+            self._build_internal_df(folder_list), SearchPlanFiles.INTERNAL_FILE_NAME
         )
 
         if self._settings.save_mbr_library:
@@ -138,11 +134,7 @@ class SearchPlanOutput:
                     self.output_folder, SearchPlanFiles.TRANSFER_MODEL_FOLDER_NAME
                 )
             )
-            self._write_table(
-                transfer_stats_df,
-                SearchPlanFiles.TRANSFER_STATS_FILE_STEM,
-                TableFormats.TSV,
-            )
+            self._write_tsv(transfer_stats_df, SearchPlanFiles.TRANSFER_STATS_FILE_NAME)
 
         # LFQ is the most memory-intensive step and runs last, so an OOM kill here
         # does not discard the MBR library and transfer model already on disk
@@ -171,6 +163,9 @@ class SearchPlanOutput:
 
     def _write_table(self, df: pd.DataFrame, file_stem: str, file_format: str) -> None:
         write_df(df, os.path.join(self.output_folder, file_stem), file_format)
+
+    def _write_tsv(self, df: pd.DataFrame, file_name: str) -> None:
+        write_tsv(df, os.path.join(self.output_folder, file_name))
 
     def _write_library(self, spec_lib: base.SpecLibBase, file_name: str) -> None:
         library_path = os.path.join(self.output_folder, file_name)
