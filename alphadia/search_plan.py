@@ -12,7 +12,6 @@ from alphadia.constants.keys import (
     ConfigKeys,
     SearchPlanFiles,
     StatOutputCols,
-    TableFormats,
 )
 from alphadia.exceptions import CustomError
 from alphadia.reporting import reporting
@@ -226,7 +225,7 @@ class SearchPlan:
         """Extract optimized values from a previous step and return an update to the config."""
 
         df = pd.read_csv(
-            output_folder / f"{SearchPlanFiles.STAT_FILE_STEM}.{TableFormats.TSV}",
+            output_folder / SearchPlanFiles.STAT_FILE_NAME,
             sep="\t",
         )
         target_ms1_tolerance = np.nanmedian(

@@ -117,7 +117,22 @@ def write_df(
         df.to_parquet(file_path, index=False)
 
     elif file_format == TableFormats.TSV:
-        df.to_csv(file_path, sep="\t", index=False, float_format="%.6f")
+        write_tsv(df, file_path)
+
+
+def write_tsv(df: pd.DataFrame, file_path: str) -> None:
+    """Write dataframe to disk as tsv.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Dataframe to save to disk
+
+    file_path: str
+        Path for file including its extension
+
+    """
+    df.to_csv(file_path, sep="\t", index=False, float_format="%.6f")
 
 
 def merge_quant_levels_to_psm(
