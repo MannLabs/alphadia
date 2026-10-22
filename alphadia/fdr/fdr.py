@@ -29,7 +29,7 @@ ENSEMBLE_TRIGGER_FEATURE = "lib_explained"
 N_ENSEMBLE_FITS = 3
 # the loose pool and overlap of the interference removal before the refit
 INTERFERENCE_POOL_Q = 0.5
-INTERFERENCE_MIN_SHARED_IONS = 2
+INTERFERENCE_MIN_SHARED_IONS = 1
 
 logger = logging.getLogger()
 
