@@ -30,7 +30,7 @@ N_ENSEMBLE_FITS = 3
 # In the final round every secondary candidate (rank >= 1) of either class is fitted at this label instead of 0 / 1:
 # rank >= 1 target peaks are mostly false, and fitting them as targets taught the classifier false-target peaks from
 # decoy peaks. q-values keep the hard labels.
-SECONDARY_PEAK_LABEL = 0.5
+SECONDARY_PEAK_LABEL = 0.75
 
 logger = logging.getLogger()
 
