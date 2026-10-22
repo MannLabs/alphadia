@@ -27,10 +27,6 @@ max_dia_cycle_shape = 2
 # averaged: on plasma one fit in three put a few decoys at the very top of the ranking (q-cliffs at 0.1 % FDR).
 ENSEMBLE_TRIGGER_FEATURE = "lib_explained"
 N_ENSEMBLE_FITS = 3
-# In the final round every secondary candidate (rank >= 1) of either class is fitted at this label instead of 0 / 1:
-# rank >= 1 target peaks are mostly false, and fitting them as targets taught the classifier false-target peaks from
-# decoy peaks. q-values keep the hard labels.
-SECONDARY_PEAK_LABEL = 0.5
 
 logger = logging.getLogger()
 
@@ -123,6 +119,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    secondary_peak_softening: float = 0.0,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
@@ -168,6 +165,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     random_state : int, optional
         The random state for train-test split reproducibility.
+
+    secondary_peak_softening : float, optional
+        In the final round, how far the fit label of every secondary candidate (rank >= 1) is moved towards the other
+        class: target 0 -> s, decoy 1 -> 1 - s. q-values keep the hard labels. 0 fits the hard labels.
 
     Returns
     -------
@@ -218,8 +219,15 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     y_train, y_test = y[idxs_train], y[idxs_test]
     y_fit = y.copy()
-    if ENSEMBLE_TRIGGER_FEATURE in available_columns and "rank" in psm_df.columns:
-        y_fit[psm_df["rank"].to_numpy() > 0] = SECONDARY_PEAK_LABEL
+    if (
+        secondary_peak_softening > 0
+        and ENSEMBLE_TRIGGER_FEATURE in available_columns
+        and "rank" in psm_df.columns
+    ):
+        secondary = psm_df["rank"].to_numpy() > 0
+        y_fit[secondary] = np.where(
+            y[secondary] == 1, 1 - secondary_peak_softening, secondary_peak_softening
+        )
     initial_classifier = copy.deepcopy(classifier)
     classifier.fit(X[idxs_train], y_fit[idxs_train])
 

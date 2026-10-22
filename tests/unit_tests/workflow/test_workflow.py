@@ -303,7 +303,10 @@ FDR_TEST_FEATURES = ["feature_a", "feature_b"]
 def fdr_test_config(feature_transform: str = FeatureTransform.NONE) -> dict:
     return {
         "search": {"compete_for_fragments": False},
-        "fdr": {"feature_transform": feature_transform},
+        "fdr": {
+            "feature_transform": feature_transform,
+            "secondary_peak_softening": 0.0,
+        },
     }
 
 

@@ -84,7 +84,10 @@ def test_fdr():
         classifier_base=classifier_base,
         config={
             "search": {"compete_for_fragments": False},
-            "fdr": {"feature_transform": FeatureTransform.QUANTILE},
+            "fdr": {
+                "feature_transform": FeatureTransform.QUANTILE,
+                "secondary_peak_softening": 0.0,
+            },
         },
     )
 

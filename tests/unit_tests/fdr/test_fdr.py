@@ -667,7 +667,7 @@ class _LabelRecordingClassifier(_CollapsingClassifier):
         super().fit(x, y)
 
 
-def test_perform_fdr_fits_secondary_peaks_at_the_soft_label_in_the_final_round():
+def test_perform_fdr_moves_secondary_peak_labels_towards_the_other_class_in_the_final_round():
     # Given: final-round PSMs where half the candidates of each class are secondary peaks
     _LabelRecordingClassifier.labels = []
     target_df, decoy_df = _gen_target_decoy_dfs()
@@ -681,8 +681,9 @@ def test_perform_fdr_fits_secondary_peaks_at_the_soft_label_in_the_final_round()
         ["feature", fdr.ENSEMBLE_TRIGGER_FEATURE],
         target_df,
         decoy_df,
+        secondary_peak_softening=0.25,
     )
 
-    # Then: every fit sees hard labels for rank 0 and the soft label for rank >= 1, in both classes
+    # Then: every fit sees hard labels for rank 0 and labels moved towards the other class for rank >= 1
     fitted = np.concatenate(_LabelRecordingClassifier.labels)
-    assert set(np.unique(fitted)) == {0.0, fdr.SECONDARY_PEAK_LABEL, 1.0}
+    assert set(np.unique(fitted)) == {0.0, 0.25, 0.75, 1.0}

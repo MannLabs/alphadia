@@ -38,6 +38,7 @@ mbr:
   fasta_paths: []
   fdr:
     inference_strategy: library
+    secondary_peak_softening: 0.5
   search:
     target_num_candidates: 5
   # override settings that could have been set by the user:

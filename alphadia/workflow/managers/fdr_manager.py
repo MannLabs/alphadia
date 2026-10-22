@@ -97,6 +97,7 @@ class FDRManager(BaseManager):
         self.load_classifier_store()
 
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
+        self._secondary_peak_softening = config["fdr"]["secondary_peak_softening"]
 
         self._dia_cycle = dia_cycle
 
@@ -189,6 +190,7 @@ class FDRManager(BaseManager):
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
+                secondary_peak_softening=self._secondary_peak_softening,
             )
 
         elif decoy_strategy == "precursor_channel_wise":

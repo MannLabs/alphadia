@@ -332,6 +332,10 @@ fdr:
   # "quantile" replaces every feature by its rank in the training distribution, mapped to a standard
   # normal score. This keeps extreme values inside the range the network was trained on.
   feature_transform: quantile
+  # final FDR round only: how far the fit label of secondary candidates (rank >= 1) moves towards the other class
+  # (target 0 -> value, decoy 1 -> 1 - value). Rank >= 1 target peaks are mostly wrong peaks of real precursors.
+  # It pays off where the library RT is precise (MBR step) and costs IDs in first-pass searches, so it is 0 here.
+  secondary_peak_softening: 0.0
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
