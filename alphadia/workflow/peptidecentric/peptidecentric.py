@@ -23,6 +23,7 @@ from alphadia.workflow.peptidecentric.transfer_library_requantification_handler 
     TransferLibraryRequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.utils import (
+    add_library_fragment_intensity,
     get_classifier_feature_columns,
     log_precursor_df,
     use_timing_manager,
@@ -258,6 +259,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 self.dia_data,
                 self.spectral_library,
             )
+
+        fragments_df = add_library_fragment_intensity(
+            fragments_df, self.spectral_library
+        )
 
         log_precursor_df(self.reporter, precursor_df)
 

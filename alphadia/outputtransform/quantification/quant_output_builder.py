@@ -5,6 +5,7 @@ import pandas as pd
 
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
+    FragmentCols,
     NormalizationMethods,
     QuantificationLevelKey,
     QuantificationLevelName,
@@ -16,12 +17,16 @@ from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
+    ION_COLUMN,
     LFQOutputConfig,
     QuantBuilder,
 )
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
+
+# directLFQ's minimum of ions per group and run when the ions are library-anchored precursors
+MIN_PRECURSORS_PER_RUN = 1
 
 
 class QuantOutputBuilder:
@@ -70,6 +75,8 @@ class QuantOutputBuilder:
             == NormalizationMethods.QUANTSELECT
         ):
             columns = self.QUANTSELECT_COLUMNS
+        elif self._is_library_anchored():
+            columns = [*self.DEFAULT_COLUMNS, FragmentCols.INTENSITY_LIBRARY]
         else:
             columns = self.DEFAULT_COLUMNS
 
@@ -77,6 +84,14 @@ class QuantOutputBuilder:
             self._psm_no_decoys_df, columns=columns
         )
         self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
+
+    def _is_library_anchored(self) -> bool:
+        """Whether the directLFQ method rolls up library-anchored precursor quantities."""
+        search_output = self.config["search_output"]
+        return (
+            search_output["normalization_method"] == NormalizationMethods.DIRECTLFQ
+            and search_output["library_anchored_quantification"]
+        )
 
     def build(
         self, folder_list: list[str]
@@ -280,6 +295,11 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name, levels without fragments are absent
         """
+        if self._is_library_anchored():
+            return self._quantify_with_library_anchored_precursors(
+                quantlevel_configs, feature_dfs_dict
+            )
+
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
             logger.info(
@@ -299,6 +319,69 @@ class QuantOutputBuilder:
                 intensity_df=filtered_intensity_df,
                 lfq_config=quantlevel_config,
                 config=self.config,
+            )
+        return level_dfs
+
+    def _quantify_with_library_anchored_precursors(
+        self,
+        quantlevel_configs: list[LFQOutputConfig],
+        feature_dfs_dict: dict[str, pd.DataFrame],
+    ) -> dict[str, pd.DataFrame]:
+        """Estimate the precursor quantities with the library-anchored fit and roll them up with directLFQ.
+
+        The fragments are filtered once on the precursor level and the precursor table is
+        normalized once. Every level, the precursor level included, is then quantified by
+        directLFQ on that table, with each precursor as one ion, so all levels share the same
+        precursor quantities and normalization.
+
+        Parameters
+        ----------
+        quantlevel_configs : list[LFQOutputConfig]
+            Requested quantification levels
+        feature_dfs_dict : dict[str, pd.DataFrame]
+            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        Returns
+        -------
+        dict[str, pd.DataFrame]
+            Quantification results by level name, empty without fragments
+        """
+        logger.info(
+            "Performing label free quantification on library-anchored precursor quantities"
+        )
+        filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
+            feature_dfs_dict["intensity"],
+            feature_dfs_dict["correlation"],
+            top_n=self.config["search_output"]["min_k_fragments"],
+            min_correlation=self.config["search_output"]["min_correlation"],
+            group_column=QuantificationLevelKey.PRECURSOR,
+        )
+        if len(filtered_intensity_df) == 0:
+            return {}
+
+        library_df = feature_dfs_dict[FragmentCols.INTENSITY_LIBRARY]
+        precursor_df = self.quant_builder.library_anchored_precursor_table(
+            filtered_intensity_df,
+            library_df[library_df[ION_COLUMN].isin(filtered_intensity_df[ION_COLUMN])],
+            self.config,
+        )
+        if self.config["search_output"]["normalize_directlfq"]:
+            precursor_df = self.quant_builder.normalize_precursor_table(
+                precursor_df, self.config
+            )
+
+        level_dfs = {}
+        for quantlevel_config in quantlevel_configs:
+            logger.info(
+                f"Performing label free quantification on the {quantlevel_config.level_name} level"
+            )
+            # a precursor is already the robust estimate over its fragments, so a single one suffices
+            level_dfs[quantlevel_config.level_name] = self.quant_builder.direct_lfq(
+                intensity_df=precursor_df,
+                lfq_config=quantlevel_config,
+                config=self.config,
+                min_nonan=MIN_PRECURSORS_PER_RUN,
+                normalize=False,
             )
         return level_dfs
 

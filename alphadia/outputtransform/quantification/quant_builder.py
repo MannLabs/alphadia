@@ -11,6 +11,9 @@ import pandas as pd
 from quantselect.output import run_quantselect
 
 from alphadia.constants.keys import QuantificationLevelKey
+from alphadia.outputtransform.quantification.library_anchored import (
+    library_anchored_estimate,
+)
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.workflow.config import Config
 
@@ -223,6 +226,8 @@ class QuantBuilder:
         intensity_df: pd.DataFrame,
         lfq_config: LFQOutputConfig,
         config: Config,
+        min_nonan: int | None = None,
+        normalize: bool | None = None,
     ) -> pd.DataFrame:
         """Perform label-free quantification using directLFQ.
 
@@ -234,6 +239,10 @@ class QuantBuilder:
             Configuration for this quantification level
         config: Config
             Global configuration object
+        min_nonan: int | None
+            Minimum number of ions per group and run, None for `search_output.min_nonnan`
+        normalize: bool | None
+            Whether to apply directLFQ's sample normalization, None for `search_output.normalize_directlfq`
 
         Returns
         -------
@@ -249,16 +258,118 @@ class QuantBuilder:
             return pd.DataFrame(
                 columns=[lfq_config.quant_level, *get_run_columns(intensity_df)]
             )
-        if config["search_output"]["normalize_directlfq"]:
+        if normalize is None:
+            normalize = config["search_output"]["normalize_directlfq"]
+        if normalize:
             lfq_df = self._normalize_ion_table(lfq_df, config)
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
-            min_nonan=config["search_output"]["min_nonnan"],
+            min_nonan=config["search_output"]["min_nonnan"]
+            if min_nonan is None
+            else min_nonan,
             num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
             num_cores=config["general"]["thread_count"],
         )
         return protein_df
+
+    def library_anchored_precursor_table(
+        self,
+        intensity_df: pd.DataFrame,
+        library_df: pd.DataFrame,
+        config: Config,
+    ) -> pd.DataFrame:
+        """Estimate the precursor quantities with the library-anchored fit (see `library_anchored`).
+
+        The result is an ion table in which every precursor is one ion, so that directLFQ can
+        normalize it and roll it up to any level.
+
+        Parameters
+        ----------
+        intensity_df: pd.DataFrame
+            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+        library_df: pd.DataFrame
+            Library intensities of the same ions in the same layout (constant over runs, 0 where missing)
+        config: Config
+            Global configuration object
+
+        Returns
+        -------
+        pd.DataFrame
+            Precursor table with columns: ion, pg, mod_seq_hash, mod_seq_charge_hash, run1, run2, ...
+            where ion is the precursor key and missing quantities are 0
+        """
+        logger.info("Estimating precursor quantities with the library-anchored fit")
+        precursor_column = QuantificationLevelKey.PRECURSOR
+        run_columns = get_run_columns(intensity_df)
+
+        library = (
+            library_df.set_index(ION_COLUMN)[run_columns]
+            .max(axis=1)
+            .reindex(intensity_df[ION_COLUMN].to_numpy())
+            .to_numpy(dtype=np.float32)
+        )
+        so = config["search_output"]
+        groups, quantity = library_anchored_estimate(
+            intensity=intensity_df[run_columns].to_numpy(dtype=np.float32),
+            library=library,
+            group=intensity_df[precursor_column].to_numpy(),
+            tau=so["anchored_tau"],
+            lam=so["anchored_lambda"],
+            max_sweeps=so["anchored_sweeps"],
+        )
+
+        precursor_df = pd.DataFrame(
+            np.nan_to_num(np.power(2.0, quantity)), columns=run_columns
+        )
+        level_df = (
+            intensity_df.groupby(precursor_column)[
+                [QuantificationLevelKey.PROTEIN, QuantificationLevelKey.PEPTIDE]
+            ]
+            .first()
+            .reindex(groups)
+        )
+        precursor_df.insert(0, ION_COLUMN, groups)
+        precursor_df.insert(1, precursor_column, groups)
+        for column in [QuantificationLevelKey.PEPTIDE, QuantificationLevelKey.PROTEIN]:
+            precursor_df.insert(1, column, level_df[column].to_numpy())
+        return precursor_df
+
+    def normalize_precursor_table(
+        self, precursor_df: pd.DataFrame, config: Config
+    ) -> pd.DataFrame:
+        """Apply directLFQ sample normalization to a precursor table of `library_anchored_precursor_table`.
+
+        directLFQ's sample normalization does not depend on the grouping of the ions, so the
+        normalized table serves every quantification level.
+
+        Parameters
+        ----------
+        precursor_df: pd.DataFrame
+            Precursor table with columns: ion, pg, mod_seq_hash, mod_seq_charge_hash, run1, run2, ...
+        config: Config
+            Global configuration object
+
+        Returns
+        -------
+        pd.DataFrame
+            Normalized precursor table in the same layout, without precursors missing in every run
+        """
+        precursor_column = QuantificationLevelKey.PRECURSOR
+        lfq_df = self._prepare_ion_table(precursor_df, precursor_column)
+        if lfq_df.empty:
+            return precursor_df.iloc[:0]
+        normalized_df = (
+            np.power(2.0, self._normalize_ion_table(lfq_df, config))
+            .fillna(0.0)
+            .reset_index()
+        )
+        metadata_df = precursor_df[
+            [ION_COLUMN, QuantificationLevelKey.PROTEIN, QuantificationLevelKey.PEPTIDE]
+        ]
+        return metadata_df.merge(
+            normalized_df.drop(columns=precursor_column), on=ION_COLUMN
+        ).assign(**{precursor_column: lambda df: df[ION_COLUMN]})
 
     def _prepare_ion_table(
         self, intensity_df: pd.DataFrame, quant_level: str

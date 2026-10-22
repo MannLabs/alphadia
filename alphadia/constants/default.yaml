@@ -354,6 +354,20 @@ search_output:
   normalization_method: directlfq
   # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directlfq")
   normalize_directlfq: True
+  # Estimate every precursor from its fragments by a robust fit of run quantity + fragment offset to the fragment
+  # intensities divided by their library intensities (log2 space, Cauchy loss, fragments weighted by their library
+  # share), and use these precursor quantities as the ions of directLFQ on every level, the precursor level included
+  # (alphadia/outputtransform/quantification/library_anchored.py). False runs directLFQ on the fragment intensities
+  # of every level. Only applies when normalization_method is "directlfq".
+  library_anchored_quantification: True
+  # Scale of the Cauchy loss of the library-anchored fit in log2 units. null derives it from the data
+  # (95 %-efficiency tuning constant times the robust residual scale).
+  anchored_tau: null
+  # Shrinkage of the fragment offsets towards the library pattern. null derives it from the data
+  # (random-effects ratio of residual variance to offset variance).
+  anchored_lambda: null
+  # Maximum number of reweighting sweeps of the library-anchored fit, it stops earlier at convergence.
+  anchored_sweeps: 20
 
   # Remove each run's retention-time dependent intensity drift before label-free quantification.
   # The correction curve of each run is centred on zero, so it only flattens how the intensity changes along the gradient.
