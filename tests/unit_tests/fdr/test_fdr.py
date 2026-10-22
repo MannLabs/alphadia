@@ -381,15 +381,15 @@ def _run_perform_fdr_with_mocked_competition(**fragment_kwargs):
     The competition itself is tested in alphadia-search-rs; this only checks which
     fragments perform_fdr hands to it.
     """
-    target_df, decoy_df = _gen_target_decoy_dfs()
+    psm_df = _gen_psm_df()
     with patch.object(
         fdr, "compete_for_fragments", side_effect=lambda psm_df, *_: psm_df
     ) as mock_compete:
         fdr.perform_fdr(
             _CollapsingClassifier(n_collapses=0),
             ["feature"],
-            target_df,
-            decoy_df,
+            psm_df,
+            psm_df["decoy"].to_numpy() == 1,
             dia_cycle=_DIA_CYCLE,
             **fragment_kwargs,
         )
