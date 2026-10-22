@@ -655,3 +655,34 @@ def test_perform_fdr_fits_once_outside_the_final_round():
     )
 
     assert _CountingClassifier.n_fits == 1
+
+
+class _LabelRecordingClassifier(_CollapsingClassifier):
+    """Record the labels of every fit."""
+
+    labels = []
+
+    def fit(self, x, y):
+        type(self).labels.append(np.asarray(y).copy())
+        super().fit(x, y)
+
+
+def test_perform_fdr_fits_secondary_peaks_at_the_soft_label_in_the_final_round():
+    # Given: final-round PSMs where half the candidates of each class are secondary peaks
+    _LabelRecordingClassifier.labels = []
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    for df in (target_df, decoy_df):
+        df[fdr.ENSEMBLE_TRIGGER_FEATURE] = df["feature"]
+        df["rank"] = np.arange(len(df)) % 2
+
+    # When: perform_fdr runs
+    fdr.perform_fdr(
+        _LabelRecordingClassifier(n_collapses=0),
+        ["feature", fdr.ENSEMBLE_TRIGGER_FEATURE],
+        target_df,
+        decoy_df,
+    )
+
+    # Then: every fit sees hard labels for rank 0 and the soft label for rank >= 1, in both classes
+    fitted = np.concatenate(_LabelRecordingClassifier.labels)
+    assert set(np.unique(fitted)) == {0.0, fdr.SECONDARY_PEAK_LABEL, 1.0}

@@ -27,6 +27,10 @@ max_dia_cycle_shape = 2
 # averaged: on plasma one fit in three put a few decoys at the very top of the ranking (q-cliffs at 0.1 % FDR).
 ENSEMBLE_TRIGGER_FEATURE = "lib_explained"
 N_ENSEMBLE_FITS = 3
+# In the final round every secondary candidate (rank >= 1) of either class is fitted at this label instead of 0 / 1:
+# rank >= 1 target peaks are mostly false, and fitting them as targets taught the classifier false-target peaks from
+# decoy peaks. q-values keep the hard labels.
+SECONDARY_PEAK_LABEL = 0.5
 
 logger = logging.getLogger()
 
@@ -213,8 +217,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         return psm_df
 
     y_train, y_test = y[idxs_train], y[idxs_test]
+    y_fit = y.copy()
+    if ENSEMBLE_TRIGGER_FEATURE in available_columns and "rank" in psm_df.columns:
+        y_fit[psm_df["rank"].to_numpy() > 0] = SECONDARY_PEAK_LABEL
     initial_classifier = copy.deepcopy(classifier)
-    classifier.fit(X[idxs_train], y_train)
+    classifier.fit(X[idxs_train], y_fit[idxs_train])
 
     psm_df["_decoy"] = y
 
@@ -240,12 +247,12 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
         classifier.reset()
-        classifier.fit(X[idxs_train], y_train)
+        classifier.fit(X[idxs_train], y_fit[idxs_train])
         predicted_proba = classifier.predict_proba(X)[:, 1]
 
     if ENSEMBLE_TRIGGER_FEATURE in available_columns:
         predicted_proba = _average_extra_fits(
-            initial_classifier, X, y, predicted_proba, random_state
+            initial_classifier, X, y_fit, predicted_proba, random_state
         )
     del X
 
