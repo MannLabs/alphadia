@@ -104,11 +104,6 @@ def write_df(
 
     """
 
-    if file_format not in supported_formats:
-        raise ValueError(
-            f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
-        )
-
     file_path = f"{path_no_format}.{file_format}"
 
     logger.info(f"Saving {file_path} to disk")
@@ -118,6 +113,11 @@ def write_df(
 
     elif file_format == TableFormats.TSV:
         write_tsv(df, file_path)
+
+    else:
+        raise ValueError(
+            f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
+        )
 
 
 def write_tsv(df: pd.DataFrame, file_path: str) -> None:
