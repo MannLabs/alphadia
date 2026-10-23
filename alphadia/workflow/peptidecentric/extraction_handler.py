@@ -13,6 +13,7 @@ from alphadia_search_rs import (
 )
 
 from alphadia.constants.keys import CalibCols
+from alphadia.fdr.interference import SEQUENCE_ID_COLUMN
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
@@ -207,7 +208,7 @@ class ExtractionHandler(ABC):
             "=== Search parameters used ===",
             f"{'rt_error':<15}: {self._optimization_manager.rt_error}",
             f"{'mobility_error':<15}: {self._optimization_manager.mobility_error}",
-            f"{'num_candidates':<15}: { self._optimization_manager.num_candidates}",
+            f"{'num_candidates':<15}: {self._optimization_manager.num_candidates}",
             f"{'ms1_error':<15}: {self._optimization_manager.ms1_error}",
             f"{'ms2_error':<15}: {self._optimization_manager.ms2_error}",
             f"{'fwhm_rt':<15}: {self._optimization_manager.fwhm_rt}",
@@ -726,6 +727,22 @@ class NgExtractionHandler(ExtractionHandler):
             features_df[CalibCols.MZ_OBSERVED] = (
                 features_df["precursor_idx"].map(precursor_mz).to_numpy()
             )
+
+        # the final FDR round removes targets that a better co-eluting target of another sequence explains
+        library_precursors = spectral_library.precursor_df.set_index("precursor_idx")
+        if "charge" not in features_df.columns:
+            features_df["charge"] = (
+                features_df["precursor_idx"]
+                .map(library_precursors["charge"])
+                .to_numpy()
+            )
+        sequence_id = pd.Series(
+            pd.factorize(library_precursors["sequence"])[0],
+            index=library_precursors.index,
+        )
+        features_df[SEQUENCE_ID_COLUMN] = (
+            features_df["precursor_idx"].map(sequence_id).to_numpy()
+        )
 
         def quantified_fragments(psm_df: pd.DataFrame) -> pd.DataFrame:
             # Scoring does not quantify fragments, and quantifying every candidate would

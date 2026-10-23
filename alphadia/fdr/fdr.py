@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia.exceptions import TooFewPSMError
+from alphadia.fdr import interference
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import (
     MAX_FDR_TORCH_THREADS,
@@ -214,7 +215,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     y_train, y_test = y[idxs_train], y[idxs_test]
     initial_classifier = copy.deepcopy(classifier)
-    classifier.fit(X[idxs_train], y_train)
+    final_round = ENSEMBLE_TRIGGER_FEATURE in available_columns
 
     psm_df["_decoy"] = y
 
@@ -227,26 +228,35 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     else:
         group_columns = ["precursor_idx"]
 
-    predicted_proba = classifier.predict_proba(X)[:, 1]
+    predicted_proba = _fit_predict(
+        classifier, initial_classifier, X, y, idxs_train, random_state, final_round
+    )
 
-    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
-    n_reinit = 0
-    while _is_collapsed(predicted_proba) and n_reinit < _MAX_FDR_CLASSIFIER_REINITS:
-        n_reinit += 1
-        logger.warning(
-            f"FDR classifier collapsed to a near-constant probability "
-            f"({np.unique(predicted_proba).size} unique value(s) over "
-            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
-            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+    if final_round:
+        keep = _without_interfered_targets(
+            psm_df,
+            predicted_proba,
+            group_columns,
+            df_fragments,
+            fragment_provider,
+            fdr_heuristic,
         )
-        classifier.reset()
-        classifier.fit(X[idxs_train], y_train)
-        predicted_proba = classifier.predict_proba(X)[:, 1]
-
-    if ENSEMBLE_TRIGGER_FEATURE in available_columns:
-        predicted_proba = _average_extra_fits(
-            initial_classifier, X, y, predicted_proba, random_state
-        )
+        if keep is not None:
+            psm_df, X, y = psm_df.iloc[keep], X[keep], y[keep]
+            idxs_train, idxs_test = train_test_split_indices(
+                len(X), test_size=0.2, random_state=random_state
+            )
+            y_train, y_test = y[idxs_train], y[idxs_test]
+            classifier.reset()
+            predicted_proba = _fit_predict(
+                classifier,
+                initial_classifier,
+                X,
+                y,
+                idxs_train,
+                random_state,
+                final_round,
+            )
     del X
 
     if _is_collapsed(predicted_proba):
@@ -292,6 +302,100 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
 
     return psm_df
+
+
+def _fit_predict(  # noqa: PLR0913 # the split, the ensemble switch and the seed all come from the caller
+    classifier: Classifier,
+    initial_classifier: Classifier,
+    X: np.ndarray,  # noqa: N803
+    y: np.ndarray,
+    idxs_train: np.ndarray,
+    random_state: int | None,
+    ensemble: bool,  # noqa: FBT001
+) -> np.ndarray:
+    """Fit `classifier` on `idxs_train`, refit it after a collapse, and with `ensemble` average further fits."""
+    classifier.fit(X[idxs_train], y[idxs_train])
+    predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
+    n_reinit = 0
+    while _is_collapsed(predicted_proba) and n_reinit < _MAX_FDR_CLASSIFIER_REINITS:
+        n_reinit += 1
+        logger.warning(
+            f"FDR classifier collapsed to a near-constant probability "
+            f"({np.unique(predicted_proba).size} unique value(s) over "
+            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
+            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+        )
+        classifier.reset()
+        classifier.fit(X[idxs_train], y[idxs_train])
+        predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    if ensemble:
+        predicted_proba = _average_extra_fits(
+            initial_classifier, X, y, predicted_proba, random_state
+        )
+    return predicted_proba
+
+
+def _without_interfered_targets(  # noqa: PLR0913 # the fragment source comes in two forms
+    psm_df: pd.DataFrame,
+    predicted_proba: np.ndarray,
+    group_columns: list[str],
+    df_fragments: pd.DataFrame | None,
+    fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None,
+    fdr_heuristic: float,
+) -> np.ndarray | None:
+    """Positions of `psm_df` to keep after removing targets that a better co-eluting target explains.
+
+    Only targets are removed: a false target that rides on the peak of a real peptide carries that peptide's signal,
+    which its decoy never does, so it beats its decoy unless it is taken out. Returns None if nothing is removed or the
+    columns or fragments needed are missing.
+    """
+    columns = [*interference.REQUIRED_COLUMNS, *group_columns, "_candidate_idx"]
+    missing = [c for c in columns if c not in psm_df.columns]
+    if (df_fragments is None and fragment_provider is None) or missing:
+        logger.warning(
+            f"interfered targets not removed: missing columns {missing} or no fragments"
+        )
+        return None
+
+    rows = psm_df[list(dict.fromkeys(columns))].reset_index(drop=True)
+    rows["proba"] = predicted_proba
+    rows["_decoy"] = psm_df["_decoy"].to_numpy()
+    rows["_row"] = np.arange(len(rows))
+
+    pooled = get_q_values(rows, "proba", "_decoy")
+    competed = get_q_values(
+        keep_best(rows, group_columns=group_columns), "proba", "_decoy"
+    )
+    winners = competed[
+        (competed["_decoy"] == 0) & (competed["qval"] <= interference.WINNER_QVAL)
+    ]
+    candidates = pooled[(pooled["_decoy"] == 0) & (pooled["qval"] <= fdr_heuristic)]
+    if len(winners) == 0 or len(candidates) == 0:
+        return None
+
+    needed = rows.iloc[np.union1d(candidates["_row"], winners["_row"])]
+    fragments = (
+        df_fragments
+        if df_fragments is not None
+        else fragment_provider(psm_df.iloc[needed["_row"].to_numpy()])
+    )
+    if any(c not in fragments.columns for c in ("number", "mz_library")):
+        return None
+
+    interfered = interference.find_interfered_targets(candidates, winners, fragments)
+    removed = candidates["_row"].to_numpy()[interfered]
+    logger.info(
+        f"removed {len(removed):,} of {len(candidates):,} targets at q <= {fdr_heuristic} that a better co-eluting "
+        f"target of {len(winners):,} explains"
+    )
+    if len(removed) == 0:
+        return None
+    keep = np.ones(len(rows), dtype=bool)
+    keep[removed] = False
+    return np.flatnonzero(keep)
 
 
 def _average_extra_fits(
