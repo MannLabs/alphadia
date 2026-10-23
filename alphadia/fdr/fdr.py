@@ -346,11 +346,11 @@ def _without_interfered_targets(  # noqa: PLR0913 # the fragment source comes in
     fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None,
     fdr_heuristic: float,
 ) -> np.ndarray | None:
-    """Positions of `psm_df` to keep after removing targets that a better co-eluting target explains.
+    """Positions of `psm_df` to keep after removing candidates that a better co-eluting target explains.
 
-    Only targets are removed: a false target that rides on the peak of a real peptide carries that peptide's signal,
-    which its decoy never does, so it beats its decoy unless it is taken out. Returns None if nothing is removed or the
-    columns or fragments needed are missing.
+    Targets and decoys face the same rule. A false target that rides on the peak of a real peptide is removed far more
+    often than a decoy, which only meets such a peptide by chance, so the classes end up exchangeable again. Returns
+    None if nothing is removed or the columns or fragments needed are missing.
     """
     columns = [*interference.REQUIRED_COLUMNS, *group_columns, "_candidate_idx"]
     missing = [c for c in columns if c not in psm_df.columns]
@@ -372,7 +372,7 @@ def _without_interfered_targets(  # noqa: PLR0913 # the fragment source comes in
     winners = competed[
         (competed["_decoy"] == 0) & (competed["qval"] <= interference.WINNER_QVAL)
     ]
-    candidates = pooled[(pooled["_decoy"] == 0) & (pooled["qval"] <= fdr_heuristic)]
+    candidates = pooled[pooled["qval"] <= fdr_heuristic]
     if len(winners) == 0 or len(candidates) == 0:
         return None
 
@@ -387,9 +387,11 @@ def _without_interfered_targets(  # noqa: PLR0913 # the fragment source comes in
 
     interfered = interference.find_interfered_targets(candidates, winners, fragments)
     removed = candidates["_row"].to_numpy()[interfered]
+    is_decoy = candidates["_decoy"].to_numpy() == 1
     logger.info(
-        f"removed {len(removed):,} of {len(candidates):,} targets at q <= {fdr_heuristic} that a better co-eluting "
-        f"target of {len(winners):,} explains"
+        f"removed {np.sum(interfered & ~is_decoy):,} of {np.sum(~is_decoy):,} targets and "
+        f"{np.sum(interfered & is_decoy):,} of {np.sum(is_decoy):,} decoys at q <= {fdr_heuristic} that a better "
+        f"co-eluting target of {len(winners):,} explains"
     )
     if len(removed) == 0:
         return None

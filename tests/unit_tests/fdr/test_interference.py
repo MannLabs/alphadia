@@ -129,8 +129,8 @@ class _RowOrderClassifier:
         return np.stack([1 - proba, proba], axis=1)
 
 
-def test_perform_fdr_removes_an_interfered_target_and_refits_in_the_final_round():
-    # Given: final-round PSMs where target 5 shares mass, RT and a fragment with the better target 0
+def test_perform_fdr_removes_interfered_candidates_and_refits_in_the_final_round():
+    # Given: final-round PSMs where target 5 and the first decoy share mass, RT and a fragment with the better target 0
     n = 50
     target_df = pd.DataFrame(
         {
@@ -156,6 +156,7 @@ def test_perform_fdr_removes_an_interfered_target_and_refits_in_the_final_round(
         df["_candidate_idx"] = df["precursor_idx"]
     fragment_mz = 1000.0 + np.arange(2 * n, dtype=float)
     fragment_mz[5] = fragment_mz[0]
+    fragment_mz[n] = fragment_mz[0]
 
     def provider(psm_df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(
@@ -178,7 +179,9 @@ def test_perform_fdr_removes_an_interfered_target_and_refits_in_the_final_round(
         fragment_provider=provider,
     )
 
-    # Then: target 5 is gone, every other target is kept, and the final round was fitted again
+    # Then: target 5 and that decoy are gone, everything else is kept, and the final round was fitted again
     targets = set(psm_df.loc[psm_df["decoy"] == 0, "precursor_idx"])
+    decoys = set(psm_df.loc[psm_df["decoy"] == 1, "precursor_idx"])
     assert targets == set(range(n)) - {5}
+    assert decoys == set(range(n, 2 * n)) - {n}
     assert classifier.n_fits == 2

@@ -140,7 +140,7 @@ def find_interfered_targets(
     winners: pd.DataFrame,
     fragments: pd.DataFrame,
 ) -> np.ndarray:
-    """Flag the target `candidates` whose signal a better co-eluting target of `winners` explains.
+    """Flag the `candidates` whose signal a better co-eluting target of `winners` explains.
 
     A candidate is flagged when a winner of another peptide sequence with a lower `proba` (P(decoy)) elutes within
     the larger of both fwhm_rt, shares at least MIN_SHARED_FRAGMENTS library fragments of ion number >=
