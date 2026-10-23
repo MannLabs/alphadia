@@ -122,11 +122,6 @@ def write_table(df: pd.DataFrame, file_path: str) -> None:
     """
     file_format = Path(file_path).suffix.removeprefix(".")
 
-    if file_format not in supported_formats:
-        raise ValueError(
-            f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
-        )
-
     logger.info(f"Saving {file_path} to disk")
 
     if file_format == TableFormats.PARQUET:
@@ -134,6 +129,11 @@ def write_table(df: pd.DataFrame, file_path: str) -> None:
 
     elif file_format == TableFormats.TSV:
         df.to_csv(file_path, sep="\t", index=False, float_format="%.6f")
+
+    else:
+        raise ValueError(
+            f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
+        )
 
 
 def merge_quant_levels_to_psm(

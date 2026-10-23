@@ -33,6 +33,19 @@ def test_read_write(format, should_fail):
         assert df.equals(_df)
 
 
+def test_write_df_raises_for_supported_format_without_writer(monkeypatch):
+    # given
+    df = pd.DataFrame({"a": [1.0, 2.0]})
+    path = os.path.join(random_tempfolder(), "table")
+    monkeypatch.setattr(
+        "alphadia.outputtransform.utils.supported_formats", ["parquet", "tsv", "csv"]
+    )
+
+    # when / then
+    with pytest.raises(ValueError):
+        write_df(df, path, file_format="csv")
+
+
 @pytest.mark.parametrize("file_format", ["tsv", "parquet"])
 def test_write_table_infers_format_from_file_name(file_format):
     # given
