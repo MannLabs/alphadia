@@ -9,7 +9,7 @@ from alphadia.outputtransform.utils import (
     load_psm_files_from_folders,
     read_df,
     write_df,
-    write_tsv,
+    write_table,
 )
 
 
@@ -46,16 +46,27 @@ def test_write_df_raises_for_supported_format_without_writer(monkeypatch):
         write_df(df, path, file_format="csv")
 
 
-def test_write_tsv_writes_to_the_given_file_name():
+@pytest.mark.parametrize("file_format", ["tsv", "parquet"])
+def test_write_table_infers_format_from_file_name(file_format):
     # given
     df = pd.DataFrame({"a": [1.0, 2.0]})
-    file_path = os.path.join(random_tempfolder(), "stat.tsv")
+    path_no_format = os.path.join(random_tempfolder(), "stats.transfer")
 
     # when
-    write_tsv(df, file_path)
+    write_table(df, f"{path_no_format}.{file_format}")
 
     # then
-    assert pd.read_csv(file_path, sep="\t").equals(df)
+    assert read_df(path_no_format, file_format=file_format).equals(df)
+
+
+def test_write_table_rejects_unknown_suffix():
+    # given
+    df = pd.DataFrame({"a": [1.0, 2.0]})
+    file_path = os.path.join(random_tempfolder(), "stat.csv")
+
+    # when / then
+    with pytest.raises(ValueError, match="csv"):
+        write_table(df, file_path)
 
 
 def test_load_psm_files_from_folders_reads_psm_file_and_skips_missing():
