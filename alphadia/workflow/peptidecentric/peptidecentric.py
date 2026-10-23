@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -30,6 +31,7 @@ from alphadia.workflow.peptidecentric.utils import (
 
 def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool = False,
+    feature_transform: str = FeatureTransform.NONE,
     random_state: int | None = None,
 ) -> BinaryClassifierLegacyNewBatching:
     """Creates and returns a classifier base instance.
@@ -39,6 +41,9 @@ def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool, optional
         If True, uses hyperparameter tuning for the neural network.
         If False (default), uses default hyperparameters for the neural network.
+
+    feature_transform: str, optional
+        Transform applied to the features before they enter the network, either "none" (default) or "quantile".
 
     random_state : int | None, optional
         Random state for reproducibility. Default is None.
@@ -54,6 +59,7 @@ def _get_classifier_base(
         learning_rate=0.001,
         epochs=10,
         experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
+        feature_transform=feature_transform,
         random_state=random_state,
     )
 
@@ -106,12 +112,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
             feature_columns=get_classifier_feature_columns(
-                self._config["search"]["extraction_backend"]
+                self._config["search"]["extraction_backend"],
+                self._config["search"]["use_idf_features"],
             ),
             classifier_base=_get_classifier_base(
                 enable_nn_hyperparameter_tuning=config_fdr[
                     "enable_nn_hyperparameter_tuning"
                 ],
+                feature_transform=config_fdr["feature_transform"],
                 random_state=self._random_state_fdr_classifier,
             ),
             dia_cycle=self.dia_data.cycle,
@@ -237,7 +245,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
             candidates_fdr_df, precursor_fdr_df = (
                 extraction_handler.perform_fdr_and_filter_candidates(
-                    precursor_w_features_df, candidates_df
+                    precursor_w_features_df,
+                    candidates_df,
+                    self.dia_data,
+                    self.spectral_library,
                 )
             )
 

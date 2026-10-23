@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
 from typing import Literal
 
@@ -108,6 +109,7 @@ class FDRManager(BaseManager):
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
+        fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -125,6 +127,9 @@ class FDRManager(BaseManager):
             Channel to use for decoy competition if decoy_strategy is "channel". Defaults to -1, which means no decoy channel is used.
         version: int
             Version of the classifier to use. If -1, uses the latest version. Defaults to -1.
+        fragment_provider: None | Callable[[pd.DataFrame], pd.DataFrame]
+            Returns the fragments of the PSMs it is given, for fragment competition when `df_fragments` is not
+            available up front. Only used with decoy_strategy "precursor".
 
         Notes
         -----
@@ -159,15 +164,24 @@ class FDRManager(BaseManager):
         )
 
         if decoy_strategy == "precursor":
+            decoy = features_df["decoy"].to_numpy()
+            is_target_or_decoy = (decoy == 0) | (decoy == 1)
+            # Filtering copies the PSMs, so only do it when there is something to drop.
+            if not is_target_or_decoy.all():
+                features_df = features_df[is_target_or_decoy]
+                decoy = decoy[is_target_or_decoy]
             psm_df = fdr.perform_fdr(
                 classifier,
                 available_columns,
-                features_df[features_df["decoy"] == 0].copy(),
-                features_df[features_df["decoy"] == 1].copy(),
+                features_df,
+                decoy == 1,
                 competitive=competitive,
                 group_channels=True,
                 # TODO move this logic to perform_fdr():
                 df_fragments=df_fragments if self._compete_for_fragments else None,
+                fragment_provider=fragment_provider
+                if self._compete_for_fragments
+                else None,
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
@@ -179,13 +193,14 @@ class FDRManager(BaseManager):
             for channel in channels:
                 channel_df = features_df[
                     features_df["channel"].isin([channel, decoy_channel])
-                ].copy()
+                    & features_df["decoy"].isin([0, 1])
+                ]
                 psm_df_list.append(
                     fdr.perform_fdr(
                         classifier,
                         available_columns,
-                        channel_df[channel_df["decoy"] == 0].copy(),
-                        channel_df[channel_df["decoy"] == 1].copy(),
+                        channel_df,
+                        channel_df["decoy"].to_numpy() == 1,
                         competitive=competitive,
                         group_channels=True,
                         df_fragments=df_fragments
@@ -203,13 +218,13 @@ class FDRManager(BaseManager):
             for channel in channels:
                 channel_df = features_df[
                     features_df["channel"].isin([channel, decoy_channel])
-                ].copy()
+                ]
                 psm_df_list.append(
                     fdr.perform_fdr(
                         classifier,
                         available_columns,
-                        channel_df[channel_df["channel"] != decoy_channel].copy(),
-                        channel_df[channel_df["channel"] == decoy_channel].copy(),
+                        channel_df,
+                        channel_df["channel"].to_numpy() == decoy_channel,
                         competitive=competitive,
                         group_channels=False,
                         figure_path=self.figure_path,

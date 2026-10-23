@@ -8,9 +8,14 @@ from alphadia.constants.keys import (
     NormalizationMethods,
     QuantificationLevelKey,
     QuantificationLevelName,
+    SearchPlanFiles,
+    TableFormats,
 )
 from alphadia.outputtransform.quantification.fragment_accumulator import (
     FragmentQuantLoader,
+)
+from alphadia.outputtransform.quantification.intensity_drift_correction import (
+    correct_intensity_drift,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
     LFQOutputConfig,
@@ -60,7 +65,7 @@ class QuantOutputBuilder:
         """
         self.psm_df = psm_df
         self.config = config
-        psm_no_decoys = psm_df[psm_df["decoy"] == 0]
+        self._psm_no_decoys_df = psm_df[psm_df["decoy"] == 0]
 
         if (
             config["search_output"]["normalization_method"]
@@ -70,8 +75,10 @@ class QuantOutputBuilder:
         else:
             columns = self.DEFAULT_COLUMNS
 
-        self.fragment_loader = FragmentQuantLoader(psm_no_decoys, columns=columns)
-        self.quant_builder = QuantBuilder(psm_no_decoys, columns=columns)
+        self.fragment_loader = FragmentQuantLoader(
+            self._psm_no_decoys_df, columns=columns
+        )
+        self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
 
     def build(
         self, folder_list: list[str]
@@ -97,6 +104,13 @@ class QuantOutputBuilder:
         if feature_dfs_dict is None or not feature_dfs_dict:
             logger.warning("No fragment data found, skipping quantification")
             return {}, self.psm_df
+
+        if self.config["search_output"]["intensity_drift_correction"]:
+            feature_dfs_dict["intensity"] = correct_intensity_drift(
+                feature_dfs_dict["intensity"],
+                feature_dfs_dict["correlation"],
+                self._psm_no_decoys_df,
+            )
 
         quantlevel_configs = self._create_quant_level_configs()
         requested_configs = [c for c in quantlevel_configs if c.should_process]
@@ -157,9 +171,6 @@ class QuantOutputBuilder:
                     "charge",
                 ],
                 should_process=self.config["search_output"]["precursor_level_lfq"],
-                save_fragments=self.config["search_output"][
-                    "save_fragment_quant_matrix"
-                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PEPTIDE,
@@ -172,9 +183,6 @@ class QuantOutputBuilder:
                     "mod_sites",
                 ],
                 should_process=self.config["search_output"]["peptide_level_lfq"],
-                save_fragments=self.config["search_output"][
-                    "save_fragment_quant_matrix"
-                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PROTEIN,
@@ -309,7 +317,7 @@ class QuantOutputBuilder:
         self,
         lfq_results: dict[str, pd.DataFrame],
         output_folder: str,
-        file_format: str = "parquet",
+        file_format: str = TableFormats.PARQUET,
     ) -> None:
         """Save quantification results to disk with output column names.
 
@@ -340,56 +348,9 @@ class QuantOutputBuilder:
 
             write_df(
                 lfq_df_output,
-                os.path.join(output_folder, f"{config.level_name}.matrix"),
-                file_format=file_format,
-            )
-
-    def save_fragment_matrices(
-        self,
-        feature_dfs_dict: dict[str, pd.DataFrame],
-        output_folder: str,
-        file_format: str = "parquet",
-    ) -> None:
-        """Save fragment-level quantification matrices to disk with output column names.
-
-        Parameters
-        ----------
-        feature_dfs_dict : dict[str, pd.DataFrame]
-            Dictionary containing intensity and correlation dataframes
-        output_folder : str
-            Output folder path
-        file_format : str, default='parquet'
-            File format for output files
-        """
-        from alphadia.outputtransform.utils import write_df
-
-        quantlevel_configs = self._create_quant_level_configs()
-
-        for config in quantlevel_configs:
-            if not config.save_fragments:
-                continue
-
-            group_intensity_df, _ = self.quant_builder.filter_frag_df(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                top_n=self.config["search_output"]["min_k_fragments"],
-                min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=config.quant_level,
-            )
-
-            if len(group_intensity_df) == 0:
-                continue
-
-            logger.info(
-                f"Writing fragment quantity matrix to disk, filtered on {config.level_name}"
-            )
-
-            group_intensity_df_output = self._apply_output_names(group_intensity_df)
-
-            write_df(
-                group_intensity_df_output,
                 os.path.join(
-                    output_folder, f"fragment_{config.level_name}filtered.matrix"
+                    output_folder,
+                    f"{config.level_name}{SearchPlanFiles.QUANT_MATRIX_SUFFIX}",
                 ),
                 file_format=file_format,
             )

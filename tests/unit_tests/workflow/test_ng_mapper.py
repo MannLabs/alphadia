@@ -1,5 +1,7 @@
 """Unit tests for the NG mapper helpers around the context features."""
 
+from unittest.mock import MagicMock
+
 import pandas as pd
 import pytest
 from conftest import mock_context_features
@@ -7,6 +9,7 @@ from conftest import mock_context_features
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     get_context_feature_names,
     merge_context_features,
+    to_features_df,
 )
 
 
@@ -50,3 +53,32 @@ def test_merge_context_features_raises_on_duplicate_candidate():
     with pytest.raises(ValueError, match="duplicate candidates") as error:
         merge_context_features(features_df, context_features)
     assert "1" in str(error.value)
+
+
+def test_to_features_df_sets_the_library_mz_as_observed_mz():
+    # given: scored candidates and their library precursors
+    candidate_features = MagicMock()
+    candidate_features.to_dict_arrays.return_value = {
+        "precursor_idx": [2, 1],
+        "rank": [0, 0],
+        "score": [1.0, 2.0],
+    }
+    spectral_library = MagicMock()
+    spectral_library.precursor_df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2],
+            "decoy": [0, 1],
+            "elution_group_idx": [0, 0],
+            "channel": [0, 0],
+            "proteins": ["P1", "P1"],
+            "mz_library": [501.0, 502.0],
+            "mz_calibrated": [501.1, 502.1],
+        }
+    )
+
+    # when
+    features_df = to_features_df(candidate_features, spectral_library)
+
+    # then: like the quantified precursors, the observed m/z is the library m/z
+    assert features_df["mz_observed"].tolist() == [502.0, 501.0]
+    assert features_df["mz_library"].tolist() == [502.0, 501.0]

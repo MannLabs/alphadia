@@ -1,7 +1,7 @@
 # Dependencies required for running AlphaDIA.
 # If these are changed, use the "update_requirements" workflow to update the _requirements.freeze.txt files.
 # alphaX
-alphadia-search-rs>=1.4.0,<2
+alphadia-search-rs>=1.5.0,<2
 alpharaw>=0.6.0
 alphabase>=1.5.0
 peptdeep>=1.4.1
@@ -16,7 +16,7 @@ xxhash
 torchmetrics
 transformers
 # IO backend
-pyarrow>=20.0.0
+pyarrow>=20.0.0,<26 # pyarrow 26 requires numpy >= 2
 # not direct dependencies but we have to restrict the versions
 pandas<3
 numpy<2 # test: tolerate_version avoid the breaking change in numpy >= 2

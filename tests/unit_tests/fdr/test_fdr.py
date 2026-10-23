@@ -1,10 +1,13 @@
 import os
 import tempfile
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 
+from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
@@ -107,6 +110,68 @@ def test_get_q_values():
         test_df["qval"].values,
         np.array([0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.4, 0.6, 0.8, 1.0]),
     )
+
+
+def test_get_q_values_all_tied_scores_are_conservative():
+    # Given: an uninformative classifier assigning every PSM the same probability
+    n_per_class = 500
+    test_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(2 * n_per_class),
+            "proba": np.full(2 * n_per_class, 0.1),
+            "_decoy": np.repeat([0, 1], n_per_class),
+        }
+    )
+
+    # When
+    test_df = fdr.get_q_values(test_df, "proba", "_decoy")
+
+    # Then: the tied block carries its decoy fraction, so nothing is accepted
+    assert np.allclose(test_df["qval"].values, 1.0)
+    assert (test_df["qval"].values < 0.01).sum() == 0
+
+
+def test_get_q_values_tied_best_score_block_does_not_pass():
+    # Given: 600 targets and 300 decoys tied at the best score, the rest at a worse one
+    best_score_decoys, best_score_targets = 300, 600
+    worst_score_decoys, worst_score_targets = 200, 100
+    test_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(
+                best_score_decoys
+                + best_score_targets
+                + worst_score_decoys
+                + worst_score_targets
+            ),
+            "proba": np.repeat(
+                [0.1, 0.9],
+                [
+                    best_score_decoys + best_score_targets,
+                    worst_score_decoys + worst_score_targets,
+                ],
+            ),
+            "_decoy": np.repeat(
+                [1, 0, 1, 0],
+                [
+                    best_score_decoys,
+                    best_score_targets,
+                    worst_score_decoys,
+                    worst_score_targets,
+                ],
+            ),
+        }
+    )
+
+    # When
+    test_df = fdr.get_q_values(test_df, "proba", "_decoy")
+
+    # Then: no PSM passes 1% FDR and q-values stay monotone along the sorted output
+    assert (test_df["qval"].values < 0.01).sum() == 0
+    assert np.allclose(
+        test_df["qval"].values[: best_score_decoys + best_score_targets],
+        best_score_decoys / best_score_targets,
+    )
+    assert np.all(np.diff(test_df["qval"].values) >= 0)
 
 
 def gen_data_np(
@@ -224,7 +289,7 @@ class _CollapsingClassifier(Classifier):
         pass
 
 
-def _gen_target_decoy_dfs(n_samples: int = 200):
+def _gen_psm_df(n_samples: int = 200):
     feature = np.linspace(0.0, 1.0, n_samples)
     target_df = pd.DataFrame(
         {
@@ -236,16 +301,18 @@ def _gen_target_decoy_dfs(n_samples: int = 200):
     decoy_df = target_df.assign(
         precursor_idx=np.arange(n_samples, 2 * n_samples), decoy=1
     )
-    return target_df, decoy_df
+    return pd.concat([target_df, decoy_df], ignore_index=True)
 
 
 def test_perform_fdr_resets_collapsed_classifier():
     # Given: a classifier that collapses once, then separates targets from decoys
     classifier = _CollapsingClassifier(n_collapses=1)
-    target_df, decoy_df = _gen_target_decoy_dfs()
+    psm_df = _gen_psm_df()
 
     # When: perform_fdr runs
-    psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
+    psm_df = fdr.perform_fdr(
+        classifier, ["feature"], psm_df, psm_df["decoy"].to_numpy() == 1
+    )
 
     # Then: perform_fdr resets the classifier once and uses the new probabilities
     assert classifier.reset_count == 1
@@ -255,11 +322,106 @@ def test_perform_fdr_resets_collapsed_classifier():
 def test_perform_fdr_stops_after_max_reinits():
     # Given: a classifier that never recovers
     classifier = _CollapsingClassifier(n_collapses=1000)
-    target_df, decoy_df = _gen_target_decoy_dfs()
+    psm_df = _gen_psm_df()
 
     # When: perform_fdr runs
-    psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
+    psm_df = fdr.perform_fdr(
+        classifier, ["feature"], psm_df, psm_df["decoy"].to_numpy() == 1
+    )
 
     # Then: perform_fdr stops after the maximum number of retries
     assert classifier.reset_count == fdr._MAX_FDR_CLASSIFIER_REINITS
     assert psm_df["proba"].std() == 0.0
+
+
+def test_fit_feature_transform_falls_back_to_raw_features_for_few_rows():
+    # Given: a classifier with the quantile transform and fewer rows than the minimum
+    classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+    x, _ = gen_data_np(n_samples=100)
+
+    # When: the transform is fitted
+    transformer = classifier._fit_feature_transform(x)
+
+    # Then: no transformer is fitted, so the raw features are used
+    assert transformer is None
+
+
+def test_classifier_raises_for_unknown_transform():
+    # When/Then: constructing a classifier with an unknown transform fails explicitly
+    with pytest.raises(ValueError, match="Unknown feature transform"):
+        BinaryClassifierLegacyNewBatching(feature_transform="unknown")
+
+
+def test_quantile_transform_state_dict_round_trip():
+    # Given: a classifier fitted with the quantile transform
+    x, y = gen_data_np(n_samples=2000)
+    classifier = BinaryClassifierLegacyNewBatching(
+        batch_size=100, feature_transform=FeatureTransform.QUANTILE
+    )
+    classifier.fit(x, y)
+    assert classifier._quantile_transformer is not None
+
+    # When: the state dict is round tripped through a new classifier
+    new_classifier = BinaryClassifierLegacyNewBatching()
+    new_classifier.from_state_dict(classifier.to_state_dict())
+
+    # Then: the predictions are identical
+    assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
+
+
+# one isolation window from 400 to 600 m/z, no mobility
+_DIA_CYCLE = np.array([[[[400.0, 600.0]]]])
+
+
+def _run_perform_fdr_with_mocked_competition(**fragment_kwargs):
+    """Run perform_fdr with compete_for_fragments replaced by a pass-through mock.
+
+    The competition itself is tested in alphadia-search-rs; this only checks which
+    fragments perform_fdr hands to it.
+    """
+    psm_df = _gen_psm_df()
+    with patch.object(
+        fdr, "compete_for_fragments", side_effect=lambda psm_df, *_: psm_df
+    ) as mock_compete:
+        fdr.perform_fdr(
+            _CollapsingClassifier(n_collapses=0),
+            ["feature"],
+            psm_df,
+            psm_df["decoy"].to_numpy() == 1,
+            dia_cycle=_DIA_CYCLE,
+            **fragment_kwargs,
+        )
+    return mock_compete
+
+
+def test_perform_fdr_quantifies_fragments_on_demand_for_the_competing_psms():
+    # Given: a provider instead of fragments
+    provider = MagicMock(name="provider")
+
+    # When: perform_fdr runs
+    mock_compete = _run_perform_fdr_with_mocked_competition(fragment_provider=provider)
+
+    # Then: the provider is asked once, only for the PSMs below the heuristic q-value
+    provider.assert_called_once()
+    requested_psms = provider.call_args.args[0]
+    assert len(requested_psms) > 0
+    assert requested_psms["qval"].max() < 0.1
+    # and its fragments go to the competition
+    assert mock_compete.call_args.args[1] is provider.return_value
+
+
+def test_perform_fdr_prefers_given_fragments_over_the_provider():
+    # Given: fragments up front, and a provider
+    df_fragments = pd.DataFrame()
+    provider = MagicMock(name="provider")
+
+    # When: perform_fdr runs with both
+    mock_compete = _run_perform_fdr_with_mocked_competition(
+        df_fragments=df_fragments, fragment_provider=provider
+    )
+
+    # Then: the given fragments go to the competition, and the provider is not asked
+    provider.assert_not_called()
+    assert mock_compete.call_args.args[1] is df_fragments

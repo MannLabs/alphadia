@@ -58,6 +58,7 @@ class ConfigKeys(metaclass=ConstantsClass):
         REUSE_QUANT="reuse_quant",
         REUSE_QUANT_FROM="reuse_quant_from",
         FAIL_FAST="fail_fast",
+        THREAD_COUNT="thread_count",
     )
 
     LIBRARY_PREDICTION = ConstantNamespace(
@@ -87,12 +88,52 @@ class SearchStepFiles(metaclass=ConstantsClass):
     FRAG_TRANSFER_FILE_NAME = "frag.transfer.parquet"
 
 
+class SearchPlanFiles(metaclass=ConstantsClass):
+    """File names written by `SearchPlanOutput` into the output folder of a search step.
+
+    Tables written in the configurable `search_output.file_format` are given as stems,
+    as their extension depends on that format.
+    """
+
+    PRECURSORS_FILE_STEM = "precursors"
+    STAT_FILE_NAME = "stat.tsv"
+    INTERNAL_FILE_NAME = "internal.tsv"
+    TRANSFER_STATS_FILE_NAME = "stats.transfer.tsv"
+    # appended to the quantification level name, e.g. `pg.matrix`
+    QUANT_MATRIX_SUFFIX = ".matrix"
+
+    MBR_LIBRARY_FILE_NAME = "speclib.mbr.hdf"
+    TRANSFER_LIBRARY_FILE_NAME = "speclib.transfer.hdf"
+    TRANSFER_MODEL_FOLDER_NAME = "peptdeep.transfer"
+
+
+class TableFormats(metaclass=ConstantsClass):
+    """String constants for the formats tables can be read from and written to."""
+
+    PARQUET = "parquet"
+    TSV = "tsv"
+
+
 class InferenceStrategy(metaclass=ConstantsClass):
     """String constants for protein inference strategies."""
 
     LIBRARY = "library"
     MAXIMUM_PARSIMONY = "maximum_parsimony"
     HEURISTIC = "heuristic"
+
+
+class FeatureTransform(metaclass=ConstantsClass):
+    """String constants for the feature transform applied before FDR classification."""
+
+    NONE = "none"
+    QUANTILE = "quantile"
+
+
+class DecoyType(metaclass=ConstantsClass):
+    """String constants for decoy generation schemes."""
+
+    DIANN = "diann"
+    PSEUDO_REVERSE = "pseudo_reverse"
 
 
 class QuantificationLevelName(metaclass=ConstantsClass):
@@ -116,6 +157,7 @@ class NormalizationMethods(metaclass=ConstantsClass):
 
     DIRECTLFQ: str = "directlfq"
     QUANTSELECT: str = "quantselect"
+    NONE: str = "none"
 
 
 class PrecursorOutputCols(metaclass=ConstantsClass):

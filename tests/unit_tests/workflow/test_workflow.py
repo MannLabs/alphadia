@@ -11,6 +11,7 @@ import pytest
 
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
+from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
@@ -374,6 +375,14 @@ def test_fdr_manager_fit_predict():
     os.remove(temp_path)
 
 
+def test_get_classifier_base_passes_feature_transform():
+    # When: the base classifier is created with the quantile feature transform
+    classifier = _get_classifier_base(feature_transform=FeatureTransform.QUANTILE)
+
+    # Then: the classifier applies the transform
+    assert classifier.feature_transform == FeatureTransform.QUANTILE
+
+
 def create_workflow_instance():
     config_base_path = os.path.join(
         Path(__file__).parent, "..", "..", "..", "alphadia", "constants", "default.yaml"
@@ -422,6 +431,7 @@ def create_workflow_instance():
             enable_nn_hyperparameter_tuning=workflow.config["fdr"][
                 "enable_nn_hyperparameter_tuning"
             ],
+            feature_transform=workflow.config["fdr"]["feature_transform"],
         ),
         config=MagicMock(),
         figure_path=workflow._figure_path,

@@ -9,12 +9,25 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.preprocessing import QuantileTransformer
 from torch import nn, optim
 from tqdm import tqdm
 
-from alphadia.fdr.utils import manage_torch_threads, train_test_split_
+from alphadia.constants.keys import FeatureTransform
+from alphadia.fdr.utils import manage_torch_threads, train_test_split_indices
 
 logger = logging.getLogger()
+
+_N_QUANTILES = 1001
+
+# Below this number of training rows the empirical quantiles are too coarse to be
+# a better input than the raw features.
+_MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
+
+# Rows predicted at once. A forward pass over all rows at once holds the activations of every
+# layer for every row, gigabytes for the 10 M+ rows of a final search.
+# TODO: find optimal value for this
+_PREDICT_ROWS_CHUNK_SIZE = 250_000
 
 
 class Classifier(ABC):
@@ -161,6 +174,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
+        feature_transform: str = FeatureTransform.NONE,
         *,
         experimental_hyperparameter_tuning: bool = False,
         random_state: int | None = None,
@@ -200,6 +214,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         metric_interval : int, default=1000
             Interval for logging metrics during training.
 
+        feature_transform : str, default="none"
+            Transform applied to the features before they enter the network,
+            either "none" or "quantile". See `_transform_features`.
+
         experimental_hyperparameter_tuning: bool, default=False
             Whether to use experimental hyperparameter tuning.
 
@@ -212,6 +230,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         """
         if layers is None:
             layers = [100, 50, 20, 5]
+        if feature_transform not in FeatureTransform.get_values():
+            raise ValueError(
+                f"Unknown feature transform: {feature_transform}. "
+                f"Valid options are {FeatureTransform.get_values()}"
+            )
         self.test_size = test_size
         self.batch_size = batch_size
         self.epochs = epochs
@@ -222,11 +245,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.metric_interval = metric_interval
+        self.feature_transform = feature_transform
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
 
         self.network = None
         self.optimizer = None
         self._fitted = False
+        self._quantile_transformer: QuantileTransformer | None = None
 
         self.metrics = {
             "epoch": [],
@@ -275,6 +300,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             "dropout": self.dropout,
             "metric_interval": self.metric_interval,
             "metrics": self.metrics,
+            "feature_transform": self.feature_transform,
+            "_quantile_transformer": self._quantile_transformer,
         }
 
         if self._fitted:
@@ -297,6 +324,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         """
         _state_dict = deepcopy(state_dict)
+
+        self._quantile_transformer = _state_dict.pop("_quantile_transformer")
 
         if "network_state_dict" in _state_dict:
             self.network = FeedForwardNN(
@@ -323,6 +352,57 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         for values in self.metrics.values():
             values.clear()
 
+    def _fit_feature_transform(self, x: np.ndarray) -> QuantileTransformer | None:
+        """Fit the configured feature transform on the training data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Training data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        QuantileTransformer | None
+            The fitted transformer, or None if the raw features are used.
+
+        """
+        if self.feature_transform == FeatureTransform.NONE:
+            return None
+
+        if len(x) < _MIN_ROWS_FOR_QUANTILE_TRANSFORM:
+            logger.warning(
+                f"Only {len(x):,} rows available for the quantile feature transform "
+                f"(minimum {_MIN_ROWS_FOR_QUANTILE_TRANSFORM:,}), using the raw features instead."
+            )
+            return None
+
+        return QuantileTransformer(
+            n_quantiles=_N_QUANTILES, output_distribution="normal", subsample=None
+        ).fit(x)
+
+    def _transform_features(self, x: np.ndarray) -> np.ndarray:
+        """Map every feature to a standard normal score through its empirical CDF.
+
+        Extreme candidates would otherwise lie outside the training range, where the
+        network extrapolates arbitrarily.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        x_transformed : np.ndarray, dtype=float
+            Transformed data of shape (n_samples, n_features), or the input if no
+            transform was fitted.
+
+        """
+        if self._quantile_transformer is None:
+            return x
+
+        return self._quantile_transformer.transform(x)
+
     @manage_torch_threads(max_threads=2)
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements
         """Fit the classifier to the data.
@@ -336,6 +416,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
+        self._quantile_transformer = self._fit_feature_transform(x)
+        x = self._transform_features(x)
+
         if self.experimental_hyperparameter_tuning:
             self.batch_size, self.learning_rate = _get_scaled_training_params(x)
             logger.info(
@@ -368,11 +451,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         random_state = self._np_rng.integers(0, 1_000_000)
         logger.info(f"Using random state {random_state} for train-test-split")
-        x_train, x_test, y_train, y_test, *_ = train_test_split_(
-            x, y, test_size=self.test_size, random_state=random_state
+        indices_train, indices_test = train_test_split_indices(
+            len(x), test_size=self.test_size, random_state=random_state
         )
-        x_test = torch.Tensor(x_test)
-        y_test = torch.Tensor(y_test)
+        x_test = torch.as_tensor(x[indices_test], dtype=torch.float32)
+        y_test = torch.Tensor(y[indices_test])
 
         optimizer = optim.Adam(
             self.network.parameters(),
@@ -385,8 +468,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         # Set model to training mode for BatchNorm
         self.network.train()
 
-        x_train = torch.Tensor(x_train)
-        y_train = torch.Tensor(y_train)
+        x_train = torch.as_tensor(x[indices_train], dtype=torch.float32)
+        y_train = torch.Tensor(y[indices_train])
+        del x
 
         num_batches = (x_train.shape[0] // self.batch_size) - 1
         batch_start_list = np.arange(num_batches) * self.batch_size
@@ -473,8 +557,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
-        self.network.eval()
-        return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
+        return np.argmax(self._predict_output(x), axis=1)
 
     @manage_torch_threads(max_threads=2)
     def predict_proba(self, x: np.ndarray) -> np.ndarray:
@@ -502,8 +585,20 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
+        return self._predict_output(x)
+
+    def _predict_output(self, x: np.ndarray) -> np.ndarray:
+        """Return the network's output for every row, transforming and predicting in chunks."""
         self.network.eval()
-        return self.network(torch.Tensor(x)).detach().numpy()
+        output = np.empty((len(x), self.output_dim), dtype=np.float32)
+        with torch.no_grad():
+            for start in range(0, len(x), _PREDICT_ROWS_CHUNK_SIZE):
+                stop = start + _PREDICT_ROWS_CHUNK_SIZE
+                x_chunk = torch.as_tensor(
+                    self._transform_features(x[start:stop]), dtype=torch.float32
+                )
+                output[start:stop] = self.network(x_chunk).numpy()
+        return output
 
 
 class FeedForwardNN(nn.Module):

@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from collections.abc import Generator
 from copy import deepcopy
 from pathlib import Path
@@ -55,6 +56,10 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
+
+# On Windows with Python < 3.13, multiprocessing pools fail with "need at most 63 handles" for more than
+# 61 worker processes (cf. concurrent.futures.process._MAX_WINDOWS_WORKERS), fixed in CPython by gh-89240
+MAX_WINDOWS_PROCESS_COUNT = 61
 
 # Type stub for extended Logger with progress method
 # The progress method is added in reporting.py at module load time
@@ -372,7 +377,7 @@ class SearchStep:
         prepare_pipeline = ProcessingPipeline(
             [
                 DecoyGenerator(
-                    decoy_type="diann",
+                    decoy_type=self.config["fdr"]["decoy_type"],
                     mp_process_num=thread_count,
                 ),
                 FlattenLibrary(
@@ -753,6 +758,19 @@ class SearchStep:
                 str(reuse_quant_from),
                 "final",
                 f"Requires '{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT}' to be set.",
+            )
+
+        thread_count = general_config[ConfigKeys.GENERAL.THREAD_COUNT]
+        if (
+            sys.platform == "win32"
+            and sys.version_info < (3, 13)
+            and thread_count > MAX_WINDOWS_PROCESS_COUNT
+        ):
+            raise ConfigError(
+                f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.THREAD_COUNT}",
+                str(thread_count),
+                "final",
+                f"At most {MAX_WINDOWS_PROCESS_COUNT} threads are supported on Windows with Python < 3.13.",
             )
 
 
