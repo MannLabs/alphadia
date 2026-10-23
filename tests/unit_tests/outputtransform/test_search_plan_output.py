@@ -60,7 +60,6 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
-            "save_fragment_quant_matrix": False,
             "file_format": "parquet",
             "normalization_method": normalization_method,
             "normalize_directlfq": True,

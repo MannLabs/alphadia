@@ -177,6 +177,8 @@ class Config(UserDict):
 # keys that have been removed from the config but are still tolerated
 # Note: if multiple levels have been removed, multiple entries are needed, e.g. ["removed_key_level1, removed_key_level1.removed_key_level2"]
 TOLERATED_KEYS = [
+    # supported until 2.2.0:
+    "search_output.save_fragment_quant_matrix",
     # supported until 2.0.2:
     "general.astral_ms1",
     "general.mmap_detector_events",
