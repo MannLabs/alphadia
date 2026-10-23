@@ -10,6 +10,7 @@ from conftest import mock_fragment_df, mock_precursor_df
 from alphadia.constants.keys import (
     InferenceStrategy,
     NormalizationMethods,
+    SearchPlanFiles,
     SearchStepFiles,
 )
 from alphadia.outputtransform.outputaccumulator import ms2_quality_control
@@ -132,7 +133,8 @@ def test_complete_output_accumulation():
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
+        os.path.join(temp_folder, SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME),
+        load_mod_seq=True,
     )
 
     # Then: all unique none decoy precursors should be in the built library
@@ -163,7 +165,8 @@ def test_selection_of_precursors():
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
+        os.path.join(temp_folder, SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME),
+        load_mod_seq=True,
     )
 
     # Then: The selceted keep_top precursors should be the ones with the lowest proba in the original dataframes
@@ -205,7 +208,8 @@ def test_keep_top_constraint():
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
+        os.path.join(temp_folder, SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME),
+        load_mod_seq=True,
     )
 
     # Then: there should be maximum keep_top precursors for each precursor
@@ -239,7 +243,8 @@ def test_default_column_assignment():
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
+        os.path.join(temp_folder, SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME),
+        load_mod_seq=True,
     )
 
     # Then: The columns rt, mobility, mz should be correctly assigned
@@ -272,7 +277,8 @@ def test_non_nan_fragments():
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
+        os.path.join(temp_folder, SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME),
+        load_mod_seq=True,
     )
 
     # Then: The fragment dataframe should have no nan values

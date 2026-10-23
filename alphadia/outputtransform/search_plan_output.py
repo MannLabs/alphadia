@@ -10,6 +10,7 @@ from alphadia import utils
 from alphadia.constants.keys import (
     ConfigKeys,
     NormalizationMethods,
+    SearchPlanFiles,
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
@@ -35,6 +36,7 @@ from alphadia.outputtransform.utils import (
     prepare_psm_dataframe,
     read_df,
     write_df,
+    write_tsv,
 )
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
@@ -43,16 +45,6 @@ logger = logging.getLogger()
 
 
 class SearchPlanOutput:
-    PSM_INPUT = "psm"
-    PRECURSOR_OUTPUT = "precursors"
-    STAT_OUTPUT = "stat"
-    INTERNAL_OUTPUT = "internal"
-    PG_OUTPUT = "protein_groups"
-    LIBRARY_OUTPUT = "speclib.mbr"
-    TRANSFER_OUTPUT = "speclib.transfer"
-    TRANSFER_MODEL = "peptdeep.transfer"
-    TRANSFER_STATS_OUTPUT = "stats.transfer"
-
     def __init__(self, config: Config, output_folder: str):
         """Combine individual searches into and build combined outputs
 
@@ -150,7 +142,7 @@ class SearchPlanOutput:
         logger.progress("Train PeptDeep Models")
 
         transfer_lib_path = os.path.join(
-            self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
+            self.output_folder, SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME
         )
         if not os.path.exists(transfer_lib_path):
             raise ValueError(
@@ -189,16 +181,19 @@ class SearchPlanOutput:
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
 
-        tune_mgr.save_models(os.path.join(self.output_folder, self.TRANSFER_MODEL))
+        tune_mgr.save_models(
+            os.path.join(self.output_folder, SearchPlanFiles.TRANSFER_MODEL_FOLDER_NAME)
+        )
 
         combined_stats = pd.concat([rt_stats, charge_stats, ms2_stats])
 
         if save:
             logger.info("Writing transfer learning stats output to disk")
-            write_df(
+            write_tsv(
                 combined_stats,
-                os.path.join(self.output_folder, self.TRANSFER_STATS_OUTPUT),
-                file_format="tsv",
+                os.path.join(
+                    self.output_folder, SearchPlanFiles.TRANSFER_STATS_FILE_NAME
+                ),
             )
 
     def _build_transfer_library(
@@ -260,7 +255,7 @@ class SearchPlanOutput:
         log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
         if save:
             transfer_lib_path = os.path.join(
-                self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
+                self.output_folder, SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME
             )
             logging.info(f"Writing transfer library to {transfer_lib_path}")
             transferAccumulator.consensus_speclibase.save_hdf(transfer_lib_path)
@@ -279,7 +274,7 @@ class SearchPlanOutput:
         """
 
         return read_df(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+            os.path.join(self.output_folder, SearchPlanFiles.PRECURSORS_FILE_STEM),
             file_format=self.config["search_output"]["file_format"],
         )
 
@@ -307,7 +302,7 @@ class SearchPlanOutput:
         """
         logger.progress("=== Performing protein grouping and FDR ===")
 
-        psm_df_list = load_psm_files_from_folders(folder_list, self.PSM_INPUT)
+        psm_df_list = load_psm_files_from_folders(folder_list)
 
         if len(psm_df_list) == 0:
             raise NoPSMFilesFoundError()
@@ -340,7 +335,7 @@ class SearchPlanOutput:
             logger.info("Writing precursor output to disk")
             write_df(
                 psm_df,
-                os.path.join(self.output_folder, self.PRECURSOR_OUTPUT),
+                os.path.join(self.output_folder, SearchPlanFiles.PRECURSORS_FILE_STEM),
                 file_format=self.config["search_output"]["file_format"],
             )
 
@@ -394,10 +389,9 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing stat output to disk")
-            write_df(
+            write_tsv(
                 stat_df,
-                os.path.join(self.output_folder, self.STAT_OUTPUT),
-                file_format="tsv",
+                os.path.join(self.output_folder, SearchPlanFiles.STAT_FILE_NAME),
             )
 
         return stat_df
@@ -438,10 +432,9 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing internal output to disk")
-            write_df(
+            write_tsv(
                 internal_df,
-                os.path.join(self.output_folder, self.INTERNAL_OUTPUT),
-                file_format="tsv",
+                os.path.join(self.output_folder, SearchPlanFiles.INTERNAL_FILE_NAME),
             )
 
         return internal_df
@@ -482,7 +475,7 @@ class SearchPlanOutput:
         logger.info("Writing psm output to disk")
         write_df(
             apply_output_column_names(psm_df),
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+            os.path.join(self.output_folder, SearchPlanFiles.PRECURSORS_FILE_STEM),
             file_format=self.config["search_output"]["file_format"],
         )
 
@@ -529,7 +522,7 @@ class SearchPlanOutput:
 
         if save:
             mbr_lib_path = os.path.join(
-                self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
+                self.output_folder, SearchPlanFiles.MBR_LIBRARY_FILE_NAME
             )
             logger.info(f"Writing MBR spectral library to {mbr_lib_path}")
             mbr_spec_lib.save_hdf(mbr_lib_path)

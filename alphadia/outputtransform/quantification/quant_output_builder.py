@@ -8,6 +8,8 @@ from alphadia.constants.keys import (
     NormalizationMethods,
     QuantificationLevelKey,
     QuantificationLevelName,
+    SearchPlanFiles,
+    TableFormats,
 )
 from alphadia.outputtransform.quantification.fragment_accumulator import (
     FragmentQuantLoader,
@@ -315,7 +317,7 @@ class QuantOutputBuilder:
         self,
         lfq_results: dict[str, pd.DataFrame],
         output_folder: str,
-        file_format: str = "parquet",
+        file_format: str = TableFormats.PARQUET,
     ) -> None:
         """Save quantification results to disk with output column names.
 
@@ -346,6 +348,9 @@ class QuantOutputBuilder:
 
             write_df(
                 lfq_df_output,
-                os.path.join(output_folder, f"{config.level_name}.matrix"),
+                os.path.join(
+                    output_folder,
+                    f"{config.level_name}{SearchPlanFiles.QUANT_MATRIX_SUFFIX}",
+                ),
                 file_format=file_format,
             )
