@@ -35,8 +35,7 @@ from alphadia.outputtransform.utils import (
     log_protein_fdr_summary,
     prepare_psm_dataframe,
     read_df,
-    write_df,
-    write_tsv,
+    write_table,
 )
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
@@ -107,10 +106,10 @@ class SearchPlanOutput:
 
         # every output is written as soon as it is built, so a later failure does not
         # discard the outputs already on disk
-        self._write_tsv(
+        self._write_table(
             self._build_stat_df(folder_list, psm_df), SearchPlanFiles.STAT_FILE_NAME
         )
-        self._write_tsv(
+        self._write_table(
             self._build_internal_df(folder_list), SearchPlanFiles.INTERNAL_FILE_NAME
         )
 
@@ -131,12 +130,10 @@ class SearchPlanOutput:
 
         if self.config["transfer_learning"]["enabled"]:
             tune_mgr, transfer_stats_df = self._build_transfer_model()
-            tune_mgr.save_models(
-                os.path.join(
-                    self.output_folder, SearchPlanFiles.TRANSFER_MODEL_FOLDER_NAME
-                )
+            self._write_model(tune_mgr)
+            self._write_table(
+                transfer_stats_df, SearchPlanFiles.TRANSFER_STATS_FILE_NAME
             )
-            self._write_tsv(transfer_stats_df, SearchPlanFiles.TRANSFER_STATS_FILE_NAME)
 
         # LFQ is the most memory-intensive step and runs last, so an OOM kill here
         # does not discard the MBR library and transfer model already on disk
@@ -160,22 +157,24 @@ class SearchPlanOutput:
             self._write_precursor_table(psm_df)
 
     def _write_precursor_table(self, psm_df: pd.DataFrame) -> None:
+        file_format = self.config["search_output"]["file_format"]
         self._write_table(
             apply_output_column_names(psm_df),
-            SearchPlanFiles.PRECURSORS_FILE_STEM,
-            self.config["search_output"]["file_format"],
+            f"{SearchPlanFiles.PRECURSORS_FILE_STEM}.{file_format}",
         )
 
-    def _write_table(self, df: pd.DataFrame, file_stem: str, file_format: str) -> None:
-        write_df(df, os.path.join(self.output_folder, file_stem), file_format)
-
-    def _write_tsv(self, df: pd.DataFrame, file_name: str) -> None:
-        write_tsv(df, os.path.join(self.output_folder, file_name))
+    def _write_table(self, df: pd.DataFrame, file_name: str) -> None:
+        write_table(df, os.path.join(self.output_folder, file_name))
 
     def _write_library(self, spec_lib: base.SpecLibBase, file_name: str) -> None:
         library_path = os.path.join(self.output_folder, file_name)
         logger.info(f"Writing spectral library to {library_path}")
         spec_lib.save_hdf(library_path)
+
+    def _write_model(self, tune_mgr: FinetuneManager) -> None:
+        tune_mgr.save_models(
+            os.path.join(self.output_folder, SearchPlanFiles.TRANSFER_MODEL_FOLDER_NAME)
+        )
 
     def _build_transfer_model(self) -> tuple[FinetuneManager, pd.DataFrame]:
         """Finetune PeptDeep models using the transfer library on disk.
@@ -232,6 +231,8 @@ class SearchPlanOutput:
     def _build_transfer_library(
         self,
         folder_list: list[str],
+        # TODO: derive from general.thread_count; fixed since the accumulator was added,
+        # each process loads the psm and fragment files of one run into memory
         number_of_processes: int = 4,
     ) -> base.SpecLibBase:
         """Accumulate the transfer learning library from the search outputs.

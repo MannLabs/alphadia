@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 from typing import Literal
 
 import pandas as pd
@@ -104,24 +105,11 @@ def write_df(
 
     """
 
-    if file_format not in supported_formats:
-        raise ValueError(
-            f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
-        )
-
-    file_path = f"{path_no_format}.{file_format}"
-
-    logger.info(f"Saving {file_path} to disk")
-
-    if file_format == TableFormats.PARQUET:
-        df.to_parquet(file_path, index=False)
-
-    elif file_format == TableFormats.TSV:
-        write_tsv(df, file_path)
+    write_table(df, f"{path_no_format}.{file_format}")
 
 
-def write_tsv(df: pd.DataFrame, file_path: str) -> None:
-    """Write dataframe to disk as tsv.
+def write_table(df: pd.DataFrame, file_path: str) -> None:
+    """Write dataframe to disk in the format given by the extension of the file name.
 
     Parameters
     ----------
@@ -129,10 +117,23 @@ def write_tsv(df: pd.DataFrame, file_path: str) -> None:
         Dataframe to save to disk
 
     file_path: str
-        Path for file including its extension
+        Path for file including its extension. Available extensions: ['.parquet', '.tsv']
 
     """
-    df.to_csv(file_path, sep="\t", index=False, float_format="%.6f")
+    file_format = Path(file_path).suffix.removeprefix(".")
+
+    if file_format not in supported_formats:
+        raise ValueError(
+            f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
+        )
+
+    logger.info(f"Saving {file_path} to disk")
+
+    if file_format == TableFormats.PARQUET:
+        df.to_parquet(file_path, index=False)
+
+    elif file_format == TableFormats.TSV:
+        df.to_csv(file_path, sep="\t", index=False, float_format="%.6f")
 
 
 def merge_quant_levels_to_psm(
