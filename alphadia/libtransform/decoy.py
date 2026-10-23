@@ -5,11 +5,13 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.decoy import DIANNDecoyGenerator, decoy_lib_provider
 
 from alphadia.libtransform.base import ProcessingStep
+from alphadia.libtransform.diann27_decoy import diann27_decoy_precursors
 
 logger = logging.getLogger()
 
 DIANN_KEEP_PROLINE = "diann_keep_proline"
 DIANN_INNER = "diann_inner"
+DIANN27 = "diann27"
 
 
 class DIANNKeepProlineDecoyGenerator(DIANNDecoyGenerator):
@@ -70,7 +72,7 @@ class DecoyGenerator(ProcessingStep):
         Parameters
         ----------
         decoy_type : str, optional
-            Type of decoys to generate: `pseudo_reverse`, `diann`, `diann_keep_proline` or `diann_inner`. Default is `diann`.
+            Type of decoys to generate: `pseudo_reverse`, `diann`, `diann_keep_proline`, `diann_inner` or `diann27`. Default is `diann`.
 
         """
         super().__init__()
@@ -91,10 +93,16 @@ class DecoyGenerator(ProcessingStep):
             logger.info("Decoys already present, skipping decoy generation")
             return input
 
-        decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())
+        if self.decoy_type == DIANN27:
+            decoy_lib = input.copy()
+            decoy_lib._precursor_df = diann27_decoy_precursors(
+                input.precursor_df, mp_process_num=self.mp_process_num
+            )
+        else:
+            decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())
+            decoy_lib.decoy_sequence(mp_process_num=self.mp_process_num)
 
         decoy_lib.charged_frag_types = input.charged_frag_types
-        decoy_lib.decoy_sequence(mp_process_num=self.mp_process_num)
         decoy_lib.calc_precursor_mz()
         decoy_lib.remove_unused_fragments()
         decoy_lib.calc_fragment_mz_df()
