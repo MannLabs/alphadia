@@ -162,8 +162,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     riding_provider : Callable[[pd.DataFrame], tuple], default=None
         Returns, in the row order of the PSMs it is given, their top library fragments as (rows, fragments) arrays of
         library m/z, library intensity, observed intensity and correlation (see `riding.find_riding`). In the final round, PSMs whose fragment evidence a
-        better co-eluting PSM explains are then removed before the classifier is fitted again, and fragment
-        competition is not run.
+        better co-eluting PSM explains are then removed before the classifier is fitted again.
 
     ms2_tolerance_ppm : float, default=None
         The calibrated MS2 tolerance, from which the fragment sharing tolerance of the riding removal is derived.
@@ -284,11 +283,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     psm_df["proba"] = predicted_proba
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
-    if (
-        not remove_riding
-        and dia_cycle is not None
-        and dia_cycle.shape[2] <= max_dia_cycle_shape
-    ):
+    if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
         # if there are no PSMs with a FDR < 10% use all PSMs
         start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
