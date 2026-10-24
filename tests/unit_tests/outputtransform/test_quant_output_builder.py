@@ -35,10 +35,6 @@ def config():
             "normalize_directlfq": True,
             "intensity_drift_correction": True,
             "library_anchored_quantification": False,
-            "anchored_weighting": "variance",
-            "anchored_tau": None,
-            "anchored_lambda": None,
-            "anchored_sweeps": 20,
         },
     }
 

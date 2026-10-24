@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-import pytest
 
 from alphadia.outputtransform.quantification.library_anchored import (
     library_anchored_estimate,
@@ -50,20 +49,3 @@ def test_library_anchored_estimate_warns_about_fragments_without_library(caplog)
     # Then
     assert any("without library intensity" in r.message for r in caplog.records)
     np.testing.assert_allclose(quantity[0, 1] - quantity[0, 0], 1.0, atol=1e-4)
-
-
-def test_library_anchored_estimate_passes_the_fit_params():
-    # Given noisy fragments of unequal library share
-    rng = np.random.default_rng(0)
-    library = np.tile([1.0, 0.5, 0.25, 0.1], 50)
-    group = np.repeat(np.arange(50), 4)
-    intensity = np.outer(library, [1e4, 2e4, 4e4]) * 2 ** rng.normal(0, 0.3, (200, 3))
-
-    # When
-    _, variance = library_anchored_estimate(intensity, library, group)
-    _, share = library_anchored_estimate(intensity, library, group, weighting="share")
-
-    # Then the weighting reaches the fit
-    assert not np.allclose(variance, share)
-    with pytest.raises(ValueError, match="weighting"):
-        library_anchored_estimate(intensity, library, group, weighting="uniform")

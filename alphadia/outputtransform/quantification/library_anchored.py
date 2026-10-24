@@ -18,7 +18,6 @@ def library_anchored_estimate(
     intensity: np.ndarray,
     library: np.ndarray,
     group: np.ndarray,
-    **fit_params,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Group quantities from linear fragment intensities and their library intensities.
 
@@ -30,8 +29,6 @@ def library_anchored_estimate(
         Library intensity per fragment row, 0 or NaN where unknown (the fragment is ignored)
     group : np.ndarray
         Group id (e.g. precursor) per fragment row
-    **fit_params
-        Keyword arguments of `LibraryAnchoredFit`
 
     Returns
     -------
@@ -46,7 +43,7 @@ def library_anchored_estimate(
         )
     group_codes, groups = pd.factorize(group, sort=True)
 
-    result = LibraryAnchoredFit(**fit_params).fit(
+    result = LibraryAnchoredFit().fit(
         np.ascontiguousarray(np.nan_to_num(intensity).T, dtype=np.float32),
         library,
         group_codes.astype(np.uintp),

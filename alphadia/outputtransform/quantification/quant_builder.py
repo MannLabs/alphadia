@@ -277,7 +277,6 @@ class QuantBuilder:
         self,
         intensity_df: pd.DataFrame,
         library_df: pd.DataFrame,
-        config: Config,
     ) -> pd.DataFrame:
         """Estimate the precursor quantities with the library-anchored fit (see `library_anchored`).
 
@@ -290,8 +289,6 @@ class QuantBuilder:
             Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
         library_df: pd.DataFrame
             Library intensities of the same ions in the same layout (constant over runs, 0 where missing)
-        config: Config
-            Global configuration object
 
         Returns
         -------
@@ -309,15 +306,10 @@ class QuantBuilder:
             .reindex(intensity_df[ION_COLUMN].to_numpy())
             .to_numpy(dtype=np.float32)
         )
-        so = config["search_output"]
         groups, quantity = library_anchored_estimate(
             intensity=intensity_df[run_columns].to_numpy(dtype=np.float32),
             library=library,
             group=intensity_df[precursor_column].to_numpy(),
-            weighting=so["anchored_weighting"],
-            tau=so["anchored_tau"],
-            lam=so["anchored_lambda"],
-            max_sweeps=so["anchored_sweeps"],
         )
 
         precursor_df = pd.DataFrame(

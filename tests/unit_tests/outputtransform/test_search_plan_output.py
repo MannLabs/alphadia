@@ -75,10 +75,6 @@ def test_search_plan_output_integration(
             "normalize_directlfq": True,
             "intensity_drift_correction": True,
             "library_anchored_quantification": library_anchored_quantification,
-            "anchored_weighting": "variance",
-            "anchored_tau": None,
-            "anchored_lambda": None,
-            "anchored_sweeps": 20,
         },
         "multiplexing": {"enabled": False},
         "search_initial": {

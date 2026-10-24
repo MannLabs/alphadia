@@ -363,7 +363,6 @@ class QuantOutputBuilder:
         precursor_df = self.quant_builder.library_anchored_precursor_table(
             filtered_intensity_df,
             library_df[library_df[ION_COLUMN].isin(filtered_intensity_df[ION_COLUMN])],
-            self.config,
         )
         if self.config["search_output"]["normalize_directlfq"]:
             precursor_df = self.quant_builder.normalize_precursor_table(
