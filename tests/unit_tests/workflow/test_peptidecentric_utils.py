@@ -1,6 +1,7 @@
 """Unit tests for the peptidecentric workflow utils."""
 
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    get_claim_feature_names,
     get_context_feature_names,
     get_feature_names,
 )
@@ -16,7 +17,10 @@ def test_get_classifier_feature_columns_for_rust_backend():
     columns = get_classifier_feature_columns("rust", use_idf_features=True)
 
     # then
-    assert columns == get_feature_names() + get_context_feature_names()
+    assert (
+        columns
+        == get_feature_names() + get_context_feature_names() + get_claim_feature_names()
+    )
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():
@@ -27,7 +31,9 @@ def test_get_classifier_feature_columns_leaves_out_the_idf_features():
     assert set(IDF_FEATURE_COLUMNS) <= set(get_feature_names())
     assert columns == [
         name
-        for name in get_feature_names() + get_context_feature_names()
+        for name in get_feature_names()
+        + get_context_feature_names()
+        + get_claim_feature_names()
         if name not in IDF_FEATURE_COLUMNS
     ]
 

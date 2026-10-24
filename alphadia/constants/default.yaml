@@ -198,6 +198,21 @@ search:
   # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
   candidate_context_features: False
 
+  # fragment claim features (rust backend): for every candidate, the fragment traces it matched are compared with
+  # the traces matched by the candidates of other precursors in the same isolation window at the same apex
+  # (+- fragment_claim_cycle_radius cycles); a fragment matched by a candidate with a higher selection score counts
+  # as claimed, and the features report the claimed share (count, observed and library intensity, top-3) and the
+  # evidence left without the claimed fragments. Every precursor competes with every other, targets and decoys
+  # alike, so the features are label-blind.
+  fragment_claim_features: False
+  # soft claims (clm_soft_*, needs fragment_claim_features): the share of every matched peak that a non-negative
+  # mixture of the co-isolated precursors' library spectra attributes to the candidate
+  fragment_claim_soft: False
+  # ppm tolerance within which two observed fragment m/z are the same ion (null = the optimized MS2 tolerance)
+  fragment_claim_tolerance: null
+  # another candidate can claim a fragment if its apex is at most this many cycles away
+  fragment_claim_cycle_radius: 1
+
   # add the IDF features to the FDR classifier (rust backend only)
   # True is the legacy behaviour and is discouraged: every fragment's IDF is taken at its own m/z over all library
   # fragments, decoys included. The decoy mutation moves decoy fragments onto masses of their own, so the IDF features
