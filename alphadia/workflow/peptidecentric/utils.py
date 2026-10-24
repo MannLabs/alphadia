@@ -98,6 +98,17 @@ DECOY_SCHEME_FEATURES = (
 )
 
 
+# rust features of the secondary isolation window of a split isotope envelope: computed, not used for now, to
+# measure the primary-window extraction on its own
+SECONDARY_WINDOW_FEATURES = (
+    "secondary_signal_ratio",
+    "secondary_mean_correlation",
+    "secondary_num_over_50",
+    "secondary_lib_cosine",
+    "secondary_ratio_error",
+)
+
+
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
@@ -111,7 +122,7 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     return [
         name
         for name in get_feature_names() + get_context_feature_names()
-        if name not in DECOY_SCHEME_FEATURES
+        if name not in DECOY_SCHEME_FEATURES and name not in SECONDARY_WINDOW_FEATURES
     ]
 
 

@@ -58,6 +58,10 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
 
+# Isotopes per precursor. The rust backend picks the isolation window that holds most of the envelope, and
+# the envelope of a 3 kDa peptide still has a few percent beyond its fourth isotope.
+N_LIBRARY_ISOTOPES = 6
+
 # Type stub for extended Logger with progress method
 # The progress method is added in reporting.py at module load time
 if TYPE_CHECKING:
@@ -350,7 +354,9 @@ class SearchStep:
                     drop_decoys=self.config["library_loading"]["drop_decoys"],
                 ),
                 AnnotateFasta(self.fasta_path_list),
-                IsotopeGenerator(n_isotopes=4, mp_process_num=thread_count),
+                IsotopeGenerator(
+                    n_isotopes=N_LIBRARY_ISOTOPES, mp_process_num=thread_count
+                ),
                 RTNormalization(),
             ]
         )

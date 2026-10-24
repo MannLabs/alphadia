@@ -6,11 +6,15 @@ import platform
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger()
 
 
 USE_NUMBA_CACHING = os.environ.get("USE_NUMBA_CACHING", "0") == "1"
+
+# alphabase's position of the monoisotopic peak among the i_* columns
+MONO_ISOTOPE_INDEX_COLUMN = "mono_isotope_idx"
 
 
 def expand_path(path: str) -> str | None:
@@ -69,3 +73,22 @@ def get_isotope_columns(colnames):
         logging.warning("Isotopes are not consecutive")
 
     return isotopes
+
+
+def isotopes_from_monoisotope(
+    precursor_df: pd.DataFrame, isotope_columns: list[str]
+) -> np.ndarray:
+    """Isotope abundances with the monoisotopic peak first, as rust expects them.
+
+    alphabase may start the i_* columns below the monoisotopic peak (e.g. for heavy labels); its position is
+    in `mono_isotope_idx`. Positions beyond the computed isotopes are 0.
+    """
+    isotopes = precursor_df[isotope_columns].to_numpy(dtype=np.float32)
+    if MONO_ISOTOPE_INDEX_COLUMN not in precursor_df.columns:
+        return np.ascontiguousarray(isotopes)
+    mono_idx = precursor_df[MONO_ISOTOPE_INDEX_COLUMN].to_numpy()
+    shifted = np.zeros_like(isotopes)
+    for offset in np.unique(mono_idx):
+        rows = mono_idx == offset
+        shifted[rows, : isotopes.shape[1] - offset] = isotopes[rows, offset:]
+    return shifted

@@ -6,7 +6,7 @@ from alphabase.protein import fasta
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.libtransform.base import ProcessingStep
-from alphadia.utils import get_isotope_columns
+from alphadia.utils import MONO_ISOTOPE_INDEX_COLUMN, get_isotope_columns
 
 logger = logging.getLogger()
 
@@ -178,14 +178,27 @@ class IsotopeGenerator(ProcessingStep):
         return isinstance(input, SpecLibBase)
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
-        """Generate isotope information for the spectral library."""
+        """Generate isotope information for the spectral library.
+
+        Isotopes already present are kept if there are at least `n_isotopes` of them, otherwise they are recomputed.
+        """
         existing_isotopes = get_isotope_columns(input.precursor_df.columns)
 
-        if len(existing_isotopes) > 0:
+        if len(existing_isotopes) >= self.n_isotopes:
             logger.info(
                 "Isotope information already present, skipping isotope generation"
             )
             return input
+
+        if len(existing_isotopes) > 0:
+            logger.info(
+                f"Library has {len(existing_isotopes)} isotopes, recomputing {self.n_isotopes}"
+            )
+            input._precursor_df = input.precursor_df.drop(
+                columns=[f"i_{i}" for i in existing_isotopes]
+                + [MONO_ISOTOPE_INDEX_COLUMN],
+                errors="ignore",
+            )
 
         input.calc_precursor_isotope_intensity(
             max_isotope=self.n_isotopes,
