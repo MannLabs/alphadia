@@ -17,7 +17,7 @@ from alphadia_search_rs import (
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
-from alphadia.utils import get_isotope_columns
+from alphadia.utils import get_isotope_columns, isotopes_from_monoisotope
 
 logger = logging.getLogger()
 
@@ -91,15 +91,13 @@ def speclib_to_ng(
         fragment_df["type"].values.astype(np.uint8),
     )
 
-    # With isotopes, rust extracts fragments from every isolation window the isotope envelope reaches.
+    # With isotopes, rust extracts fragments from the isolation window that holds most of the isotope envelope.
     isotope_columns = [f"i_{i}" for i in get_isotope_columns(precursor_df.columns)]
     if isotope_columns:
         speclib_ng.set_isotopes(
             precursor_df["precursor_idx"].values.astype(np.uint64),
             precursor_df["charge"].values.astype(np.uint8),
-            np.ascontiguousarray(
-                precursor_df[isotope_columns].values, dtype=np.float32
-            ),
+            isotopes_from_monoisotope(precursor_df, isotope_columns),
         )
     else:
         logger.warning(
