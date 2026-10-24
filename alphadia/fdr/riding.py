@@ -25,7 +25,7 @@ MAX_OWN_SUPPORT = 1.0
 LOSER_POOLED_QVAL = None
 # Partners of either class explain a PSM; otherwise only partners of its own class (targets explain targets, decoys
 # explain decoys).
-CLASS_BLIND = True
+CLASS_BLIND = False
 TOP_K_FRAGMENTS = 12
 PPM = 1e-6
 
