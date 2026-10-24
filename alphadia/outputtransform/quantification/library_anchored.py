@@ -24,6 +24,7 @@ def library_anchored_estimate(
     intensity: np.ndarray,
     library: np.ndarray,
     group: np.ndarray,
+    weighting: str = "variance",
     tau: float | None = None,
     lam: float | None = None,
     max_sweeps: int | None = None,
@@ -38,6 +39,9 @@ def library_anchored_estimate(
         Library intensity per fragment row, 0 or NaN where unknown (the fragment is ignored)
     group : np.ndarray
         Group id (e.g. precursor) per fragment row
+    weighting : str
+        Base weight of a cell, "variance" (inverse residual variance at its expected intensity) or "share"
+        (library share of the fragment)
     tau : float | None
         Scale of the Cauchy loss in log2 units, None to derive it from the data
     lam : float | None
@@ -59,7 +63,9 @@ def library_anchored_estimate(
     group_codes, groups = pd.factorize(group, sort=True)
 
     fit_kwargs = {} if max_sweeps is None else {"max_sweeps": max_sweeps}
-    result = LibraryAnchoredFit(tau=tau, lam=lam, **fit_kwargs).fit(
+    result = LibraryAnchoredFit(
+        weighting=weighting, tau=tau, lam=lam, **fit_kwargs
+    ).fit(
         np.ascontiguousarray(np.nan_to_num(intensity).T, dtype=np.float32),
         library,
         group_codes.astype(np.uintp),

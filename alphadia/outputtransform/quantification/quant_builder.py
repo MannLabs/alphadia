@@ -314,6 +314,7 @@ class QuantBuilder:
             intensity=intensity_df[run_columns].to_numpy(dtype=np.float32),
             library=library,
             group=intensity_df[precursor_column].to_numpy(),
+            weighting=so["anchored_weighting"],
             tau=so["anchored_tau"],
             lam=so["anchored_lambda"],
             max_sweeps=so["anchored_sweeps"],

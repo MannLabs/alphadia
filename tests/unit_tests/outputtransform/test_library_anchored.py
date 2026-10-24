@@ -1,6 +1,7 @@
 import logging
 
 import numpy as np
+import pytest
 
 from alphadia.outputtransform.quantification.library_anchored import (
     library_anchored_estimate,
@@ -49,3 +50,24 @@ def test_library_anchored_estimate_warns_about_fragments_without_library(caplog)
     # Then
     assert any("without library intensity" in r.message for r in caplog.records)
     np.testing.assert_allclose(quantity[0, 1] - quantity[0, 0], 1.0, atol=1e-4)
+
+
+def test_library_anchored_estimate_passes_the_weighting():
+    # Given fragments following the library pattern
+    library = np.array([1.0, 0.5, 0.25])
+    intensity = np.outer(library, [100.0, 200.0])
+
+    for weighting in ["variance", "share"]:
+        # When
+        _, quantity = library_anchored_estimate(
+            intensity, library, np.zeros(3, dtype=int), weighting=weighting
+        )
+
+        # Then
+        np.testing.assert_allclose(quantity[0, 1] - quantity[0, 0], 1.0, atol=1e-4)
+
+    # Then an unknown weighting is rejected
+    with pytest.raises(ValueError, match="weighting"):
+        library_anchored_estimate(
+            intensity, library, np.zeros(3, dtype=int), weighting="uniform"
+        )
