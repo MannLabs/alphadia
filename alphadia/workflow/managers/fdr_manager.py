@@ -114,6 +114,8 @@ class FDRManager(BaseManager):
         version: int = -1,
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
         warm_start_epochs: int | None = None,
+        riding_provider: Callable[[pd.DataFrame], tuple] | None = None,
+        ms2_tolerance_ppm: float | None = None,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -137,6 +139,11 @@ class FDRManager(BaseManager):
         warm_start_epochs: None | int
             Training epochs if the classifier continues from stored weights. If None, the classifier's own number
             of epochs is used. The stored classifier keeps its own number.
+        riding_provider: None | Callable[[pd.DataFrame], tuple]
+            Returns the quantified top library fragments of the PSMs it is given (dense arrays in their row order), for the removal of PSMs that ride
+            on a better co-eluting PSM in the final round. Only used with decoy_strategy "precursor".
+        ms2_tolerance_ppm: None | float
+            The calibrated MS2 tolerance, needed with `riding_provider`.
 
         Notes
         -----
@@ -186,6 +193,8 @@ class FDRManager(BaseManager):
                 fragment_provider=fragment_provider
                 if self._compete_for_fragments
                 else None,
+                riding_provider=riding_provider,
+                ms2_tolerance_ppm=ms2_tolerance_ppm,
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,

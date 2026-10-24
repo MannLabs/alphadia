@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
@@ -13,6 +14,7 @@ from alphadia_search_rs import (
 )
 
 from alphadia.constants.keys import CalibCols
+from alphadia.fdr import riding
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
@@ -35,6 +37,83 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     speclib_to_ng,
     to_features_df,
 )
+
+# fragment type code of y ions in the flat library (ASCII); the backend leaves y1 out of its fragment selection
+_Y_ION_TYPE = ord("y")
+
+
+# quantified fragments are placed into their slots in chunks of this many, which bounds the (rows, slots) comparison
+_SLOT_CHUNK = 5_000_000
+
+
+def _riding_fragments(
+    fragments_df: pd.DataFrame,
+    candidates_df: pd.DataFrame,
+    spectral_library: SpecLibFlat,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """(len(candidates_df), riding.TOP_K_FRAGMENTS) library m/z, library intensity, observed intensity and correlation.
+
+    The fragments of each candidate are those the backend selects for quantification (non-zero library intensity, no
+    y1, the most intense); observed intensity and correlation come from the quantified `fragments_df` and are 0 where
+    the backend found no signal. Empty slots have m/z 0.
+    """
+    k = riding.TOP_K_FRAGMENTS
+    precursor_df = spectral_library.precursor_df
+    library_idx = precursor_df["precursor_idx"].to_numpy()
+    by_idx = np.argsort(library_idx)
+    precursors, inverse = np.unique(
+        candidates_df["precursor_idx"].to_numpy(), return_inverse=True
+    )
+    position = by_idx[np.searchsorted(library_idx[by_idx], precursors)]
+    start = precursor_df["flat_frag_start_idx"].to_numpy(np.int64)[position]
+    lengths = precursor_df["flat_frag_stop_idx"].to_numpy(np.int64)[position] - start
+    owner = np.repeat(np.arange(len(precursors)), lengths)
+    flat = np.repeat(start, lengths) + (
+        np.arange(lengths.sum()) - np.repeat(np.cumsum(lengths) - lengths, lengths)
+    )
+    fragment_df = spectral_library.fragment_df
+    intensity = fragment_df["intensity"].to_numpy(np.float32)[flat]
+    usable = (intensity > 0) & ~(
+        (fragment_df["type"].to_numpy()[flat] == _Y_ION_TYPE)
+        & (fragment_df["number"].to_numpy()[flat] == 1)
+    )
+    owner, flat, intensity = owner[usable], flat[usable], intensity[usable]
+    order = np.lexsort((-intensity, owner))
+    owner, flat, intensity = owner[order], flat[order], intensity[order]
+    slot = np.arange(len(owner)) - np.searchsorted(owner, owner)
+    top = slot < k
+    library_mz = np.zeros((len(precursors), k), dtype=np.float32)
+    library_intensity = np.zeros((len(precursors), k), dtype=np.float32)
+    library_mz[owner[top], slot[top]] = fragment_df["mz_library"].to_numpy(np.float32)[
+        flat[top]
+    ]
+    library_intensity[owner[top], slot[top]] = intensity[top]
+    mz, library = library_mz[inverse], library_intensity[inverse]
+
+    observed = np.zeros(mz.shape, dtype=np.float64)
+    correlation = np.zeros(mz.shape, dtype=np.float64)
+    row = pd.Index(
+        candidate_hash(
+            candidates_df["precursor_idx"].to_numpy(), candidates_df["rank"].to_numpy()
+        )
+    ).get_indexer(
+        candidate_hash(
+            fragments_df["precursor_idx"].to_numpy(), fragments_df["rank"].to_numpy()
+        )
+    )
+    fragment_mz = fragments_df["mz_library"].to_numpy(np.float32)
+    fragment_intensity = fragments_df["intensity"].to_numpy(np.float64)
+    fragment_correlation = fragments_df["correlation"].to_numpy(np.float64)
+    for chunk in range(0, len(row), _SLOT_CHUNK):
+        part = slice(chunk, chunk + _SLOT_CHUNK)
+        r = row[part]
+        found = r >= 0
+        match = mz[r[found]] == fragment_mz[part][found][:, None]
+        hit = match.any(1)
+        rows, slots = r[found][hit], match[hit].argmax(1)
+        observed[rows, slots] = fragment_intensity[part][found][hit]
+        correlation[rows, slots] = fragment_correlation[part][found][hit]
+    return mz.astype(np.float64), library.astype(np.float64), observed, correlation
 
 
 class ExtractionHandler(ABC):
@@ -207,7 +286,7 @@ class ExtractionHandler(ABC):
             "=== Search parameters used ===",
             f"{'rt_error':<15}: {self._optimization_manager.rt_error}",
             f"{'mobility_error':<15}: {self._optimization_manager.mobility_error}",
-            f"{'num_candidates':<15}: { self._optimization_manager.num_candidates}",
+            f"{'num_candidates':<15}: {self._optimization_manager.num_candidates}",
             f"{'ms1_error':<15}: {self._optimization_manager.ms1_error}",
             f"{'ms2_error':<15}: {self._optimization_manager.ms2_error}",
             f"{'fwhm_rt':<15}: {self._optimization_manager.fwhm_rt}",
@@ -632,10 +711,12 @@ class NgExtractionHandler(ExtractionHandler):
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
         top_k_fragments: int | None = None,
+        tolerance_ppm: float | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Quantify candidates using NG backend.
 
-        See superclass documentation for interface details.
+        See superclass documentation for interface details. `tolerance_ppm` sets the fragment
+        mass tolerance (default: the backend's).
         """
         self._lazy_init_speclib_ng(spectral_library)
 
@@ -645,6 +726,8 @@ class NgExtractionHandler(ExtractionHandler):
         quant_params = QuantificationParameters()
         if top_k_fragments is not None:
             quant_params.update({"top_k_fragments": top_k_fragments})
+        if tolerance_ppm is not None:
+            quant_params.update({"tolerance_ppm": tolerance_ppm})
 
         peak_group_quantification = PeakGroupQuantification(quant_params)
         quantified_lib = peak_group_quantification.quantify(
@@ -727,6 +810,34 @@ class NgExtractionHandler(ExtractionHandler):
                 features_df["precursor_idx"].map(precursor_mz).to_numpy()
             )
 
+        library_precursors = spectral_library.precursor_df.set_index("precursor_idx")
+        sequence_id = pd.Series(
+            pd.factorize(library_precursors["sequence"])[0],
+            index=library_precursors.index,
+        )
+        features_df[riding.SEQUENCE_ID_COLUMN] = (
+            features_df["precursor_idx"].map(sequence_id).to_numpy()
+        )
+
+        def riding_fragments(
+            psm_df: pd.DataFrame,
+        ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+            # in the row order of psm_df, which the dense fragment arrays follow
+            competing = (
+                candidates_df.set_index("_candidate_idx")
+                .loc[psm_df["_candidate_idx"].to_numpy()]
+                .reset_index(drop=True)
+            )
+            _, fragments_df = self.quantify_candidates(
+                competing,
+                None,
+                dia_data,
+                spectral_library,
+                top_k_fragments=riding.TOP_K_FRAGMENTS,
+                tolerance_ppm=self._optimization_manager.ms2_error,
+            )
+            return _riding_fragments(fragments_df, competing, spectral_library)
+
         def quantified_fragments(psm_df: pd.DataFrame) -> pd.DataFrame:
             # Scoring does not quantify fragments, and quantifying every candidate would
             # cost far more than the few that are close enough to the threshold to compete.
@@ -747,6 +858,8 @@ class NgExtractionHandler(ExtractionHandler):
             fragment_provider=quantified_fragments if df_fragments is None else None,
             version=self._optimization_manager.classifier_version,
             warm_start_epochs=warm_start_epochs,
+            riding_provider=riding_fragments,
+            ms2_tolerance_ppm=self._optimization_manager.ms2_error,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]

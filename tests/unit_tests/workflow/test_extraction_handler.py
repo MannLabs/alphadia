@@ -2,10 +2,13 @@
 
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 from conftest import mock_context_features
 
+from alphadia.fdr import riding
+from alphadia.workflow.peptidecentric import extraction_handler
 from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import get_context_feature_names
 
@@ -77,7 +80,11 @@ def _fdr_inputs():
     )
     spectral_library = MagicMock(name="spectral_library")
     spectral_library.precursor_df = pd.DataFrame(
-        {"precursor_idx": [3, 2, 1], "mz_calibrated": [503.0, 502.0, 501.0]}
+        {
+            "precursor_idx": [3, 2, 1],
+            "mz_calibrated": [503.0, 502.0, 501.0],
+            "sequence": ["PEPTIDEK", "SAMPLER", "PEPTIDEK"],
+        }
     )
     return features_df, candidates_df, spectral_library
 
@@ -116,6 +123,9 @@ def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candida
     assert received["fragments"] is fragments_df
     # and every PSM carries its precursor m/z for the isolation window assignment
     assert received["features_df"]["mz_observed"].tolist() == [501.0, 502.0, 503.0]
+    # and charge states of one peptide share a sequence id, so they never explain each other's fragments
+    sequence_id = received["features_df"]["_sequence_id"].tolist()
+    assert sequence_id[0] == sequence_id[2] != sequence_id[1]
     # and the candidates are filtered by the FDR result
     assert candidates_filtered["precursor_idx"].tolist() == [1, 3]
     assert precursor_fdr_df["precursor_idx"].tolist() == [1, 3]
@@ -143,3 +153,47 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["df_fragments"] is fragments_df
     assert kwargs["fragment_provider"] is None
+
+
+def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
+    # given: precursor 7 with five library fragments (one y1, one without intensity), quantified at rank 0 and 1
+    spectral_library = MagicMock(name="spectral_library")
+    spectral_library.precursor_df = pd.DataFrame(
+        {
+            "precursor_idx": [9, 7],
+            "flat_frag_start_idx": [5, 0],
+            "flat_frag_stop_idx": [6, 5],
+        }
+    )
+    spectral_library.fragment_df = pd.DataFrame(
+        {
+            "mz_library": [200.0, 300.0, 400.0, 500.0, 600.0, 700.0],
+            "intensity": [0.5, 1.0, 0.0, 0.9, 0.2, 1.0],
+            "type": [ord("b"), ord("y"), ord("b"), ord("y"), ord("b"), ord("b")],
+            "number": [2, 1, 3, 4, 5, 2],
+        }
+    )
+    candidates_df = pd.DataFrame({"precursor_idx": [7, 7], "rank": [1, 0]})
+    fragments_df = pd.DataFrame(
+        {
+            "precursor_idx": [7, 7],
+            "rank": [0, 1],
+            "mz_library": [500.0, 200.0],
+            "intensity": [90.0, 40.0],
+            "correlation": [0.9, 0.4],
+        }
+    )
+
+    # when
+    mz, library, observed, correlation = extraction_handler._riding_fragments(
+        fragments_df, candidates_df, spectral_library
+    )
+
+    # then: most intense first, y1 and zero-intensity fragments left out, unquantified fragments carry no signal
+    k = riding.TOP_K_FRAGMENTS
+    assert mz.shape == (2, k)
+    assert mz[:, :3].tolist() == [[500.0, 200.0, 600.0]] * 2
+    assert (mz[:, 3:] == 0).all()
+    np.testing.assert_allclose(library[0, :3], [0.9, 0.5, 0.2])
+    assert observed[:, :3].tolist() == [[0.0, 40.0, 0.0], [90.0, 0.0, 0.0]]
+    np.testing.assert_allclose(correlation[:, :3], [[0.0, 0.4, 0.0], [0.9, 0.0, 0.0]])
