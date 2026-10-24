@@ -204,7 +204,7 @@ search:
   # as claimed, and the features report the claimed share (count, observed and library intensity, top-3) and the
   # evidence left without the claimed fragments. Every precursor competes with every other, targets and decoys
   # alike, so the features are label-blind.
-  fragment_claim_features: False
+  fragment_claim_features: True
   # soft claims (clm_soft_*, needs fragment_claim_features): the share of every matched peak that a non-negative
   # mixture of the co-isolated precursors' library spectra attributes to the candidate
   fragment_claim_soft: False
