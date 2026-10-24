@@ -1,5 +1,7 @@
 """Conversion of AlphaDIA to NG data structure and back."""
 
+import logging
+
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -15,6 +17,9 @@ from alphadia_search_rs import (
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
+from alphadia.utils import get_isotope_columns
+
+logger = logging.getLogger()
 
 CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
 
@@ -66,7 +71,7 @@ def speclib_to_ng(
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
 
-    return SpecLibFlatNG.from_arrays(
+    speclib_ng = SpecLibFlatNG.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
         precursor_df["mz_library"].values.astype(np.float32),
         precursor_df[precursor_mz_column].values.astype(np.float32),
@@ -85,6 +90,23 @@ def speclib_to_ng(
         fragment_df["position"].values.astype(np.uint8),
         fragment_df["type"].values.astype(np.uint8),
     )
+
+    # With isotopes, rust extracts fragments from every isolation window the isotope envelope reaches.
+    isotope_columns = [f"i_{i}" for i in get_isotope_columns(precursor_df.columns)]
+    if isotope_columns:
+        speclib_ng.set_isotopes(
+            precursor_df["precursor_idx"].values.astype(np.uint64),
+            precursor_df["charge"].values.astype(np.uint8),
+            np.ascontiguousarray(
+                precursor_df[isotope_columns].values, dtype=np.float32
+            ),
+        )
+    else:
+        logger.warning(
+            "Spectral library has no isotope columns: fragments are extracted at the monoisotopic window only"
+        )
+
+    return speclib_ng
 
 
 def get_feature_names() -> list[str]:
