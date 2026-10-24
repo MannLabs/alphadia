@@ -160,6 +160,12 @@ class NormalizationMethods(metaclass=ConstantsClass):
     NONE: str = "none"
 
 
+class FragmentCols(metaclass=ConstantsClass):
+    """String constants for accessing the columns of the fragment (frag.parquet) dataframe."""
+
+    INTENSITY_LIBRARY = "intensity_library"
+
+
 class PrecursorOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the precursor output columns."""
 

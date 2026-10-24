@@ -1,10 +1,12 @@
 import os
 
+import numpy as np
 import pandas as pd
 import pytest
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import (
+    FragmentCols,
     InferenceStrategy,
     NormalizationMethods,
     PeptideOutputCols,
@@ -26,9 +28,16 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 
 
 @pytest.mark.parametrize(
-    "normalization_method", [NormalizationMethods.DIRECTLFQ, NormalizationMethods.NONE]
+    ("normalization_method", "library_anchored_quantification"),
+    [
+        (NormalizationMethods.DIRECTLFQ, True),
+        (NormalizationMethods.DIRECTLFQ, False),
+        (NormalizationMethods.NONE, True),
+    ],
 )
-def test_search_plan_output_integration(normalization_method, tmp_path):
+def test_search_plan_output_integration(
+    normalization_method, library_anchored_quantification, tmp_path
+):
     """Integration test for SearchPlanOutput.build() covering end-to-end workflow.
 
     Tests that SearchPlanOutput.build() correctly orchestrates:
@@ -66,6 +75,10 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
             "normalization_method": normalization_method,
             "normalize_directlfq": True,
             "intensity_drift_correction": True,
+            "library_anchored_quantification": library_anchored_quantification,
+            "anchored_tau": None,
+            "anchored_lambda": None,
+            "anchored_sweeps": 20,
         },
         "multiplexing": {"enabled": False},
         "search_initial": {
@@ -89,6 +102,9 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
 
     psm_base_df = mock_precursor_df(n_precursor=100)
     fragment_base_df = mock_fragment_df(n_precursor=200)
+    fragment_base_df[FragmentCols.INTENSITY_LIBRARY] = np.random.default_rng(0).uniform(
+        0.1, 1.0, len(fragment_base_df)
+    )
 
     for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)

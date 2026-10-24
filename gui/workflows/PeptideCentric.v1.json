@@ -602,6 +602,13 @@
                     "type": "boolean"
                 },
                 {
+                    "id": "library_anchored_quantification",
+                    "name": "Library-anchored quantification",
+                    "default": true,
+                    "description": "Estimate every precursor from its fragment intensities anchored to the library fragment pattern, then roll these precursor quantities up to the peptide and protein level with directLFQ. If disabled, directLFQ runs on the fragment intensities of every level. Only applies when 'directlfq' is selected as the LFQ method.",
+                    "type": "boolean"
+                },
+                {
                     "id": "intensity_drift_correction",
                     "name": "Intensity drift correction",
                     "default": true,
