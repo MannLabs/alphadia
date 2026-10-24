@@ -25,7 +25,7 @@ from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
 
-# directLFQ's minimum of ions per group and run when the ions are library-anchored precursors
+# a precursor is already the robust estimate over its fragments, so a single one suffices
 MIN_PRECURSORS_PER_RUN = 1
 
 
@@ -375,7 +375,6 @@ class QuantOutputBuilder:
             logger.info(
                 f"Performing label free quantification on the {quantlevel_config.level_name} level"
             )
-            # a precursor is already the robust estimate over its fragments, so a single one suffices
             level_dfs[quantlevel_config.level_name] = self.quant_builder.direct_lfq(
                 intensity_df=precursor_df,
                 lfq_config=quantlevel_config,
