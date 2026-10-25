@@ -58,7 +58,7 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
 
-# Isotopes per precursor. The rust backend picks the isolation window that holds most of the envelope, and
+# Isotopes per precursor. The rust backend weighs the isolation windows by the envelope they transmit, and
 # the envelope of a 3 kDa peptide still has a few percent beyond its fourth isotope.
 N_LIBRARY_ISOTOPES = 6
 

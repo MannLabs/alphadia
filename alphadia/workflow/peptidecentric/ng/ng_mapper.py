@@ -91,7 +91,8 @@ def speclib_to_ng(
         fragment_df["type"].values.astype(np.uint8),
     )
 
-    # With isotopes, rust extracts fragments from the isolation window that holds most of the isotope envelope.
+    # With isotopes, rust extracts each fragment from the isolation window and fragment isotope expecting the
+    # most of its signal.
     isotope_columns = [f"i_{i}" for i in get_isotope_columns(precursor_df.columns)]
     if isotope_columns:
         speclib_ng.set_isotopes(
