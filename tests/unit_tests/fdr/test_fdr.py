@@ -412,7 +412,7 @@ def _gen_competing_psms(n_samples: int = 200):
 
 
 def _fragments_of(psm_df: pd.DataFrame) -> pd.DataFrame:
-    """Three fragments per PSM; PSMs 0 and 1 have the same ones, all others unique ones."""
+    """Three fragments per PSM, all read in the one window; PSMs 0 and 1 have the same ones, all others unique ones."""
     precursor_idx = psm_df["precursor_idx"].to_numpy()
     base_mz = np.where(precursor_idx == 1, 0, precursor_idx) * 10.0 + 200.0
     return pd.DataFrame(
@@ -420,6 +420,8 @@ def _fragments_of(psm_df: pd.DataFrame) -> pd.DataFrame:
             "precursor_idx": np.repeat(precursor_idx, 3),
             "rank": 0,
             "mz_observed": (base_mz[:, None] + np.array([0.0, 1.0, 2.0])).ravel(),
+            "window_mz": 500.0,
+            "mz_shift": 0.0,
         }
     )
 
