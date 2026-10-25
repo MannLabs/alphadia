@@ -72,7 +72,7 @@ def compete_for_fragments(
     psm_df = add_frag_start_stop_idx(psm_df, frag_df)
 
     valid = FragmentCompetition(rt_tol_seconds, mass_tol_ppm).compete(
-        competition_mz(psm_df, cycle),
+        competition_mz(psm_df, frag_df, cycle),
         psm_df["precursor_idx"].to_numpy(dtype=np.int64),
         psm_df["proba"].to_numpy(dtype=np.float64),
         psm_df[CalibCols.RT_OBSERVED].to_numpy(dtype=np.float32),
@@ -89,11 +89,14 @@ def compete_for_fragments(
     return psm_df[valid]
 
 
-def competition_mz(psm_df: pd.DataFrame, cycle: np.ndarray) -> np.ndarray:
-    """An m/z in the isolation window each PSM's fragments were extracted from.
+def competition_mz(
+    psm_df: pd.DataFrame, frag_df: pd.DataFrame, cycle: np.ndarray
+) -> np.ndarray:
+    """An m/z in the isolation window most of each PSM's fragments were extracted from.
 
-    With library isotopes, the rust backend extracts a precursor from the window holding most of its isotope
-    envelope, which is not always the window of its monoisotopic m/z.
+    With library isotopes, the rust backend extracts each fragment from the channel expecting the most of its
+    isotope envelope, which is not always in the window of the monoisotopic precursor m/z. `psm_df` must
+    carry the fragment start and stop indices into `frag_df`.
     """
     mz = psm_df[CalibCols.MZ_OBSERVED].to_numpy(dtype=np.float32)
     isotope_columns = [f"i_{i}" for i in get_isotope_columns(psm_df.columns)]
@@ -103,5 +106,10 @@ def competition_mz(psm_df: pd.DataFrame, cycle: np.ndarray) -> np.ndarray:
         mz,
         psm_df["charge"].to_numpy(dtype=np.uint8),
         isotopes_from_monoisotope(psm_df, isotope_columns),
+        psm_df["_frag_start_idx"].to_numpy(dtype=np.uint64),
+        psm_df["_frag_stop_idx"].to_numpy(dtype=np.uint64),
+        frag_df[CalibCols.MZ_LIBRARY].to_numpy(dtype=np.float32),
+        frag_df["charge"].to_numpy(dtype=np.uint8),
+        frag_df["intensity"].to_numpy(dtype=np.float32),
         np.ascontiguousarray(cycle, dtype=np.float32),
     )

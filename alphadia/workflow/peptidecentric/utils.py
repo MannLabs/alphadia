@@ -98,8 +98,8 @@ DECOY_SCHEME_FEATURES = (
 )
 
 
-# rust features of the secondary isolation window of a split isotope envelope: computed, not used for now, to
-# measure the primary-window extraction on its own
+# rust features of the secondary channels of a split isotope envelope: computed, not used for now, to
+# measure the best-channel extraction on its own
 SECONDARY_WINDOW_FEATURES = (
     "secondary_signal_ratio",
     "secondary_mean_correlation",
