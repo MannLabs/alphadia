@@ -23,10 +23,12 @@ def _rows(spec: list[dict]) -> pd.DataFrame:
     return rows
 
 
-def _fragments(mz, intensity, correlation) -> list[np.ndarray]:
-    """One row of dense fragment arrays (library intensity 1), padded to TOP_K_FRAGMENTS."""
+def _fragments(mz, intensity, correlation, window_mz=None) -> list[np.ndarray]:
+    """One row of dense fragment arrays (library intensity 1), padded to TOP_K_FRAGMENTS; the fragments are read in
+    the window of the precursor m/z unless `window_mz` names another."""
     out = []
-    for values in (mz, np.ones(len(mz)), intensity, correlation):
+    window = np.zeros(len(mz)) if window_mz is None else np.full(len(mz), window_mz)
+    for values in (mz, np.ones(len(mz)), intensity, correlation, window):
         row = np.zeros(riding.TOP_K_FRAGMENTS)
         row[: len(values)] = values
         out.append(row)
@@ -123,6 +125,33 @@ def test_within_class_keeps_decoys_from_target_partners(monkeypatch):
     # then
     assert blind[1] == pytest.approx(1.0)
     assert within[1] == 0
+
+
+def test_fragments_read_in_the_neighbouring_window_are_explained_there():
+    # given: a rider whose fragments were extracted from the upper window, a winner in the lower window at the same
+    # m/z (precursor m/z 500) and one in the upper window (502)
+    rider = _fragments([400.0, 600.0], [800.0, 800.0], [1.0, 1.0], window_mz=502.0)
+    winner = _fragments(WINNER_FRAGMENTS, np.full(6, 1000.0), np.ones(6))
+    fragments = tuple(np.stack([w, w, r]) for w, r in zip(winner, rider))
+    rows = _rows(
+        [
+            {"precursor_idx": 0, "proba": 0.01, "mz_observed": 500.0},
+            {"precursor_idx": 1, "proba": 0.01, "mz_observed": 502.0},
+            {"precursor_idx": 2, "proba": 0.4, "mz_observed": 500.0},
+        ]
+    )
+
+    # when: only the lower-window winner is a partner, then only the upper-window one
+    lower, _ = riding.find_riding(
+        rows, fragments, np.array([True, False, False]), CYCLE, 10.0
+    )
+    upper, _ = riding.find_riding(
+        rows, fragments, np.array([False, True, False]), CYCLE, 10.0
+    )
+
+    # then: the rider is explained by the winner in the window its fragments were read from only
+    assert lower[2] == 0
+    assert upper[2] == pytest.approx(1.0)
 
 
 def test_isolation_window_skips_ms1_and_marks_outside():

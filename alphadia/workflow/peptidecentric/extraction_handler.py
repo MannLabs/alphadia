@@ -15,6 +15,7 @@ from alphadia_search_rs import (
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fdr import riding
+from alphadia.fragcomp.fragcomp import MZ_SHIFT_COLUMN, WINDOW_MZ_COLUMN
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
@@ -50,12 +51,14 @@ def _riding_fragments(
     fragments_df: pd.DataFrame,
     candidates_df: pd.DataFrame,
     spectral_library: SpecLibFlat,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """(len(candidates_df), riding.TOP_K_FRAGMENTS) library m/z, library intensity, observed intensity and correlation.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """(len(candidates_df), riding.TOP_K_FRAGMENTS) extracted m/z, library intensity, observed intensity, correlation
+    and the centre m/z of the isolation window each fragment was extracted from.
 
     The fragments of each candidate are those the backend selects for quantification (non-zero library intensity, no
-    y1, the most intense); observed intensity and correlation come from the quantified `fragments_df` and are 0 where
-    the backend found no signal. Empty slots have m/z 0.
+    y1, the most intense); observed intensity, correlation, isotope shift and window come from the quantified
+    `fragments_df` and are 0 where the backend found no signal (the m/z is then the library m/z). Empty slots have
+    m/z 0.
     """
     k = riding.TOP_K_FRAGMENTS
     precursor_df = spectral_library.precursor_df
@@ -92,6 +95,8 @@ def _riding_fragments(
 
     observed = np.zeros(mz.shape, dtype=np.float64)
     correlation = np.zeros(mz.shape, dtype=np.float64)
+    shift = np.zeros(mz.shape, dtype=np.float64)
+    window_mz = np.zeros(mz.shape, dtype=np.float64)
     row = pd.Index(
         candidate_hash(
             candidates_df["precursor_idx"].to_numpy(), candidates_df["rank"].to_numpy()
@@ -104,6 +109,8 @@ def _riding_fragments(
     fragment_mz = fragments_df["mz_library"].to_numpy(np.float32)
     fragment_intensity = fragments_df["intensity"].to_numpy(np.float64)
     fragment_correlation = fragments_df["correlation"].to_numpy(np.float64)
+    fragment_shift = fragments_df[MZ_SHIFT_COLUMN].to_numpy(np.float64)
+    fragment_window = fragments_df[WINDOW_MZ_COLUMN].to_numpy(np.float64)
     for chunk in range(0, len(row), _SLOT_CHUNK):
         part = slice(chunk, chunk + _SLOT_CHUNK)
         r = row[part]
@@ -113,7 +120,15 @@ def _riding_fragments(
         rows, slots = r[found][hit], match[hit].argmax(1)
         observed[rows, slots] = fragment_intensity[part][found][hit]
         correlation[rows, slots] = fragment_correlation[part][found][hit]
-    return mz.astype(np.float64), library.astype(np.float64), observed, correlation
+        shift[rows, slots] = fragment_shift[part][found][hit]
+        window_mz[rows, slots] = fragment_window[part][found][hit]
+    return (
+        mz.astype(np.float64) + shift,
+        library.astype(np.float64),
+        observed,
+        correlation,
+        window_mz,
+    )
 
 
 class ExtractionHandler(ABC):
@@ -821,7 +836,7 @@ class NgExtractionHandler(ExtractionHandler):
 
         def riding_fragments(
             psm_df: pd.DataFrame,
-        ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
             # in the row order of psm_df, which the dense fragment arrays follow
             competing = (
                 candidates_df.set_index("_candidate_idx")

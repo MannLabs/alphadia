@@ -12,8 +12,8 @@ from alphadia.constants.keys import CalibCols
 WINNER_QVAL = 0.05
 # Partners co-elute when their apexes are within this many of the larger of both fwhm_rt.
 CO_ELUTION_FWHM = 2.0
-# A fragment is shared when its library m/z is within this many MS2 tolerances of the partner's: the traces of two
-# fragments are the same signal up to one tolerance and unrelated beyond 1.25.
+# A fragment is shared when the m/z it was extracted at is within this many MS2 tolerances of the partner's, in the
+# same isolation window: the traces of two fragments are the same signal up to one tolerance and unrelated beyond 1.25.
 SHARED_TOLERANCE_FACTOR = 1.0
 # A fragment co-elutes with its candidate when its profile correlates at least this much with the median profile.
 COHERENT_CORRELATION = 0.5
@@ -32,6 +32,7 @@ LOSER_POOLED_QVAL = None
 CLASS_BLIND = False
 TOP_K_FRAGMENTS = 12
 PPM = 1e-6
+NO_WINDOW = -1
 
 # other charge states of the same peptide share its fragments by construction, so they never explain each other
 SEQUENCE_ID_COLUMN = "_sequence_id"
@@ -65,6 +66,20 @@ def fragment_evidence(
     )
 
 
+@nb.njit(cache=True)
+def _first_shared_window(
+    partner_windows: np.ndarray, candidate_windows: np.ndarray
+) -> int:
+    """The first of the candidate's windows (ascending) that one of the partner's fragments is read in, -1 if none."""
+    for w in candidate_windows:
+        if w < 0:
+            continue
+        for g in range(len(partner_windows)):
+            if partner_windows[g] == w:
+                return w
+    return NO_WINDOW
+
+
 @nb.njit(parallel=True, cache=True)
 def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute; the partner loop is one kernel
     window: np.ndarray,
@@ -88,9 +103,6 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
     riding = np.zeros(n, dtype=np.float32)
     own_support = np.ones(n, dtype=np.float32)
     for r in nb.prange(n):
-        w = window[r]
-        if w < 0:
-            continue
         total = 0.0
         for f in range(n_frag):
             total += evidence[r, f]
@@ -99,53 +111,62 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
         claim = np.zeros(n_frag)
         any_shared = np.zeros(n_frag, dtype=np.bool_)
         match = np.full(n_frag, -1, dtype=np.int64)
-        for j in range(partner_start[w], partner_stop[w]):
-            p = partner_rows[j]
-            if (
-                p == r
-                or elution_group[p] == elution_group[r]
-                or sequence[p] == sequence[r]
-                or proba[p] >= proba[r]
-                or (not class_blind and decoy[p] != decoy[r])
-            ):
+        candidate_windows = np.unique(window[r])
+        for w in candidate_windows:
+            if w < 0:
                 continue
-            if abs(rt[p] - rt[r]) > CO_ELUTION_FWHM * max(fwhm[p], fwhm[r]):
-                continue
-            n_shared = 0
-            for f in range(n_frag):
-                match[f] = -1
-                if mz[r, f] <= 0:
+            for j in range(partner_start[w], partner_stop[w]):
+                p = partner_rows[j]
+                if (
+                    p == r
+                    or elution_group[p] == elution_group[r]
+                    or sequence[p] == sequence[r]
+                    or proba[p] >= proba[r]
+                    or (not class_blind and decoy[p] != decoy[r])
+                ):
                     continue
-                for g in range(n_frag):
-                    if (
-                        mz[p, g] > 0
-                        and abs(mz[p, g] - mz[r, f]) <= tolerance_ppm * PPM * mz[r, f]
-                    ):
-                        match[f] = g
-                        n_shared += 1
-                        break
-            if n_shared == 0:
-                continue
-            # the partner counts only if its own (unshared) fragments carry more evidence than the candidate's
-            own_r = 0.0
-            for f in range(n_frag):
-                if match[f] < 0:
-                    own_r += evidence[r, f]
-            own_p = 0.0
-            for g in range(n_frag):
-                used = False
+                # a partner read in several of the candidate's windows is handled under the first of them
+                if _first_shared_window(window[p], candidate_windows) != w:
+                    continue
+                if abs(rt[p] - rt[r]) > CO_ELUTION_FWHM * max(fwhm[p], fwhm[r]):
+                    continue
+                n_shared = 0
                 for f in range(n_frag):
-                    if match[f] == g:
-                        used = True
-                        break
-                if not used:
-                    own_p += evidence[p, g]
-            if own_p <= own_r:
-                continue
-            for f in range(n_frag):
-                if match[f] >= 0:
-                    claim[f] += evidence[p, match[f]]
-                    any_shared[f] = True
+                    match[f] = -1
+                    if mz[r, f] <= 0 or window[r, f] < 0:
+                        continue
+                    for g in range(n_frag):
+                        if (
+                            mz[p, g] > 0
+                            and window[p, g] == window[r, f]
+                            and abs(mz[p, g] - mz[r, f])
+                            <= tolerance_ppm * PPM * mz[r, f]
+                        ):
+                            match[f] = g
+                            n_shared += 1
+                            break
+                if n_shared == 0:
+                    continue
+                # the partner counts only if its own (unshared) fragments carry more evidence than the candidate's
+                own_r = 0.0
+                for f in range(n_frag):
+                    if match[f] < 0:
+                        own_r += evidence[r, f]
+                own_p = 0.0
+                for g in range(n_frag):
+                    used = False
+                    for f in range(n_frag):
+                        if match[f] == g:
+                            used = True
+                            break
+                    if not used:
+                        own_p += evidence[p, g]
+                if own_p <= own_r:
+                    continue
+                for f in range(n_frag):
+                    if match[f] >= 0:
+                        claim[f] += evidence[p, match[f]]
+                        any_shared[f] = True
         explained = 0.0
         own_library = 0.0
         own_coherent = 0.0
@@ -168,12 +189,43 @@ def isolation_window(mz: np.ndarray, cycle: np.ndarray) -> np.ndarray:
     order = ms2[np.argsort(lower[ms2], kind="stable")]
     pos = np.searchsorted(lower[order], mz, side="right") - 1
     inside = (pos >= 0) & (mz <= upper[order][np.clip(pos, 0, None)])
-    return np.where(inside, pos, -1)
+    return np.where(inside, pos, NO_WINDOW)
 
 
-def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four arrays
+def fragment_windows(
+    rows: pd.DataFrame, mz: np.ndarray, window_mz: np.ndarray, cycle: np.ndarray
+) -> np.ndarray:
+    """Isolation window index of every fragment slot: the window its m/z was extracted from, the window of the
+    precursor m/z where none is recorded, -1 for an empty slot."""
+    own = isolation_window(rows[CalibCols.MZ_OBSERVED].to_numpy(np.float64), cycle)
+    window = isolation_window(window_mz.ravel().astype(np.float64), cycle).reshape(
+        mz.shape
+    )
+    window = np.where(window_mz > 0, window, own[:, None])
+    return np.where(mz > 0, window, NO_WINDOW).astype(np.int64)
+
+
+def partner_index(
+    partner: np.ndarray, window: np.ndarray, rt: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Partner rows listed under every window one of their fragments is read in, sorted by window and retention
+    time, with the start and stop of each window's run."""
+    rows = np.flatnonzero(partner)
+    pairs = np.stack([np.repeat(rows, window.shape[1]), window[rows].ravel()], axis=1)
+    pairs = np.unique(pairs[pairs[:, 1] >= 0], axis=0)
+    pairs = pairs[np.lexsort((rt[pairs[:, 0]], pairs[:, 1]))]
+    n_windows = int(window.max()) + 1 if window.size else 0
+    windows = np.arange(n_windows)
+    return (
+        pairs[:, 0].astype(np.int64),
+        np.searchsorted(pairs[:, 1], windows, "left"),
+        np.searchsorted(pairs[:, 1], windows, "right"),
+    )
+
+
+def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as five arrays
     rows: pd.DataFrame,
-    fragments: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+    fragments: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
     partner: np.ndarray,
     cycle: np.ndarray,
     ms2_tolerance_ppm: float,
@@ -181,21 +233,20 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
     """Riding share and own support of every row of `rows`.
 
     `rows` needs REQUIRED_COLUMNS, `proba` (P(decoy)) and `_decoy`; `fragments` are the (len(rows), TOP_K_FRAGMENTS)
-    library m/z (0: empty slot), library intensity, observed intensity and correlation of each row; `partner` marks the rows that can explain others. A row's
-    riding share is the part of its fragment evidence that co-eluting partners with a lower proba and more evidence on
-    their own fragments explain; its own support is the coherent share of the library intensity of the fragments no
-    such partner shares.
+    m/z each fragment was extracted at (0: empty slot), library intensity, observed intensity, correlation and the
+    centre m/z of the isolation window it was extracted from (0: the window of the precursor m/z) of each row;
+    `partner` marks the rows that can explain others. A row's riding share is the part of its fragment evidence that
+    co-eluting partners with a lower proba and more evidence on their own fragments explain, fragment by fragment in
+    the window it was extracted from; its own support is the coherent share of the library intensity of the
+    fragments no such partner shares.
     """
-    mz, library, observed, correlation = fragments
+    mz, library, observed, correlation, window_mz = fragments
     evidence = fragment_evidence(observed, correlation, library)
-    window = isolation_window(rows[CalibCols.MZ_OBSERVED].to_numpy(np.float64), cycle)
+    window = fragment_windows(rows, mz, window_mz, cycle)
     rt = rows[CalibCols.RT_OBSERVED].to_numpy(np.float64)
-    partner_rows = np.flatnonzero(partner & (window >= 0))
-    partner_rows = partner_rows[np.lexsort((rt[partner_rows], window[partner_rows]))]
-    n_windows = int(window.max()) + 1 if len(window) else 0
-    partner_window = window[partner_rows]
+    partner_rows, partner_start, partner_stop = partner_index(partner, window, rt)
     return _riding(
-        window.astype(np.int64),
+        window,
         rt,
         rows["fwhm_rt"].to_numpy(np.float64),
         rows["elution_group_idx"].to_numpy(np.int64),
@@ -206,9 +257,9 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
         evidence,
         library,
         correlation,
-        partner_rows.astype(np.int64),
-        np.searchsorted(partner_window, np.arange(n_windows), "left"),
-        np.searchsorted(partner_window, np.arange(n_windows), "right"),
+        partner_rows,
+        partner_start,
+        partner_stop,
         SHARED_TOLERANCE_FACTOR * ms2_tolerance_ppm,
         CLASS_BLIND,
     )

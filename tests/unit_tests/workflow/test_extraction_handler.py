@@ -181,19 +181,27 @@ def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
             "mz_library": [500.0, 200.0],
             "intensity": [90.0, 40.0],
             "correlation": [0.9, 0.4],
+            "mz_shift": [1.003, 0.0],
+            "window_mz": [502.0, 500.0],
         }
     )
 
     # when
-    mz, library, observed, correlation = extraction_handler._riding_fragments(
-        fragments_df, candidates_df, spectral_library
+    mz, library, observed, correlation, window_mz = (
+        extraction_handler._riding_fragments(
+            fragments_df, candidates_df, spectral_library
+        )
     )
 
-    # then: most intense first, y1 and zero-intensity fragments left out, unquantified fragments carry no signal
+    # then: most intense first, y1 and zero-intensity fragments left out, unquantified fragments carry no signal,
+    # and a quantified fragment reports the m/z and window it was extracted at
     k = riding.TOP_K_FRAGMENTS
     assert mz.shape == (2, k)
-    assert mz[:, :3].tolist() == [[500.0, 200.0, 600.0]] * 2
+    np.testing.assert_allclose(
+        mz[:, :3], [[500.0, 200.0, 600.0], [501.003, 200.0, 600.0]]
+    )
     assert (mz[:, 3:] == 0).all()
+    assert window_mz[:, :3].tolist() == [[0.0, 500.0, 0.0], [502.0, 0.0, 0.0]]
     np.testing.assert_allclose(library[0, :3], [0.9, 0.5, 0.2])
     assert observed[:, :3].tolist() == [[0.0, 40.0, 0.0], [90.0, 0.0, 0.0]]
     np.testing.assert_allclose(correlation[:, :3], [[0.0, 0.4, 0.0], [0.9, 0.0, 0.0]])
