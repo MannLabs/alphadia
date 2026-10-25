@@ -655,3 +655,50 @@ def test_perform_fdr_fits_once_outside_the_final_round():
     )
 
     assert _CountingClassifier.n_fits == 1
+
+
+def test_rescored_replaces_features_and_drops_unscorable_rows():
+    # given: four PSMs, the second and fourth lost fragments, the fourth cannot be scored without them
+    psm_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2, 3],
+            "score": [1.0, 2.0, 3.0, 4.0],
+            "num_fragments": [12, 12, 12, 12],
+            "naa": [7, 8, 9, 10],
+        }
+    )
+    available_columns = ["score", "num_fragments", "naa"]
+    X = psm_df[available_columns].to_numpy(dtype=np.float64)
+    claimed_rows = np.array([1, 3])
+    claimed_mz = np.array([[400.0, 0.0], [500.0, 600.0]])
+
+    def provider(rows: pd.DataFrame, excluded: np.ndarray) -> pd.DataFrame:
+        assert rows["precursor_idx"].tolist() == [1, 3]
+        assert excluded.tolist() == claimed_mz.tolist()
+        return pd.DataFrame(
+            {
+                "precursor_idx": [1, 3],
+                "score": [20.0, np.nan],
+                "num_fragments": [11.0, np.nan],
+            }
+        )
+
+    # when
+    rescored_df, rescored_X, keep = fdr._rescored(
+        psm_df,
+        X,
+        available_columns,
+        np.array([0, 1, 3]),
+        claimed_rows,
+        claimed_mz,
+        provider,
+    )
+
+    # then
+    assert rescored_df["score"].tolist() == [1.0, 20.0, 3.0, 4.0]
+    assert rescored_df["num_fragments"].tolist() == [12, 11, 12, 12]
+    assert rescored_df["naa"].tolist() == [7, 8, 9, 10]
+    assert rescored_X[1].tolist() == [20.0, 11.0, 8.0]
+    assert rescored_X[0].tolist() == [1.0, 12.0, 7.0]
+    assert keep.tolist() == [0, 1]
+    assert psm_df["score"].tolist() == [1.0, 2.0, 3.0, 4.0]

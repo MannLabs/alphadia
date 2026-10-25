@@ -704,6 +704,32 @@ class NgExtractionHandler(ExtractionHandler):
 
         return features_df
 
+    def _score_without_fragments(
+        self,
+        candidates_df: pd.DataFrame,
+        excluded_mz: np.ndarray,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+    ) -> pd.DataFrame:
+        """Scoring features of `candidates_df` without the library fragments of `excluded_mz` (a row of library m/z
+        per candidate, 0 for an empty slot); candidates left with too few fragments are absent."""
+        self._lazy_init_speclib_ng(spectral_library)
+        scoring_params = ScoringParameters()
+        scoring_params.update(
+            {
+                "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
+                "mass_tolerance": self._optimization_manager.ms2_error,
+            }
+        )
+        candidate_features = PeakGroupScoring(scoring_params).score_masked(
+            dia_data,
+            self._speclib_ng,
+            candidates_to_ng(candidates_df, dia_data),
+            np.ascontiguousarray(excluded_mz, dtype=np.float32).ravel(),
+            excluded_mz.shape[1],
+        )
+        return to_features_df(candidate_features, spectral_library)
+
     def quantify_candidates(
         self,
         candidates_df: pd.DataFrame,
@@ -838,6 +864,26 @@ class NgExtractionHandler(ExtractionHandler):
             )
             return _riding_fragments(fragments_df, competing, spectral_library)
 
+        def rescored_features(
+            psm_df: pd.DataFrame, excluded_mz: np.ndarray
+        ) -> pd.DataFrame:
+            # in the row order of psm_df; a candidate the backend cannot score without its claimed fragments
+            # comes back with NaN features
+            competing = (
+                candidates_df.set_index("_candidate_idx")
+                .loc[psm_df["_candidate_idx"].to_numpy()]
+                .reset_index()
+            )
+            features = self._score_without_fragments(
+                competing, excluded_mz, dia_data, spectral_library
+            )
+            features.index = candidate_hash(
+                features["precursor_idx"].to_numpy(), features["rank"].to_numpy()
+            )
+            return features.reindex(psm_df["_candidate_idx"].to_numpy()).reset_index(
+                drop=True
+            )
+
         def quantified_fragments(psm_df: pd.DataFrame) -> pd.DataFrame:
             # Scoring does not quantify fragments, and quantifying every candidate would
             # cost far more than the few that are close enough to the threshold to compete.
@@ -860,6 +906,7 @@ class NgExtractionHandler(ExtractionHandler):
             warm_start_epochs=warm_start_epochs,
             riding_provider=riding_fragments,
             ms2_tolerance_ppm=self._optimization_manager.ms2_error,
+            rescore_provider=rescored_features,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]

@@ -116,6 +116,8 @@ class FDRManager(BaseManager):
         warm_start_epochs: int | None = None,
         riding_provider: Callable[[pd.DataFrame], tuple] | None = None,
         ms2_tolerance_ppm: float | None = None,
+        rescore_provider: Callable[[pd.DataFrame, np.ndarray], pd.DataFrame]
+        | None = None,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -144,6 +146,9 @@ class FDRManager(BaseManager):
             on a better co-eluting PSM in the final round. Only used with decoy_strategy "precursor".
         ms2_tolerance_ppm: None | float
             The calibrated MS2 tolerance, needed with `riding_provider`.
+        rescore_provider: None | Callable[[pd.DataFrame, np.ndarray], pd.DataFrame]
+            Returns the scoring features of the PSMs it is given, scored without the library fragments (m/z per
+            PSM, in row order) a better co-eluting PSM claimed; see `fdr.perform_fdr`.
 
         Notes
         -----
@@ -195,6 +200,7 @@ class FDRManager(BaseManager):
                 else None,
                 riding_provider=riding_provider,
                 ms2_tolerance_ppm=ms2_tolerance_ppm,
+                rescore_provider=rescore_provider,
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,

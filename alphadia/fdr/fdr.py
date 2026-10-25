@@ -119,6 +119,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     riding_provider: Callable[[pd.DataFrame], tuple] | None = None,
     ms2_tolerance_ppm: float | None = None,
+    rescore_provider: Callable[[pd.DataFrame, np.ndarray], pd.DataFrame] | None = None,
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
@@ -166,6 +167,12 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     ms2_tolerance_ppm : float, default=None
         The calibrated MS2 tolerance, from which the fragment sharing tolerance of the riding removal is derived.
+
+    rescore_provider : Callable[[pd.DataFrame, np.ndarray], pd.DataFrame], default=None
+        Returns, in the row order of the PSMs it is given, their scoring features computed without the library
+        fragments listed for each (an array of library m/z per row, 0 for an empty slot), as a frame whose columns
+        are the features; a PSM it cannot score has NaN features. With `riding_provider`, the PSMs kept after the
+        riding removal are rescored this way without the fragments a better co-eluting PSM claimed.
 
     dia_cycle : np.ndarray, default=None
         The DIA cycle. Required if df_fragments is provided.
@@ -248,7 +255,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     predicted_proba = _fit_predict(classifier, X, y_train, idxs_train)
     keep = None
     if remove_riding:
-        keep = _without_riding(
+        keep, claimed_rows, claimed_mz = _without_riding(
             psm_df,
             predicted_proba,
             group_columns,
@@ -256,6 +263,16 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             dia_cycle,
             ms2_tolerance_ppm,
         )
+        if rescore_provider is not None and len(claimed_rows):
+            psm_df, X, keep = _rescored(
+                psm_df,
+                X,
+                available_columns,
+                keep,
+                claimed_rows,
+                claimed_mz,
+                rescore_provider,
+            )
     if keep is not None:
         psm_df, X, y = psm_df.iloc[keep], X[keep], y[keep]
         idxs_train, idxs_test = train_test_split_indices(
@@ -352,18 +369,20 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
     riding_provider: Callable[[pd.DataFrame], tuple],
     dia_cycle: np.ndarray,
     ms2_tolerance_ppm: float,
-) -> np.ndarray | None:
-    """Positions of `psm_df` to keep after removing the PSMs that ride on a better co-eluting PSM.
+) -> tuple[np.ndarray | None, np.ndarray, np.ndarray]:
+    """Positions of `psm_df` to keep after removing the PSMs that ride on a better co-eluting PSM, and the kept
+    positions with fragments such a PSM claimed, with those fragments' library m/z (rows, slots; 0: empty slot).
 
     With riding.CLASS_BLIND, targets and decoys are removed by the same rule: a decoy rides on a real peptide's peak as
-    often as a false target does, so removing both keeps the decoys a fair model of the false targets. Returns None if
-    nothing is removed or the columns needed are missing.
+    often as a false target does, so removing both keeps the decoys a fair model of the false targets. The positions
+    to keep are None if nothing is removed or the columns needed are missing.
     """
+    nothing = np.zeros(0, dtype=np.int64), np.zeros((0, riding.TOP_K_FRAGMENTS))
     columns = list(dict.fromkeys([*riding.REQUIRED_COLUMNS, *group_columns]))
     missing = [c for c in columns if c not in psm_df.columns]
     if missing:
         logger.warning(f"riding PSMs not removed: missing columns {missing}")
-        return None
+        return None, *nothing
 
     rows = psm_df[columns].reset_index(drop=True)
     rows["proba"] = predicted_proba
@@ -377,7 +396,7 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         (competed["_decoy"] == 0) & (competed["qval"] <= riding.WINNER_QVAL)
     ]
     if len(confident) == 0:
-        return None
+        return None, *nothing
     partner = np.zeros(len(rows), dtype=bool)
     best = competed["_row"].to_numpy()
     partner[best[competed["proba"].to_numpy() <= confident["proba"].max()]] = True
@@ -390,7 +409,7 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         )
     needed = np.flatnonzero(loser | partner)
     fragments = riding_provider(psm_df.iloc[needed])
-    riding_share, own_support = riding.find_riding(
+    riding_share, own_support, claimed_mz = riding.find_riding(
         rows.iloc[needed].reset_index(drop=True),
         fragments,
         partner[needed],
@@ -404,13 +423,46 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         & loser[needed]
     )
     is_decoy = rows["_decoy"].to_numpy() == 1
+    claimed = (claimed_mz > 0).any(axis=1) & ~removed[needed]
     logger.info(
         f"removed {int((removed & ~is_decoy).sum()):,} target and {int((removed & is_decoy).sum()):,} decoy PSMs "
-        f"riding on {int(partner.sum()):,} co-eluting partners"
+        f"riding on {int(partner.sum()):,} co-eluting partners; {int(claimed.sum()):,} kept PSMs lost fragments"
     )
-    if not removed.any():
-        return None
-    return np.flatnonzero(~removed)
+    keep = np.flatnonzero(~removed) if removed.any() else None
+    return keep, needed[claimed], claimed_mz[claimed]
+
+
+def _rescored(  # noqa: PLR0913 # the feature matrix, its columns and the removal's outcome are separate objects
+    psm_df: pd.DataFrame,
+    X: np.ndarray,  # noqa: N803
+    available_columns: list[str],
+    keep: np.ndarray | None,
+    claimed_rows: np.ndarray,
+    claimed_mz: np.ndarray,
+    rescore_provider: Callable[[pd.DataFrame, np.ndarray], pd.DataFrame],
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+    """`psm_df`, `X` and the positions to keep after rescoring the `claimed_rows` without their `claimed_mz`.
+
+    Rows the provider cannot score (NaN features, e.g. too few fragments left) are dropped from the kept positions.
+    """
+    features = rescore_provider(psm_df.iloc[claimed_rows], claimed_mz)
+    columns = [c for c in features.columns if c in available_columns]
+    values = features[columns].to_numpy(dtype=np.float64)
+    scored = ~np.isnan(values).any(axis=1)
+    rows = claimed_rows[scored]
+    psm_df = psm_df.copy()
+    # rescored counts come back as floats
+    psm_df[columns] = psm_df[columns].astype(np.float64)
+    psm_df.iloc[rows, [psm_df.columns.get_loc(c) for c in columns]] = values[scored]
+    X = X.copy()
+    X[rows[:, None], [available_columns.index(c) for c in columns]] = values[scored]
+    keep = np.arange(len(psm_df)) if keep is None else keep
+    keep = np.setdiff1d(keep, claimed_rows[~scored])
+    logger.info(
+        f"rescored {len(rows):,} PSMs on {len(columns)} features without their claimed fragments, "
+        f"dropped {int((~scored).sum()):,} with too few fragments left"
+    )
+    return psm_df, X, keep
 
 
 def _average_extra_fits(

@@ -64,7 +64,7 @@ def test_rider_is_explained_by_the_better_partner():
     )
 
     # when
-    share, own = _winner_and({"precursor_idx": 1, "proba": 0.4}, rider)
+    share, own, _ = _winner_and({"precursor_idx": 1, "proba": 0.4}, rider)
 
     # then
     assert share[1] == pytest.approx(1.0)
@@ -81,7 +81,7 @@ def test_real_co_eluter_keeps_its_own_evidence():
     )
 
     # when
-    share, own = _winner_and({"precursor_idx": 1, "proba": 0.4}, real)
+    share, own, _ = _winner_and({"precursor_idx": 1, "proba": 0.4}, real)
 
     # then
     assert share[1] == pytest.approx(1 / 6)
@@ -103,7 +103,7 @@ def test_no_partner_explains(other):
     rider = _fragments([400.0, 600.0], [800.0, 800.0], [1.0, 1.0])
 
     # when
-    share, _ = _winner_and(other, rider)
+    share, _, _ = _winner_and(other, rider)
 
     # then
     assert share[1] == 0
@@ -116,9 +116,9 @@ def test_within_class_keeps_decoys_from_target_partners(monkeypatch):
 
     # when
     monkeypatch.setattr(riding, "CLASS_BLIND", True)
-    blind, _ = _winner_and(other, rider)
+    blind, _, _ = _winner_and(other, rider)
     monkeypatch.setattr(riding, "CLASS_BLIND", False)
-    within, _ = _winner_and(other, rider)
+    within, _, _ = _winner_and(other, rider)
 
     # then
     assert blind[1] == pytest.approx(1.0)
@@ -131,3 +131,19 @@ def test_isolation_window_skips_ms1_and_marks_outside():
 
     # then
     assert window.tolist() == [0, 1, -1]
+
+
+def test_claimed_fragments_are_the_ones_the_partner_explains_in_full():
+    # given: a candidate sharing one fragment with the winner and five coherent fragments of its own
+    real = _fragments(
+        [400.0, 410.0, 420.0, 430.0, 440.0, 450.0],
+        [300.0, 300.0, 300.0, 300.0, 300.0, 300.0],
+        np.ones(6),
+    )
+
+    # when
+    _, _, claimed = _winner_and({"precursor_idx": 1, "proba": 0.4}, real)
+
+    # then
+    assert claimed[1].tolist() == [400.0] + [0.0] * (riding.TOP_K_FRAGMENTS - 1)
+    assert not claimed[0].any()

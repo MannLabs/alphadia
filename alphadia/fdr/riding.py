@@ -87,6 +87,7 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
     n, n_frag = evidence.shape
     riding = np.zeros(n, dtype=np.float32)
     own_support = np.ones(n, dtype=np.float32)
+    claimed = np.zeros((n, n_frag), dtype=np.bool_)
     for r in nb.prange(n):
         w = window[r]
         if w < 0:
@@ -151,13 +152,15 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
         own_coherent = 0.0
         for f in range(n_frag):
             explained += min(claim[f], evidence[r, f])
+            # the partners explain all of the fragment's evidence: it is theirs
+            claimed[r, f] = evidence[r, f] > 0 and claim[f] >= evidence[r, f]
             if not any_shared[f] and mz[r, f] > 0:
                 own_library += library[r, f]
                 if correlation[r, f] > COHERENT_CORRELATION:
                     own_coherent += library[r, f]
         riding[r] = explained / total
         own_support[r] = own_coherent / own_library if own_library > 0 else 0.0
-    return riding, own_support
+    return riding, own_support, claimed
 
 
 def isolation_window(mz: np.ndarray, cycle: np.ndarray) -> np.ndarray:
@@ -177,14 +180,15 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
     partner: np.ndarray,
     cycle: np.ndarray,
     ms2_tolerance_ppm: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Riding share and own support of every row of `rows`.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Riding share, own support and claimed fragments of every row of `rows`.
 
     `rows` needs REQUIRED_COLUMNS, `proba` (P(decoy)) and `_decoy`; `fragments` are the (len(rows), TOP_K_FRAGMENTS)
     library m/z (0: empty slot), library intensity, observed intensity and correlation of each row; `partner` marks the rows that can explain others. A row's
     riding share is the part of its fragment evidence that co-eluting partners with a lower proba and more evidence on
     their own fragments explain; its own support is the coherent share of the library intensity of the fragments no
-    such partner shares.
+    such partner shares. The claimed fragments, as (len(rows), TOP_K_FRAGMENTS) library m/z with 0 elsewhere, are
+    those whose evidence such partners explain in full.
     """
     mz, library, observed, correlation = fragments
     evidence = fragment_evidence(observed, correlation, library)
@@ -194,7 +198,7 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
     partner_rows = partner_rows[np.lexsort((rt[partner_rows], window[partner_rows]))]
     n_windows = int(window.max()) + 1 if len(window) else 0
     partner_window = window[partner_rows]
-    return _riding(
+    riding, own_support, claimed = _riding(
         window.astype(np.int64),
         rt,
         rows["fwhm_rt"].to_numpy(np.float64),
@@ -212,3 +216,4 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
         SHARED_TOLERANCE_FACTOR * ms2_tolerance_ppm,
         CLASS_BLIND,
     )
+    return riding, own_support, np.where(claimed, mz, 0.0)
