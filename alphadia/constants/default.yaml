@@ -207,7 +207,7 @@ search:
   fragment_claim_features: True
   # soft claims (clm_soft_*, needs fragment_claim_features): the share of every matched peak that a non-negative
   # mixture of the co-isolated precursors' library spectra attributes to the candidate
-  fragment_claim_soft: False
+  fragment_claim_soft: True
   # ppm tolerance within which two observed fragment m/z are the same ion (null = the optimized MS2 tolerance)
   fragment_claim_tolerance: null
   # another candidate can claim a fragment if its apex is at most this many cycles away
