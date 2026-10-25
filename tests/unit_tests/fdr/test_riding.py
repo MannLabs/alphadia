@@ -115,6 +115,7 @@ def test_within_class_keeps_decoys_from_target_partners(monkeypatch):
     other = {"precursor_idx": 1, "proba": 0.4, "_decoy": 1}
 
     # when
+    monkeypatch.setattr(riding, "CLASS_BLIND", True)
     blind, _ = _winner_and(other, rider)
     monkeypatch.setattr(riding, "CLASS_BLIND", False)
     within, _ = _winner_and(other, rider)

@@ -7,8 +7,9 @@ import pandas as pd
 from alphadia.constants.keys import CalibCols
 
 # Partners that can explain a candidate: the best candidate of an elution group whose proba is at most the proba of the
-# last target at this competed q-value (targets and decoys alike).
-WINNER_QVAL = 0.01
+# last target at this competed q-value (targets and decoys alike). A q 1 % pool misses a third of the interfered false
+# targets a q 5 % pool finds at the same loss of real ones; beyond that the pool fills with false partners.
+WINNER_QVAL = 0.05
 # Partners co-elute when their apexes are within this many of the larger of both fwhm_rt.
 CO_ELUTION_FWHM = 2.0
 # A fragment is shared when its library m/z is within this many MS2 tolerances of the partner's: the traces of two
@@ -16,16 +17,19 @@ CO_ELUTION_FWHM = 2.0
 SHARED_TOLERANCE_FACTOR = 1.0
 # A fragment co-elutes with its candidate when its profile correlates at least this much with the median profile.
 COHERENT_CORRELATION = 0.5
-# A candidate is removed when partners explain at least this share of its fragment evidence ...
-MIN_RIDING = 0.3
+# A candidate is removed when partners explain at least this share of its fragment evidence ... Set where the removal
+# of interfered false targets (ARATH entrapment, 5 ng) costs 3 % of the real ones: below ~0.1 the real losses grow
+# faster than the false removals.
+MIN_RIDING = 0.11
 # ... and at most this share of the library intensity of its unshared fragments co-elutes.
 MAX_OWN_SUPPORT = 1.0
 # Only PSMs up to this pooled q-value of the first fit can be removed (None: all), which bounds the PSMs whose
 # fragments have to be quantified.
 LOSER_POOLED_QVAL = None
 # Partners of either class explain a PSM; otherwise only partners of its own class (targets explain targets, decoys
-# explain decoys).
-CLASS_BLIND = True
+# explain decoys). At a low MIN_RIDING the class-blind rule removes far more decoys than false targets (decoys ride
+# real peaks more often), which inflates the identifications; the within-class rule keeps the decoys a fair model.
+CLASS_BLIND = False
 TOP_K_FRAGMENTS = 12
 PPM = 1e-6
 
