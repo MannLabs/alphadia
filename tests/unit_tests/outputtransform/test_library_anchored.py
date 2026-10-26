@@ -6,7 +6,7 @@ from alphadia.outputtransform.quantification.library_anchored import (
     library_anchored_estimate,
 )
 
-# the fit itself is tested in alphadia_search_rs (src/quantification/tests.rs), these tests
+# the fit itself is tested in alphadia_search_rs (src/library_anchored_quantification/tests.rs), these tests
 # cover the conversion of the matrices
 
 

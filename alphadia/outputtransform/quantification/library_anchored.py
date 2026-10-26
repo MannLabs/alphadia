@@ -1,7 +1,7 @@
 """Library-anchored precursor quantification.
 
 Converts the fragment matrices to the one-row-per-run matrices of
-`alphadia_search_rs.LibraryAnchoredFit`, which defines the model, the fit and the derivation
+`alphadia_search_rs.LibraryAnchoredQuantification`, which defines the model, the fit and the derivation
 of its loss scale and offset shrinkage from the data.
 """
 
@@ -9,7 +9,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-from alphadia_search_rs import LibraryAnchoredFit
+from alphadia_search_rs import LibraryAnchoredQuantification
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def library_anchored_estimate(
         )
     group_codes, groups = pd.factorize(group, sort=True)
 
-    result = LibraryAnchoredFit().fit(
+    result = LibraryAnchoredQuantification().fit(
         np.ascontiguousarray(np.nan_to_num(intensity).T, dtype=np.float32),
         library,
         group_codes.astype(np.uintp),
