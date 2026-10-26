@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 
+import numpy as np
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
@@ -79,6 +80,9 @@ def test_search_plan_output_integration():
 
     psm_base_df = mock_precursor_df(n_precursor=100)
     fragment_base_df = mock_fragment_df(n_precursor=200)
+    fragment_base_df[INTENSITY_LIBRARY_COLUMN] = np.random.default_rng(0).uniform(
+        0.1, 1.0, len(fragment_base_df)
+    )
 
     for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)
