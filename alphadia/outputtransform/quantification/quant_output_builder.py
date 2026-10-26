@@ -18,12 +18,16 @@ from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
     LFQOutputConfig,
     QuantBuilder,
 )
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
+
+# a precursor is already the robust estimate over its fragments, so a single one suffices
+MIN_PRECURSORS_PER_RUN = 1
 
 
 class QuantOutputBuilder:
@@ -74,11 +78,22 @@ class QuantOutputBuilder:
             columns = self.QUANTSELECT_COLUMNS
         else:
             columns = self.DEFAULT_COLUMNS
+        constant_ion_feature_columns = (
+            [INTENSITY_LIBRARY_COLUMN] if self._is_varmodel() else []
+        )
 
         self.fragment_loader = FragmentQuantLoader(
-            self._psm_no_decoys_df, columns=columns
+            self._psm_no_decoys_df,
+            columns=columns,
+            constant_ion_feature_columns=constant_ion_feature_columns,
         )
         self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
+
+    def _is_varmodel(self) -> bool:
+        return (
+            self.config["search_output"]["normalization_method"]
+            == NormalizationMethods.VARMODEL_DIRECTLFQ
+        )
 
     def build(
         self, folder_list: list[str]
@@ -122,6 +137,10 @@ class QuantOutputBuilder:
             == NormalizationMethods.QUANTSELECT
         ):
             level_dfs = self._quantify_with_quantselect(
+                requested_configs, feature_dfs_dict
+            )
+        elif self._is_varmodel():
+            level_dfs = self._quantify_with_varmodel_precursors(
                 requested_configs, feature_dfs_dict
             )
         else:
@@ -295,6 +314,56 @@ class QuantOutputBuilder:
                 intensity_df=filtered_intensity_df,
                 lfq_config=quantlevel_config,
                 config=self.config,
+            )
+        return level_dfs
+
+    def _quantify_with_varmodel_precursors(
+        self,
+        quantlevel_configs: list[LFQOutputConfig],
+        feature_dfs_dict: dict[str, pd.DataFrame],
+    ) -> dict[str, pd.DataFrame]:
+        """Estimate the precursor quantities with the variance-model fit and roll them up with directLFQ.
+
+        All levels are rolled up from the same precursor table so that they share the precursor
+        quantities; directLFQ's sample normalization does not depend on the grouping, so every
+        level also gets the same shifts.
+
+        Parameters
+        ----------
+        quantlevel_configs : list[LFQOutputConfig]
+            Requested quantification levels
+        feature_dfs_dict : dict[str, pd.DataFrame]
+            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        Returns
+        -------
+        dict[str, pd.DataFrame]
+            Quantification results by level name, empty without fragments
+        """
+        filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
+            feature_dfs_dict["intensity"],
+            feature_dfs_dict["correlation"],
+            top_n=self.config["search_output"]["min_k_fragments"],
+            min_correlation=self.config["search_output"]["min_correlation"],
+            group_column=QuantificationLevelKey.PRECURSOR,
+        )
+        if len(filtered_intensity_df) == 0:
+            return {}
+
+        precursor_df = self.quant_builder.varmodel_precursor_table(
+            filtered_intensity_df
+        )
+
+        level_dfs = {}
+        for quantlevel_config in quantlevel_configs:
+            logger.info(
+                f"Performing label free quantification on the {quantlevel_config.level_name} level"
+            )
+            level_dfs[quantlevel_config.level_name] = self.quant_builder.direct_lfq(
+                intensity_df=precursor_df,
+                lfq_config=quantlevel_config,
+                config=self.config,
+                min_nonan=MIN_PRECURSORS_PER_RUN,
             )
         return level_dfs
 

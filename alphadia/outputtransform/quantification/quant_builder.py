@@ -8,6 +8,7 @@ import directlfq.utils as lfqutils
 import numba as nb
 import numpy as np
 import pandas as pd
+from alphadia_search_rs import VarModelQuantification
 from quantselect.output import run_quantselect
 
 from alphadia.constants.keys import QuantificationLevelKey
@@ -263,6 +264,63 @@ class QuantBuilder:
             num_cores=config["general"]["thread_count"],
         )
         return protein_df
+
+    def varmodel_precursor_table(self, intensity_df: pd.DataFrame) -> pd.DataFrame:
+        """Estimate the precursor quantities with the variance-model fit.
+
+        Every precursor becomes one ion, so that directLFQ can normalize it and roll it up to
+        any level. The model is documented in `alphadia_search_rs.VarModelQuantification`.
+
+        Parameters
+        ----------
+        intensity_df: pd.DataFrame
+            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash, intensity_library
+
+        Returns
+        -------
+        pd.DataFrame
+            Precursor table with columns: ion, pg, mod_seq_hash, mod_seq_charge_hash, run1, run2, ...
+            where ion is the precursor key and missing quantities are 0
+        """
+        precursor_column = QuantificationLevelKey.PRECURSOR
+        run_columns = get_run_columns(intensity_df)
+
+        intensity_library = np.nan_to_num(
+            intensity_df[INTENSITY_LIBRARY_COLUMN].to_numpy(dtype=np.float32)
+        )
+        n_without_library = int((intensity_library <= 0).sum())
+        if n_without_library:
+            logger.warning(
+                f"{n_without_library:,} fragment ions without library intensity are ignored"
+            )
+        fragment_precursor_index, precursor_hashes = pd.factorize(
+            intensity_df[precursor_column], sort=True
+        )
+        intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
+
+        result = VarModelQuantification().fit(
+            np.ascontiguousarray(intensity.T),
+            intensity_library,
+            fragment_precursor_index.astype(np.uintp),
+            len(precursor_hashes),
+        )
+        logger.info(
+            f"Variance-model fit: residual scale {result['residual_scale']:.3f} log2, "
+            f"loss scale {result['loss_scale']:.2f}, "
+            f"offset shrinkage {result['offset_shrinkage']:.2f}"
+        )
+
+        # the sorted groupby rows line up with the sorted precursor_hashes of the fit
+        precursor_df = (
+            intensity_df.groupby(precursor_column)[
+                [QuantificationLevelKey.PROTEIN, QuantificationLevelKey.PEPTIDE]
+            ]
+            .first()
+            .reset_index()
+        )
+        precursor_df.insert(0, ION_COLUMN, precursor_hashes)
+        precursor_df[run_columns] = np.nan_to_num(np.power(2.0, result["quantity"].T))
+        return precursor_df
 
     def _prepare_ion_table(
         self, intensity_df: pd.DataFrame, quant_level: str

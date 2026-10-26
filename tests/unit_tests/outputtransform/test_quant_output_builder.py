@@ -1,12 +1,18 @@
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
-from alphadia.constants.keys import NormalizationMethods
+from alphadia.constants.keys import (
+    NormalizationMethods,
+)
 from alphadia.outputtransform.quantification import (
     QuantificationLevelName,
     QuantOutputBuilder,
+)
+from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
 )
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
@@ -305,3 +311,168 @@ class TestQuantOutputBuilder:
             }
         )
         pd.testing.assert_frame_equal(annotated_df, expected_df)
+
+
+def _varmodel_feature_dfs():
+    """Two precursors of PG001 and one of PG002, four fragments each, run2 at twice run1.
+
+    The third fragment of precursor 0 is interfered in run2 (16-fold instead of 2-fold).
+    """
+    intensity_library = np.array([1.0, 0.6, 0.3, 0.1])
+    precursor_level = {0: 1000.0, 1: 4000.0, 2: 500.0}
+    rows = []
+    for precursor_idx, level in precursor_level.items():
+        for i_fragment, fragment_intensity_library in enumerate(intensity_library):
+            run1 = level * fragment_intensity_library
+            run2 = 2 * run1
+            if precursor_idx == 0 and i_fragment == 2:
+                run2 = 16 * run1
+            rows.append(
+                {
+                    "precursor_idx": precursor_idx,
+                    "ion": precursor_idx * 10 + i_fragment,
+                    "run1": run1,
+                    "run2": run2,
+                    INTENSITY_LIBRARY_COLUMN: fragment_intensity_library,
+                    "correlation": 0.9,
+                    "pg": "PG001" if precursor_idx < 2 else "PG002",
+                    "mod_seq_hash": precursor_idx + 1,
+                    "mod_seq_charge_hash": (precursor_idx + 1) * 10,
+                }
+            )
+    df = pd.DataFrame(rows)
+    metadata = [
+        "precursor_idx",
+        "ion",
+        "pg",
+        "mod_seq_hash",
+        "mod_seq_charge_hash",
+        INTENSITY_LIBRARY_COLUMN,
+    ]
+
+    def matrix(column):
+        out = df[metadata].copy()
+        out["run1"] = df[column] if column != "intensity" else df["run1"]
+        out["run2"] = df[column] if column != "intensity" else df["run2"]
+        return out
+
+    return {"intensity": matrix("intensity"), "correlation": matrix("correlation")}
+
+
+class TestVarModelQuantification:
+    """The variance-model precursor quantities feed directLFQ on every level."""
+
+    @pytest.fixture
+    def varmodel_config(self, config):
+        config["search_output"]["normalization_method"] = (
+            NormalizationMethods.VARMODEL_DIRECTLFQ
+        )
+        config["search_output"]["normalize_directlfq"] = False
+        config["search_output"]["min_k_fragments"] = 4
+        config["search_output"]["min_nonnan"] = 3
+        return config
+
+    @pytest.fixture
+    def varmodel_psm_df(self):
+        return pd.DataFrame(
+            {
+                "precursor_idx": [0, 1, 2],
+                "decoy": [0, 0, 0],
+                "pg": ["PG001", "PG001", "PG002"],
+                "mod_seq_hash": [1, 2, 3],
+                "mod_seq_charge_hash": [10, 20, 30],
+                "sequence": ["PEPTIDE", "SEQUENCE", "PROTEIN"],
+                "mods": ["", "", ""],
+                "mod_sites": ["", "", ""],
+                "charge": [2, 2, 2],
+                "run": ["run1", "run1", "run2"],
+            }
+        )
+
+    def test_loads_the_library_intensity(self, varmodel_psm_df, varmodel_config):
+        # Given / When
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
+
+        # Then the library intensity is loaded as a constant ion feature, not as a run matrix
+        assert (
+            INTENSITY_LIBRARY_COLUMN
+            in builder.fragment_loader.constant_ion_feature_columns
+        )
+        assert INTENSITY_LIBRARY_COLUMN not in builder.fragment_loader.columns
+
+    def test_every_level_is_rolled_up_from_the_varmodel_precursors(
+        self, varmodel_psm_df, varmodel_config
+    ):
+        # Given
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
+        quantlevel_configs = builder._create_quant_level_configs()
+
+        # When
+        level_dfs = builder._quantify_with_varmodel_precursors(
+            quantlevel_configs, _varmodel_feature_dfs()
+        )
+
+        # Then the interfered fragment does not distort the 2-fold change
+        precursor_df = level_dfs[QuantificationLevelName.PRECURSOR].set_index(
+            "mod_seq_charge_hash"
+        )
+        np.testing.assert_allclose(
+            precursor_df["run2"] / precursor_df["run1"], 2.0, rtol=0.05
+        )
+        # and the precursor quantities are on the summed fragment scale
+        np.testing.assert_allclose(
+            precursor_df.loc[20, "run1"], 4000.0 * 2.0, rtol=0.05
+        )
+        # and the protein with only two precursors is quantified despite min_nonnan 3
+        protein_df = level_dfs[QuantificationLevelName.PROTEIN].set_index("pg")
+        assert set(protein_df.index) == {"PG001", "PG002"}
+        np.testing.assert_allclose(
+            protein_df["run2"] / protein_df["run1"], 2.0, rtol=0.05
+        )
+        peptide_df = level_dfs[QuantificationLevelName.PEPTIDE]
+        assert set(peptide_df["mod_seq_hash"]) == {1, 2, 3}
+
+    def test_every_level_normalizes_the_same_precursor_table(
+        self, varmodel_psm_df, varmodel_config
+    ):
+        # Given
+        varmodel_config["search_output"]["normalize_directlfq"] = True
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
+
+        # When
+        with patch.object(
+            builder.quant_builder,
+            "_normalize_ion_table",
+            wraps=builder.quant_builder._normalize_ion_table,
+        ) as spy_normalize:
+            level_dfs = builder._quantify_with_varmodel_precursors(
+                builder._create_quant_level_configs(), _varmodel_feature_dfs()
+            )
+
+        # Then directLFQ normalizes per level, the ion table being the same precursors each time
+        assert spy_normalize.call_count == len(level_dfs)
+        assert set(level_dfs) == {
+            QuantificationLevelName.PRECURSOR,
+            QuantificationLevelName.PEPTIDE,
+            QuantificationLevelName.PROTEIN,
+        }
+
+    def test_directlfq_rollup_uses_the_fragments(self, varmodel_psm_df, config):
+        # Given the directLFQ precursor rollup
+        builder = QuantOutputBuilder(varmodel_psm_df, config)
+
+        # When
+        with patch.object(
+            builder.quant_builder, "varmodel_precursor_table"
+        ) as mock_varmodel:
+            builder._quantify_with_directlfq(
+                builder._create_quant_level_configs(), _varmodel_feature_dfs()
+            )
+
+        # Then
+        mock_varmodel.assert_not_called()
+        assert INTENSITY_LIBRARY_COLUMN not in builder.fragment_loader.columns
+        assert (
+            INTENSITY_LIBRARY_COLUMN
+            not in builder.fragment_loader.constant_ion_feature_columns
+        )
