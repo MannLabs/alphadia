@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from alphadia.outputtransform.quantification import FragmentQuantLoader
+from alphadia.outputtransform.quantification.quant_builder import get_run_columns
 
 READ_COLUMNS = [
     "precursor_idx",
@@ -93,6 +94,28 @@ class TestFragmentQuantLoaderAccumulate:
         assert "run1" in result["intensity"].columns
         assert "run2" in result["intensity"].columns
         assert result["intensity"].shape[0] == 3
+
+    def test_accumulate_adds_a_constant_ion_feature_to_every_matrix(
+        self, psm_df, fragment_df
+    ):
+        # Given a constant ion feature and an ion only in run2
+        fragment_df["intensity_library"] = [1.0, 0.5, 0.25]
+        frag_df2 = fragment_df.copy()
+        frag_df2["precursor_idx"] = [0, 1, 1]
+        frag_df2["number"] = np.array([1, 1, 2], dtype=np.uint8)
+        frag_df2["intensity_library"] = [1.0, 0.5, 0.125]
+        loader = FragmentQuantLoader(
+            psm_df, constant_ion_feature_columns=["intensity_library"]
+        )
+
+        # When
+        result = loader.accumulate(iter([("run1", fragment_df), ("run2", frag_df2)]))
+
+        # Then every matrix carries the feature as ion metadata, not as a run
+        assert set(result) == {"intensity", "correlation"}
+        for df in result.values():
+            assert get_run_columns(df) == ["run1", "run2"]
+            assert sorted(df["intensity_library"]) == [0.125, 0.25, 0.5, 1.0]
 
     def test_accumulate_empty_iterator(self, psm_df):
         """Test accumulate returns None for empty iterator."""

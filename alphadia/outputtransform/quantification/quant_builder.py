@@ -19,11 +19,13 @@ logger = logging.getLogger()
 PRECURSOR_IDX_COLUMN = "precursor_idx"
 # directLFQ's name for the lowest quantified unit, fragments here
 ION_COLUMN = "ion"
+INTENSITY_LIBRARY_COLUMN = "intensity_library"
 # Run columns of the accumulated fragment matrices are everything not listed here
 FRAGMENT_METADATA_COLUMNS = [
     PRECURSOR_IDX_COLUMN,
     ION_COLUMN,
     *QuantificationLevelKey.get_values(),
+    INTENSITY_LIBRARY_COLUMN,
 ]
 
 PRECURSOR_IDX_MASK = 0xFFFFFFFF
@@ -220,6 +222,7 @@ class QuantBuilder:
         intensity_df: pd.DataFrame,
         lfq_config: LFQOutputConfig,
         config: Config,
+        min_nonan: int | None = None,
     ) -> pd.DataFrame:
         """Perform label-free quantification using directLFQ.
 
@@ -231,6 +234,8 @@ class QuantBuilder:
             Configuration for this quantification level
         config: Config
             Global configuration object
+        min_nonan: int | None
+            Minimum number of ions per group and run, None for `search_output.min_nonnan`
 
         Returns
         -------
@@ -251,7 +256,9 @@ class QuantBuilder:
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
-            min_nonan=config["search_output"]["min_nonnan"],
+            min_nonan=config["search_output"]["min_nonnan"]
+            if min_nonan is None
+            else min_nonan,
             num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
             num_cores=config["general"]["thread_count"],
         )

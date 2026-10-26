@@ -617,6 +617,31 @@ class TestLfq:
         else:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
 
+    @pytest.mark.parametrize(("min_nonan", "expected"), [(None, 3), (1, 1)])
+    def test_min_nonan_overrides_the_config(
+        self,
+        lfq_data,
+        psm_df,
+        lfq_config,
+        search_config,
+        mock_directlfq,
+        min_nonan,
+        expected,
+    ):
+        # Given
+        search_config["search_output"]["min_nonnan"] = 3
+        builder = QuantBuilder(psm_df)
+
+        # When
+        builder.direct_lfq(
+            lfq_data["intensity"], lfq_config("pg"), search_config, min_nonan=min_nonan
+        )
+
+        # Then
+        mock_prot = mock_directlfq["prot"]
+        call_kwargs = mock_prot.estimate_protein_intensities.call_args.kwargs
+        assert call_kwargs["min_nonan"] == expected
+
     def test_returns_empty_frame_when_nothing_was_observed(
         self, lfq_data, psm_df, lfq_config, search_config
     ):
