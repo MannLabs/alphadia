@@ -333,7 +333,7 @@ def _varmodel_feature_dfs():
                     "ion": precursor_idx * 10 + i_fragment,
                     "run1": run1,
                     "run2": run2,
-                    "library": fragment_library,
+                    INTENSITY_LIBRARY_COLUMN: fragment_library,
                     "correlation": 0.9,
                     "pg": "PG001" if precursor_idx < 2 else "PG002",
                     "mod_seq_hash": precursor_idx + 1,
@@ -341,7 +341,14 @@ def _varmodel_feature_dfs():
                 }
             )
     df = pd.DataFrame(rows)
-    metadata = ["precursor_idx", "ion", "pg", "mod_seq_hash", "mod_seq_charge_hash"]
+    metadata = [
+        "precursor_idx",
+        "ion",
+        "pg",
+        "mod_seq_hash",
+        "mod_seq_charge_hash",
+        INTENSITY_LIBRARY_COLUMN,
+    ]
 
     def matrix(column):
         out = df[metadata].copy()
@@ -349,13 +356,7 @@ def _varmodel_feature_dfs():
         out["run2"] = df[column] if column != "intensity" else df["run2"]
         return out
 
-    return {
-        "intensity": matrix("intensity"),
-        "correlation": matrix("correlation"),
-        INTENSITY_LIBRARY_COLUMN: df[["ion", "library"]].rename(
-            columns={"library": INTENSITY_LIBRARY_COLUMN}
-        ),
-    }
+    return {"intensity": matrix("intensity"), "correlation": matrix("correlation")}
 
 
 class TestVarModelQuantification:
@@ -407,7 +408,7 @@ class TestVarModelQuantification:
         quantlevel_configs = builder._create_quant_level_configs()
 
         # When
-        level_dfs = builder._quantify_with_directlfq(
+        level_dfs = builder._quantify_with_varmodel_precursors(
             quantlevel_configs, _varmodel_feature_dfs()
         )
 
@@ -444,7 +445,7 @@ class TestVarModelQuantification:
             "_normalize_ion_table",
             wraps=builder.quant_builder._normalize_ion_table,
         ) as spy_normalize:
-            level_dfs = builder._quantify_with_directlfq(
+            level_dfs = builder._quantify_with_varmodel_precursors(
                 builder._create_quant_level_configs(), _varmodel_feature_dfs()
             )
 

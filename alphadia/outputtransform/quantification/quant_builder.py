@@ -20,18 +20,19 @@ logger = logging.getLogger()
 PRECURSOR_IDX_COLUMN = "precursor_idx"
 # directLFQ's name for the lowest quantified unit, fragments here
 ION_COLUMN = "ion"
+INTENSITY_LIBRARY_COLUMN = "intensity_library"
 # Run columns of the accumulated fragment matrices are everything not listed here
 FRAGMENT_METADATA_COLUMNS = [
     PRECURSOR_IDX_COLUMN,
     ION_COLUMN,
     *QuantificationLevelKey.get_values(),
+    INTENSITY_LIBRARY_COLUMN,
 ]
 
 PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
 # fragment columns consumed by `_ion_hash`, in the order of its signature
 ION_HASH_COLUMNS = [PRECURSOR_IDX_COLUMN, "number", "type", "charge", "loss_type"]
-INTENSITY_LIBRARY_COLUMN = "intensity_library"
 
 
 def get_run_columns(df: pd.DataFrame) -> list[str]:
@@ -264,11 +265,7 @@ class QuantBuilder:
         )
         return protein_df
 
-    def varmodel_precursor_table(
-        self,
-        intensity_df: pd.DataFrame,
-        library_df: pd.DataFrame,
-    ) -> pd.DataFrame:
+    def varmodel_precursor_table(self, intensity_df: pd.DataFrame) -> pd.DataFrame:
         """Estimate the precursor quantities with the variance-model fit.
 
         Every precursor becomes one ion, so that directLFQ can normalize it and roll it up to
@@ -277,9 +274,7 @@ class QuantBuilder:
         Parameters
         ----------
         intensity_df: pd.DataFrame
-            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
-        library_df: pd.DataFrame
-            Library intensity per ion with columns: ion, intensity_library (ions missing here count as 0)
+            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash, intensity_library
 
         Returns
         -------
@@ -290,10 +285,8 @@ class QuantBuilder:
         precursor_column = QuantificationLevelKey.PRECURSOR
         run_columns = get_run_columns(intensity_df)
 
-        library = (
-            library_df.set_index(ION_COLUMN)[INTENSITY_LIBRARY_COLUMN]
-            .reindex(intensity_df[ION_COLUMN].to_numpy(), fill_value=0.0)
-            .to_numpy(dtype=np.float32)
+        library = np.nan_to_num(
+            intensity_df[INTENSITY_LIBRARY_COLUMN].to_numpy(dtype=np.float32)
         )
         n_without_library = int((library <= 0).sum())
         if n_without_library:
@@ -317,20 +310,16 @@ class QuantBuilder:
             f"offset shrinkage {result['offset_shrinkage']:.2f}"
         )
 
-        precursor_df = pd.DataFrame(
-            np.nan_to_num(np.power(2.0, result["quantity"].T)), columns=run_columns
-        )
-        level_df = (
+        # the sorted groupby rows line up with the sorted factorize codes of the fit
+        precursor_df = (
             intensity_df.groupby(precursor_column)[
                 [QuantificationLevelKey.PROTEIN, QuantificationLevelKey.PEPTIDE]
             ]
             .first()
-            .reindex(precursors)
+            .reset_index()
         )
         precursor_df.insert(0, ION_COLUMN, precursors)
-        precursor_df.insert(1, precursor_column, precursors)
-        for column in [QuantificationLevelKey.PEPTIDE, QuantificationLevelKey.PROTEIN]:
-            precursor_df.insert(1, column, level_df[column].to_numpy())
+        precursor_df[run_columns] = np.nan_to_num(np.power(2.0, result["quantity"].T))
         return precursor_df
 
     def _prepare_ion_table(

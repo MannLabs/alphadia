@@ -30,8 +30,8 @@ class FragmentQuantLoader:
         Columns to extract from fragment data. Defaults to ["intensity", "correlation"]
     constant_ion_feature_columns : list[str] | None, default=None
         Ion features that are constant across runs, such as the library intensity, which every
-        run copies from the same spectral library. They are kept once per ion instead of once
-        per run.
+        run copies from the same spectral library. They are added as metadata columns of every
+        matrix instead of one column per run.
     """
 
     def __init__(
@@ -68,6 +68,7 @@ class FragmentQuantLoader:
         dict[str, pd.DataFrame] | None
             Dictionary with column name as key and dataframe as value, where each dataframe
             has columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+            and the `constant_ion_feature_columns`
             Returns None if no fragment files are found
         """
         df_iterable = self._get_frag_df_generator(folder_list)
@@ -87,8 +88,8 @@ class FragmentQuantLoader:
         -------
         dict[str, pd.DataFrame] | None
             Dictionary with column name as key and dataframe as value, where each dataframe
-            has columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash,
-            except for the `constant_ion_feature_columns`, whose dataframes have the columns: ion, <column>
+            has columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+            and the `constant_ion_feature_columns`
             Returns None if iterator is empty
         """
         logger.info("Accumulating fragment data")
@@ -137,16 +138,11 @@ class FragmentQuantLoader:
             "precursor_idx", as_index=False
         ).agg({"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"})
 
-        constant_ion_feature_df = constant_ion_feature_df.reset_index(drop=True)
         return {
-            **{
-                col: self._add_precursor_idx(df, precursor_metadata_df)
-                for col, df in zip(self.columns, df_list)
-            },
-            **{
-                col: constant_ion_feature_df[[ION_COLUMN, col]]
-                for col in self.constant_ion_feature_columns
-            },
+            col: self._add_precursor_idx(df, precursor_metadata_df).merge(
+                constant_ion_feature_df, on=ION_COLUMN, how="left"
+            )
+            for col, df in zip(self.columns, df_list)
         }
 
     def _get_frag_df_generator(

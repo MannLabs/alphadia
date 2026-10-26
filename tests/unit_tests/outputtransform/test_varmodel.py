@@ -14,17 +14,15 @@ from alphadia.outputtransform.quantification.quant_builder import (
 RUNS = ["run1", "run2", "run3"]
 
 
-def _fragment_tables(library, precursor, intensity):
-    """Fragment intensity table and per-ion library table for `varmodel_precursor_table`."""
-    ions = np.arange(len(library))
+def _fragment_table(library, precursor, intensity):
     intensity_df = pd.DataFrame(intensity, columns=RUNS[: intensity.shape[1]])
     intensity_df.insert(0, "precursor_idx", precursor)
-    intensity_df.insert(1, "ion", ions)
+    intensity_df.insert(1, "ion", np.arange(len(library)))
     intensity_df["pg"] = [f"PG{p}" for p in precursor]
     intensity_df["mod_seq_hash"] = precursor
     intensity_df["mod_seq_charge_hash"] = precursor
-    library_df = pd.DataFrame({"ion": ions, INTENSITY_LIBRARY_COLUMN: library})
-    return intensity_df, library_df
+    intensity_df[INTENSITY_LIBRARY_COLUMN] = library
+    return intensity_df
 
 
 def test_precursor_table_has_one_sorted_row_per_precursor_with_its_runs():
@@ -39,12 +37,10 @@ def test_precursor_table_has_one_sorted_row_per_precursor_with_its_runs():
             for fragment_library, p in zip(library, precursor, strict=True)
         ]
     )
-    intensity_df, library_df = _fragment_tables(library, precursor, intensity)
+    intensity_df = _fragment_table(library, precursor, intensity)
 
     # When
-    precursor_df = QuantBuilder(pd.DataFrame()).varmodel_precursor_table(
-        intensity_df, library_df
-    )
+    precursor_df = QuantBuilder(pd.DataFrame()).varmodel_precursor_table(intensity_df)
 
     # Then
     assert precursor_df["mod_seq_charge_hash"].tolist() == [10, 20]
@@ -58,18 +54,15 @@ def test_precursor_table_has_one_sorted_row_per_precursor_with_its_runs():
 
 
 def test_fragments_without_library_intensity_are_ignored_with_a_warning(caplog):
-    # Given one fragment without a library intensity and one missing from the library table
-    library = np.array([1.0, 0.5, 0.0, 0.25])
-    intensity = np.array([[100.0, 200.0], [50.0, 100.0], [10.0, 99.0], [25.0, 50.0]])
-    intensity_df, library_df = _fragment_tables(
-        library, np.zeros(4, dtype=int), intensity
-    )
-    library_df = library_df.iloc[:3]
+    # Given one fragment with a zero library intensity and one missing from the library
+    library = np.array([1.0, 0.5, 0.0, np.nan])
+    intensity = np.array([[100.0, 200.0], [50.0, 100.0], [10.0, 99.0], [25.0, 51.0]])
+    intensity_df = _fragment_table(library, np.zeros(4, dtype=int), intensity)
 
     # When
     with caplog.at_level(logging.WARNING):
         precursor_df = QuantBuilder(pd.DataFrame()).varmodel_precursor_table(
-            intensity_df, library_df
+            intensity_df
         )
 
     # Then

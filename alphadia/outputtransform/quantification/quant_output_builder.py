@@ -139,6 +139,10 @@ class QuantOutputBuilder:
             level_dfs = self._quantify_with_quantselect(
                 requested_configs, feature_dfs_dict
             )
+        elif self._is_varmodel():
+            level_dfs = self._quantify_with_varmodel_precursors(
+                requested_configs, feature_dfs_dict
+            )
         else:
             level_dfs = self._quantify_with_directlfq(
                 requested_configs, feature_dfs_dict
@@ -291,11 +295,6 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name, levels without fragments are absent
         """
-        if self._is_varmodel():
-            return self._quantify_with_varmodel_precursors(
-                quantlevel_configs, feature_dfs_dict
-            )
-
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
             logger.info(
@@ -352,7 +351,7 @@ class QuantOutputBuilder:
             return {}
 
         precursor_df = self.quant_builder.varmodel_precursor_table(
-            filtered_intensity_df, feature_dfs_dict[INTENSITY_LIBRARY_COLUMN]
+            filtered_intensity_df
         )
 
         level_dfs = {}
