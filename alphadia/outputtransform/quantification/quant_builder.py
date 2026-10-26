@@ -268,8 +268,8 @@ class QuantBuilder:
     def varmodel_precursor_table(self, intensity_df: pd.DataFrame) -> pd.DataFrame:
         """Estimate the precursor quantities with the variance-model fit.
 
-        Every precursor becomes one ion, so that directLFQ can normalize it and roll it up to
-        any level. The model is documented in `alphadia_search_rs.VarModelQuantification`.
+        Every precursor becomes one ion. The model is documented in
+        `alphadia_search_rs.VarModelQuantification`.
 
         Parameters
         ----------

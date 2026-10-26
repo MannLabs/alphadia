@@ -121,8 +121,6 @@ def add_library_fragment_intensity(
 ) -> pd.DataFrame:
     """Add the library intensity of every quantified fragment as `INTENSITY_LIBRARY_COLUMN`.
 
-    The varmodel_directlfq quantification compares the observed fragment intensities with the
-    library pattern, so the pattern is stored next to the observed intensities in frag.parquet.
     Fragments not found in the library get 0.
 
     Parameters
