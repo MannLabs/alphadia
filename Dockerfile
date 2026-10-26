@@ -32,7 +32,7 @@ RUN adduser \
 #    --mount=type=bind,source=requirements/requirements.txt,target=requirements/requirements.txt \
 #    python -m pip install -r requirements/requirements.txt
 
-# building alphadia from source requires a Rust toolchain for its compiled extension
+# needed to compile the Rust extension
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 

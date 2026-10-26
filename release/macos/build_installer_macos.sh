@@ -3,7 +3,7 @@ set -e -u
 
 # Build the installer for MacOS.
 # This script needs to be run from the root of the repository.
-# Prerequisites: the wheel for this platform is in dist/ (taken from the release, cf. platform_wheels in .github/workflows/create_release.yml)
+# Prerequisites: the wheel for this platform is in dist/
 
 rm -rf dist_pyinstaller build_pyinstaller
 

@@ -6,7 +6,7 @@ recursive-exclude tests *
 
 global-exclude */__pycache__/*
 global-exclude *.pyc *.nbi *.nbc
-# local in-place builds of the Rust extension, the wheel gets a freshly compiled one
+# stale local builds of the Rust extension, wheels compile their own
 global-exclude *.so *.pyd
 
 graft rust

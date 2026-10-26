@@ -1,7 +1,6 @@
 use pyo3::prelude::*;
 
-/// Placeholder to exercise the Rust build and release pipeline until the
-/// alphadia-search-rs code is moved into this crate.
+/// Placeholder to test the build and release pipeline until alphadia-search-rs moves here.
 #[pyfunction]
 fn hello_world() -> &'static str {
     "Hello from alphadia Rust!"

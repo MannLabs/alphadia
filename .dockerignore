@@ -32,7 +32,7 @@
 **/values.dev.yaml
 LICENSE
 
-# Rust build artifacts, compiled for the host instead of the image
+# host-compiled Rust builds
 **/target
 alphadia/*.so
 alphadia/*.pyd
