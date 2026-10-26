@@ -6,14 +6,14 @@ import pandas as pd
 from alphadia.constants.keys import FragmentCols
 from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
 
-# the fit itself is tested in alphadia_search_rs (src/library_anchored_quantification/tests.rs), these tests
+# the fit itself is tested in alphadia_search_rs (src/varmodel_quantification/tests.rs), these tests
 # cover the conversion of the fragment matrices to the precursor table
 
 RUNS = ["run1", "run2", "run3"]
 
 
 def _fragment_tables(library, precursor, intensity):
-    """Fragment intensity table and per-ion library table for `library_anchored_precursor_table`."""
+    """Fragment intensity table and per-ion library table for `varmodel_precursor_table`."""
     ions = np.arange(len(library))
     intensity_df = pd.DataFrame(intensity, columns=RUNS[: intensity.shape[1]])
     intensity_df.insert(0, "precursor_idx", precursor)
@@ -40,7 +40,7 @@ def test_precursor_table_has_one_sorted_row_per_precursor_with_its_runs():
     intensity_df, library_df = _fragment_tables(library, precursor, intensity)
 
     # When
-    precursor_df = QuantBuilder(pd.DataFrame()).library_anchored_precursor_table(
+    precursor_df = QuantBuilder(pd.DataFrame()).varmodel_precursor_table(
         intensity_df, library_df
     )
 
@@ -66,7 +66,7 @@ def test_fragments_without_library_intensity_are_ignored_with_a_warning(caplog):
 
     # When
     with caplog.at_level(logging.WARNING):
-        precursor_df = QuantBuilder(pd.DataFrame()).library_anchored_precursor_table(
+        precursor_df = QuantBuilder(pd.DataFrame()).varmodel_precursor_table(
             intensity_df, library_df
         )
 

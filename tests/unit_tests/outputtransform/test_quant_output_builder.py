@@ -312,7 +312,7 @@ class TestQuantOutputBuilder:
         pd.testing.assert_frame_equal(annotated_df, expected_df)
 
 
-def _anchored_feature_dfs():
+def _varmodel_feature_dfs():
     """Two precursors of PG001 and one of PG002, four fragments each, run2 at twice run1.
 
     The third fragment of precursor 0 is interfered in run2 (16-fold instead of 2-fold).
@@ -357,11 +357,11 @@ def _anchored_feature_dfs():
     }
 
 
-class TestLibraryAnchoredQuantification:
-    """The library-anchored precursor quantities feed directLFQ on every level."""
+class TestVarModelQuantification:
+    """The variance-model precursor quantities feed directLFQ on every level."""
 
     @pytest.fixture
-    def anchored_config(self, config):
+    def varmodel_config(self, config):
         config["search_output"]["normalization_method"] = (
             NormalizationMethods.VARMODEL_DIRECTLFQ
         )
@@ -371,7 +371,7 @@ class TestLibraryAnchoredQuantification:
         return config
 
     @pytest.fixture
-    def anchored_psm_df(self):
+    def varmodel_psm_df(self):
         return pd.DataFrame(
             {
                 "precursor_idx": [0, 1, 2],
@@ -387,24 +387,24 @@ class TestLibraryAnchoredQuantification:
             }
         )
 
-    def test_loads_the_library_intensity(self, anchored_psm_df, anchored_config):
+    def test_loads_the_library_intensity(self, varmodel_psm_df, varmodel_config):
         # Given / When
-        builder = QuantOutputBuilder(anchored_psm_df, anchored_config)
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
 
         # Then the library intensity is loaded once per ion, not as a run matrix
         assert FragmentCols.INTENSITY_LIBRARY in builder.fragment_loader.per_ion_columns
         assert FragmentCols.INTENSITY_LIBRARY not in builder.fragment_loader.columns
 
-    def test_every_level_is_rolled_up_from_the_anchored_precursors(
-        self, anchored_psm_df, anchored_config
+    def test_every_level_is_rolled_up_from_the_varmodel_precursors(
+        self, varmodel_psm_df, varmodel_config
     ):
         # Given
-        builder = QuantOutputBuilder(anchored_psm_df, anchored_config)
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
         quantlevel_configs = builder._create_quant_level_configs()
 
         # When
         level_dfs = builder._quantify_with_directlfq(
-            quantlevel_configs, _anchored_feature_dfs()
+            quantlevel_configs, _varmodel_feature_dfs()
         )
 
         # Then the interfered fragment does not distort the 2-fold change
@@ -428,11 +428,11 @@ class TestLibraryAnchoredQuantification:
         assert set(peptide_df["mod_seq_hash"]) == {1, 2, 3}
 
     def test_precursor_table_is_normalized_once_for_all_levels(
-        self, anchored_psm_df, anchored_config
+        self, varmodel_psm_df, varmodel_config
     ):
         # Given
-        anchored_config["search_output"]["normalize_directlfq"] = True
-        builder = QuantOutputBuilder(anchored_psm_df, anchored_config)
+        varmodel_config["search_output"]["normalize_directlfq"] = True
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
 
         # When
         with patch.object(
@@ -441,7 +441,7 @@ class TestLibraryAnchoredQuantification:
             wraps=builder.quant_builder._normalize_ion_table,
         ) as spy_normalize:
             level_dfs = builder._quantify_with_directlfq(
-                builder._create_quant_level_configs(), _anchored_feature_dfs()
+                builder._create_quant_level_configs(), _varmodel_feature_dfs()
             )
 
         # Then
@@ -452,20 +452,20 @@ class TestLibraryAnchoredQuantification:
             QuantificationLevelName.PROTEIN,
         }
 
-    def test_directlfq_rollup_uses_the_fragments(self, anchored_psm_df, config):
+    def test_directlfq_rollup_uses_the_fragments(self, varmodel_psm_df, config):
         # Given the directLFQ precursor rollup
-        builder = QuantOutputBuilder(anchored_psm_df, config)
+        builder = QuantOutputBuilder(varmodel_psm_df, config)
 
         # When
         with patch.object(
-            builder.quant_builder, "library_anchored_precursor_table"
-        ) as mock_anchored:
+            builder.quant_builder, "varmodel_precursor_table"
+        ) as mock_varmodel:
             builder._quantify_with_directlfq(
-                builder._create_quant_level_configs(), _anchored_feature_dfs()
+                builder._create_quant_level_configs(), _varmodel_feature_dfs()
             )
 
         # Then
-        mock_anchored.assert_not_called()
+        mock_varmodel.assert_not_called()
         assert FragmentCols.INTENSITY_LIBRARY not in builder.fragment_loader.columns
         assert (
             FragmentCols.INTENSITY_LIBRARY

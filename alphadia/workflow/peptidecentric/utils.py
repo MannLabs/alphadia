@@ -118,7 +118,7 @@ def add_library_fragment_intensity(
 ) -> pd.DataFrame:
     """Add the library intensity of every quantified fragment as `FragmentCols.INTENSITY_LIBRARY`.
 
-    The library-anchored precursor rollup compares the observed fragment intensities with the
+    The varmodel_directlfq quantification compares the observed fragment intensities with the
     library pattern, so the pattern is stored next to the observed intensities in frag.parquet.
     Fragments not found in the library get 0.
 

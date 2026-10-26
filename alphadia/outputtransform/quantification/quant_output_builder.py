@@ -77,7 +77,7 @@ class QuantOutputBuilder:
         else:
             columns = self.DEFAULT_COLUMNS
         per_ion_columns = (
-            [FragmentCols.INTENSITY_LIBRARY] if self._is_library_anchored() else []
+            [FragmentCols.INTENSITY_LIBRARY] if self._is_varmodel() else []
         )
 
         self.fragment_loader = FragmentQuantLoader(
@@ -85,8 +85,8 @@ class QuantOutputBuilder:
         )
         self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
 
-    def _is_library_anchored(self) -> bool:
-        """Whether directLFQ rolls up library-anchored precursor quantities."""
+    def _is_varmodel(self) -> bool:
+        """Whether directLFQ rolls up variance-model precursor quantities."""
         return (
             self.config["search_output"]["normalization_method"]
             == NormalizationMethods.VARMODEL_DIRECTLFQ
@@ -294,8 +294,8 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name, levels without fragments are absent
         """
-        if self._is_library_anchored():
-            return self._quantify_with_library_anchored_precursors(
+        if self._is_varmodel():
+            return self._quantify_with_varmodel_precursors(
                 quantlevel_configs, feature_dfs_dict
             )
 
@@ -321,12 +321,12 @@ class QuantOutputBuilder:
             )
         return level_dfs
 
-    def _quantify_with_library_anchored_precursors(
+    def _quantify_with_varmodel_precursors(
         self,
         quantlevel_configs: list[LFQOutputConfig],
         feature_dfs_dict: dict[str, pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
-        """Estimate the precursor quantities with the library-anchored fit and roll them up with directLFQ.
+        """Estimate the precursor quantities with the variance-model fit and roll them up with directLFQ.
 
         The fragments are filtered once on the precursor level and the precursor table is
         normalized once. Every level, the precursor level included, is then quantified by
@@ -346,7 +346,7 @@ class QuantOutputBuilder:
             Quantification results by level name, empty without fragments
         """
         logger.info(
-            "Performing label free quantification on library-anchored precursor quantities"
+            "Performing label free quantification on variance-model precursor quantities"
         )
         filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
             feature_dfs_dict["intensity"],
@@ -358,7 +358,7 @@ class QuantOutputBuilder:
         if len(filtered_intensity_df) == 0:
             return {}
 
-        precursor_df = self.quant_builder.library_anchored_precursor_table(
+        precursor_df = self.quant_builder.varmodel_precursor_table(
             filtered_intensity_df, feature_dfs_dict[FragmentCols.INTENSITY_LIBRARY]
         )
         if self.config["search_output"]["normalize_directlfq"]:

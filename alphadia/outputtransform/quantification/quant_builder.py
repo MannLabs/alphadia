@@ -8,7 +8,7 @@ import directlfq.utils as lfqutils
 import numba as nb
 import numpy as np
 import pandas as pd
-from alphadia_search_rs import LibraryAnchoredQuantification
+from alphadia_search_rs import VarModelQuantification
 from quantselect.output import run_quantselect
 
 from alphadia.constants.keys import FragmentCols, QuantificationLevelKey
@@ -271,14 +271,14 @@ class QuantBuilder:
         )
         return protein_df
 
-    def library_anchored_precursor_table(
+    def varmodel_precursor_table(
         self,
         intensity_df: pd.DataFrame,
         library_df: pd.DataFrame,
     ) -> pd.DataFrame:
-        """Estimate the precursor quantities with the library-anchored fit.
+        """Estimate the precursor quantities with the variance-model fit.
 
-        `alphadia_search_rs.LibraryAnchoredQuantification` defines the model, the fit and the
+        `alphadia_search_rs.VarModelQuantification` defines the model, the fit and the
         derivation of its loss scale and offset shrinkage from the data. Fragments without a
         library intensity are ignored. The result is an ion table in which every precursor is
         one ion, so that directLFQ can normalize it and roll it up to any level.
@@ -296,7 +296,7 @@ class QuantBuilder:
             Precursor table with columns: ion, pg, mod_seq_hash, mod_seq_charge_hash, run1, run2, ...
             where ion is the precursor key and missing quantities are 0
         """
-        logger.info("Estimating precursor quantities with the library-anchored fit")
+        logger.info("Estimating precursor quantities with the variance-model fit")
         precursor_column = QuantificationLevelKey.PRECURSOR
         run_columns = get_run_columns(intensity_df)
 
@@ -315,14 +315,14 @@ class QuantBuilder:
         )
         intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
 
-        result = LibraryAnchoredQuantification().fit(
+        result = VarModelQuantification().fit(
             np.ascontiguousarray(intensity.T),
             library,
             precursor_codes.astype(np.uintp),
             len(precursors),
         )
         logger.info(
-            f"Library-anchored fit: residual scale {result['residual_scale']:.3f} log2, "
+            f"Variance-model fit: residual scale {result['residual_scale']:.3f} log2, "
             f"loss scale {result['loss_scale']:.2f}, "
             f"offset shrinkage {result['offset_shrinkage']:.2f}"
         )
@@ -346,7 +346,7 @@ class QuantBuilder:
     def normalize_precursor_table(
         self, precursor_df: pd.DataFrame, config: Config
     ) -> pd.DataFrame:
-        """Apply directLFQ sample normalization to a precursor table of `library_anchored_precursor_table`.
+        """Apply directLFQ sample normalization to a precursor table of `varmodel_precursor_table`.
 
         directLFQ's sample normalization does not depend on the grouping of the ions, so the
         normalized table serves every quantification level.
