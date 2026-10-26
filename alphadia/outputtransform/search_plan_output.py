@@ -10,6 +10,7 @@ from alphadia import utils
 from alphadia.constants.keys import (
     ConfigKeys,
     NormalizationMethods,
+    SearchPlanFiles,
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
@@ -34,7 +35,7 @@ from alphadia.outputtransform.utils import (
     log_protein_fdr_summary,
     prepare_psm_dataframe,
     read_df,
-    write_df,
+    write_table,
 )
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
@@ -43,16 +44,6 @@ logger = logging.getLogger()
 
 
 class SearchPlanOutput:
-    PSM_INPUT = "psm"
-    PRECURSOR_OUTPUT = "precursors"
-    STAT_OUTPUT = "stat"
-    INTERNAL_OUTPUT = "internal"
-    PG_OUTPUT = "protein_groups"
-    LIBRARY_OUTPUT = "speclib.mbr"
-    TRANSFER_OUTPUT = "speclib.transfer"
-    TRANSFER_MODEL = "peptdeep.transfer"
-    TRANSFER_STATS_OUTPUT = "stats.transfer"
-
     def __init__(self, config: Config, output_folder: str):
         """Combine individual searches into and build combined outputs
 
@@ -93,10 +84,12 @@ class SearchPlanOutput:
         """Build output from a list of search outputs.
 
         The following files are written to the output folder:
-        - precursor.tsv
-        - protein_groups.tsv
+        - precursors
         - stat.tsv
-        - speclib.mbr.hdf
+        - internal.tsv
+        - speclib.mbr.hdf, if enabled
+        - speclib.transfer.hdf, peptdeep.transfer and stats.transfer.tsv, if enabled
+        - one quantification matrix per level, if label-free quantification is enabled
 
         Parameters
         ----------
@@ -109,22 +102,38 @@ class SearchPlanOutput:
 
         """
         logger.progress("Processing search outputs")
-        psm_df = self._build_precursor_table(folder_list, save=False)
-        self._build_stat_df(folder_list, psm_df=psm_df, save=True)
-        self._build_internal_df(folder_list, save=True)
+        psm_df = self._build_precursor_table(folder_list)
+
+        # every output is written as soon as it is built, so a later failure does not
+        # discard the outputs already on disk
+        self._write_table(
+            self._build_stat_df(folder_list, psm_df), SearchPlanFiles.STAT_FILE_NAME
+        )
+        self._write_table(
+            self._build_internal_df(folder_list), SearchPlanFiles.INTERNAL_FILE_NAME
+        )
 
         if self.config["general"]["save_mbr_library"]:
             if base_spec_lib is None:
                 raise ValueError(
                     "Passing base spectral library is required for MBR library building."
                 )
-            self._build_mbr_library(base_spec_lib, psm_df=psm_df, save=True)
+            mbr_spec_lib = self._build_mbr_library(base_spec_lib, psm_df)
+            if mbr_spec_lib is not None:
+                self._write_library(mbr_spec_lib, SearchPlanFiles.MBR_LIBRARY_FILE_NAME)
 
         if self.config["transfer_library"]["enabled"]:
-            self._build_transfer_library(folder_list, save=True)
+            self._write_library(
+                self._build_transfer_library(folder_list),
+                SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME,
+            )
 
         if self.config["transfer_learning"]["enabled"]:
-            self._build_transfer_model(save=True)
+            tune_mgr, transfer_stats_df = self._build_transfer_model()
+            self._write_model(tune_mgr)
+            self._write_table(
+                transfer_stats_df, SearchPlanFiles.TRANSFER_STATS_FILE_NAME
+            )
 
         # LFQ is the most memory-intensive step and runs last, so an OOM kill here
         # does not discard the MBR library and transfer model already on disk
@@ -133,24 +142,52 @@ class SearchPlanOutput:
             self.config["search_output"]["normalization_method"].lower()
             != NormalizationMethods.NONE
         ):
-            self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
+            quant_output_builder = QuantOutputBuilder(psm_df, self.config)
+            lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
+
+            self._write_precursor_table(psm_df_with_quant)
+            if lfq_results:
+                quant_output_builder.save_results(
+                    lfq_results,
+                    self.output_folder,
+                    file_format=self.config["search_output"]["file_format"],
+                )
         else:
             logger.info("Skipping label free quantification")
-            self._save_precursor_table(psm_df)
+            self._write_precursor_table(psm_df)
 
-    def _build_transfer_model(self, save=True):
-        """
-        Finetune PeptDeep models using the transfer library
+    def _write_precursor_table(self, psm_df: pd.DataFrame) -> None:
+        file_format = self.config["search_output"]["file_format"]
+        self._write_table(
+            apply_output_column_names(psm_df),
+            f"{SearchPlanFiles.PRECURSORS_FILE_STEM}.{file_format}",
+        )
 
-        Parameters
-        ----------
-        save : bool, optional
-            Whether to save the statistics of the transfer learning on disk, by default True
+    def _write_table(self, df: pd.DataFrame, file_name: str) -> None:
+        write_table(df, os.path.join(self.output_folder, file_name))
+
+    def _write_library(self, spec_lib: base.SpecLibBase, file_name: str) -> None:
+        library_path = os.path.join(self.output_folder, file_name)
+        logger.info(f"Writing spectral library to {library_path}")
+        spec_lib.save_hdf(library_path)
+
+    def _write_model(self, tune_mgr: FinetuneManager) -> None:
+        tune_mgr.save_models(
+            os.path.join(self.output_folder, SearchPlanFiles.TRANSFER_MODEL_FOLDER_NAME)
+        )
+
+    def _build_transfer_model(self) -> tuple[FinetuneManager, pd.DataFrame]:
+        """Finetune PeptDeep models using the transfer library on disk.
+
+        Returns
+        -------
+        tuple[FinetuneManager, pd.DataFrame]
+            The manager holding the finetuned models and the combined finetuning statistics
         """
         logger.progress("Train PeptDeep Models")
 
         transfer_lib_path = os.path.join(
-            self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
+            self.output_folder, SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME
         )
         if not os.path.exists(transfer_lib_path):
             raise ValueError(
@@ -189,41 +226,24 @@ class SearchPlanOutput:
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
 
-        tune_mgr.save_models(os.path.join(self.output_folder, self.TRANSFER_MODEL))
-
-        combined_stats = pd.concat([rt_stats, charge_stats, ms2_stats])
-
-        if save:
-            logger.info("Writing transfer learning stats output to disk")
-            write_df(
-                combined_stats,
-                os.path.join(self.output_folder, self.TRANSFER_STATS_OUTPUT),
-                file_format="tsv",
-            )
+        return tune_mgr, pd.concat([rt_stats, charge_stats, ms2_stats])
 
     def _build_transfer_library(
         self,
         folder_list: list[str],
-        keep_top: int = 3,
+        # TODO: derive from general.thread_count; fixed since the accumulator was added,
+        # each process loads the psm and fragment files of one run into memory
         number_of_processes: int = 4,
-        save: bool = True,
     ) -> base.SpecLibBase:
-        """
-        A function to get the transfer library
+        """Accumulate the transfer learning library from the search outputs.
 
         Parameters
         ----------
         folder_list : List[str]
             The list of output folders.
 
-        keep_top : int
-            The number of top runs to keep per each precursor, based on the proba. (smaller the proba, better the run)
-
         number_of_processes : int, optional
-            The number of processes to use, by default 2
-
-        save : bool, optional
-            Whether to save the transfer library to disk, by default True
+            The number of processes to use, by default 4
 
         Returns
         -------
@@ -258,12 +278,6 @@ class SearchPlanOutput:
             f"Built transfer library using {len(folder_list)} folders and {number_of_processes} processes"
         )
         log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
-        if save:
-            transfer_lib_path = os.path.join(
-                self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
-            )
-            logging.info(f"Writing transfer library to {transfer_lib_path}")
-            transferAccumulator.consensus_speclibase.save_hdf(transfer_lib_path)
 
         return transferAccumulator.consensus_speclibase
 
@@ -279,15 +293,11 @@ class SearchPlanOutput:
         """
 
         return read_df(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+            os.path.join(self.output_folder, SearchPlanFiles.PRECURSORS_FILE_STEM),
             file_format=self.config["search_output"]["file_format"],
         )
 
-    def _build_precursor_table(
-        self,
-        folder_list: list[str],
-        save: bool = True,
-    ):
+    def _build_precursor_table(self, folder_list: list[str]) -> pd.DataFrame:
         """Build precursor table from a list of search outputs
 
         Parameters
@@ -295,9 +305,6 @@ class SearchPlanOutput:
 
         folder_list: List[str]
             List of folders containing the search outputs
-
-        save: bool
-            Save the precursor table to disk
 
         Returns
         -------
@@ -307,7 +314,7 @@ class SearchPlanOutput:
         """
         logger.progress("=== Performing protein grouping and FDR ===")
 
-        psm_df_list = load_psm_files_from_folders(folder_list, self.PSM_INPUT)
+        psm_df_list = load_psm_files_from_folders(folder_list)
 
         if len(psm_df_list) == 0:
             raise NoPSMFilesFoundError()
@@ -336,13 +343,6 @@ class SearchPlanOutput:
 
         if not self.config["fdr"]["keep_decoys"]:
             psm_df = psm_df[psm_df["decoy"] == 0]
-        if save:
-            logger.info("Writing precursor output to disk")
-            write_df(
-                psm_df,
-                os.path.join(self.output_folder, self.PRECURSOR_OUTPUT),
-                file_format=self.config["search_output"]["file_format"],
-            )
 
         return psm_df
 
@@ -350,8 +350,7 @@ class SearchPlanOutput:
         self,
         folder_list: list[str],
         psm_df: pd.DataFrame,
-        save: bool = True,
-    ):
+    ) -> pd.DataFrame:
         """Build stat table from a list of search outputs
 
         Parameters
@@ -363,14 +362,11 @@ class SearchPlanOutput:
         psm_df: pd.DataFrame
             Combined precursor table
 
-        save: bool
-            Save the precursor table to disk
-
         Returns
         -------
 
         stat_df: pd.DataFrame
-            Precursor table
+            Stat table with one row per run and channel
         """
         logger.progress("Building search statistics")
 
@@ -390,23 +386,9 @@ class SearchPlanOutput:
                 )
             )
 
-        stat_df = pd.concat(stat_df_list)
+        return pd.concat(stat_df_list)
 
-        if save:
-            logger.info("Writing stat output to disk")
-            write_df(
-                stat_df,
-                os.path.join(self.output_folder, self.STAT_OUTPUT),
-                file_format="tsv",
-            )
-
-        return stat_df
-
-    def _build_internal_df(
-        self,
-        folder_list: list[str],
-        save: bool = True,
-    ):
+    def _build_internal_df(self, folder_list: list[str]) -> pd.DataFrame:
         """Build internal data table from a list of search outputs
 
         Parameters
@@ -415,14 +397,11 @@ class SearchPlanOutput:
         folder_list: List[str]
             List of folders containing the search outputs
 
-        save: bool
-            Save the precursor table to disk
-
         Returns
         -------
 
-        stat_df: pd.DataFrame
-            Precursor table
+        internal_df: pd.DataFrame
+            Internal table with one row per run
         """
         logger.progress("Building internal statistics")
 
@@ -434,63 +413,12 @@ class SearchPlanOutput:
                 )
             )
 
-        internal_df = pd.concat(internal_df_list)
-
-        if save:
-            logger.info("Writing internal output to disk")
-            write_df(
-                internal_df,
-                os.path.join(self.output_folder, self.INTERNAL_OUTPUT),
-                file_format="tsv",
-            )
-
-        return internal_df
-
-    def _build_lfq_tables(
-        self,
-        folder_list: list[str],
-        psm_df: pd.DataFrame,
-        save: bool = True,
-    ):
-        """Accumulate fragment information and perform label-free protein quantification.
-
-        Parameters
-        ----------
-        folder_list: List[str]
-            List of folders containing the search outputs
-        psm_df: pd.DataFrame
-            Combined precursor table
-        save: bool
-            Save the precursor table to disk
-        """
-        quant_output_builder = QuantOutputBuilder(psm_df, self.config)
-        lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
-
-        if save:
-            self._save_precursor_table(psm_df_with_quant)
-
-            if lfq_results:
-                quant_output_builder.save_results(
-                    lfq_results,
-                    self.output_folder,
-                    file_format=self.config["search_output"]["file_format"],
-                )
-
-        return lfq_results
-
-    def _save_precursor_table(self, psm_df: pd.DataFrame) -> None:
-        logger.info("Writing psm output to disk")
-        write_df(
-            apply_output_column_names(psm_df),
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
-            file_format=self.config["search_output"]["file_format"],
-        )
+        return pd.concat(internal_df_list)
 
     def _build_mbr_library(
         self,
         base_spec_lib: base.SpecLibBase,
         psm_df: pd.DataFrame,
-        save: bool = True,
     ) -> SpecLibBase | None:
         """Build MBR spectral library.
 
@@ -503,9 +431,11 @@ class SearchPlanOutput:
         psm_df: pd.DataFrame
             Combined precursor table
 
-        save: bool
-            Save the MBR spectral library to disk
+        Returns
+        -------
 
+        SpecLibBase | None
+            MBR spectral library, None if there are no precursors
         """
         logger.progress("Building MBR spectral library")
 
@@ -526,12 +456,5 @@ class SearchPlanOutput:
         logger.info(
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"
         )
-
-        if save:
-            mbr_lib_path = os.path.join(
-                self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
-            )
-            logger.info(f"Writing MBR spectral library to {mbr_lib_path}")
-            mbr_spec_lib.save_hdf(mbr_lib_path)
 
         return mbr_spec_lib

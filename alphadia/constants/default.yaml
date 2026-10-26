@@ -337,8 +337,6 @@ search_output:
   precursor_level_lfq: True
   # Whether to perform label-free quantification at the peptide level
   peptide_level_lfq: True
-  # Save fragment quant matrix for advanced users
-  save_fragment_quant_matrix: False
 
   # === advanced settings ===
   # Minimum number of fragments required for quantification

@@ -10,6 +10,7 @@ from conftest import mock_fragment_df, mock_precursor_df
 from alphadia.constants.keys import (
     InferenceStrategy,
     NormalizationMethods,
+    SearchPlanFiles,
     SearchStepFiles,
 )
 from alphadia.outputtransform.outputaccumulator import ms2_quality_control
@@ -54,7 +55,6 @@ def prepare_input_data():
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
-            "save_fragment_quant_matrix": False,
             "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
         },
@@ -130,11 +130,7 @@ def test_complete_output_accumulation():
 
     # When:
     output = SearchPlanOutput(config, temp_folder)
-    _ = output._build_transfer_library(raw_folders, save=True)
-    built_lib = SpecLibBase()
-    built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
-    )
+    built_lib = output._build_transfer_library(raw_folders)
 
     # Then: all unique none decoy precursors should be in the built library
     union_psm_df = pd.concat(psm_dfs)
@@ -161,11 +157,7 @@ def test_selection_of_precursors():
     config["transfer_library"]["top_k_samples"] = keep_top
     # When:
     output = SearchPlanOutput(config, temp_folder)
-    _ = output._build_transfer_library(raw_folders, save=True)
-    built_lib = SpecLibBase()
-    built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
-    )
+    built_lib = output._build_transfer_library(raw_folders)
 
     # Then: The selceted keep_top precursors should be the ones with the lowest proba in the original dataframes
     for precursor_idx in np.unique(built_lib.precursor_df["precursor_idx"]):
@@ -203,11 +195,7 @@ def test_keep_top_constraint():
 
     # When:
     output = SearchPlanOutput(config, temp_folder)
-    _ = output._build_transfer_library(raw_folders, save=True)
-    built_lib = SpecLibBase()
-    built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
-    )
+    built_lib = output._build_transfer_library(raw_folders)
 
     # Then: there should be maximum keep_top precursors for each precursor
     for precursor_idx in np.unique(built_lib.precursor_df["precursor_idx"]):
@@ -237,11 +225,7 @@ def test_default_column_assignment():
 
     # When:
     output = SearchPlanOutput(config, temp_folder)
-    _ = output._build_transfer_library(raw_folders, save=True)
-    built_lib = SpecLibBase()
-    built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
-    )
+    built_lib = output._build_transfer_library(raw_folders)
 
     # Then: The columns rt, mobility, mz should be correctly assigned
     for col in ["rt", "mobility", "mz"]:
@@ -270,11 +254,7 @@ def test_non_nan_fragments():
 
     # When:
     output = SearchPlanOutput(config, temp_folder)
-    _ = output._build_transfer_library(raw_folders, save=True)
-    built_lib = SpecLibBase()
-    built_lib.load_hdf(
-        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
-    )
+    built_lib = output._build_transfer_library(raw_folders)
 
     # Then: The fragment dataframe should have no nan values
     assert (
@@ -334,3 +314,21 @@ def test_use_for_ms2():
     np.testing.assert_array_equal(
         speclib.precursor_df["use_for_ms2"].values, expected_use_for_ms2
     )
+
+
+def test_build_transfer_library_returns_library_without_writing():
+    # given
+    config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
+
+    # when
+    transfer_lib = SearchPlanOutput(config, temp_folder)._build_transfer_library(
+        raw_folders
+    )
+
+    # then
+    assert len(transfer_lib.precursor_df) > 0
+    assert not os.path.exists(
+        os.path.join(temp_folder, SearchPlanFiles.TRANSFER_LIBRARY_FILE_NAME)
+    )
+
+    shutil.rmtree(temp_folder)

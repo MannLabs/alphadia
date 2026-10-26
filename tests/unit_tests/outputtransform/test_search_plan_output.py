@@ -12,6 +12,8 @@ from alphadia.constants.keys import (
     PrecursorOutputCols,
     ProteinGroupOutputCols,
     QuantificationLevelName,
+    SearchPlanFiles,
+    StatSearchCols,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
@@ -69,7 +71,6 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
-            "save_fragment_quant_matrix": False,
             "file_format": "parquet",
             "normalization_method": normalization_method,
             "normalize_directlfq": True,
@@ -139,7 +140,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
 
     # then
     psm_df = pd.read_parquet(
-        os.path.join(temp_folder, f"{SearchPlanOutput.PRECURSOR_OUTPUT}.parquet")
+        os.path.join(temp_folder, f"{SearchPlanFiles.PRECURSORS_FILE_STEM}.parquet")
     )
     assert psm_df["raw.name"].nunique() == 3
     assert all(
@@ -159,7 +160,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
     )
 
     stat_df = pd.read_csv(
-        os.path.join(temp_folder, f"{SearchPlanOutput.STAT_OUTPUT}.tsv"), sep="\t"
+        os.path.join(temp_folder, SearchPlanFiles.STAT_FILE_NAME), sep="\t"
     )
     assert len(stat_df) == 3
     assert stat_df["optimization.ms2_error"][0] == 6
@@ -191,7 +192,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
     )
 
     internal_df = pd.read_csv(
-        os.path.join(temp_folder, f"{SearchPlanOutput.INTERNAL_OUTPUT}.tsv"), sep="\t"
+        os.path.join(temp_folder, SearchPlanFiles.INTERNAL_FILE_NAME), sep="\t"
     )
     assert isinstance(internal_df["duration_extraction"][0], float)
 
@@ -282,3 +283,26 @@ def test_merge_quant_levels_to_psm_merges_all_levels():
         }
     )
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_build_stat_df_returns_stats_without_writing(tmp_path):
+    # given
+    config = {
+        "general": {"save_figures": False},
+        "search": {"channel_filter": "0"},
+        "multiplexing": {"enabled": False},
+    }
+    raw_folder = tmp_path / "run_0"
+    raw_folder.mkdir()
+    psm_df = pd.DataFrame(
+        {"run": ["run_0"] * 2, "decoy": [0, 1], "channel": [0, 0], "pg": ["A", "B"]}
+    )
+
+    # when
+    stat_df = SearchPlanOutput(config, str(tmp_path))._build_stat_df(
+        [str(raw_folder)], psm_df
+    )
+
+    # then
+    assert stat_df[StatSearchCols.PRECURSORS].tolist() == [1]
+    assert not (tmp_path / SearchPlanFiles.STAT_FILE_NAME).exists()
