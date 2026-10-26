@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "setuptools-rust>=1.11"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -64,6 +64,34 @@ version = {attr = "alphadia.__version__"}
 
 [project.scripts]
 alphadia = "alphadia.cli:run"
+
+[[tool.setuptools-rust.ext-modules]]
+target = "alphadia._rust"
+path = "rust/Cargo.toml"
+binding = "PyO3"
+# only set when building the Python extension, so `cargo test` can still link against libpython
+features = ["pyo3/extension-module"]
+# editable installs (`pip install -e .`, used in CI and e2e tests) would otherwise get an unoptimized debug build,
+# for fast debug builds while iterating on Rust code use `maturin develop` (see below)
+debug = false
+
+# Only used for local development via `maturin develop [--release]`, mirroring alphadia-search-rs.
+# Wheels and releases are built by setuptools-rust (above), because maturin can't read the dependencies from requirements/*.txt.
+# Keep module-name and features in sync with the setuptools-rust section.
+[tool.maturin]
+manifest-path = "rust/Cargo.toml"
+module-name = "alphadia._rust"
+features = ["pyo3/extension-module"]
+
+[tool.cibuildwheel]
+build = ["cp311-*", "cp312-*", "cp313-*"]
+archs = ["auto64"]
+skip = ["*-musllinux_*"]
+
+[tool.cibuildwheel.linux]
+# the manylinux containers do not ship a Rust toolchain
+before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal"
+environment = { PATH = "$HOME/.cargo/bin:$PATH" }
 
 
 [tool.ruff.lint]
