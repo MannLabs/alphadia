@@ -43,7 +43,7 @@ def test_library_anchored_estimate_warns_about_fragments_without_library(caplog)
     # When
     with caplog.at_level(logging.WARNING):
         _, quantity = library_anchored_estimate(
-            intensity, np.array([1.0, 0.5, np.nan]), np.zeros(3, dtype=int)
+            intensity, np.array([1.0, 0.5, 0.0]), np.zeros(3, dtype=int)
         )
 
     # Then

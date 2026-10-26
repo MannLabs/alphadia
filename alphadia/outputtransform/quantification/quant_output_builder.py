@@ -17,7 +17,6 @@ from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
-    ION_COLUMN,
     LFQOutputConfig,
     QuantBuilder,
 )
@@ -75,13 +74,14 @@ class QuantOutputBuilder:
             == NormalizationMethods.QUANTSELECT
         ):
             columns = self.QUANTSELECT_COLUMNS
-        elif self._is_library_anchored():
-            columns = [*self.DEFAULT_COLUMNS, FragmentCols.INTENSITY_LIBRARY]
         else:
             columns = self.DEFAULT_COLUMNS
+        per_ion_columns = (
+            [FragmentCols.INTENSITY_LIBRARY] if self._is_library_anchored() else []
+        )
 
         self.fragment_loader = FragmentQuantLoader(
-            self._psm_no_decoys_df, columns=columns
+            self._psm_no_decoys_df, columns=columns, per_ion_columns=per_ion_columns
         )
         self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
 
@@ -359,10 +359,8 @@ class QuantOutputBuilder:
         if len(filtered_intensity_df) == 0:
             return {}
 
-        library_df = feature_dfs_dict[FragmentCols.INTENSITY_LIBRARY]
         precursor_df = self.quant_builder.library_anchored_precursor_table(
-            filtered_intensity_df,
-            library_df[library_df[ION_COLUMN].isin(filtered_intensity_df[ION_COLUMN])],
+            filtered_intensity_df, feature_dfs_dict[FragmentCols.INTENSITY_LIBRARY]
         )
         if self.config["search_output"]["normalize_directlfq"]:
             precursor_df = self.quant_builder.normalize_precursor_table(

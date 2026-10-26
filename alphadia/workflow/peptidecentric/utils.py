@@ -134,9 +134,6 @@ def add_library_fragment_intensity(
     pd.DataFrame
         The fragments in the same order with the library intensity column added
     """
-    if FragmentCols.INTENSITY_LIBRARY in fragments_df.columns:
-        return fragments_df
-
     precursor_df = spectral_library.precursor_df
     precursor_df = precursor_df[
         precursor_df["precursor_idx"].isin(fragments_df["precursor_idx"].unique())

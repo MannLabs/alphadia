@@ -352,7 +352,9 @@ def _anchored_feature_dfs():
     return {
         "intensity": matrix("intensity"),
         "correlation": matrix("correlation"),
-        FragmentCols.INTENSITY_LIBRARY: matrix("library"),
+        FragmentCols.INTENSITY_LIBRARY: df[["ion", "library"]].rename(
+            columns={"library": FragmentCols.INTENSITY_LIBRARY}
+        ),
     }
 
 
@@ -388,8 +390,9 @@ class TestLibraryAnchoredQuantification:
         # Given / When
         builder = QuantOutputBuilder(anchored_psm_df, anchored_config)
 
-        # Then
-        assert FragmentCols.INTENSITY_LIBRARY in builder.fragment_loader.columns
+        # Then the library intensity is loaded once per ion, not as a run matrix
+        assert FragmentCols.INTENSITY_LIBRARY in builder.fragment_loader.per_ion_columns
+        assert FragmentCols.INTENSITY_LIBRARY not in builder.fragment_loader.columns
 
     def test_every_level_is_rolled_up_from_the_anchored_precursors(
         self, anchored_psm_df, anchored_config
@@ -463,3 +466,7 @@ class TestLibraryAnchoredQuantification:
         # Then
         mock_anchored.assert_not_called()
         assert FragmentCols.INTENSITY_LIBRARY not in builder.fragment_loader.columns
+        assert (
+            FragmentCols.INTENSITY_LIBRARY
+            not in builder.fragment_loader.per_ion_columns
+        )

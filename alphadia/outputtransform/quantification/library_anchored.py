@@ -26,7 +26,7 @@ def library_anchored_estimate(
     intensity : np.ndarray
         Fragments x runs linear intensities, 0 or NaN where missing
     library : np.ndarray
-        Library intensity per fragment row, 0 or NaN where unknown (the fragment is ignored)
+        Library intensity per fragment row, 0 where unknown (the fragment is ignored)
     group : np.ndarray
         Group id (e.g. precursor) per fragment row
 
@@ -35,7 +35,7 @@ def library_anchored_estimate(
     tuple[np.ndarray, np.ndarray]
         Sorted unique group ids and the log2 quantities (groups x runs), NaN where undefined
     """
-    library = np.nan_to_num(np.asarray(library, dtype=np.float32))
+    library = np.asarray(library, dtype=np.float32)
     n_without_library = int((library <= 0).sum())
     if n_without_library:
         logger.warning(

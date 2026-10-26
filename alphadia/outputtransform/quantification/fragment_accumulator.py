@@ -6,6 +6,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from alphadia.outputtransform.quantification.quant_builder import (
+    ION_COLUMN,
     ION_HASH_COLUMNS,
     precursor_idx_from_ion,
     prepare_df,
@@ -26,14 +27,25 @@ class FragmentQuantLoader:
         PSM dataframe to filter fragments by precursor_idx
     columns : list[str] | None, default=None
         Columns to extract from fragment data. Defaults to ["intensity", "correlation"]
+    per_ion_columns : list[str] | None, default=None
+        Columns that hold one value per ion, the same in every run. They are kept once per
+        ion instead of once per run.
     """
 
-    def __init__(self, psm_df: pd.DataFrame, columns: list[str] | None = None):
+    def __init__(
+        self,
+        psm_df: pd.DataFrame,
+        columns: list[str] | None = None,
+        per_ion_columns: list[str] | None = None,
+    ):
         self.psm_df = psm_df
         self.columns = ["intensity", "correlation"] if columns is None else columns
+        self.per_ion_columns = [] if per_ion_columns is None else per_ion_columns
         # the remaining columns of the fragment files are never used downstream,
         # reading them would roughly double the bytes read per file
-        self._read_columns = list(dict.fromkeys(ION_HASH_COLUMNS + self.columns))
+        self._read_columns = list(
+            dict.fromkeys(ION_HASH_COLUMNS + self.columns + self.per_ion_columns)
+        )
 
     def accumulate_from_folders(
         self, folder_list: list[str]
@@ -69,7 +81,8 @@ class FragmentQuantLoader:
         -------
         dict[str, pd.DataFrame] | None
             Dictionary with column name as key and dataframe as value, where each dataframe
-            has columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+            has columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash,
+            except for the `per_ion_columns`, whose dataframes have the columns: ion, <column>
             Returns None if iterator is empty
         """
         logger.info("Accumulating fragment data")
@@ -79,7 +92,8 @@ class FragmentQuantLoader:
             logger.warning(f"No frag file found for {raw_name}")
             return None
 
-        df = prepare_df(df, self.psm_df, columns=self.columns)
+        df = prepare_df(df, self.psm_df, columns=self.columns + self.per_ion_columns)
+        per_ion_df = df[[ION_COLUMN, *self.per_ion_columns]]
 
         # the ion hash already encodes the precursor_idx, so it is the only join key
         # needed here; precursor_idx is recovered once all runs are merged
@@ -90,7 +104,13 @@ class FragmentQuantLoader:
             df_list.append(feat_df)
 
         for raw_name, df in df_iterable:
-            df = prepare_df(df, self.psm_df, columns=self.columns)
+            df = prepare_df(
+                df, self.psm_df, columns=self.columns + self.per_ion_columns
+            )
+            new_ions = ~df[ION_COLUMN].isin(per_ion_df[ION_COLUMN])
+            per_ion_df = pd.concat(
+                [per_ion_df, df.loc[new_ions, [ION_COLUMN, *self.per_ion_columns]]]
+            )
 
             for idx, col in enumerate(self.columns):
                 df_list[idx] = df_list[idx].merge(
@@ -104,9 +124,13 @@ class FragmentQuantLoader:
             "precursor_idx", as_index=False
         ).agg({"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"})
 
+        per_ion_df = per_ion_df.reset_index(drop=True)
         return {
-            col: self._add_precursor_idx(df, precursor_metadata_df)
-            for col, df in zip(self.columns, df_list)
+            **{
+                col: self._add_precursor_idx(df, precursor_metadata_df)
+                for col, df in zip(self.columns, df_list)
+            },
+            **{col: per_ion_df[[ION_COLUMN, col]] for col in self.per_ion_columns},
         }
 
     def _get_frag_df_generator(

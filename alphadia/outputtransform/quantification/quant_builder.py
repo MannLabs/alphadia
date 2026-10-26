@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from quantselect.output import run_quantselect
 
-from alphadia.constants.keys import QuantificationLevelKey
+from alphadia.constants.keys import FragmentCols, QuantificationLevelKey
 from alphadia.outputtransform.quantification.library_anchored import (
     library_anchored_estimate,
 )
@@ -288,7 +288,7 @@ class QuantBuilder:
         intensity_df: pd.DataFrame
             Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
         library_df: pd.DataFrame
-            Library intensities of the same ions in the same layout (constant over runs, 0 where missing)
+            Library intensity per ion with columns: ion, intensity_library (ions missing here count as 0)
 
         Returns
         -------
@@ -301,9 +301,8 @@ class QuantBuilder:
         run_columns = get_run_columns(intensity_df)
 
         library = (
-            library_df.set_index(ION_COLUMN)[run_columns]
-            .max(axis=1)
-            .reindex(intensity_df[ION_COLUMN].to_numpy())
+            library_df.set_index(ION_COLUMN)[FragmentCols.INTENSITY_LIBRARY]
+            .reindex(intensity_df[ION_COLUMN].to_numpy(), fill_value=0.0)
             .to_numpy(dtype=np.float32)
         )
         groups, quantity = library_anchored_estimate(
