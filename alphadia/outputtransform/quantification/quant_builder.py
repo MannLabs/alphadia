@@ -8,12 +8,10 @@ import directlfq.utils as lfqutils
 import numba as nb
 import numpy as np
 import pandas as pd
+from alphadia_search_rs import LibraryAnchoredQuantification
 from quantselect.output import run_quantselect
 
 from alphadia.constants.keys import FragmentCols, QuantificationLevelKey
-from alphadia.outputtransform.quantification.library_anchored import (
-    library_anchored_estimate,
-)
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.workflow.config import Config
 
@@ -278,10 +276,12 @@ class QuantBuilder:
         intensity_df: pd.DataFrame,
         library_df: pd.DataFrame,
     ) -> pd.DataFrame:
-        """Estimate the precursor quantities with the library-anchored fit (see `library_anchored`).
+        """Estimate the precursor quantities with the library-anchored fit.
 
-        The result is an ion table in which every precursor is one ion, so that directLFQ can
-        normalize it and roll it up to any level.
+        `alphadia_search_rs.LibraryAnchoredQuantification` defines the model, the fit and the
+        derivation of its loss scale and offset shrinkage from the data. Fragments without a
+        library intensity are ignored. The result is an ion table in which every precursor is
+        one ion, so that directLFQ can normalize it and roll it up to any level.
 
         Parameters
         ----------
@@ -305,24 +305,40 @@ class QuantBuilder:
             .reindex(intensity_df[ION_COLUMN].to_numpy(), fill_value=0.0)
             .to_numpy(dtype=np.float32)
         )
-        groups, quantity = library_anchored_estimate(
-            intensity=intensity_df[run_columns].to_numpy(dtype=np.float32),
-            library=library,
-            group=intensity_df[precursor_column].to_numpy(),
+        n_without_library = int((library <= 0).sum())
+        if n_without_library:
+            logger.warning(
+                f"{n_without_library:,} fragment ions without library intensity are ignored"
+            )
+        precursor_codes, precursors = pd.factorize(
+            intensity_df[precursor_column], sort=True
+        )
+        intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
+
+        result = LibraryAnchoredQuantification().fit(
+            np.ascontiguousarray(intensity.T),
+            library,
+            precursor_codes.astype(np.uintp),
+            len(precursors),
+        )
+        logger.info(
+            f"Library-anchored fit: residual scale {result['residual_scale']:.3f} log2, "
+            f"loss scale {result['loss_scale']:.2f}, "
+            f"offset shrinkage {result['offset_shrinkage']:.2f}"
         )
 
         precursor_df = pd.DataFrame(
-            np.nan_to_num(np.power(2.0, quantity)), columns=run_columns
+            np.nan_to_num(np.power(2.0, result["quantity"].T)), columns=run_columns
         )
         level_df = (
             intensity_df.groupby(precursor_column)[
                 [QuantificationLevelKey.PROTEIN, QuantificationLevelKey.PEPTIDE]
             ]
             .first()
-            .reindex(groups)
+            .reindex(precursors)
         )
-        precursor_df.insert(0, ION_COLUMN, groups)
-        precursor_df.insert(1, precursor_column, groups)
+        precursor_df.insert(0, ION_COLUMN, precursors)
+        precursor_df.insert(1, precursor_column, precursors)
         for column in [QuantificationLevelKey.PEPTIDE, QuantificationLevelKey.PROTEIN]:
             precursor_df.insert(1, column, level_df[column].to_numpy())
         return precursor_df
