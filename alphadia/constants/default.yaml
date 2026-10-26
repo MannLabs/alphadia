@@ -350,16 +350,15 @@ search_output:
   # Minimum number of non-missing values required for quantification
   min_nonnan: 3
 
-  # LFQ method for quantification ("directlfq", "quantselect" or "none"). "none" skips LFQ: no quantification tables are written
-  normalization_method: directlfq
-  # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directlfq")
+  # LFQ method for quantification ("varmodel_directlfq", "directlfq", "quantselect" or "none").
+  # "varmodel_directlfq" estimates every precursor from its fragments by a robust fit of run quantity + fragment offset
+  # to the fragment intensities divided by their library intensities (log2 space, Cauchy loss, cells weighted by their
+  # inverse noise variance at their expected intensity), and uses these precursor quantities as the ions of directLFQ on
+  # every level, the precursor level included (alphadia/outputtransform/quantification/library_anchored.py).
+  # "directlfq" runs directLFQ on the fragment intensities of every level. "none" skips LFQ: no quantification tables are written
+  normalization_method: varmodel_directlfq
+  # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True
-  # Estimate every precursor from its fragments by a robust fit of run quantity + fragment offset to the fragment
-  # intensities divided by their library intensities (log2 space, Cauchy loss, cells weighted by their inverse noise
-  # variance at their expected intensity), and use these precursor quantities as the ions of directLFQ on every level, the precursor level included
-  # (alphadia/outputtransform/quantification/library_anchored.py). False runs directLFQ on the fragment intensities
-  # of every level. Only applies when normalization_method is "directlfq".
-  library_anchored_quantification: True
 
   # Remove each run's retention-time dependent intensity drift before label-free quantification.
   # The correction curve of each run is centred on zero, so it only flattens how the intensity changes along the gradient.

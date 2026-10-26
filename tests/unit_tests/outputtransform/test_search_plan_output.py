@@ -26,16 +26,14 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 
 
 @pytest.mark.parametrize(
-    ("normalization_method", "library_anchored_quantification"),
+    "normalization_method",
     [
-        (NormalizationMethods.DIRECTLFQ, True),
-        (NormalizationMethods.DIRECTLFQ, False),
-        (NormalizationMethods.NONE, True),
+        NormalizationMethods.VARMODEL_DIRECTLFQ,
+        NormalizationMethods.DIRECTLFQ,
+        NormalizationMethods.NONE,
     ],
 )
-def test_search_plan_output_integration(
-    normalization_method, library_anchored_quantification, tmp_path
-):
+def test_search_plan_output_integration(normalization_method, tmp_path):
     """Integration test for SearchPlanOutput.build() covering end-to-end workflow.
 
     Tests that SearchPlanOutput.build() correctly orchestrates:
@@ -74,7 +72,6 @@ def test_search_plan_output_integration(
             "normalization_method": normalization_method,
             "normalize_directlfq": True,
             "intensity_drift_correction": True,
-            "library_anchored_quantification": library_anchored_quantification,
         },
         "multiplexing": {"enabled": False},
         "search_initial": {

@@ -34,7 +34,6 @@ def config():
             "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
             "intensity_drift_correction": True,
-            "library_anchored_quantification": False,
         },
     }
 
@@ -363,7 +362,9 @@ class TestLibraryAnchoredQuantification:
 
     @pytest.fixture
     def anchored_config(self, config):
-        config["search_output"]["library_anchored_quantification"] = True
+        config["search_output"]["normalization_method"] = (
+            NormalizationMethods.VARMODEL_DIRECTLFQ
+        )
         config["search_output"]["normalize_directlfq"] = False
         config["search_output"]["min_k_fragments"] = 4
         config["search_output"]["min_nonnan"] = 3

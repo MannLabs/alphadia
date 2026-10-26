@@ -86,11 +86,10 @@ class QuantOutputBuilder:
         self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
 
     def _is_library_anchored(self) -> bool:
-        """Whether the directLFQ method rolls up library-anchored precursor quantities."""
-        search_output = self.config["search_output"]
+        """Whether directLFQ rolls up library-anchored precursor quantities."""
         return (
-            search_output["normalization_method"] == NormalizationMethods.DIRECTLFQ
-            and search_output["library_anchored_quantification"]
+            self.config["search_output"]["normalization_method"]
+            == NormalizationMethods.VARMODEL_DIRECTLFQ
         )
 
     def build(

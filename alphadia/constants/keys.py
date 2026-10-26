@@ -130,6 +130,7 @@ class NormalizationMethods(metaclass=ConstantsClass):
     """String constants for LFQ methods."""
 
     DIRECTLFQ: str = "directlfq"
+    VARMODEL_DIRECTLFQ: str = "varmodel_directlfq"
     QUANTSELECT: str = "quantselect"
     NONE: str = "none"
 
