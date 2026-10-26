@@ -349,11 +349,8 @@ search_output:
   min_nonnan: 3
 
   # LFQ method for quantification ("varmodel_directlfq", "directlfq", "quantselect" or "none").
-  # "varmodel_directlfq" estimates every precursor from its fragments by a robust fit of run quantity + fragment offset
-  # to the fragment intensities divided by their library intensities (log2 space, Cauchy loss, cells weighted by their
-  # inverse noise variance at their expected intensity), and uses these precursor quantities as the ions of directLFQ on
-  # every level, the precursor level included (QuantBuilder.varmodel_precursor_table).
-  # "directlfq" runs directLFQ on the fragment intensities of every level. "none" skips LFQ: no quantification tables are written
+  # "varmodel_directlfq" anchors the fragments to the library pattern before directLFQ, so that interfered fragments
+  # do not compress the ratios. "none" skips LFQ: no quantification tables are written
   normalization_method: varmodel_directlfq
   # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True

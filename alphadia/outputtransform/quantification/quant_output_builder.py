@@ -86,7 +86,6 @@ class QuantOutputBuilder:
         self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
 
     def _is_varmodel(self) -> bool:
-        """Whether directLFQ rolls up variance-model precursor quantities."""
         return (
             self.config["search_output"]["normalization_method"]
             == NormalizationMethods.VARMODEL_DIRECTLFQ
@@ -322,10 +321,9 @@ class QuantOutputBuilder:
     ) -> dict[str, pd.DataFrame]:
         """Estimate the precursor quantities with the variance-model fit and roll them up with directLFQ.
 
-        The fragments are filtered once on the precursor level. Every level, the precursor level
-        included, is then quantified by directLFQ on the one precursor table, with each precursor
-        as one ion, so all levels share the same precursor quantities. directLFQ's sample
-        normalization does not depend on the grouping, so it gives every level the same shifts.
+        All levels are rolled up from the same precursor table so that they share the precursor
+        quantities; directLFQ's sample normalization does not depend on the grouping, so every
+        level also gets the same shifts.
 
         Parameters
         ----------

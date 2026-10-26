@@ -31,7 +31,6 @@ PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
 # fragment columns consumed by `_ion_hash`, in the order of its signature
 ION_HASH_COLUMNS = [PRECURSOR_IDX_COLUMN, "number", "type", "charge", "loss_type"]
-# library intensity of a fragment ion in frag.parquet, the anchor of the varmodel fit
 INTENSITY_LIBRARY_COLUMN = "intensity_library"
 
 
@@ -272,10 +271,8 @@ class QuantBuilder:
     ) -> pd.DataFrame:
         """Estimate the precursor quantities with the variance-model fit.
 
-        `alphadia_search_rs.VarModelQuantification` defines the model, the fit and the
-        derivation of its loss scale and offset shrinkage from the data. Fragments without a
-        library intensity are ignored. The result is an ion table in which every precursor is
-        one ion, so that directLFQ can normalize it and roll it up to any level.
+        Every precursor becomes one ion, so that directLFQ can normalize it and roll it up to
+        any level. The model is documented in `alphadia_search_rs.VarModelQuantification`.
 
         Parameters
         ----------
