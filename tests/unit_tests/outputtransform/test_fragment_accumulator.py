@@ -94,24 +94,31 @@ class TestFragmentQuantLoaderAccumulate:
         assert "run2" in result["intensity"].columns
         assert result["intensity"].shape[0] == 3
 
-    def test_accumulate_keeps_a_per_ion_column_once(self, psm_df, fragment_df):
-        # Given a column that holds one value per ion, not per run, and an ion only in run2
+    def test_accumulate_keeps_a_constant_ion_feature_once(self, psm_df, fragment_df):
+        # Given a constant ion feature and an ion only in run2
         fragment_df["intensity_library"] = [1.0, 0.5, 0.25]
         frag_df2 = fragment_df.copy()
         frag_df2["precursor_idx"] = [0, 1, 1]
         frag_df2["number"] = np.array([1, 1, 2], dtype=np.uint8)
         frag_df2["intensity_library"] = [1.0, 0.5, 0.125]
-        loader = FragmentQuantLoader(psm_df, per_ion_columns=["intensity_library"])
+        loader = FragmentQuantLoader(
+            psm_df, constant_ion_feature_columns=["intensity_library"]
+        )
 
         # When
         result = loader.accumulate(iter([("run1", fragment_df), ("run2", frag_df2)]))
 
         # Then
-        per_ion = result["intensity_library"]
-        assert list(per_ion.columns) == ["ion", "intensity_library"]
-        assert per_ion["ion"].is_unique
-        assert sorted(per_ion["intensity_library"]) == [0.125, 0.25, 0.5, 1.0]
-        assert set(per_ion["ion"]) == set(result["intensity"]["ion"])
+        constant_ion_feature_df = result["intensity_library"]
+        assert list(constant_ion_feature_df.columns) == ["ion", "intensity_library"]
+        assert constant_ion_feature_df["ion"].is_unique
+        assert sorted(constant_ion_feature_df["intensity_library"]) == [
+            0.125,
+            0.25,
+            0.5,
+            1.0,
+        ]
+        assert set(constant_ion_feature_df["ion"]) == set(result["intensity"]["ion"])
 
     def test_accumulate_empty_iterator(self, psm_df):
         """Test accumulate returns None for empty iterator."""
