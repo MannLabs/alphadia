@@ -6,7 +6,7 @@ CPU_OR_GPU=${1:-CPU}
 
 # Build the installer for Linux.
 # This script must be run from the root of the repository.
-# Prerequisites: wheel has been build, e.g. using build_wheel.sh
+# Prerequisites: the wheel for this platform is in dist/ (taken from the release, cf. platform_wheels in .github/workflows/create_release.yml)
 
 rm -rf dist_pyinstaller build_pyinstaller
 

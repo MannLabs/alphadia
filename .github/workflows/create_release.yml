@@ -11,7 +11,7 @@ on:
 
 jobs:
   create-release:
-    uses: MannLabs/alphashared/.github/workflows/create_release.yml@v1
+    uses: MannLabs/alphashared/.github/workflows/create_release.yml@platform-wheels  # TODO: switch back to @v1 once MannLabs/alphashared platform-wheels is released
     secrets: inherit
     permissions:
       contents: write
@@ -20,3 +20,4 @@ jobs:
       commitish_to_release: ${{ inputs.commitish_to_release }}
       build_nodejs_ui: true
       test_app: false
+      platform_wheels: true  # compiled Rust extension -> one wheel per platform, cf. [tool.cibuildwheel] in pyproject.toml
