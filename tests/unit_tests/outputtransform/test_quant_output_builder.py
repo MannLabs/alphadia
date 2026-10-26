@@ -5,12 +5,14 @@ import pandas as pd
 import pytest
 
 from alphadia.constants.keys import (
-    FragmentCols,
     NormalizationMethods,
 )
 from alphadia.outputtransform.quantification import (
     QuantificationLevelName,
     QuantOutputBuilder,
+)
+from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
 )
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
@@ -351,8 +353,8 @@ def _varmodel_feature_dfs():
     return {
         "intensity": matrix("intensity"),
         "correlation": matrix("correlation"),
-        FragmentCols.INTENSITY_LIBRARY: df[["ion", "library"]].rename(
-            columns={"library": FragmentCols.INTENSITY_LIBRARY}
+        INTENSITY_LIBRARY_COLUMN: df[["ion", "library"]].rename(
+            columns={"library": INTENSITY_LIBRARY_COLUMN}
         ),
     }
 
@@ -392,8 +394,8 @@ class TestVarModelQuantification:
         builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
 
         # Then the library intensity is loaded once per ion, not as a run matrix
-        assert FragmentCols.INTENSITY_LIBRARY in builder.fragment_loader.per_ion_columns
-        assert FragmentCols.INTENSITY_LIBRARY not in builder.fragment_loader.columns
+        assert INTENSITY_LIBRARY_COLUMN in builder.fragment_loader.per_ion_columns
+        assert INTENSITY_LIBRARY_COLUMN not in builder.fragment_loader.columns
 
     def test_every_level_is_rolled_up_from_the_varmodel_precursors(
         self, varmodel_psm_df, varmodel_config
@@ -427,7 +429,7 @@ class TestVarModelQuantification:
         peptide_df = level_dfs[QuantificationLevelName.PEPTIDE]
         assert set(peptide_df["mod_seq_hash"]) == {1, 2, 3}
 
-    def test_precursor_table_is_normalized_once_for_all_levels(
+    def test_every_level_normalizes_the_same_precursor_table(
         self, varmodel_psm_df, varmodel_config
     ):
         # Given
@@ -444,8 +446,8 @@ class TestVarModelQuantification:
                 builder._create_quant_level_configs(), _varmodel_feature_dfs()
             )
 
-        # Then
-        spy_normalize.assert_called_once()
+        # Then directLFQ normalizes per level, the ion table being the same precursors each time
+        assert spy_normalize.call_count == len(level_dfs)
         assert set(level_dfs) == {
             QuantificationLevelName.PRECURSOR,
             QuantificationLevelName.PEPTIDE,
@@ -466,8 +468,5 @@ class TestVarModelQuantification:
 
         # Then
         mock_varmodel.assert_not_called()
-        assert FragmentCols.INTENSITY_LIBRARY not in builder.fragment_loader.columns
-        assert (
-            FragmentCols.INTENSITY_LIBRARY
-            not in builder.fragment_loader.per_ion_columns
-        )
+        assert INTENSITY_LIBRARY_COLUMN not in builder.fragment_loader.columns
+        assert INTENSITY_LIBRARY_COLUMN not in builder.fragment_loader.per_ion_columns

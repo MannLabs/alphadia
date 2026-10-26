@@ -5,7 +5,6 @@ import pandas as pd
 
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
-    FragmentCols,
     NormalizationMethods,
     QuantificationLevelKey,
     QuantificationLevelName,
@@ -17,6 +16,7 @@ from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
     LFQOutputConfig,
     QuantBuilder,
 )
@@ -76,9 +76,7 @@ class QuantOutputBuilder:
             columns = self.QUANTSELECT_COLUMNS
         else:
             columns = self.DEFAULT_COLUMNS
-        per_ion_columns = (
-            [FragmentCols.INTENSITY_LIBRARY] if self._is_varmodel() else []
-        )
+        per_ion_columns = [INTENSITY_LIBRARY_COLUMN] if self._is_varmodel() else []
 
         self.fragment_loader = FragmentQuantLoader(
             self._psm_no_decoys_df, columns=columns, per_ion_columns=per_ion_columns
@@ -328,10 +326,10 @@ class QuantOutputBuilder:
     ) -> dict[str, pd.DataFrame]:
         """Estimate the precursor quantities with the variance-model fit and roll them up with directLFQ.
 
-        The fragments are filtered once on the precursor level and the precursor table is
-        normalized once. Every level, the precursor level included, is then quantified by
-        directLFQ on that table, with each precursor as one ion, so all levels share the same
-        precursor quantities and normalization.
+        The fragments are filtered once on the precursor level. Every level, the precursor level
+        included, is then quantified by directLFQ on the one precursor table, with each precursor
+        as one ion, so all levels share the same precursor quantities. directLFQ's sample
+        normalization does not depend on the grouping, so it gives every level the same shifts.
 
         Parameters
         ----------
@@ -345,9 +343,6 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name, empty without fragments
         """
-        logger.info(
-            "Performing label free quantification on variance-model precursor quantities"
-        )
         filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
             feature_dfs_dict["intensity"],
             feature_dfs_dict["correlation"],
@@ -359,12 +354,8 @@ class QuantOutputBuilder:
             return {}
 
         precursor_df = self.quant_builder.varmodel_precursor_table(
-            filtered_intensity_df, feature_dfs_dict[FragmentCols.INTENSITY_LIBRARY]
+            filtered_intensity_df, feature_dfs_dict[INTENSITY_LIBRARY_COLUMN]
         )
-        if self.config["search_output"]["normalize_directlfq"]:
-            precursor_df = self.quant_builder.normalize_precursor_table(
-                precursor_df, self.config
-            )
 
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
@@ -376,7 +367,6 @@ class QuantOutputBuilder:
                 lfq_config=quantlevel_config,
                 config=self.config,
                 min_nonan=MIN_PRECURSORS_PER_RUN,
-                normalize=False,
             )
         return level_dfs
 

@@ -4,8 +4,11 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import CalibCols, FragmentCols
-from alphadia.outputtransform.quantification.quant_builder import ION_HASH_COLUMNS
+from alphadia.constants.keys import CalibCols
+from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
+    ION_HASH_COLUMNS,
+)
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     get_context_feature_names,
@@ -116,7 +119,7 @@ def get_classifier_feature_columns(
 def add_library_fragment_intensity(
     fragments_df: pd.DataFrame, spectral_library: SpecLibFlat
 ) -> pd.DataFrame:
-    """Add the library intensity of every quantified fragment as `FragmentCols.INTENSITY_LIBRARY`.
+    """Add the library intensity of every quantified fragment as `INTENSITY_LIBRARY_COLUMN`.
 
     The varmodel_directlfq quantification compares the observed fragment intensities with the
     library pattern, so the pattern is stored next to the observed intensities in frag.parquet.
@@ -145,7 +148,7 @@ def add_library_fragment_intensity(
 
     library_df = spectral_library.fragment_df.iloc[flat_idx][
         ION_HASH_COLUMNS[1:] + ["intensity"]
-    ].rename(columns={"intensity": FragmentCols.INTENSITY_LIBRARY})
+    ].rename(columns={"intensity": INTENSITY_LIBRARY_COLUMN})
     library_df.insert(
         0,
         "precursor_idx",
@@ -156,8 +159,8 @@ def add_library_fragment_intensity(
     ).drop_duplicates(subset=ION_HASH_COLUMNS)
 
     fragments_df = fragments_df.merge(library_df, on=ION_HASH_COLUMNS, how="left")
-    fragments_df[FragmentCols.INTENSITY_LIBRARY] = (
-        fragments_df[FragmentCols.INTENSITY_LIBRARY].fillna(0).astype(np.float32)
+    fragments_df[INTENSITY_LIBRARY_COLUMN] = (
+        fragments_df[INTENSITY_LIBRARY_COLUMN].fillna(0).astype(np.float32)
     )
     return fragments_df
 

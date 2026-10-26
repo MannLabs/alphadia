@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import FragmentCols
+from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
+)
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     get_context_feature_names,
     get_feature_names,
@@ -84,7 +86,5 @@ def test_add_library_fragment_intensity_matches_fragments_by_ion():
     result = add_library_fragment_intensity(fragments_df, _flat_library())
 
     # then
-    np.testing.assert_allclose(
-        result[FragmentCols.INTENSITY_LIBRARY], [0.7, 0.5, 0.2, 0.0]
-    )
+    np.testing.assert_allclose(result[INTENSITY_LIBRARY_COLUMN], [0.7, 0.5, 0.2, 0.0])
     np.testing.assert_allclose(result["intensity"], fragments_df["intensity"])

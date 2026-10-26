@@ -3,8 +3,10 @@ import logging
 import numpy as np
 import pandas as pd
 
-from alphadia.constants.keys import FragmentCols
-from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
+from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
+    QuantBuilder,
+)
 
 # the fit itself is tested in alphadia_search_rs (src/varmodel_quantification/tests.rs), these tests
 # cover the conversion of the fragment matrices to the precursor table
@@ -21,7 +23,7 @@ def _fragment_tables(library, precursor, intensity):
     intensity_df["pg"] = [f"PG{p}" for p in precursor]
     intensity_df["mod_seq_hash"] = precursor
     intensity_df["mod_seq_charge_hash"] = precursor
-    library_df = pd.DataFrame({"ion": ions, FragmentCols.INTENSITY_LIBRARY: library})
+    library_df = pd.DataFrame({"ion": ions, INTENSITY_LIBRARY_COLUMN: library})
     return intensity_df, library_df
 
 

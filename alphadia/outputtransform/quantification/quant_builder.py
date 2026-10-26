@@ -11,7 +11,7 @@ import pandas as pd
 from alphadia_search_rs import VarModelQuantification
 from quantselect.output import run_quantselect
 
-from alphadia.constants.keys import FragmentCols, QuantificationLevelKey
+from alphadia.constants.keys import QuantificationLevelKey
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.workflow.config import Config
 
@@ -31,6 +31,8 @@ PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
 # fragment columns consumed by `_ion_hash`, in the order of its signature
 ION_HASH_COLUMNS = [PRECURSOR_IDX_COLUMN, "number", "type", "charge", "loss_type"]
+# library intensity of a fragment ion in frag.parquet, the anchor of the varmodel fit
+INTENSITY_LIBRARY_COLUMN = "intensity_library"
 
 
 def get_run_columns(df: pd.DataFrame) -> list[str]:
@@ -225,7 +227,6 @@ class QuantBuilder:
         lfq_config: LFQOutputConfig,
         config: Config,
         min_nonan: int | None = None,
-        normalize: bool | None = None,
     ) -> pd.DataFrame:
         """Perform label-free quantification using directLFQ.
 
@@ -239,8 +240,6 @@ class QuantBuilder:
             Global configuration object
         min_nonan: int | None
             Minimum number of ions per group and run, None for `search_output.min_nonnan`
-        normalize: bool | None
-            Whether to apply directLFQ's sample normalization, None for `search_output.normalize_directlfq`
 
         Returns
         -------
@@ -256,9 +255,7 @@ class QuantBuilder:
             return pd.DataFrame(
                 columns=[lfq_config.quant_level, *get_run_columns(intensity_df)]
             )
-        if normalize is None:
-            normalize = config["search_output"]["normalize_directlfq"]
-        if normalize:
+        if config["search_output"]["normalize_directlfq"]:
             lfq_df = self._normalize_ion_table(lfq_df, config)
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
@@ -296,12 +293,11 @@ class QuantBuilder:
             Precursor table with columns: ion, pg, mod_seq_hash, mod_seq_charge_hash, run1, run2, ...
             where ion is the precursor key and missing quantities are 0
         """
-        logger.info("Estimating precursor quantities with the variance-model fit")
         precursor_column = QuantificationLevelKey.PRECURSOR
         run_columns = get_run_columns(intensity_df)
 
         library = (
-            library_df.set_index(ION_COLUMN)[FragmentCols.INTENSITY_LIBRARY]
+            library_df.set_index(ION_COLUMN)[INTENSITY_LIBRARY_COLUMN]
             .reindex(intensity_df[ION_COLUMN].to_numpy(), fill_value=0.0)
             .to_numpy(dtype=np.float32)
         )
@@ -342,42 +338,6 @@ class QuantBuilder:
         for column in [QuantificationLevelKey.PEPTIDE, QuantificationLevelKey.PROTEIN]:
             precursor_df.insert(1, column, level_df[column].to_numpy())
         return precursor_df
-
-    def normalize_precursor_table(
-        self, precursor_df: pd.DataFrame, config: Config
-    ) -> pd.DataFrame:
-        """Apply directLFQ sample normalization to a precursor table of `varmodel_precursor_table`.
-
-        directLFQ's sample normalization does not depend on the grouping of the ions, so the
-        normalized table serves every quantification level.
-
-        Parameters
-        ----------
-        precursor_df: pd.DataFrame
-            Precursor table with columns: ion, pg, mod_seq_hash, mod_seq_charge_hash, run1, run2, ...
-        config: Config
-            Global configuration object
-
-        Returns
-        -------
-        pd.DataFrame
-            Normalized precursor table in the same layout, without precursors missing in every run
-        """
-        precursor_column = QuantificationLevelKey.PRECURSOR
-        lfq_df = self._prepare_ion_table(precursor_df, precursor_column)
-        if lfq_df.empty:
-            return precursor_df.iloc[:0]
-        normalized_df = (
-            np.power(2.0, self._normalize_ion_table(lfq_df, config))
-            .fillna(0.0)
-            .reset_index()
-        )
-        metadata_df = precursor_df[
-            [ION_COLUMN, QuantificationLevelKey.PROTEIN, QuantificationLevelKey.PEPTIDE]
-        ]
-        return metadata_df.merge(
-            normalized_df.drop(columns=precursor_column), on=ION_COLUMN
-        ).assign(**{precursor_column: lambda df: df[ION_COLUMN]})
 
     def _prepare_ion_table(
         self, intensity_df: pd.DataFrame, quant_level: str

@@ -6,13 +6,15 @@ import pytest
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import (
-    FragmentCols,
     InferenceStrategy,
     NormalizationMethods,
     PeptideOutputCols,
     PrecursorOutputCols,
     ProteinGroupOutputCols,
     QuantificationLevelName,
+)
+from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
 )
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
@@ -95,7 +97,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
 
     psm_base_df = mock_precursor_df(n_precursor=100)
     fragment_base_df = mock_fragment_df(n_precursor=200)
-    fragment_base_df[FragmentCols.INTENSITY_LIBRARY] = np.random.default_rng(0).uniform(
+    fragment_base_df[INTENSITY_LIBRARY_COLUMN] = np.random.default_rng(0).uniform(
         0.1, 1.0, len(fragment_base_df)
     )
 
