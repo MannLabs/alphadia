@@ -349,8 +349,7 @@ search_output:
   min_nonnan: 3
 
   # LFQ method for quantification ("varmodel_directlfq", "directlfq", "quantselect" or "none").
-  # "varmodel_directlfq" anchors the fragments to the library pattern before directLFQ, so that interfered fragments
-  # do not compress the ratios. "none" skips LFQ: no quantification tables are written
+  # "varmodel_directlfq" uses a variance model for the fragment rollup. "none" skips LFQ: no quantification tables are written
   normalization_method: varmodel_directlfq
   # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True
