@@ -31,6 +31,10 @@ LOSER_POOLED_QVAL = None
 # real peaks more often), which inflates the identifications; the within-class rule keeps the decoys a fair model.
 CLASS_BLIND = False
 TOP_K_FRAGMENTS = 12
+# The classifier fit that ranks the candidates for the removal uses at most this many rows: on a 5 ng file it picks
+# the same winners and removes the same false targets as a fit on all rows (300 k rows did not, a logistic regression
+# found no confident targets).
+PRESCORE_ROWS = 1_000_000
 PPM = 1e-6
 
 # other charge states of the same peptide share its fragments by construction, so they never explain each other

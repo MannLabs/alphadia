@@ -162,7 +162,8 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     riding_provider : Callable[[pd.DataFrame], tuple], default=None
         Returns, in the row order of the PSMs it is given, their top library fragments as (rows, fragments) arrays of
         library m/z, library intensity, observed intensity and correlation (see `riding.find_riding`). In the final round, PSMs whose fragment evidence a
-        better co-eluting PSM explains are then removed before the classifier is fitted again.
+        better co-eluting PSM explains are removed before the classifier is fitted; which PSM is better, and which are
+        confident enough to explain others, comes from a fit of the classifier on a sample of the rows.
 
     ms2_tolerance_ppm : float, default=None
         The calibrated MS2 tolerance, from which the fragment sharing tolerance of the riding removal is derived.
@@ -245,12 +246,12 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     else:
         group_columns = ["precursor_idx"]
 
-    predicted_proba = _fit_predict(classifier, X, y_train, idxs_train)
     keep = None
     if remove_riding:
+        # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
         keep = _without_riding(
             psm_df,
-            predicted_proba,
+            _prescore_proba(initial_classifier, X, y, random_state),
             group_columns,
             riding_provider,
             dia_cycle,
@@ -262,11 +263,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             len(X), test_size=0.2, random_state=random_state
         )
         y_train, y_test = y[idxs_train], y[idxs_test]
-        # the refit starts from the same weights as the first fit, so the stored classifier stays warm-started
-        classifier.reset()
-        if initial_classifier.fitted:
-            classifier.from_state_dict(initial_classifier.to_state_dict())
-        predicted_proba = _fit_predict(classifier, X, y_train, idxs_train)
+    predicted_proba = _fit_predict(classifier, X, y_train, idxs_train)
 
     if final_round:
         predicted_proba = _average_extra_fits(
@@ -343,6 +340,20 @@ def _fit_predict(
         classifier.fit(X[idxs_train], y_train)
         predicted_proba = classifier.predict_proba(X)[:, 1]
     return predicted_proba
+
+
+def _prescore_proba(
+    initial_classifier: Classifier,
+    X: np.ndarray,  # noqa: N803
+    y: np.ndarray,
+    random_state: int | None,
+) -> np.ndarray:
+    """P(decoy) of every row from one fit of a copy of `initial_classifier` on at most riding.PRESCORE_ROWS rows."""
+    rows = np.arange(len(X))
+    if len(X) > riding.PRESCORE_ROWS:
+        rng = np.random.default_rng(random_state)
+        rows = np.sort(rng.choice(len(X), riding.PRESCORE_ROWS, replace=False))
+    return _fit_predict(copy.deepcopy(initial_classifier), X, y[rows], rows)
 
 
 def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the tolerance come from the caller

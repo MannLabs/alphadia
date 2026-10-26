@@ -655,3 +655,42 @@ def test_perform_fdr_fits_once_outside_the_final_round():
     )
 
     assert _CountingClassifier.n_fits == 1
+
+
+class _FirstFeatureClassifier:
+    """Scores by the first feature; records how many rows it was fitted on."""
+
+    fitted_rows = None
+
+    def fit(self, X, y):  # noqa: N803
+        self.fitted_rows = len(X)
+
+    def predict_proba(self, X):  # noqa: N803
+        p = 1 / (1 + np.exp(-X[:, 0]))
+        return np.column_stack([1 - p, p])
+
+
+def test_prescore_proba_fits_a_copy_on_a_sample_and_predicts_every_row(monkeypatch):
+    # given: more rows than the pre-score may fit on
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(5000, 2))
+    y = (X[:, 0] > 0).astype(float)
+    classifier = _FirstFeatureClassifier()
+    monkeypatch.setattr(fdr.riding, "PRESCORE_ROWS", 800)
+    fitted = []
+    original = fdr._fit_predict
+
+    def spy(clf, X, y_train, idxs_train):  # noqa: N803
+        fitted.append((clf, len(idxs_train), len(y_train)))
+        return original(clf, X, y_train, idxs_train)
+
+    monkeypatch.setattr(fdr, "_fit_predict", spy)
+
+    # when
+    proba = fdr._prescore_proba(classifier, X, y, random_state=1)
+
+    # then
+    assert proba.shape == (5000,)
+    assert fitted[0][1:] == (800, 800)
+    assert fitted[0][0] is not classifier
+    assert classifier.fitted_rows is None
