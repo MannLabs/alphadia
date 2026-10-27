@@ -194,7 +194,7 @@ search:
 
   # fragments comprising fewer residues are removed from the library before the top k fragments are chosen,
   # so the next most intense fragments take their place. 0 keeps all fragments
-  min_fragment_residues: 0
+  min_fragment_residues: 3
 
   # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
   optimized_peak_group_score: False
