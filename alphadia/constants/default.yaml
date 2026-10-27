@@ -192,6 +192,10 @@ search:
   # the minimum intensity of a fragment to be used in the search
   min_fragment_intensity: 0.01
 
+  # fragments comprising fewer residues are removed from the library before the top k fragments are chosen,
+  # so the next most intense fragments take their place. 0 keeps all fragments
+  min_fragment_residues: 0
+
   # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
   optimized_peak_group_score: False
 
@@ -324,6 +328,9 @@ fdr:
   keep_decoys: false
   # whether to keep decoy PSMs in the MBR library
   keep_decoys_in_mbr_library: false
+  # decoy generation scheme for the search library and the MBR library: "diann", "diann_keep_proline", "diann_inner"
+  # or "pseudo_reverse". Ignored if the provided library already contains decoys
+  decoy_type: "diann_inner"
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network

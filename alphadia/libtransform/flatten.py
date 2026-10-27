@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 from alphabase.peptide import fragment
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -10,6 +11,67 @@ from alphadia.libtransform.base import ProcessingStep
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
 
 logger = logging.getLogger()
+
+
+class FragmentLengthFilter(ProcessingStep):
+    def __init__(self, min_fragment_residues: int = 0) -> None:
+        """Remove fragments comprising fewer than `min_fragment_residues` residues from a `SpecLibBase` object.
+
+        Their library intensity is set to zero, so the next most intense fragments take their place when the top k
+        fragments are chosen.
+
+        Parameters
+        ----------
+        min_fragment_residues : int, optional
+            Minimum number of residues of a fragment. Default is 0, which keeps all fragments.
+
+        """
+        self.min_fragment_residues = min_fragment_residues
+
+        super().__init__()
+
+    def validate(self, input: SpecLibBase) -> bool:
+        """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
+        return isinstance(input, SpecLibBase)
+
+    def forward(self, input: SpecLibBase) -> SpecLibBase:
+        """Set the intensity of fragments with fewer than `min_fragment_residues` residues to zero."""
+        # every fragment comprises at least one residue
+        if self.min_fragment_residues <= 1:
+            return input
+
+        frag_start = input.precursor_df["frag_start_idx"].to_numpy()
+        n_frag_rows = input.precursor_df["frag_stop_idx"].to_numpy() - frag_start
+        # row i of a precursor holds the N-terminal fragments with i + 1 residues and the C-terminal ones with
+        # n_frag_rows - i residues
+        row_offset = np.arange(n_frag_rows.sum()) - np.repeat(
+            np.cumsum(n_frag_rows) - n_frag_rows, n_frag_rows
+        )
+        row_index = np.repeat(frag_start, n_frag_rows) + row_offset
+        residues_by_direction = {
+            1: row_offset + 1,
+            -1: np.repeat(n_frag_rows, n_frag_rows) - row_offset,
+        }
+
+        intensity_df = input._fragment_intensity_df
+        n_removed = 0
+        for charged_frag_type in intensity_df.columns:
+            frag_type, _ = fragment.parse_charged_frag_type(charged_frag_type)
+            direction = fragment.FRAGMENT_TYPES[frag_type].direction_id
+            if direction not in residues_by_direction:
+                continue
+            short_rows = row_index[
+                residues_by_direction[direction] < self.min_fragment_residues
+            ]
+            intensity = intensity_df[charged_frag_type].to_numpy(copy=True)
+            n_removed += int((intensity[short_rows] > 0).sum())
+            intensity[short_rows] = 0
+            intensity_df[charged_frag_type] = intensity
+
+        logger.info(
+            f"Removed {n_removed:,} fragments with fewer than {self.min_fragment_residues} residues"
+        )
+        return input
 
 
 class FlattenLibrary(ProcessingStep):

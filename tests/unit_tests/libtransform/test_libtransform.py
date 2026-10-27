@@ -8,6 +8,7 @@ from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.flatten import (
     FlattenLibrary,
+    FragmentLengthFilter,
     InitFlatColumns,
     LogFlatLibraryStats,
 )
@@ -201,3 +202,46 @@ def test_precursor_initializer_keep_decoys():
 
     assert len(result.precursor_df) == 4
     assert result.precursor_df["decoy"].sum() == 2
+
+
+def test_fragment_length_filter():
+    """Test that FragmentLengthFilter zeroes b and y fragments with fewer residues than the minimum."""
+    speclib = SpecLibBase()
+    # the second precursor's rows come first in the fragment dataframes
+    speclib._precursor_df = pd.DataFrame(
+        {
+            "sequence": ["PEPTIDE", "PEPK"],
+            "frag_start_idx": [3, 0],
+            "frag_stop_idx": [9, 3],
+        }
+    )
+    speclib._fragment_mz_df = pd.DataFrame(
+        {"b_z1": np.ones(9), "y_z1": np.ones(9), "b_z2": np.ones(9)}
+    )
+    speclib._fragment_intensity_df = pd.DataFrame(
+        {"b_z1": np.ones(9), "y_z1": np.ones(9), "b_z2": np.ones(9)}
+    )
+
+    result = FragmentLengthFilter(min_fragment_residues=3)(speclib)
+
+    # PEPK: rows b1/y3, b2/y2, b3/y1; PEPTIDE: rows b1/y6 .. b6/y1
+    expected_b = [0, 0, 1, 0, 0, 1, 1, 1, 1]
+    expected_y = [1, 0, 0, 1, 1, 1, 1, 0, 0]
+    np.testing.assert_array_equal(result._fragment_intensity_df["b_z1"], expected_b)
+    np.testing.assert_array_equal(result._fragment_intensity_df["b_z2"], expected_b)
+    np.testing.assert_array_equal(result._fragment_intensity_df["y_z1"], expected_y)
+
+
+def test_fragment_length_filter_off():
+    """Test that FragmentLengthFilter keeps every fragment with the default minimum."""
+    speclib = SpecLibBase()
+    speclib._precursor_df = pd.DataFrame(
+        {"sequence": ["PEPK"], "frag_start_idx": [0], "frag_stop_idx": [3]}
+    )
+    speclib._fragment_intensity_df = pd.DataFrame(
+        {"b_z1": np.ones(3), "y_z1": np.ones(3)}
+    )
+
+    result = FragmentLengthFilter()(speclib)
+
+    assert (result._fragment_intensity_df.to_numpy() == 1).all()

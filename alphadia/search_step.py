@@ -24,10 +24,11 @@ from alphadia.exceptions import (
     NoLibraryAvailableError,
 )
 from alphadia.libtransform.base import ProcessingPipeline
-from alphadia.libtransform.decoy import DIANN_INNER, DecoyGenerator
+from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
 from alphadia.libtransform.flatten import (
     FlattenLibrary,
+    FragmentLengthFilter,
     InitFlatColumns,
     LogFlatLibraryStats,
 )
@@ -374,9 +375,10 @@ class SearchStep:
         prepare_pipeline = ProcessingPipeline(
             [
                 DecoyGenerator(
-                    decoy_type=DIANN_INNER,
+                    decoy_type=self.config["fdr"]["decoy_type"],
                     mp_process_num=thread_count,
                 ),
+                FragmentLengthFilter(self.config["search"]["min_fragment_residues"]),
                 FlattenLibrary(
                     max(
                         self.config["search"]["top_k_fragments_selection"],

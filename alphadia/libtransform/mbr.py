@@ -101,10 +101,16 @@ class IndexBuilder:
 
 
 class MbrLibraryBuilder(ProcessingStep):
-    def __init__(self, fdr: float = 0.01, keep_decoys: bool = False) -> None:
+    def __init__(
+        self,
+        fdr: float = 0.01,
+        keep_decoys: bool = False,
+        decoy_type: str = DIANN_INNER,
+    ) -> None:
         super().__init__()
         self.fdr = fdr
         self.keep_decoys = keep_decoys
+        self.decoy_type = decoy_type
         self.rt_by_run: pd.DataFrame | None = None
         self.pg_qval: pd.DataFrame | None = None
 
@@ -215,7 +221,7 @@ class MbrLibraryBuilder(ProcessingStep):
         mbr_speclib.remove_unused_fragments()
 
         if self.keep_decoys:
-            decoy_generator = DecoyGenerator(decoy_type=DIANN_INNER)
+            decoy_generator = DecoyGenerator(decoy_type=self.decoy_type)
             mbr_speclib = decoy_generator(mbr_speclib)
             # Decoys inherit target hashes from DecoyGenerator, rehash to get unique hashes
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
