@@ -60,6 +60,7 @@ def test_compute_gives_every_feature_finite_for_every_row():
     values = fragment_features.compute(fragments, rank, np.full(400, 550.0))
 
     assert set(values) == set(fragment_features.FEATURES)
+    assert not set(values) & set(fragment_features.UNUSED)
     for name, column in values.items():
         assert column.shape == (400,), name
         assert np.isfinite(column).all(), name

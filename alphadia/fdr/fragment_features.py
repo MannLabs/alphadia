@@ -25,16 +25,17 @@ FEATURES = (
     "ion_fisher_lib",
     "ion_coherent_2plus",
     *ION_COHERENT,
+    "ent_sim",
+    "ent_sim_coherent",
+    *(f"z2_{name}" for name in ("libw_corr", "explained", "n_over_50")),
+)
+# Computed but not classifier features: with them the paired entrapment ratio rose from 1.07 to 1.18 in the offline
+# replays at about 1 % more real identifications.
+UNUSED = (
     "miss_ll",
     "miss_strong",
     "charge",
-    "ent_sim",
-    "ent_sim_coherent",
-    *(
-        f"{split}_{name}"
-        for split in ("z2", "above")
-        for name in ("libw_corr", "explained", "n_over_50")
-    ),
+    *(f"above_{name}" for name in ("libw_corr", "explained", "n_over_50")),
 )
 
 B_ION, Y_ION = ord("b"), ord("y")
