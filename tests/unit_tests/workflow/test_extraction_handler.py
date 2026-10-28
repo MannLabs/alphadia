@@ -163,6 +163,7 @@ def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
             "precursor_idx": [9, 7],
             "flat_frag_start_idx": [5, 0],
             "flat_frag_stop_idx": [6, 5],
+            "charge": [3, 2],
         }
     )
     spectral_library.fragment_df = pd.DataFrame(
@@ -171,6 +172,7 @@ def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
             "intensity": [0.5, 1.0, 0.0, 0.9, 0.2, 1.0],
             "type": [ord("b"), ord("y"), ord("b"), ord("y"), ord("b"), ord("b")],
             "number": [2, 1, 3, 4, 5, 2],
+            "charge": [1, 1, 1, 2, 1, 1],
         }
     )
     candidates_df = pd.DataFrame({"precursor_idx": [7, 7], "rank": [1, 0]})
@@ -185,8 +187,10 @@ def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
     )
 
     # when
-    mz, library, observed, correlation = extraction_handler._riding_fragments(
-        fragments_df, candidates_df, spectral_library
+    mz, library, observed, correlation, ion_type, number, charge, precursor_charge = (
+        extraction_handler._riding_fragments(
+            fragments_df, candidates_df, spectral_library
+        )
     )
 
     # then: most intense first, y1 and zero-intensity fragments left out, unquantified fragments carry no signal
@@ -197,3 +201,8 @@ def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
     np.testing.assert_allclose(library[0, :3], [0.9, 0.5, 0.2])
     assert observed[:, :3].tolist() == [[0.0, 40.0, 0.0], [90.0, 0.0, 0.0]]
     np.testing.assert_allclose(correlation[:, :3], [[0.0, 0.4, 0.0], [0.9, 0.0, 0.0]])
+    assert ion_type[0, :3].tolist() == [ord("y"), ord("b"), ord("b")]
+    assert number[0, :3].tolist() == [4, 2, 5]
+    assert charge[0, :3].tolist() == [2, 1, 1]
+    assert (ion_type[:, 3:] == 0).all()
+    assert precursor_charge.tolist() == [2, 2]

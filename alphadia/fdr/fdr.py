@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from alphadia.constants.keys import CalibCols
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr import fragment_features, riding
 from alphadia.fdr.plotting import plot_fdr
@@ -253,11 +254,16 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     if remove_riding:
         # quantified once for every PSM: the fragment features need all rows, the removal is served from them
         fragments = riding_provider(psm_df)
-        values = fragment_features.weighted_correlations(*fragments)
+        values = fragment_features.compute(
+            fragments,
+            psm_df["rank"].to_numpy(),
+            psm_df[CalibCols.MZ_OBSERVED].to_numpy(np.float64),
+        )
         psm_df = psm_df.assign(**values)
         X = np.column_stack([X, *(values[name] for name in fragment_features.FEATURES)])
+        # the removal needs the m/z, library, observed and correlation arrays only
         riding_provider = fragment_features.serving_provider(
-            psm_df["_candidate_idx"].to_numpy(), fragments
+            psm_df["_candidate_idx"].to_numpy(), fragments[: riding.FRAGMENT_ARRAYS]
         )
         # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
         keep = _without_riding(

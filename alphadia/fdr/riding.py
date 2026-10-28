@@ -31,6 +31,8 @@ LOSER_POOLED_QVAL = None
 # real peaks more often), which inflates the identifications; the within-class rule keeps the decoys a fair model.
 CLASS_BLIND = False
 TOP_K_FRAGMENTS = 12
+# a riding provider returns the library m/z, library intensity, observed intensity and correlation first
+FRAGMENT_ARRAYS = 4
 # The classifier fit that ranks the candidates for the removal uses at most this many rows: on a 5 ng file it picks
 # the same winners and removes the same false targets as a fit on all rows (300 k rows did not, a logistic regression
 # found no confident targets).

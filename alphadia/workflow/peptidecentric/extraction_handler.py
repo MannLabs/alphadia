@@ -50,12 +50,13 @@ def _riding_fragments(
     fragments_df: pd.DataFrame,
     candidates_df: pd.DataFrame,
     spectral_library: SpecLibFlat,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """(len(candidates_df), riding.TOP_K_FRAGMENTS) library m/z, library intensity, observed intensity and correlation.
+) -> tuple[np.ndarray, ...]:
+    """(len(candidates_df), riding.TOP_K_FRAGMENTS) library m/z, library intensity, observed intensity, correlation,
+    ion type, ion number and fragment charge, and (len(candidates_df),) the precursor charge.
 
     The fragments of each candidate are those the backend selects for quantification (non-zero library intensity, no
     y1, the most intense); observed intensity and correlation come from the quantified `fragments_df` and are 0 where
-    the backend found no signal. Empty slots have m/z 0.
+    the backend found no signal. Empty slots have m/z 0 (and ion type, number and charge 0).
     """
     k = riding.TOP_K_FRAGMENTS
     precursor_df = spectral_library.precursor_df
@@ -88,6 +89,14 @@ def _riding_fragments(
         flat[top]
     ]
     library_intensity[owner[top], slot[top]] = intensity[top]
+    ion = {}
+    for column in ("type", "number", "charge"):
+        values = np.zeros((len(precursors), k), dtype=np.int64)
+        values[owner[top], slot[top]] = fragment_df[column].to_numpy(np.int64)[
+            flat[top]
+        ]
+        ion[column] = values[inverse]
+    precursor_charge = precursor_df["charge"].to_numpy(np.float64)[position][inverse]
     mz, library = library_mz[inverse], library_intensity[inverse]
 
     observed = np.zeros(mz.shape, dtype=np.float64)
@@ -113,7 +122,16 @@ def _riding_fragments(
         rows, slots = r[found][hit], match[hit].argmax(1)
         observed[rows, slots] = fragment_intensity[part][found][hit]
         correlation[rows, slots] = fragment_correlation[part][found][hit]
-    return mz.astype(np.float64), library.astype(np.float64), observed, correlation
+    return (
+        mz.astype(np.float64),
+        library.astype(np.float64),
+        observed,
+        correlation,
+        ion["type"],
+        ion["number"],
+        ion["charge"],
+        precursor_charge,
+    )
 
 
 class ExtractionHandler(ABC):
@@ -821,7 +839,7 @@ class NgExtractionHandler(ExtractionHandler):
 
         def riding_fragments(
             psm_df: pd.DataFrame,
-        ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        ) -> tuple[np.ndarray, ...]:
             # in the row order of psm_df, which the dense fragment arrays follow
             competing = (
                 candidates_df.set_index("_candidate_idx")
