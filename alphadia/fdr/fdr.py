@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia.exceptions import TooFewPSMError
-from alphadia.fdr import riding
+from alphadia.fdr import fragment_features, riding
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import (
     MAX_FDR_TORCH_THREADS,
@@ -251,6 +251,14 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     groups = psm_df[BEST_PEAK_GROUP_COLUMN].to_numpy() if final_round else None
     keep = None
     if remove_riding:
+        # quantified once for every PSM: the fragment features need all rows, the removal is served from them
+        fragments = riding_provider(psm_df)
+        values = fragment_features.weighted_correlations(*fragments)
+        psm_df = psm_df.assign(**values)
+        X = np.column_stack([X, *(values[name] for name in fragment_features.FEATURES)])
+        riding_provider = fragment_features.serving_provider(
+            psm_df["_candidate_idx"].to_numpy(), fragments
+        )
         # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
         keep = _without_riding(
             psm_df,
