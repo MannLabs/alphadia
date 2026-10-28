@@ -42,6 +42,14 @@ _QUANTILE_SUBSAMPLE_SEED = 42
 # layer for every row, gigabytes for the 10 M+ rows of a final search.
 _PREDICT_CHUNK_ROWS = 250_000
 
+# Best-peak training (fit with `groups`): a logistic regression on all rows picks each group's most target-like row,
+# and only those rows train the network. The other candidates of a precursor are mostly noise peaks: without them the
+# network fits about a third of the rows (final-round fit -33 % on 5 ng HeLa) and, in final-round replays with the
+# riding removal, found 0.5-3.8 % more real precursors at matched entrapment FDP.
+_BEST_PEAK_EPOCHS = 2
+_BEST_PEAK_BATCH = 65_536
+_BEST_PEAK_LEARNING_RATE = 1e-2
+
 
 class Classifier(ABC):
     """Abstract base class for classifiers.
@@ -59,7 +67,9 @@ class Classifier(ABC):
         """Return whether the classifier has been fitted."""
 
     @abstractmethod
-    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+    def fit(
+        self, x: np.ndarray, y: np.ndarray, groups: np.ndarray | None = None
+    ) -> None:
         """Fit the classifier to the data.
 
         Parameters
@@ -69,6 +79,9 @@ class Classifier(ABC):
 
         y : np.ndarray, dtype=int
             Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        groups : np.ndarray, optional
+            Group of every row of shape (n_samples,). If given, only the best row of each group trains the classifier.
 
         """
 
@@ -452,7 +465,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         return x_transformed
 
     @manage_torch_threads(max_threads=MAX_FDR_TORCH_THREADS)
-    def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements
+    def fit(  # noqa: PLR0915 # Too many statements
+        self, x: np.ndarray, y: np.ndarray, groups: np.ndarray | None = None
+    ) -> None:
         """Fit the classifier to the data.
 
         Parameters
@@ -463,9 +478,17 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         y : np.ndarray, dtype=int
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
+        groups : np.ndarray, optional
+            Group of every row of shape (n_samples,), e.g. the precursor. If given, a logistic regression on all rows
+            picks the most target-like row of each group, and only those rows train the network.
+
         """
         x = self._fit_transform(x)
 
+        if y.ndim == 2:  # noqa: PLR2004
+            y = y[:, 1]
+
+        # the step size stays the one of all rows, as in the replays that chose best-peak training
         if self.experimental_hyperparameter_tuning:
             self.batch_size, self.learning_rate = _get_scaled_training_params(x)
             logger.info(
@@ -474,6 +497,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 f"batch_size: {self.batch_size:,}, "
                 f"learning_rate: {self.learning_rate:.2e}"
             )
+
+        if groups is not None:
+            best = self._best_peaks(x, y, groups)
+            logger.info(
+                f"training on the best peak of each group: {len(best):,} of {len(x):,} rows"
+            )
+            x, y = x[best], y[best]
 
         force_reinit = False
 
@@ -491,9 +521,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 layers=self.layers,
                 dropout=self.dropout,
             )
-
-        if y.ndim == 2:  # noqa: PLR2004
-            y = y[:, 1]
 
         random_state = self._np_rng.integers(0, 1_000_000)
         logger.info(f"Using random state {random_state} for train-test-split")
@@ -572,6 +599,31 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 batch_count += 1
 
         self._fitted = True
+
+    def _best_peaks(
+        self, x: np.ndarray, y: np.ndarray, groups: np.ndarray
+    ) -> np.ndarray:
+        """Sorted positions of each group's row with the lowest decoy logit of a logistic regression fit on all rows."""
+        x_t = torch.as_tensor(x, dtype=torch.float32)
+        y_t = torch.as_tensor(y, dtype=torch.float32)
+        linear = nn.Linear(x.shape[1], 1)
+        optimizer = optim.Adam(linear.parameters(), lr=_BEST_PEAK_LEARNING_RATE)
+        loss = nn.BCEWithLogitsLoss()
+        for _ in range(_BEST_PEAK_EPOCHS):
+            order = torch.as_tensor(self._np_rng.permutation(len(x)))
+            for batch in order.split(_BEST_PEAK_BATCH):
+                loss_value = loss(linear(x_t[batch]).squeeze(1), y_t[batch])
+                optimizer.zero_grad()
+                loss_value.backward()
+                optimizer.step()
+        with torch.no_grad():
+            logit = torch.cat(
+                [linear(chunk).squeeze(1) for chunk in x_t.split(_PREDICT_CHUNK_ROWS)]
+            ).numpy()
+        order = np.lexsort((logit, groups))
+        first = np.ones(len(order), dtype=bool)
+        first[1:] = groups[order][1:] != groups[order][:-1]
+        return np.sort(order[first])
 
     @manage_torch_threads(max_threads=MAX_FDR_TORCH_THREADS)
     def predict(self, x: np.ndarray) -> np.ndarray:

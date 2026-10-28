@@ -28,6 +28,8 @@ max_dia_cycle_shape = 2
 # averaged: on plasma one fit in three put a few decoys at the very top of the ranking (q-cliffs at 0.1 % FDR).
 ENSEMBLE_TRIGGER_FEATURE = "lib_explained"
 N_ENSEMBLE_FITS = 3
+# The final-round fits train on each precursor's best candidate only (classifier fit with `groups`).
+BEST_PEAK_GROUP_COLUMN = "precursor_idx"
 
 logger = logging.getLogger()
 
@@ -246,12 +248,13 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     else:
         group_columns = ["precursor_idx"]
 
+    groups = psm_df[BEST_PEAK_GROUP_COLUMN].to_numpy() if final_round else None
     keep = None
     if remove_riding:
         # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
         keep = _without_riding(
             psm_df,
-            _prescore_proba(initial_classifier, X, y, random_state),
+            _prescore_proba(initial_classifier, X, y, random_state, groups),
             group_columns,
             riding_provider,
             dia_cycle,
@@ -259,15 +262,16 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
     if keep is not None:
         psm_df, X, y = psm_df.iloc[keep], X[keep], y[keep]
+        groups = groups[keep]
         idxs_train, idxs_test = train_test_split_indices(
             len(X), test_size=0.2, random_state=random_state
         )
         y_train, y_test = y[idxs_train], y[idxs_test]
-    predicted_proba = _fit_predict(classifier, X, y_train, idxs_train)
+    predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
 
     if final_round:
         predicted_proba = _average_extra_fits(
-            initial_classifier, X, y, predicted_proba, random_state
+            initial_classifier, X, y, predicted_proba, random_state, groups
         )
     del X
 
@@ -321,9 +325,14 @@ def _fit_predict(
     X: np.ndarray,  # noqa: N803
     y_train: np.ndarray,
     idxs_train: np.ndarray,
+    groups: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Fit `classifier` on `idxs_train` and predict all rows; a collapsed fit is repeated from new start weights."""
-    classifier.fit(X[idxs_train], y_train)
+    """Fit `classifier` on `idxs_train` and predict all rows; a collapsed fit is repeated from new start weights.
+
+    With `groups` (per row of X), each fit trains on the best row of each group among `idxs_train`.
+    """
+    train_groups = None if groups is None else groups[idxs_train]
+    classifier.fit(X[idxs_train], y_train, train_groups)
     predicted_proba = classifier.predict_proba(X)[:, 1]
 
     # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
@@ -337,7 +346,7 @@ def _fit_predict(
             f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
         classifier.reset()
-        classifier.fit(X[idxs_train], y_train)
+        classifier.fit(X[idxs_train], y_train, train_groups)
         predicted_proba = classifier.predict_proba(X)[:, 1]
     return predicted_proba
 
@@ -347,13 +356,14 @@ def _prescore_proba(
     X: np.ndarray,  # noqa: N803
     y: np.ndarray,
     random_state: int | None,
+    groups: np.ndarray | None = None,
 ) -> np.ndarray:
     """P(decoy) of every row from one fit of a copy of `initial_classifier` on at most riding.PRESCORE_ROWS rows."""
     rows = np.arange(len(X))
     if len(X) > riding.PRESCORE_ROWS:
         rng = np.random.default_rng(random_state)
         rows = np.sort(rng.choice(len(X), riding.PRESCORE_ROWS, replace=False))
-    return _fit_predict(copy.deepcopy(initial_classifier), X, y[rows], rows)
+    return _fit_predict(copy.deepcopy(initial_classifier), X, y[rows], rows, groups)
 
 
 def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the tolerance come from the caller
@@ -430,6 +440,7 @@ def _average_extra_fits(
     y: np.ndarray,
     predicted_proba: np.ndarray,
     random_state: int | None,
+    groups: np.ndarray | None = None,
 ) -> np.ndarray:
     """Average `predicted_proba` with N_ENSEMBLE_FITS - 1 further fits of the unfitted classifier on other splits."""
     probas = [predicted_proba]
@@ -440,7 +451,11 @@ def _average_extra_fits(
             test_size=0.2,
             random_state=None if random_state is None else random_state + k,
         )
-        member.fit(X[idxs_train], y[idxs_train])
+        member.fit(
+            X[idxs_train],
+            y[idxs_train],
+            None if groups is None else groups[idxs_train],
+        )
         member_proba = member.predict_proba(X)[:, 1]
         if not _is_collapsed(member_proba):
             probas.append(member_proba)

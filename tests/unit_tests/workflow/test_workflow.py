@@ -394,9 +394,9 @@ def test_fdr_manager_warm_start_epochs_apply_only_to_fitted_classifiers(monkeypa
     fitted_epochs = []
     original_fit = type(FDR_TEST_BASE_CLASSIFIER).fit
 
-    def recording_fit(self, x, y):
+    def recording_fit(self, x, y, groups=None):
         fitted_epochs.append(self.epochs)
-        original_fit(self, x, y)
+        original_fit(self, x, y, groups)
 
     monkeypatch.setattr(type(FDR_TEST_BASE_CLASSIFIER), "fit", recording_fit)
     own_epochs = FDR_TEST_BASE_CLASSIFIER.epochs

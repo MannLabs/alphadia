@@ -297,7 +297,7 @@ class _CollapsingClassifier(Classifier):
     def fitted(self) -> bool:
         return self._fitted
 
-    def fit(self, x, y):
+    def fit(self, x, y, groups=None):
         self._fitted = True
 
     def reset(self):
@@ -622,9 +622,9 @@ class _CountingClassifier(_CollapsingClassifier):
 
     n_fits = 0
 
-    def fit(self, x, y):
+    def fit(self, x, y, groups=None):
         type(self).n_fits += 1
-        super().fit(x, y)
+        super().fit(x, y, groups)
 
 
 def test_perform_fdr_averages_several_fits_in_the_final_round():
@@ -662,7 +662,7 @@ class _FirstFeatureClassifier:
 
     fitted_rows = None
 
-    def fit(self, X, y):  # noqa: N803
+    def fit(self, X, y, groups=None):  # noqa: N803
         self.fitted_rows = len(X)
 
     def predict_proba(self, X):  # noqa: N803
@@ -680,9 +680,9 @@ def test_prescore_proba_fits_a_copy_on_a_sample_and_predicts_every_row(monkeypat
     fitted = []
     original = fdr._fit_predict
 
-    def spy(clf, X, y_train, idxs_train):  # noqa: N803
+    def spy(clf, X, y_train, idxs_train, groups=None):  # noqa: N803
         fitted.append((clf, len(idxs_train), len(y_train)))
-        return original(clf, X, y_train, idxs_train)
+        return original(clf, X, y_train, idxs_train, groups)
 
     monkeypatch.setattr(fdr, "_fit_predict", spy)
 
@@ -694,3 +694,38 @@ def test_prescore_proba_fits_a_copy_on_a_sample_and_predicts_every_row(monkeypat
     assert fitted[0][1:] == (800, 800)
     assert fitted[0][0] is not classifier
     assert classifier.fitted_rows is None
+
+
+def test_fit_with_groups_trains_on_the_best_row_of_each_group(monkeypatch):
+    # given: 400 groups of 3 rows, the first row of each group carries the signal, the others are noise
+    rng = np.random.default_rng(0)
+    n_groups = 400
+    y = np.repeat(rng.integers(0, 2, n_groups), 3).astype(float)
+    x = rng.normal(size=(3 * n_groups, 4))
+    signal = np.arange(3 * n_groups) % 3 == 0
+    x[signal, 0] = np.where(y[signal] == 1, 3.0, -3.0)
+    groups = np.repeat(np.arange(n_groups), 3)
+    # the production batch exceeds these rows: smaller batches give the linear pre-score enough steps
+    monkeypatch.setattr(classifiers, "_BEST_PEAK_BATCH", 64)
+    classifier = BinaryClassifierLegacyNewBatching(
+        epochs=1, batch_size=50, random_state=0
+    )
+    trained_rows = []
+    original = classifier._best_peaks
+
+    def spy(x_, y_, groups_):
+        best = original(x_, y_, groups_)
+        trained_rows.append(best)
+        return best
+
+    monkeypatch.setattr(classifier, "_best_peaks", spy)
+
+    # when
+    classifier.fit(x, y, groups)
+
+    # then: one row per group, and the linear pre-score picks the signal row of almost every target group
+    best = trained_rows[0]
+    assert len(best) == n_groups
+    assert len(np.unique(groups[best])) == n_groups
+    targets = y[best] == 0
+    assert signal[best][targets].mean() > 0.9
