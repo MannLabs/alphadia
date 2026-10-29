@@ -586,9 +586,10 @@ def test_without_riding_removes_rows_above_the_riding_share(monkeypatch):
 
     # then: the riding rows are dropped and every row is a removal candidate
     assert keep.tolist() == [i for i in range(len(psm_df)) if i not in (2, 5)]
-    assert provider.call_args.args[0]["precursor_idx"].tolist() == psm_df[
-        "precursor_idx"
-    ].tolist()
+    assert (
+        provider.call_args.args[0]["precursor_idx"].tolist()
+        == psm_df["precursor_idx"].tolist()
+    )
     assert received["fragments"] is provider.return_value
     assert received["tolerance"] == 7.0
     # and the partners are the best candidates of the confident elution groups, never a second candidate
