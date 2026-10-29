@@ -11,6 +11,7 @@ from alphadia.outputtransform.quantification.quant_builder import (
 )
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    get_claim_feature_names,
     get_context_feature_names,
     get_feature_names,
 )
@@ -102,15 +103,17 @@ def get_classifier_feature_columns(
 ) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
-    The candidate context features are always listed for the rust backend: the FDR manager
-    only uses the listed columns that the features actually carry, so the config flag that
-    computes them does not need to be repeated here.
+    The candidate context and fragment claim features are always listed for the rust backend:
+    the FDR manager only uses the listed columns that the features actually carry, so the
+    config flags that compute them do not need to be repeated here.
     The IDF features are left out unless `use_idf_features` is set.
     """
     if extraction_backend != "rust":
         return feature_columns
 
-    columns = get_feature_names() + get_context_feature_names()
+    columns = (
+        get_feature_names() + get_context_feature_names() + get_claim_feature_names()
+    )
     if use_idf_features:
         return columns
     return [column for column in columns if column not in IDF_FEATURE_COLUMNS]
