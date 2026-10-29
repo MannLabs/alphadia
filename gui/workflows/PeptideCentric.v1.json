@@ -455,6 +455,13 @@
                     "type": "boolean"
                 },
                 {
+                    "id": "train_on_best_candidate",
+                    "name": "Train on Best Candidate",
+                    "default": true,
+                    "description": "In the final search, train the classifier only on the most target-like candidate of each precursor, as picked by a logistic regression on all candidates. All candidates are still scored. Only applies to the rust backend.",
+                    "type": "boolean"
+                },
+                {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
                     "default": true,

@@ -326,6 +326,9 @@ fdr:
   # In the final search, remove PSMs whose fragment signal is explained by a better co-eluting PSM of the
   # same class (target or decoy) before the classifier is fitted (rust backend, without ion mobility).
   interference_removal: true
+  # In the final search, train the classifier only on the most target-like candidate of each precursor, as picked by a
+  # logistic regression on all candidates; all candidates are still scored (rust backend).
+  train_on_best_candidate: true
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
   # feature transform before the neural network, either "none" or "quantile".

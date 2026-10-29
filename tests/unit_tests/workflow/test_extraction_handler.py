@@ -174,11 +174,13 @@ def test_perform_fdr_and_filter_candidates_provides_riding_fragments_if_asked(
             MagicMock(),
             spectral_library,
             remove_riding=remove_riding,
+            train_on_best_candidate=remove_riding,
         )
 
     # then
     kwargs = received["kwargs"]
     assert kwargs["ms2_tolerance_ppm"] == 6.5
+    assert kwargs["train_on_best_candidate"] is remove_riding
     if not remove_riding:
         assert kwargs["riding_provider"] is None
         assert riding.SEQUENCE_ID_COLUMN not in received["features_df"].columns

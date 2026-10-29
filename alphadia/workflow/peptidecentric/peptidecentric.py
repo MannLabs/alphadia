@@ -250,6 +250,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     self.dia_data,
                     self.spectral_library,
                     remove_riding=self.config["fdr"]["interference_removal"],
+                    train_on_best_candidate=self.config["fdr"][
+                        "train_on_best_candidate"
+                    ],
                 )
             )
 

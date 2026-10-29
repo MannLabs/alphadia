@@ -112,6 +112,7 @@ class FDRManager(BaseManager):
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
         riding_provider: Callable[[pd.DataFrame], tuple] | None = None,
         ms2_tolerance_ppm: float | None = None,
+        train_on_best_candidate: bool = False,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -138,6 +139,9 @@ class FDRManager(BaseManager):
             with decoy_strategy "precursor".
         ms2_tolerance_ppm: None | float
             The calibrated MS2 tolerance, needed with `riding_provider`.
+        train_on_best_candidate: bool
+            Train the classifier only on the most target-like candidate of each precursor. Only used with
+            decoy_strategy "precursor".
 
         Notes
         -----
@@ -192,6 +196,7 @@ class FDRManager(BaseManager):
                 else None,
                 riding_provider=riding_provider,
                 ms2_tolerance_ppm=ms2_tolerance_ppm,
+                train_on_best_candidate=train_on_best_candidate,
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,

@@ -356,6 +356,7 @@ class ExtractionHandler(ABC):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         remove_riding: bool = False,
+        train_on_best_candidate: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -382,6 +383,9 @@ class ExtractionHandler(ABC):
         remove_riding : bool, optional
             Remove the PSMs that ride on the fragment signal of a better co-eluting PSM before the
             classifier is fitted.
+
+        train_on_best_candidate : bool, optional
+            Train the classifier only on the most target-like candidate of each precursor.
 
         Returns
         -------
@@ -789,6 +793,7 @@ class NgExtractionHandler(ExtractionHandler):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         remove_riding: bool = False,
+        train_on_best_candidate: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -854,6 +859,7 @@ class NgExtractionHandler(ExtractionHandler):
             version=self._optimization_manager.classifier_version,
             riding_provider=riding_fragments if remove_riding else None,
             ms2_tolerance_ppm=self._optimization_manager.ms2_error,
+            train_on_best_candidate=train_on_best_candidate,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]

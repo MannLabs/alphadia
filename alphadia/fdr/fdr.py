@@ -30,6 +30,9 @@ _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
 
+# With `train_on_best_candidate`, the classifier trains on the best candidate of each of these groups.
+BEST_CANDIDATE_GROUP_COLUMN = "precursor_idx"
+
 
 @manage_torch_threads(max_threads=2)
 def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
@@ -45,6 +48,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     riding_provider: Callable[[pd.DataFrame], tuple] | None = None,
     ms2_tolerance_ppm: float | None = None,
+    train_on_best_candidate: bool = False,
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
@@ -94,6 +98,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     ms2_tolerance_ppm : float, default=None
         The calibrated MS2 tolerance, from which the fragment sharing tolerance of the riding removal is derived.
+
+    train_on_best_candidate : bool, default=False
+        Train the classifier (and the pre-score of the riding removal) only on the most target-like candidate of
+        each precursor, as picked by a logistic regression on all training rows. All rows are still scored.
 
     dia_cycle : np.ndarray, default=None
         The DIA cycle. Required if df_fragments is provided.
@@ -163,6 +171,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     else:
         group_columns = ["precursor_idx"]
 
+    groups = (
+        psm_df[BEST_CANDIDATE_GROUP_COLUMN].to_numpy()
+        if train_on_best_candidate
+        else None
+    )
     remove_riding = (
         riding_provider is not None
         and ms2_tolerance_ppm is not None
@@ -173,7 +186,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
         keep = _without_riding(
             psm_df,
-            _prescore_proba(classifier, X, y, random_state),
+            _prescore_proba(classifier, X, y, random_state, groups),
             group_columns,
             riding_provider,
             dia_cycle,
@@ -181,12 +194,13 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
         if keep is not None:
             psm_df, X, y = psm_df.iloc[keep], X[keep], y[keep]
+            groups = None if groups is None else groups[keep]
             idxs_train, idxs_test = train_test_split_indices(
                 len(X), test_size=0.2, random_state=random_state
             )
             y_train, y_test = y[idxs_train], y[idxs_test]
 
-    predicted_proba = _fit_predict(classifier, X, y_train, idxs_train)
+    predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
     del X
 
     if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
@@ -243,9 +257,14 @@ def _fit_predict(
     X: np.ndarray,  # noqa: N803
     y_train: np.ndarray,
     idxs_train: np.ndarray,
+    groups: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Fit `classifier` on `idxs_train` and predict all rows; a collapsed fit is repeated from new start weights."""
-    classifier.fit(X[idxs_train], y_train)
+    """Fit `classifier` on `idxs_train` and predict all rows; a collapsed fit is repeated from new start weights.
+
+    With `groups` (per row of X), each fit trains on the best row of each group among `idxs_train`.
+    """
+    fit_kwargs = {} if groups is None else {"groups": groups[idxs_train]}
+    classifier.fit(X[idxs_train], y_train, **fit_kwargs)
     predicted_proba = classifier.predict_proba(X)[:, 1]
 
     # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
@@ -262,7 +281,7 @@ def _fit_predict(
             f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
         classifier.reset()
-        classifier.fit(X[idxs_train], y_train)
+        classifier.fit(X[idxs_train], y_train, **fit_kwargs)
         predicted_proba = classifier.predict_proba(X)[:, 1]
     return predicted_proba
 
@@ -272,13 +291,14 @@ def _prescore_proba(
     X: np.ndarray,  # noqa: N803
     y: np.ndarray,
     random_state: int | None,
+    groups: np.ndarray | None = None,
 ) -> np.ndarray:
     """P(decoy) of every row from one fit of a copy of the unfitted `classifier` on at most riding.PRESCORE_ROWS rows."""
     rows = np.arange(len(X))
     if len(X) > riding.PRESCORE_ROWS:
         rng = np.random.default_rng(random_state)
         rows = np.sort(rng.choice(len(X), riding.PRESCORE_ROWS, replace=False))
-    return _fit_predict(copy.deepcopy(classifier), X, y[rows], rows)
+    return _fit_predict(copy.deepcopy(classifier), X, y[rows], rows, groups)
 
 
 def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the tolerance come from the caller
