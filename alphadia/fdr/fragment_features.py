@@ -21,21 +21,49 @@ ION_COHERENT = tuple(
 FEATURES = (
     LIBRARY_WEIGHTED,
     OBSERVED_WEIGHTED,
-    "ion_fisher",
     "ion_fisher_lib",
     "ion_coherent_2plus",
-    *ION_COHERENT,
+    *(name for name in ION_COHERENT if name != "ion_coherent_b_mid"),
     "ent_sim",
     "ent_sim_coherent",
-    *(f"z2_{name}" for name in ("libw_corr", "explained", "n_over_50")),
+    "z2_n_over_50",
 )
-# Computed but not classifier features: with them the paired entrapment ratio rose from 1.07 to 1.18 in the offline
-# replays at about 1 % more real identifications.
+# Computed but not classifier features. Missingness, charge and the above-precursor split raised the paired entrapment
+# ratio from 1.07 to 1.18 in the offline replays at about 1 % more real identifications; the others moved the real
+# identifications by less than 1 % when permuted, and a refit without them kept them level.
 UNUSED = (
     "miss_ll",
     "miss_strong",
     "charge",
     *(f"above_{name}" for name in ("libw_corr", "explained", "n_over_50")),
+    "ion_fisher",
+    "ion_coherent_b_mid",
+    "z2_libw_corr",
+    "z2_explained",
+)
+# Rust and python scoring columns left out of the final-round classifier: a permutation of each moved the real
+# identifications of the offline replays by less than 1 %, and a refit without all of them kept the real identifications
+# level at an equal or lower entrapment ratio. The bins above rank 12 never change: only the top 12 fragments are scored.
+UNUSED_SCORE_COLUMNS = (
+    "num_over_0_rank_12_17",
+    "num_over_0_rank_18_23",
+    "num_over_50_rank_12_17",
+    "num_over_50_rank_18_23",
+    "num_scans",
+    "num_over_0",
+    "num_over_50",
+    "num_over_90",
+    "num_over_95",
+    "num_over_0_rank_6_11",
+    "num_over_50_rank_6_11",
+    "num_over_50_rank_0_5",
+    "num_over_50_short_ions",
+    "num_over_50_long_ions",
+    "num_fragments",
+    "num_profiles",
+    "median_profile_sum_filtered",
+    "intensity_correlation",
+    "fwhm_rt",
 )
 
 B_ION, Y_ION = ord("b"), ord("y")

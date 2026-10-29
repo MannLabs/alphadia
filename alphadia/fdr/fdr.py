@@ -260,7 +260,17 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             psm_df[CalibCols.MZ_OBSERVED].to_numpy(np.float64),
         )
         psm_df = psm_df.assign(**values)
-        X = np.column_stack([X, *(values[name] for name in fragment_features.FEATURES)])
+        score_columns = [
+            c
+            for c in available_columns
+            if c not in fragment_features.UNUSED_SCORE_COLUMNS
+        ]
+        X = np.column_stack(
+            [
+                psm_df[score_columns].to_numpy(),
+                *(values[name] for name in fragment_features.FEATURES),
+            ]
+        )
         # the removal needs the m/z, library, observed and correlation arrays only
         riding_provider = fragment_features.serving_provider(
             psm_df["_candidate_idx"].to_numpy(), fragments[: riding.FRAGMENT_ARRAYS]
