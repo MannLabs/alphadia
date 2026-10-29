@@ -348,9 +348,11 @@ search_output:
   # Minimum number of non-missing values required for quantification
   min_nonnan: 3
 
-  # LFQ method for quantification ("directlfq", "quantselect" or "none"). "none" skips LFQ: no quantification tables are written
-  normalization_method: directlfq
-  # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directlfq")
+  # LFQ method for quantification ("varmodel_directlfq", "directlfq", "quantselect" or "none").
+  # "varmodel_directlfq" uses a variance model for the fragment rollup. "none" skips LFQ: no quantification tables are written
+  # Variance model details: https://github.com/MannLabs/alphadia-search-rs/blob/main/src/varmodel_quantification/DOCS.md
+  normalization_method: varmodel_directlfq
+  # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True
 
   # Remove each run's retention-time dependent intensity drift before label-free quantification.

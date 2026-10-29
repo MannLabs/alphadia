@@ -585,10 +585,11 @@
                 {
                     "id": "normalization_method",
                     "name": "LFQ method",
-                    "default": "directlfq",
-                    "description": "Select the label-free quantification method. 'directlfq' uses the directLFQ algorithm, 'quantselect' uses the QuantSelect algorithm, 'none' skips label-free quantification.",
+                    "default": "varmodel_directlfq",
+                    "description": "Select the label-free quantification method. 'varmodel_directlfq' estimates every precursor from its fragment intensities anchored to the library fragment pattern and rolls these precursor quantities up with directLFQ, 'directlfq' runs the directLFQ algorithm on the fragment intensities, 'quantselect' uses the QuantSelect algorithm, 'none' skips label-free quantification.",
                     "type": "dropdown",
                     "options": [
+                        "varmodel_directlfq",
                         "directlfq",
                         "quantselect",
                         "none"
@@ -598,7 +599,7 @@
                     "id": "normalize_directlfq",
                     "name": "Normalize directLFQ",
                     "default": true,
-                    "description": "Apply directLFQ normalization when using the directLFQ method. Only applies when 'directlfq' is selected as the LFQ method.",
+                    "description": "Apply directLFQ normalization. Only applies when 'varmodel_directlfq' or 'directlfq' is selected as the LFQ method.",
                     "type": "boolean"
                 },
                 {
