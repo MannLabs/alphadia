@@ -44,7 +44,6 @@ function createWindow() {
     },
   });
     mainWindow.setTitle("alphaDIA");
-    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
 
     profile = new Profile()
 
@@ -57,6 +56,10 @@ function createWindow() {
 
     executionManager = new ExecutionManager(profile)
     workflows = discoverWorkflows(mainWindow)
+
+    // Load last: Profile() may block on a modal dialog, and the renderer must not
+    // send IPC before executionManager and workflows exist.
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
 }
 
 handleOpenLink = (event, url) => {
@@ -84,8 +87,9 @@ app.whenReady().then(() => {
 
     console.log(app.getLocale())
     console.log(app.getSystemLocale())
-    createWindow();
 
+    // Registered before createWindow() so the renderer can never hit a missing handler;
+    // mainWindow, executionManager and workflows are therefore resolved lazily.
     ipcMain.handle('get-engine-status', () => executionManager.getEngineStatus())
 
     ipcMain.handle('start-workflow-new', (event, workflow, engineIdx) => executionManager.startWorkflow(workflow, engineIdx))
@@ -94,15 +98,18 @@ app.whenReady().then(() => {
     ipcMain.handle('get-output-length-new', (event, runIdx) => executionManager.getOutputLength(runIdx))
     ipcMain.handle('get-output-rows-new', (event, runIdx, {limit, offset}) => executionManager.getOutputRows(runIdx, limit, offset))
 
-    ipcMain.handle('get-single-folder', handleGetSingleFolder(mainWindow))
-    ipcMain.handle('get-multiple-folders', handleGetMultipleFolders(mainWindow))
-    ipcMain.handle('get-single-file', handleGetSingleFile(mainWindow))
-    ipcMain.handle('get-multiple-files', handleGetMultipleFiles(mainWindow))
-    ipcMain.handle('get-multiple', handleGetMultiple(mainWindow))
+    ipcMain.handle('get-single-folder', (event) => handleGetSingleFolder(mainWindow)(event))
+    ipcMain.handle('get-multiple-folders', (event) => handleGetMultipleFolders(mainWindow)(event))
+    ipcMain.handle('get-single-file', (event) => handleGetSingleFile(mainWindow)(event))
+    ipcMain.handle('get-multiple-files', (event) => handleGetMultipleFiles(mainWindow)(event))
+    ipcMain.handle('get-multiple', (event) => handleGetMultiple(mainWindow)(event))
     ipcMain.handle('get-utilisation', handleGetUtilisation)
     ipcMain.handle('get-workflows', () => workflows)
 
     ipcMain.on('open-link', handleOpenLink)
+
+    createWindow();
+
     nativeTheme.on('updated', () => {
         console.log("Theme changed to: " + nativeTheme)
         mainWindow.webContents.send('theme-change', nativeTheme.shouldUseDarkColors)

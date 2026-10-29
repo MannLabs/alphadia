@@ -95,7 +95,7 @@ class TestFragmentQuantLoaderAccumulate:
         assert "run2" in result["intensity"].columns
         assert result["intensity"].shape[0] == 3
 
-    def test_accumulate_adds_a_constant_ion_feature_to_every_matrix(
+    def test_accumulate_adds_a_constant_feature_to_every_matrix(
         self, psm_df, fragment_df
     ):
         # Given a constant ion feature and an ion only in run2
@@ -105,7 +105,7 @@ class TestFragmentQuantLoaderAccumulate:
         frag_df2["number"] = np.array([1, 1, 2], dtype=np.uint8)
         frag_df2["intensity_library"] = [1.0, 0.5, 0.125]
         loader = FragmentQuantLoader(
-            psm_df, constant_ion_feature_columns=["intensity_library"]
+            psm_df, constant_feature_columns=["intensity_library"]
         )
 
         # When

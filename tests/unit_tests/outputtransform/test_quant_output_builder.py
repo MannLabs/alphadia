@@ -395,8 +395,7 @@ class TestVarModelQuantification:
 
         # Then the library intensity is loaded as a constant ion feature, not as a run matrix
         assert (
-            INTENSITY_LIBRARY_COLUMN
-            in builder.fragment_loader.constant_ion_feature_columns
+            INTENSITY_LIBRARY_COLUMN in builder.fragment_loader.constant_feature_columns
         )
         assert INTENSITY_LIBRARY_COLUMN not in builder.fragment_loader.columns
 
@@ -474,5 +473,5 @@ class TestVarModelQuantification:
         assert INTENSITY_LIBRARY_COLUMN not in builder.fragment_loader.columns
         assert (
             INTENSITY_LIBRARY_COLUMN
-            not in builder.fragment_loader.constant_ion_feature_columns
+            not in builder.fragment_loader.constant_feature_columns
         )

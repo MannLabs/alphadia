@@ -28,8 +28,8 @@ class FragmentQuantLoader:
         PSM dataframe to filter fragments by precursor_idx
     columns : list[str] | None, default=None
         Columns to extract from fragment data. Defaults to ["intensity", "correlation"]
-    constant_ion_feature_columns : list[str] | None, default=None
-        Ion features that are constant across runs, such as the library intensity, which every
+    constant_feature_columns : list[str] | None, default=None
+        Fragment features that are constant across runs, such as the library intensity, which every
         run copies from the same spectral library. They are added as metadata columns of every
         matrix instead of one column per run.
     """
@@ -38,18 +38,18 @@ class FragmentQuantLoader:
         self,
         psm_df: pd.DataFrame,
         columns: list[str] | None = None,
-        constant_ion_feature_columns: list[str] | None = None,
+        constant_feature_columns: list[str] | None = None,
     ):
         self.psm_df = psm_df
         self.columns = ["intensity", "correlation"] if columns is None else columns
-        self.constant_ion_feature_columns = (
-            [] if constant_ion_feature_columns is None else constant_ion_feature_columns
+        self.constant_feature_columns = (
+            [] if constant_feature_columns is None else constant_feature_columns
         )
         # the remaining columns of the fragment files are never used downstream,
         # reading them would roughly double the bytes read per file
         self._read_columns = list(
             dict.fromkeys(
-                ION_HASH_COLUMNS + self.columns + self.constant_ion_feature_columns
+                ION_HASH_COLUMNS + self.columns + self.constant_feature_columns
             )
         )
 
@@ -68,7 +68,7 @@ class FragmentQuantLoader:
         dict[str, pd.DataFrame] | None
             Dictionary with column name as key and dataframe as value, where each dataframe
             has columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
-            and the `constant_ion_feature_columns`
+            and the `constant_feature_columns`
             Returns None if no fragment files are found
         """
         df_iterable = self._get_frag_df_generator(folder_list)
@@ -89,61 +89,65 @@ class FragmentQuantLoader:
         dict[str, pd.DataFrame] | None
             Dictionary with column name as key and dataframe as value, where each dataframe
             has columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
-            and the `constant_ion_feature_columns`
+            and the `constant_feature_columns`
             Returns None if iterator is empty
         """
         logger.info("Accumulating fragment data")
 
-        raw_name, df = next(df_iterable, (None, None))
-        if df is None:
+        raw_name, run_df = next(df_iterable, (None, None))
+        if run_df is None:
             logger.warning(f"No frag file found for {raw_name}")
             return None
 
-        df = prepare_df(
-            df, self.psm_df, columns=self.columns + self.constant_ion_feature_columns
+        run_df = prepare_df(
+            run_df,
+            self.psm_df,
+            columns=self.columns + self.constant_feature_columns,
         )
-        constant_ion_feature_df = df[[ION_COLUMN, *self.constant_ion_feature_columns]]
+        constant_feature_df = run_df[[ION_COLUMN, *self.constant_feature_columns]]
 
         # the ion hash already encodes the precursor_idx, so it is the only join key
         # needed here; precursor_idx is recovered once all runs are merged
-        df_list = []
-        for col in self.columns:
-            feat_df = df[["ion", col]].copy()
-            feat_df.rename(columns={col: raw_name}, inplace=True)
-            df_list.append(feat_df)
+        per_run_feature_dfs = {
+            col: run_df[[ION_COLUMN, col]].rename(columns={col: raw_name})
+            for col in self.columns
+        }
 
-        for raw_name, df in df_iterable:
-            df = prepare_df(
-                df,
+        for raw_name, run_df in df_iterable:
+            run_df = prepare_df(
+                run_df,
                 self.psm_df,
-                columns=self.columns + self.constant_ion_feature_columns,
+                columns=self.columns + self.constant_feature_columns,
             )
-            new_ions = ~df[ION_COLUMN].isin(constant_ion_feature_df[ION_COLUMN])
-            constant_ion_feature_df = pd.concat(
+            # constant features are kept from the first run an ion appears in; only ions unseen
+            # so far are appended, so the final merge onto the matrices stays one row per ion
+            is_unseen_ion = ~run_df[ION_COLUMN].isin(constant_feature_df[ION_COLUMN])
+            constant_feature_df = pd.concat(
                 [
-                    constant_ion_feature_df,
-                    df.loc[new_ions, [ION_COLUMN, *self.constant_ion_feature_columns]],
+                    constant_feature_df,
+                    run_df.loc[
+                        is_unseen_ion, [ION_COLUMN, *self.constant_feature_columns]
+                    ],
                 ]
             )
 
-            for idx, col in enumerate(self.columns):
-                df_list[idx] = df_list[idx].merge(
-                    df[["ion", col]],
-                    on="ion",
+            for col, feature_df in per_run_feature_dfs.items():
+                per_run_feature_dfs[col] = feature_df.merge(
+                    run_df[[ION_COLUMN, col]].rename(columns={col: raw_name}),
+                    on=ION_COLUMN,
                     how="outer",
                 )
-                df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
         precursor_metadata_df = self.psm_df.groupby(
             "precursor_idx", as_index=False
         ).agg({"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"})
 
-        feature_dfs = {}
-        for col, df in zip(self.columns, df_list):
-            df = self._add_precursor_idx(df, precursor_metadata_df)
-            df = df.merge(constant_ion_feature_df, on=ION_COLUMN, how="left")
-            feature_dfs[col] = df
-        return feature_dfs
+        return {
+            col: self._add_precursor_idx(feature_df, precursor_metadata_df).merge(
+                constant_feature_df, on=ION_COLUMN, how="left"
+            )
+            for col, feature_df in per_run_feature_dfs.items()
+        }
 
     def _get_frag_df_generator(
         self, folder_list: list[str]

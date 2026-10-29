@@ -236,7 +236,7 @@ class QuantBuilder:
         config: Config
             Global configuration object
         min_nonan: int | None
-            Minimum number of ions per group and run, None for `search_output.min_nonnan`
+            Minimum number of ions per group and run, if None, `search_output.min_nonnan` is taken
 
         Returns
         -------

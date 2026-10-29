@@ -78,14 +78,14 @@ class QuantOutputBuilder:
             columns = self.QUANTSELECT_COLUMNS
         else:
             columns = self.DEFAULT_COLUMNS
-        constant_ion_feature_columns = (
+        constant_feature_columns = (
             [INTENSITY_LIBRARY_COLUMN] if self._is_varmodel() else []
         )
 
         self.fragment_loader = FragmentQuantLoader(
             self._psm_no_decoys_df,
             columns=columns,
-            constant_ion_feature_columns=constant_ion_feature_columns,
+            constant_feature_columns=constant_feature_columns,
         )
         self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
 
