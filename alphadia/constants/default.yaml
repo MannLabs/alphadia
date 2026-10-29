@@ -350,6 +350,7 @@ search_output:
 
   # LFQ method for quantification ("varmodel_directlfq", "directlfq", "quantselect" or "none").
   # "varmodel_directlfq" uses a variance model for the fragment rollup. "none" skips LFQ: no quantification tables are written
+  # Variance model details: https://github.com/MannLabs/alphadia-search-rs/blob/main/src/varmodel_quantification/DOCS.md
   normalization_method: varmodel_directlfq
   # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True
