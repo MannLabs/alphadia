@@ -270,6 +270,11 @@ def run(*args, **kwargs):
             f"{__version__}"
         )  # important to have version as first string as this is picked up by the GUI
         print("Importing AlphaDIA works!")
+
+        # surfaces a missing compiled extension in CI and installer checks
+        from alphadia._rust import hello_world
+
+        print(f"Rust extension works: {hello_world()}")
         _print_vendor_format_support()
         return
 

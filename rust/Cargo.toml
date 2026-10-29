@@ -1,0 +1,15 @@
+[package]
+name = "alphadia-rs"
+version = "2.3.1-dev0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "alphadia_rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = "0.29.2"
+
+[build-dependencies]
+pyo3-build-config = "0.29.2"
