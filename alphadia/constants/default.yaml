@@ -323,6 +323,9 @@ fdr:
   decoy_type: "diann"
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
+  # In the final search, remove PSMs whose fragment signal is explained by a better co-eluting PSM of the
+  # same class (target or decoy) before the classifier is fitted (rust backend, without ion mobility).
+  interference_removal: true
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
   # feature transform before the neural network, either "none" or "quantile".

@@ -448,6 +448,13 @@
                     ]
                 },
                 {
+                    "id": "interference_removal",
+                    "name": "Interference Removal",
+                    "default": true,
+                    "description": "In the final search, remove PSMs whose fragment signal is explained by a better co-eluting PSM of the same class (target or decoy) before the classifier is fitted. Only applies to the rust backend without ion mobility.",
+                    "type": "boolean"
+                },
+                {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
                     "default": true,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -9,6 +10,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from alphadia.exceptions import TooFewPSMError
+from alphadia.fdr import riding
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_indices
 from alphadia.fragcomp.fragcomp import compete_for_fragments
@@ -41,6 +43,8 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     figure_path: str | None = None,
     df_fragments: pd.DataFrame | None = None,
     fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
+    riding_provider: Callable[[pd.DataFrame], tuple] | None = None,
+    ms2_tolerance_ppm: float | None = None,
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
@@ -80,6 +84,16 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         Returns the fragment dataframe of the PSMs it is given. Used instead of
         `df_fragments` when the fragments are only quantified on demand; it is called
         with the PSMs that enter fragment competition.
+
+    riding_provider : Callable[[pd.DataFrame], tuple], default=None
+        Returns, in the row order of the PSMs it is given, their top library fragments as (rows, fragments) arrays of
+        library m/z, library intensity, observed intensity and correlation (see `riding.find_riding`). If given, PSMs
+        whose fragment evidence a better co-eluting PSM explains are removed before the classifier is fitted; which
+        PSM is better, and which are confident enough to explain others, comes from a fit of the classifier on a
+        sample of the rows.
+
+    ms2_tolerance_ppm : float, default=None
+        The calibrated MS2 tolerance, from which the fragment sharing tolerance of the riding removal is derived.
 
     dia_cycle : np.ndarray, default=None
         The DIA cycle. Required if df_fragments is provided.
@@ -138,8 +152,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         return psm_df
 
     y_train, y_test = y[idxs_train], y[idxs_test]
-    classifier.fit(X[idxs_train], y_train)
-
     psm_df["_decoy"] = y
 
     if competitive:
@@ -151,24 +163,30 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     else:
         group_columns = ["precursor_idx"]
 
-    predicted_proba = classifier.predict_proba(X)[:, 1]
-
-    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
-    n_reinit = 0
-    while (
-        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
-        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
-    ):
-        n_reinit += 1
-        logger.warning(
-            f"FDR classifier collapsed to a near-constant probability "
-            f"({np.unique(predicted_proba).size} unique value(s) over "
-            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
-            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+    remove_riding = (
+        riding_provider is not None
+        and ms2_tolerance_ppm is not None
+        and dia_cycle is not None
+        and dia_cycle.shape[2] == 1
+    )
+    if remove_riding:
+        # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
+        keep = _without_riding(
+            psm_df,
+            _prescore_proba(classifier, X, y, random_state),
+            group_columns,
+            riding_provider,
+            dia_cycle,
+            ms2_tolerance_ppm,
         )
-        classifier.reset()
-        classifier.fit(X[idxs_train], y_train)
-        predicted_proba = classifier.predict_proba(X)[:, 1]
+        if keep is not None:
+            psm_df, X, y = psm_df.iloc[keep], X[keep], y[keep]
+            idxs_train, idxs_test = train_test_split_indices(
+                len(X), test_size=0.2, random_state=random_state
+            )
+            y_train, y_test = y[idxs_train], y[idxs_test]
+
+    predicted_proba = _fit_predict(classifier, X, y_train, idxs_train)
     del X
 
     if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
@@ -218,6 +236,117 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         )
 
     return psm_df
+
+
+def _fit_predict(
+    classifier: Classifier,
+    X: np.ndarray,  # noqa: N803
+    y_train: np.ndarray,
+    idxs_train: np.ndarray,
+) -> np.ndarray:
+    """Fit `classifier` on `idxs_train` and predict all rows; a collapsed fit is repeated from new start weights."""
+    classifier.fit(X[idxs_train], y_train)
+    predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
+    n_reinit = 0
+    while (
+        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
+    ):
+        n_reinit += 1
+        logger.warning(
+            f"FDR classifier collapsed to a near-constant probability "
+            f"({np.unique(predicted_proba).size} unique value(s) over "
+            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
+            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+        )
+        classifier.reset()
+        classifier.fit(X[idxs_train], y_train)
+        predicted_proba = classifier.predict_proba(X)[:, 1]
+    return predicted_proba
+
+
+def _prescore_proba(
+    classifier: Classifier,
+    X: np.ndarray,  # noqa: N803
+    y: np.ndarray,
+    random_state: int | None,
+) -> np.ndarray:
+    """P(decoy) of every row from one fit of a copy of the unfitted `classifier` on at most riding.PRESCORE_ROWS rows."""
+    rows = np.arange(len(X))
+    if len(X) > riding.PRESCORE_ROWS:
+        rng = np.random.default_rng(random_state)
+        rows = np.sort(rng.choice(len(X), riding.PRESCORE_ROWS, replace=False))
+    return _fit_predict(copy.deepcopy(classifier), X, y[rows], rows)
+
+
+def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the tolerance come from the caller
+    psm_df: pd.DataFrame,
+    predicted_proba: np.ndarray,
+    group_columns: list[str],
+    riding_provider: Callable[[pd.DataFrame], tuple],
+    dia_cycle: np.ndarray,
+    ms2_tolerance_ppm: float,
+) -> np.ndarray | None:
+    """Positions of `psm_df` to keep after removing the PSMs that ride on a better co-eluting PSM.
+
+    With riding.CLASS_BLIND, targets and decoys are removed by the same rule: a decoy rides on a real peptide's peak as
+    often as a false target does, so removing both keeps the decoys a fair model of the false targets. Returns None if
+    nothing is removed or the columns needed are missing.
+    """
+    columns = list(dict.fromkeys([*riding.REQUIRED_COLUMNS, *group_columns]))
+    missing = [c for c in columns if c not in psm_df.columns]
+    if missing:
+        logger.warning(f"riding PSMs not removed: missing columns {missing}")
+        return None
+
+    rows = psm_df[columns].reset_index(drop=True)
+    rows["proba"] = predicted_proba
+    rows["_decoy"] = psm_df["_decoy"].to_numpy()
+    rows["_row"] = np.arange(len(rows))
+
+    competed = get_q_values(
+        keep_best(rows, group_columns=group_columns), "proba", "_decoy"
+    )
+    confident = competed[
+        (competed["_decoy"] == 0) & (competed["qval"] <= riding.WINNER_QVAL)
+    ]
+    if len(confident) == 0:
+        return None
+    partner = np.zeros(len(rows), dtype=bool)
+    best = competed["_row"].to_numpy()
+    partner[best[competed["proba"].to_numpy() <= confident["proba"].max()]] = True
+
+    loser = np.ones(len(rows), dtype=bool)
+    if riding.LOSER_POOLED_QVAL is not None:
+        pooled = get_q_values(rows, "proba", "_decoy")
+        loser[pooled["_row"].to_numpy()] = (
+            pooled["qval"].to_numpy() <= riding.LOSER_POOLED_QVAL
+        )
+    needed = np.flatnonzero(loser | partner)
+    fragments = riding_provider(psm_df.iloc[needed])
+    riding_share, own_support = riding.find_riding(
+        rows.iloc[needed].reset_index(drop=True),
+        fragments,
+        partner[needed],
+        dia_cycle,
+        ms2_tolerance_ppm,
+    )
+    removed = np.zeros(len(rows), dtype=bool)
+    removed[needed] = (
+        (riding_share >= riding.MIN_RIDING)
+        & (own_support <= riding.MAX_OWN_SUPPORT)
+        & loser[needed]
+    )
+    is_decoy = rows["_decoy"].to_numpy() == 1
+    logger.info(
+        f"removed {int((removed & ~is_decoy).sum()):,} target and {int((removed & is_decoy).sum()):,} decoy PSMs "
+        f"riding on {int(partner.sum()):,} co-eluting partners"
+    )
+    if not removed.any():
+        return None
+    return np.flatnonzero(~removed)
 
 
 def keep_best(

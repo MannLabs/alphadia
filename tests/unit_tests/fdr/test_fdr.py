@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr import fdr
+from alphadia.fdr import fdr, riding
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
 
@@ -425,3 +425,216 @@ def test_perform_fdr_prefers_given_fragments_over_the_provider():
     # Then: the given fragments go to the competition, and the provider is not asked
     provider.assert_not_called()
     assert mock_compete.call_args.args[1] is df_fragments
+
+
+class _FirstFeatureClassifier:
+    """Scores by the first feature; records how many rows it was fitted on."""
+
+    fitted_rows = None
+
+    def fit(self, X, y):  # noqa: N803
+        self.fitted_rows = len(X)
+
+    def predict_proba(self, X):  # noqa: N803
+        p = 1 / (1 + np.exp(-X[:, 0]))
+        return np.column_stack([1 - p, p])
+
+
+def test_prescore_proba_fits_a_copy_on_a_sample_and_predicts_every_row(monkeypatch):
+    # given: more rows than the pre-score may fit on
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(5000, 2))
+    y = (X[:, 0] > 0).astype(float)
+    classifier = _FirstFeatureClassifier()
+    monkeypatch.setattr(fdr.riding, "PRESCORE_ROWS", 800)
+    fitted = []
+    original = fdr._fit_predict
+
+    def spy(clf, X, y_train, idxs_train):  # noqa: N803
+        fitted.append((clf, len(idxs_train), len(y_train)))
+        return original(clf, X, y_train, idxs_train)
+
+    monkeypatch.setattr(fdr, "_fit_predict", spy)
+
+    # when
+    proba = fdr._prescore_proba(classifier, X, y, random_state=1)
+
+    # then
+    assert proba.shape == (5000,)
+    assert fitted[0][1:] == (800, 800)
+    assert fitted[0][0] is not classifier
+    assert classifier.fitted_rows is None
+
+
+@pytest.mark.parametrize("with_provider", [True, False])
+def test_perform_fdr_removes_riding_psms_before_the_fit(monkeypatch, with_provider):
+    # given: a removal that drops the first ten target PSMs
+    psm_df = _gen_psm_df()
+    removed = set(range(10))
+    calls = []
+
+    def without_riding(psm_df, predicted_proba, *args):
+        calls.append(len(predicted_proba))
+        return np.flatnonzero(~psm_df["precursor_idx"].isin(removed).to_numpy())
+
+    monkeypatch.setattr(fdr, "_without_riding", without_riding)
+    classifier = _FirstFeatureClassifier()
+    riding_kwargs = (
+        {"riding_provider": MagicMock(name="provider"), "ms2_tolerance_ppm": 10.0}
+        if with_provider
+        else {}
+    )
+
+    # when
+    with patch.object(fdr, "compete_for_fragments", side_effect=lambda df, *_: df):
+        result = fdr.perform_fdr(
+            classifier,
+            ["feature"],
+            psm_df,
+            psm_df["decoy"].to_numpy() == 1,
+            dia_cycle=_DIA_CYCLE,
+            **riding_kwargs,
+        )
+
+    # then: with a provider, the pre-score sees every PSM and the classifier only the kept ones
+    if with_provider:
+        assert calls == [len(psm_df)]
+        assert classifier.fitted_rows == int(0.8 * (len(psm_df) - len(removed)))
+        assert not set(result["precursor_idx"]) & removed
+    else:
+        assert calls == []
+        assert classifier.fitted_rows == int(0.8 * len(psm_df))
+
+
+def test_perform_fdr_skips_riding_removal_with_ion_mobility(monkeypatch):
+    # given: a DIA cycle with a mobility dimension
+    psm_df = _gen_psm_df()
+    mock_without_riding = MagicMock(name="without_riding")
+    monkeypatch.setattr(fdr, "_without_riding", mock_without_riding)
+
+    # when
+    with patch.object(fdr, "compete_for_fragments", side_effect=lambda df, *_: df):
+        fdr.perform_fdr(
+            _FirstFeatureClassifier(),
+            ["feature"],
+            psm_df,
+            psm_df["decoy"].to_numpy() == 1,
+            dia_cycle=np.zeros((1, 1, 2, 2)),
+            riding_provider=MagicMock(name="provider"),
+            ms2_tolerance_ppm=10.0,
+        )
+
+    # then
+    mock_without_riding.assert_not_called()
+
+
+def _riding_psms() -> pd.DataFrame:
+    """Two candidates per target precursor 0-39 (rank 0 better), one candidate per decoy precursor 40-49."""
+    n_targets, n_decoys = 40, 10
+    targets = pd.DataFrame(
+        {
+            "precursor_idx": np.repeat(np.arange(n_targets), 2),
+            "rank": np.tile([0, 1], n_targets),
+            "proba": np.repeat(np.linspace(0.01, 0.2, n_targets), 2)
+            + np.tile([0.0, 0.5], n_targets),
+            "_decoy": 0,
+        }
+    )
+    decoys = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(n_targets, n_targets + n_decoys),
+            "rank": 0,
+            "proba": np.linspace(0.9, 0.99, n_decoys),
+            "_decoy": 1,
+        }
+    )
+    psm_df = pd.concat([targets, decoys], ignore_index=True)
+    return psm_df.assign(
+        elution_group_idx=psm_df["precursor_idx"],
+        _sequence_id=psm_df["precursor_idx"],
+        fwhm_rt=2.0,
+        rt_observed=100.0,
+        mz_observed=500.0,
+    )
+
+
+def test_without_riding_removes_rows_above_the_riding_share(monkeypatch):
+    # given: rows 2 and 5 ride (share above riding.MIN_RIDING), row 7 just below
+    psm_df = _riding_psms()
+    share = np.zeros(len(psm_df))
+    share[[2, 5]] = riding.MIN_RIDING
+    share[7] = riding.MIN_RIDING * 0.99
+    received = {}
+
+    def find_riding(rows, fragments, partner, cycle, ms2_tolerance_ppm):
+        received["rows"], received["partner"] = rows, partner
+        received["fragments"], received["tolerance"] = fragments, ms2_tolerance_ppm
+        return share, np.zeros(len(rows))
+
+    monkeypatch.setattr(riding, "find_riding", find_riding)
+    provider = MagicMock(name="provider")
+
+    # when
+    keep = fdr._without_riding(
+        psm_df,
+        psm_df["proba"].to_numpy(),
+        ["elution_group_idx"],
+        provider,
+        _DIA_CYCLE,
+        7.0,
+    )
+
+    # then: the riding rows are dropped and every row is a removal candidate
+    assert keep.tolist() == [i for i in range(len(psm_df)) if i not in (2, 5)]
+    assert provider.call_args.args[0]["precursor_idx"].tolist() == psm_df[
+        "precursor_idx"
+    ].tolist()
+    assert received["fragments"] is provider.return_value
+    assert received["tolerance"] == 7.0
+    # and the partners are the best candidates of the confident elution groups, never a second candidate
+    partner = received["partner"]
+    assert partner[psm_df["rank"].to_numpy() == 1].sum() == 0
+    assert partner[(psm_df["rank"] == 0) & (psm_df["_decoy"] == 0)].all()
+
+
+def test_without_riding_keeps_all_rows_without_riding(monkeypatch):
+    # given: no row rides
+    psm_df = _riding_psms()
+    monkeypatch.setattr(
+        riding,
+        "find_riding",
+        lambda rows, *_: (np.zeros(len(rows)), np.zeros(len(rows))),
+    )
+
+    # when
+    keep = fdr._without_riding(
+        psm_df,
+        psm_df["proba"].to_numpy(),
+        ["elution_group_idx"],
+        MagicMock(),
+        _DIA_CYCLE,
+        7.0,
+    )
+
+    # then: nothing to remove
+    assert keep is None
+
+
+def test_without_riding_needs_its_columns():
+    # given: PSMs without the sequence id
+    psm_df = _riding_psms().drop(columns=riding.SEQUENCE_ID_COLUMN)
+    provider = MagicMock(name="provider")
+
+    # when
+    keep = fdr._without_riding(
+        psm_df,
+        psm_df["proba"].to_numpy(),
+        ["elution_group_idx"],
+        provider,
+        _DIA_CYCLE,
+        7.0,
+    )
+
+    # then: no removal and no fragments quantified
+    assert keep is None
+    provider.assert_not_called()

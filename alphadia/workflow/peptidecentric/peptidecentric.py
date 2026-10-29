@@ -249,6 +249,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     candidates_df,
                     self.dia_data,
                     self.spectral_library,
+                    remove_riding=self.config["fdr"]["interference_removal"],
                 )
             )
 
