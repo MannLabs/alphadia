@@ -12,7 +12,7 @@ import pandas as pd
 
 from alphadia.constants.keys import CalibCols
 from alphadia.exceptions import TooFewPSMError
-from alphadia.fdr import fragment_features, riding
+from alphadia.fdr import fragment_features, raw_fragment_features, riding
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import (
     MAX_FDR_TORCH_THREADS,
@@ -121,6 +121,8 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     df_fragments: pd.DataFrame | None = None,
     fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     riding_provider: Callable[[pd.DataFrame], tuple] | None = None,
+    raw_fragment_provider: Callable[[pd.DataFrame], dict[str, np.ndarray]]
+    | None = None,
     ms2_tolerance_ppm: float | None = None,
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
@@ -167,6 +169,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         library m/z, library intensity, observed intensity and correlation (see `riding.find_riding`). In the final round, PSMs whose fragment evidence a
         better co-eluting PSM explains are removed before the classifier is fitted; which PSM is better, and which are
         confident enough to explain others, comes from a fit of the classifier on a sample of the rows.
+
+    raw_fragment_provider : Callable[[pd.DataFrame], dict[str, np.ndarray]], default=None
+        Returns, in the row order of the PSMs it is given, the `raw_fragment_features.FEATURES` from their raw fragment
+        traces. In the final round (with `riding_provider`) they are classifier features.
 
     ms2_tolerance_ppm : float, default=None
         The calibrated MS2 tolerance, from which the fragment sharing tolerance of the riding removal is derived.
@@ -259,6 +265,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             psm_df["rank"].to_numpy(),
             psm_df[CalibCols.MZ_OBSERVED].to_numpy(np.float64),
         )
+        if raw_fragment_provider is not None:
+            raw_values = raw_fragment_provider(psm_df)
+            values |= {
+                name: raw_values[name] for name in raw_fragment_features.FEATURES
+            }
         psm_df = psm_df.assign(**values)
         score_columns = [
             c
@@ -269,6 +280,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             [
                 psm_df[score_columns].to_numpy(),
                 *(values[name] for name in fragment_features.FEATURES),
+                *(
+                    values[name]
+                    for name in raw_fragment_features.FEATURES
+                    if name in values
+                ),
             ]
         )
         # the removal needs the m/z, library, observed and correlation arrays only
