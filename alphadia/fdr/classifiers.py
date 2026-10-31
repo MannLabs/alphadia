@@ -1,8 +1,10 @@
 """Classifier module for FDR estimation."""
 
 import logging
+import os
 import warnings
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from typing import Any
 
@@ -417,7 +419,21 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         if self._quantile_transformer is None:
             return x
 
-        return self._quantile_transformer.transform(x)
+        transformer = self._quantile_transformer
+        x_transformed = np.empty(x.shape, dtype=np.float64)
+
+        def transform_feature(i: int) -> None:
+            # the transformer's own per-feature mapping on a contiguous copy, as transform() does feature by feature
+            x_transformed[:, i] = transformer._transform_col(
+                x[:, i].astype(np.float64), transformer.quantiles_[:, i], False
+            )
+
+        # np.interp and the normal ppf release the GIL, so the features are transformed in parallel
+        with ThreadPoolExecutor(
+            max_workers=min(x.shape[1], len(os.sched_getaffinity(0)))
+        ) as pool:
+            list(pool.map(transform_feature, range(x.shape[1])))
+        return x_transformed
 
     @manage_torch_threads(max_threads=2)
     def fit(  # noqa: PLR0915 # Too many statements
