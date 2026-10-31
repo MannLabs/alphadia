@@ -345,9 +345,11 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
             pooled["qval"].to_numpy() <= riding.LOSER_POOLED_QVAL
         )
     needed = np.flatnonzero(loser | partner)
-    fragments = riding_provider(psm_df.iloc[needed])
+    # without a loser bound every row is needed: no copy of the PSMs (all their columns) for the provider
+    every_row = len(needed) == len(rows)
+    fragments = riding_provider(psm_df if every_row else psm_df.iloc[needed])
     riding_share, own_support = riding.find_riding(
-        rows.iloc[needed].reset_index(drop=True),
+        rows if every_row else rows.iloc[needed].reset_index(drop=True),
         fragments,
         partner[needed],
         dia_cycle,

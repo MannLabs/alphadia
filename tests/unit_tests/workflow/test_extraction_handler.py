@@ -156,17 +156,24 @@ def test_perform_fdr_and_filter_candidates_provides_riding_fragments_if_asked(
     handler, _ = _fdr_handler(fit_predict)
     handler._optimization_manager.ms2_error = 6.5
     features_df, candidates_df, spectral_library = _fdr_inputs()
+    for column in extraction_handler._NG_CANDIDATE_COLUMNS:
+        if column not in candidates_df.columns:
+            candidates_df[column] = 0
     spectral_library.precursor_df = pd.DataFrame(
         {"precursor_idx": [3, 2, 1], "sequence": ["PEPTIDEK", "SAMPLER", "PEPTIDEK"]}
     )
     fragments_df = pd.DataFrame()
+    k = riding.TOP_K_FRAGMENTS
+    dense = tuple(np.full((2, k), i, dtype=np.float32) for i in range(4))
 
     # when
     with (
         patch.object(
-            handler, "quantify_candidates", return_value=(None, fragments_df)
+            handler, "_quantify_fragments", return_value=fragments_df
         ) as mock_quantify,
-        patch.object(extraction_handler, "_riding_fragments") as mock_riding_fragments,
+        patch.object(
+            extraction_handler, "_riding_fragments", return_value=dense
+        ) as mock_riding_fragments,
     ):
         handler.perform_fdr_and_filter_candidates(
             features_df,
@@ -196,7 +203,8 @@ def test_perform_fdr_and_filter_candidates_provides_riding_fragments_if_asked(
         "tolerance_ppm": 6.5,
     }
     assert mock_riding_fragments.call_args.args[0] is fragments_df
-    assert received["riding"] is mock_riding_fragments.return_value
+    for out, expected in zip(received["riding"], dense, strict=True):
+        np.testing.assert_array_equal(out, expected)
 
 
 def test_riding_fragments_selects_top_library_fragments_and_fills_missing():

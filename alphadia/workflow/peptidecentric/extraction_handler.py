@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import numba as nb
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -42,8 +43,83 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
 _Y_ION_TYPE = ord("y")
 
 
-# quantified fragments are placed into their slots in chunks of this many, which bounds the (rows, slots) comparison
-_SLOT_CHUNK = 5_000_000
+# candidates whose riding fragments are quantified at once: the backend's per-candidate results and their conversion
+# to arrays take ~100 bytes per fragment, so quantifying all 40 M candidates of a 200 ng entrapment file at once
+# peaked at ~80 GB above the search
+_RIDING_QUANT_CHUNK = 2_000_000
+# the candidate columns the backend needs (see candidates_to_ng)
+_NG_CANDIDATE_COLUMNS = [
+    "precursor_idx",
+    "rank",
+    "score",
+    "scan_center",
+    "scan_start",
+    "scan_stop",
+    "frame_center",
+    "frame_start",
+    "frame_stop",
+]
+
+
+@nb.njit(cache=True)
+def _top_library_fragments(  # noqa: PLR0913 # one array per library fragment attribute
+    start: np.ndarray,
+    stop: np.ndarray,
+    mz_library: np.ndarray,
+    intensity: np.ndarray,
+    fragment_type: np.ndarray,
+    fragment_number: np.ndarray,
+    k: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """(len(start), k) m/z and intensity of each precursor's k most intense fragments (no y1, intensity > 0).
+
+    Equal intensities keep their library order, as a stable sort does.
+    """
+    n = len(start)
+    top_mz = np.zeros((n, k), dtype=np.float32)
+    top_intensity = np.zeros((n, k), dtype=np.float32)
+    for i in range(n):
+        filled = 0
+        for j in range(start[i], stop[i]):
+            value = intensity[j]
+            if not value > 0 or (
+                fragment_type[j] == _Y_ION_TYPE and fragment_number[j] == 1
+            ):
+                continue
+            pos = filled
+            while pos > 0 and top_intensity[i, pos - 1] < value:
+                pos -= 1
+            if pos >= k:
+                continue
+            for m in range(min(filled, k - 1), pos, -1):
+                top_mz[i, m] = top_mz[i, m - 1]
+                top_intensity[i, m] = top_intensity[i, m - 1]
+            top_mz[i, pos] = mz_library[j]
+            top_intensity[i, pos] = value
+            filled = min(filled + 1, k)
+    return top_mz, top_intensity
+
+
+@nb.njit(cache=True)
+def _fill_slots(  # noqa: PLR0913 # one array per quantified fragment attribute
+    row: np.ndarray,
+    fragment_mz: np.ndarray,
+    fragment_intensity: np.ndarray,
+    fragment_correlation: np.ndarray,
+    mz: np.ndarray,
+    observed: np.ndarray,
+    correlation: np.ndarray,
+) -> None:
+    """Write each quantified fragment into the first slot of its row with the same library m/z."""
+    for i in range(len(row)):
+        r = row[i]
+        if r < 0:
+            continue
+        for s in range(mz.shape[1]):
+            if mz[r, s] == fragment_mz[i]:
+                observed[r, s] = fragment_intensity[i]
+                correlation[r, s] = fragment_correlation[i]
+                break
 
 
 def _riding_fragments(
@@ -55,9 +131,9 @@ def _riding_fragments(
 
     The fragments of each candidate are those the backend selects for quantification (non-zero library intensity, no
     y1, the most intense); observed intensity and correlation come from the quantified `fragments_df` and are 0 where
-    the backend found no signal. Empty slots have m/z 0.
+    the backend found no signal. Empty slots have m/z 0. All arrays are float32, the precision of the library and the
+    backend.
     """
-    k = riding.TOP_K_FRAGMENTS
     precursor_df = spectral_library.precursor_df
     library_idx = precursor_df["precursor_idx"].to_numpy()
     by_idx = np.argsort(library_idx)
@@ -65,33 +141,20 @@ def _riding_fragments(
         candidates_df["precursor_idx"].to_numpy(), return_inverse=True
     )
     position = by_idx[np.searchsorted(library_idx[by_idx], precursors)]
-    start = precursor_df["flat_frag_start_idx"].to_numpy(np.int64)[position]
-    lengths = precursor_df["flat_frag_stop_idx"].to_numpy(np.int64)[position] - start
-    owner = np.repeat(np.arange(len(precursors)), lengths)
-    flat = np.repeat(start, lengths) + (
-        np.arange(lengths.sum()) - np.repeat(np.cumsum(lengths) - lengths, lengths)
-    )
     fragment_df = spectral_library.fragment_df
-    intensity = fragment_df["intensity"].to_numpy(np.float32)[flat]
-    usable = (intensity > 0) & ~(
-        (fragment_df["type"].to_numpy()[flat] == _Y_ION_TYPE)
-        & (fragment_df["number"].to_numpy()[flat] == 1)
+    library_mz, library_intensity = _top_library_fragments(
+        precursor_df["flat_frag_start_idx"].to_numpy(np.int64)[position],
+        precursor_df["flat_frag_stop_idx"].to_numpy(np.int64)[position],
+        fragment_df["mz_library"].to_numpy(np.float32),
+        fragment_df["intensity"].to_numpy(np.float32),
+        fragment_df["type"].to_numpy(),
+        fragment_df["number"].to_numpy(),
+        riding.TOP_K_FRAGMENTS,
     )
-    owner, flat, intensity = owner[usable], flat[usable], intensity[usable]
-    order = np.lexsort((-intensity, owner))
-    owner, flat, intensity = owner[order], flat[order], intensity[order]
-    slot = np.arange(len(owner)) - np.searchsorted(owner, owner)
-    top = slot < k
-    library_mz = np.zeros((len(precursors), k), dtype=np.float32)
-    library_intensity = np.zeros((len(precursors), k), dtype=np.float32)
-    library_mz[owner[top], slot[top]] = fragment_df["mz_library"].to_numpy(np.float32)[
-        flat[top]
-    ]
-    library_intensity[owner[top], slot[top]] = intensity[top]
     mz, library = library_mz[inverse], library_intensity[inverse]
 
-    observed = np.zeros(mz.shape, dtype=np.float64)
-    correlation = np.zeros(mz.shape, dtype=np.float64)
+    observed = np.zeros(mz.shape, dtype=np.float32)
+    correlation = np.zeros(mz.shape, dtype=np.float32)
     row = pd.Index(
         candidate_hash(
             candidates_df["precursor_idx"].to_numpy(), candidates_df["rank"].to_numpy()
@@ -101,19 +164,16 @@ def _riding_fragments(
             fragments_df["precursor_idx"].to_numpy(), fragments_df["rank"].to_numpy()
         )
     )
-    fragment_mz = fragments_df["mz_library"].to_numpy(np.float32)
-    fragment_intensity = fragments_df["intensity"].to_numpy(np.float64)
-    fragment_correlation = fragments_df["correlation"].to_numpy(np.float64)
-    for chunk in range(0, len(row), _SLOT_CHUNK):
-        part = slice(chunk, chunk + _SLOT_CHUNK)
-        r = row[part]
-        found = r >= 0
-        match = mz[r[found]] == fragment_mz[part][found][:, None]
-        hit = match.any(1)
-        rows, slots = r[found][hit], match[hit].argmax(1)
-        observed[rows, slots] = fragment_intensity[part][found][hit]
-        correlation[rows, slots] = fragment_correlation[part][found][hit]
-    return mz.astype(np.float64), library.astype(np.float64), observed, correlation
+    _fill_slots(
+        row,
+        fragments_df["mz_library"].to_numpy(np.float32),
+        fragments_df["intensity"].to_numpy(np.float32),
+        fragments_df["correlation"].to_numpy(np.float32),
+        mz,
+        observed,
+        correlation,
+    )
+    return mz, library, observed, correlation
 
 
 class ExtractionHandler(ABC):
@@ -758,6 +818,39 @@ class NgExtractionHandler(ExtractionHandler):
 
         return precursor_df, fragments_df
 
+    def _quantify_fragments(
+        self,
+        candidates_df: pd.DataFrame,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+        top_k_fragments: int,
+        tolerance_ppm: float,
+    ) -> pd.DataFrame:
+        """Quantified fragments (precursor_idx, rank, mz_library, intensity, correlation) of `candidates_df`.
+
+        Unlike `quantify_candidates`, no precursor table is built and nothing is merged from the candidates or the
+        library.
+        """
+        self._lazy_init_speclib_ng(spectral_library)
+        quant_params = QuantificationParameters()
+        quant_params.update(
+            {"top_k_fragments": top_k_fragments, "tolerance_ppm": tolerance_ppm}
+        )
+        quantified_lib = PeakGroupQuantification(quant_params).quantify(
+            dia_data, self._speclib_ng, candidates_to_ng(candidates_df, dia_data)
+        )
+        _, fragment_dict = quantified_lib.to_dict_arrays()
+        del quantified_lib
+        return pd.DataFrame(
+            {
+                "precursor_idx": fragment_dict["precursor_idx"],
+                "rank": fragment_dict["rank"],
+                "mz_library": fragment_dict["mz_library"],
+                "intensity": fragment_dict["intensity"],
+                "correlation": fragment_dict["correlation_observed"],
+            }
+        )
+
     def add_columns_from_library(
         self, features_or_precursor_df: pd.DataFrame, spectral_library: SpecLibFlat
     ) -> pd.DataFrame:
@@ -822,21 +915,32 @@ class NgExtractionHandler(ExtractionHandler):
         def riding_fragments(
             psm_df: pd.DataFrame,
         ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-            # in the row order of psm_df, which the dense fragment arrays follow
-            competing = (
-                candidates_df.set_index("_candidate_idx")
-                .loc[psm_df["_candidate_idx"].to_numpy()]
-                .reset_index(drop=True)
+            # in the row order of psm_df, which the dense fragment arrays follow; quantified in chunks, because the
+            # backend's results of all candidates at once take several times the dense arrays
+            position = pd.Index(candidates_df["_candidate_idx"]).get_indexer(
+                psm_df["_candidate_idx"].to_numpy()
             )
-            _, fragments_df = self.quantify_candidates(
-                competing,
-                None,
-                dia_data,
-                spectral_library,
-                top_k_fragments=riding.TOP_K_FRAGMENTS,
-                tolerance_ppm=self._optimization_manager.ms2_error,
+            competing = candidates_df[_NG_CANDIDATE_COLUMNS].take(position)
+            k = riding.TOP_K_FRAGMENTS
+            dense = tuple(
+                np.zeros((len(competing), k), dtype=np.float32) for _ in range(4)
             )
-            return _riding_fragments(fragments_df, competing, spectral_library)
+            for start in range(0, len(competing), _RIDING_QUANT_CHUNK):
+                part = competing.iloc[start : start + _RIDING_QUANT_CHUNK]
+                fragments_df = self._quantify_fragments(
+                    part,
+                    dia_data,
+                    spectral_library,
+                    top_k_fragments=k,
+                    tolerance_ppm=self._optimization_manager.ms2_error,
+                )
+                for out, values in zip(
+                    dense,
+                    _riding_fragments(fragments_df, part, spectral_library),
+                    strict=True,
+                ):
+                    out[start : start + len(part)] = values
+            return dense
 
         def quantified_fragments(psm_df: pd.DataFrame) -> pd.DataFrame:
             # Fragment competition needs observed fragments, which scoring does not return.
