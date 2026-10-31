@@ -420,12 +420,14 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             return x
 
         transformer = self._quantile_transformer
-        x_transformed = np.empty(x.shape, dtype=np.float64)
+        # transform() keeps float32 input in float32 and computes the mapping in it
+        dtype = x.dtype if x.dtype in (np.float32, np.float64) else np.float64
+        x_transformed = np.empty(x.shape, dtype=dtype)
 
         def transform_feature(i: int) -> None:
             # the transformer's own per-feature mapping on a contiguous copy, as transform() does feature by feature
             x_transformed[:, i] = transformer._transform_col(
-                x[:, i].astype(np.float64), transformer.quantiles_[:, i], False
+                x[:, i].astype(dtype), transformer.quantiles_[:, i], False
             )
 
         # np.interp and the normal ppf release the GIL, so the features are transformed in parallel
