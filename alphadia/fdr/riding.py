@@ -29,7 +29,7 @@ LOSER_POOLED_QVAL = None
 # Only the best candidate of each precursor (by the pre-score) can be removed. The final fit trains on the best
 # candidate of each precursor alone, so the other candidates mostly do not reach the training; their fragments are not
 # quantified.
-LOSERS_BEST_CANDIDATE = False
+LOSERS_BEST_CANDIDATE = True
 # Partners of either class explain a PSM; otherwise only partners of its own class (targets explain targets, decoys
 # explain decoys). At a low MIN_RIDING the class-blind rule removes far more decoys than false targets (decoys ride
 # real peaks more often), which inflates the identifications; the within-class rule keeps the decoys a fair model.

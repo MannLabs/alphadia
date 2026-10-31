@@ -573,6 +573,7 @@ def test_without_riding_removes_rows_above_the_riding_share(monkeypatch):
         return share, np.zeros(len(rows))
 
     monkeypatch.setattr(riding, "find_riding", find_riding)
+    monkeypatch.setattr(riding, "LOSERS_BEST_CANDIDATE", False)
     provider = MagicMock(name="provider")
 
     # when
@@ -597,6 +598,34 @@ def test_without_riding_removes_rows_above_the_riding_share(monkeypatch):
     partner = received["partner"]
     assert partner[psm_df["rank"].to_numpy() == 1].sum() == 0
     assert partner[(psm_df["rank"] == 0) & (psm_df["_decoy"] == 0)].all()
+
+
+def test_without_riding_removes_only_the_best_candidate_of_a_precursor(monkeypatch):
+    # given: every row would ride
+    psm_df = _riding_psms()
+    received = {}
+
+    def find_riding(rows, fragments, partner, cycle, ms2_tolerance_ppm):
+        received["rows"] = rows
+        return np.ones(len(rows)), np.zeros(len(rows))
+
+    monkeypatch.setattr(riding, "find_riding", find_riding)
+    monkeypatch.setattr(riding, "LOSERS_BEST_CANDIDATE", True)
+
+    # when
+    keep = fdr._without_riding(
+        psm_df,
+        psm_df["proba"].to_numpy(),
+        ["elution_group_idx"],
+        MagicMock(name="provider"),
+        _DIA_CYCLE,
+        7.0,
+    )
+
+    # then: only the second candidates of the target precursors are kept, and only the best candidates are looked at
+    assert psm_df.iloc[keep]["rank"].eq(1).all()
+    assert len(keep) == 40
+    assert received["rows"]["rank"].eq(0).all()
 
 
 def test_without_riding_keeps_all_rows_without_riding(monkeypatch):
