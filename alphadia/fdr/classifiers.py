@@ -30,6 +30,7 @@ _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 # layer for every row, gigabytes for the 10 M+ rows of a final search.
 # TODO: find optimal value for this
 _PREDICT_ROWS_CHUNK_SIZE = 250_000
+_TRANSFORM_ROWS_CHUNK_SIZE = 1_000_000
 
 
 # Training on the best candidate (fit with `groups`): a logistic regression on all rows picks each group's most
@@ -424,17 +425,20 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         dtype = x.dtype if x.dtype in (np.float32, np.float64) else np.float64
         x_transformed = np.empty(x.shape, dtype=dtype)
 
-        def transform_feature(i: int) -> None:
+        def transform_feature(i: int, rows: slice) -> None:
             # the transformer's own per-feature mapping on a contiguous copy, as transform() does feature by feature
-            x_transformed[:, i] = transformer._transform_col(
-                x[:, i].astype(dtype), transformer.quantiles_[:, i], False
+            x_transformed[rows, i] = transformer._transform_col(
+                x[rows, i].astype(dtype), transformer.quantiles_[:, i], False
             )
 
-        # np.interp and the normal ppf release the GIL, so the features are transformed in parallel
+        # np.interp and the normal ppf release the GIL, so the features are transformed in parallel; the mapping is
+        # element-wise, and chunks of rows bound the temporaries every thread holds
         with ThreadPoolExecutor(
             max_workers=min(x.shape[1], len(os.sched_getaffinity(0)))
         ) as pool:
-            list(pool.map(transform_feature, range(x.shape[1])))
+            for start in range(0, len(x), _TRANSFORM_ROWS_CHUNK_SIZE):
+                rows = slice(start, start + _TRANSFORM_ROWS_CHUNK_SIZE)
+                list(pool.map(transform_feature, range(x.shape[1]), [rows] * x.shape[1]))
         return x_transformed
 
     @manage_torch_threads(max_threads=2)
