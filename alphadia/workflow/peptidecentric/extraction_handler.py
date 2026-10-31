@@ -30,11 +30,16 @@ from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
+from alphadia.workflow.peptidecentric.ng.ms1_calibration import (
+    Ms1Calibration,
+    fit_ms1_calibration,
+)
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     candidates_to_ng,
     merge_context_features,
     parse_candidates,
     parse_quantification,
+    set_ms1_isotopes,
     speclib_to_ng,
     to_features_df,
 )
@@ -45,6 +50,12 @@ _Y_ION_TYPE = ord("y")
 
 # quantified fragments are placed into their slots in chunks of this many, which bounds the (rows, slots) comparison
 _SLOT_CHUNK = 5_000_000
+
+# The rust path never calibrates the precursor m/z (ms1_error stays at its start value), so before the MS1 features are
+# scored, a pre-pass extracts the MS1 of the best-scoring target candidates at a wide tolerance and fits the MS1
+# mass calibration on them (ms1_calibration.py).
+MS1_PREPASS_CANDIDATES = 10_000
+MS1_PREPASS_TOLERANCE_PPM = 15.0
 
 
 def _riding_fragments(
@@ -638,6 +649,74 @@ class NgExtractionHandler(ExtractionHandler):
         super().__init__(*args, **kwargs)
 
         self._speclib_ng: SpecLibFlatNG = None  # noqa: F821
+        self._score_ms1 = False
+        self._ms1_tolerance_ppm: float | None = None
+
+    def enable_ms1_scoring(self) -> None:
+        """Score the MS1 features (`ng_mapper.MS1_CLASSIFIER_FEATURES`) in this handler's scoring calls."""
+        self._score_ms1 = True
+
+    def _scoring_parameters(
+        self, ms1_tolerance_ppm: float | None
+    ) -> "ScoringParameters":
+        scoring_params = ScoringParameters()
+        params = {
+            "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
+            "mass_tolerance": self._optimization_manager.ms2_error,
+        }
+        if ms1_tolerance_ppm is not None:
+            params["ms1_mass_tolerance"] = ms1_tolerance_ppm
+        scoring_params.update(params)
+        return scoring_params
+
+    def _prepare_ms1(
+        self,
+        candidates_df: pd.DataFrame,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+    ) -> float:
+        """Set the MS1 isotopes at the calibrated MS1 m/z and return the extraction tolerance (ppm).
+
+        The calibration is fitted on target candidates only, so it carries no decoy information.
+        """
+        precursor_mz_column = self._column_name_handler.get_precursor_mz_column()
+        rt_column = self._column_name_handler.get_rt_column()
+        precursor_df = spectral_library.precursor_df
+        set_ms1_isotopes(
+            self._speclib_ng,
+            precursor_df,
+            precursor_mz_column,
+            rt_column,
+            Ms1Calibration.identity(),
+        )
+
+        best = candidates_df[
+            (candidates_df["decoy"] == 0) & (candidates_df["rank"] == 0)
+        ].nlargest(MS1_PREPASS_CANDIDATES, "score")
+        prepass = (
+            PeakGroupScoring(self._scoring_parameters(MS1_PREPASS_TOLERANCE_PPM))
+            .score(dia_data, self._speclib_ng, candidates_to_ng(best, dia_data))
+            .to_dict_arrays()
+        )
+        library = precursor_df.set_index("precursor_idx")
+        prepass_idx = prepass["precursor_idx"]
+        calibration = fit_ms1_calibration(
+            library[precursor_mz_column].reindex(prepass_idx).to_numpy(np.float64),
+            library[rt_column].reindex(prepass_idx).to_numpy(np.float64),
+            prepass["ms1_ppm_signed"],
+            prepass["ms1_n_isotopes"],
+            prepass["ms1_log_m0_apex"],
+            prepass["ms1_iso_cosine"],
+        )
+        self._reporter.log_string(
+            f"MS1 calibration from the pre-pass on the {len(best)} best target candidates "
+            f"(precursor m/z column {precursor_mz_column}, RT column {rt_column}): {calibration.describe()}",
+            verbosity="info",
+        )
+        set_ms1_isotopes(
+            self._speclib_ng, precursor_df, precursor_mz_column, rt_column, calibration
+        )
+        return calibration.tolerance_ppm
 
     def _lazy_init_speclib_ng(self, spectral_library: SpecLibFlat) -> None:
         """Initialize the NG speclib if not already done."""
@@ -696,21 +775,20 @@ class NgExtractionHandler(ExtractionHandler):
         """
         self._lazy_init_speclib_ng(spectral_library)
 
+        if self._score_ms1 and self._ms1_tolerance_ppm is None:
+            self._ms1_tolerance_ppm = self._prepare_ms1(
+                candidates_df, dia_data, spectral_library
+            )
+
         candidates = candidates_to_ng(candidates_df, dia_data)
 
-        scoring_params = ScoringParameters()
-        scoring_params.update(
-            {
-                "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
-                "mass_tolerance": self._optimization_manager.ms2_error,
-            }
-        )
+        candidate_features = PeakGroupScoring(
+            self._scoring_parameters(self._ms1_tolerance_ppm)
+        ).score(dia_data, self._speclib_ng, candidates)
 
-        candidate_features = PeakGroupScoring(scoring_params).score(
-            dia_data, self._speclib_ng, candidates
+        features_df = to_features_df(
+            candidate_features, spectral_library, ms1_scored=self._score_ms1
         )
-
-        features_df = to_features_df(candidate_features, spectral_library)
 
         # Scoped to the candidates of this call: an optimization batch, or the full library
         # at extraction. The FDR manager keys classifiers by column set, so both need them.

@@ -1,6 +1,8 @@
 """Unit tests for the peptidecentric workflow utils."""
 
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    MS1_CLASSIFIER_FEATURES,
+    MS1_PREFIX,
     get_context_feature_names,
     get_feature_names,
 )
@@ -20,6 +22,7 @@ def test_get_classifier_feature_columns_for_rust_backend():
         name
         for name in get_feature_names() + get_context_feature_names()
         if name not in DECOY_SCHEME_FEATURES
+        and (not name.startswith(MS1_PREFIX) or name in MS1_CLASSIFIER_FEATURES)
     ]
 
 

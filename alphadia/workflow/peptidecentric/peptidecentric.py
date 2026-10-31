@@ -191,6 +191,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ),
         )
 
+        # MS1 features are scored in the final extraction only: calibration rounds set the raw-score cutoff from their
+        # IDs, and a strong new feature there lowers the cutoff and floods the final extraction. The rust DIA data
+        # always reports has_ms1 False; without MS1 scans the features are constant and the calibration falls back.
+        if self._config["search"]["extraction_backend"] == "rust":
+            extraction_handler.enable_ms1_scoring()
+
         candidates_df = extraction_handler.select_candidates(
             self.dia_data,
             self.spectral_library,

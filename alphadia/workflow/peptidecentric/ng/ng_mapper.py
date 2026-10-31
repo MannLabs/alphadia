@@ -15,8 +15,20 @@ from alphadia_search_rs import (
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
+from alphadia.workflow.peptidecentric.ng.ms1_calibration import Ms1Calibration
 
 CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
+
+# library isotope abundances (IsotopeGenerator) scored against the MS1 isotope XICs
+MS1_ISOTOPE_COLUMNS = ["i_0", "i_1", "i_2", "i_3"]
+MS1_PREFIX = "ms1_"
+# the rust MS1 features the final-round classifier uses, the set validated in replay; the other four are dropped
+MS1_CLASSIFIER_FEATURES = [
+    "ms1_log_m0_apex",
+    "ms1_n_isotopes",
+    "ms1_frag_corr",
+    "ms1_iso_cosine",
+]
 
 
 def set_ng_thread_count(thread_count: int) -> None:
@@ -87,6 +99,30 @@ def speclib_to_ng(
     )
 
 
+def set_ms1_isotopes(
+    speclib_ng: "SpecLibFlatNG",  # noqa: F821
+    precursor_df: pd.DataFrame,
+    precursor_mz_column: str,
+    rt_column: str,
+    calibration: Ms1Calibration,
+) -> None:
+    """Give the rust library the MS1 isotopes of every precursor at its own m/z, shifted by the calibrated MS1 error.
+
+    Decoys too are scored at their own m/z and envelope: scoring them at their target's let a classifier recognise
+    them. The expected error is evaluated at the precursor's m/z and RT.
+    """
+    mz = precursor_df[precursor_mz_column].to_numpy(np.float64)
+    rt = precursor_df[rt_column].to_numpy(np.float64)
+    speclib_ng.set_isotopes(
+        precursor_df["precursor_idx"].to_numpy().astype(np.uint64),
+        precursor_df["charge"].to_numpy().astype(np.uint8),
+        (mz * (1 + calibration.offset_ppm(mz, rt) * 1e-6)).astype(np.float32),
+        np.ascontiguousarray(
+            precursor_df[MS1_ISOTOPE_COLUMNS].to_numpy(), dtype=np.float32
+        ),
+    )
+
+
 def get_feature_names() -> list[str]:
     """Get feature names from NG CandidateFeatureCollection."""
     return [f for f in CandidateFeatureCollection.get_feature_names()]
@@ -113,7 +149,7 @@ FRAGMENT_AGREEMENT_FEATURES = [
 
 def get_final_round_feature_names() -> list[str]:
     """Features the FDR classifier uses only in the final round, not in the calibration rounds."""
-    return ION_IDENTITY_FEATURES + FRAGMENT_AGREEMENT_FEATURES
+    return ION_IDENTITY_FEATURES + FRAGMENT_AGREEMENT_FEATURES + MS1_CLASSIFIER_FEATURES
 
 
 def get_context_feature_names() -> list[str]:
@@ -220,11 +256,21 @@ def candidates_to_ng(
 
 
 def to_features_df(
-    candidate_features: CandidateFeatureCollection, spectral_library: SpecLibFlat
+    candidate_features: CandidateFeatureCollection,
+    spectral_library: SpecLibFlat,
+    ms1_scored: bool = False,  # noqa: FBT001, FBT002
 ) -> pd.DataFrame:
-    """Convert NG candidate features to classic format."""
+    """Convert NG candidate features to classic format.
 
-    features_dict = candidate_features.to_dict_arrays()
+    With `ms1_scored`, the `MS1_CLASSIFIER_FEATURES` are kept; all other MS1 columns are dropped.
+    """
+
+    kept_ms1 = MS1_CLASSIFIER_FEATURES if ms1_scored else []
+    features_dict = {
+        name: values
+        for name, values in candidate_features.to_dict_arrays().items()
+        if not name.startswith(MS1_PREFIX) or name in kept_ms1
+    }
 
     features_df = pd.DataFrame(features_dict)
 
