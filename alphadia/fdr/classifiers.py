@@ -31,6 +31,10 @@ _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 # TODO: find optimal value for this
 _PREDICT_ROWS_CHUNK_SIZE = 250_000
 _TRANSFORM_ROWS_CHUNK_SIZE = 1_000_000
+# The quantile table is estimated on at most this many rows: 1001 quantiles are as well resolved from 200k rows, and
+# the exact quantiles of the 10 M+ rows of a final search take half a minute per fit.
+_MAX_ROWS_FOR_QUANTILE_FIT = 200_000
+_QUANTILE_SUBSAMPLE_SEED = 42
 
 
 # Training on the best candidate (fit with `groups`): a logistic regression on all rows picks each group's most
@@ -396,7 +400,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             return None
 
         return QuantileTransformer(
-            n_quantiles=_N_QUANTILES, output_distribution="normal", subsample=None
+            n_quantiles=_N_QUANTILES,
+            output_distribution="normal",
+            subsample=_MAX_ROWS_FOR_QUANTILE_FIT,
+            random_state=_QUANTILE_SUBSAMPLE_SEED,
         ).fit(x)
 
     def _transform_features(self, x: np.ndarray) -> np.ndarray:
