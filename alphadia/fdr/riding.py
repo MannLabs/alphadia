@@ -1,8 +1,5 @@
 """Removal of candidates that ride on the fragment signal of a better co-eluting candidate."""
 
-import json
-import os
-
 import numba as nb
 import numpy as np
 import pandas as pd
@@ -45,10 +42,6 @@ PRESCORE_ROWS = 1_000_000
 PPM = 1e-6
 # rows whose fragment evidence is computed at once
 EVIDENCE_CHUNK = 1_000_000
-
-# local experiments set any of the constants above from a JSON object in this environment variable
-OVERRIDES_ENV = "ALPHADIA_RIDING_OVERRIDES"
-globals().update(json.loads(os.environ.get(OVERRIDES_ENV, "{}")))
 
 # other charge states of the same peptide share its fragments by construction, so they never explain each other
 SEQUENCE_ID_COLUMN = "_sequence_id"

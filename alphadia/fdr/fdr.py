@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import logging
-import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -24,20 +23,6 @@ if TYPE_CHECKING:
 max_dia_cycle_shape = 2
 
 logger = logging.getLogger()
-
-
-def _timing(label: str, start: float) -> float:
-    """Log the seconds since `start` and the current and peak RSS of the process; returns the current time."""
-    with open("/proc/self/status") as f:
-        status = dict(
-            line.split(":", 1) for line in f if line.startswith(("VmRSS", "VmHWM"))
-        )
-    gb = {k: int(v.split()[0]) / 1024**2 for k, v in status.items()}
-    logger.info(
-        f"timing {label}: {time.perf_counter() - start:.1f} s, rss {gb['VmRSS']:.1f} GB, peak {gb['VmHWM']:.1f} GB"
-    )
-    return time.perf_counter()
-
 
 # Below this standard deviation the probability is almost constant. The classifier then
 # cannot separate targets from decoys, and the FDR filter keeps all PSMs.
@@ -198,13 +183,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         and dia_cycle.shape[2] == 1
     )
     if remove_riding:
-        t = _timing("riding start", time.perf_counter())
-        prescore = _prescore_proba(classifier, X, y, random_state, groups)
-        t = _timing("prescore", t)
         # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
         keep = _without_riding(
             psm_df,
-            prescore,
+            _prescore_proba(classifier, X, y, random_state, groups),
             group_columns,
             riding_provider,
             dia_cycle,
@@ -218,9 +200,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             )
             y_train, y_test = y[idxs_train], y[idxs_test]
 
-    t = time.perf_counter()
     predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
-    _timing("final fit", t)
     del X
 
     if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
@@ -335,7 +315,6 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
     often as a false target does, so removing both keeps the decoys a fair model of the false targets. Returns None if
     nothing is removed or the columns needed are missing.
     """
-    t = time.perf_counter()
     columns = list(dict.fromkeys([*riding.REQUIRED_COLUMNS, *group_columns]))
     missing = [c for c in columns if c not in psm_df.columns]
     if missing:
@@ -374,7 +353,6 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         ] = True
         loser &= best_candidate
     needed = np.flatnonzero(loser | partner)
-    t = _timing("riding pools", t)
     # without a loser bound every row is needed: no copy of the PSMs (all their columns) for the provider
     every_row = len(needed) == len(rows)
     needed_rows = rows if every_row else rows.iloc[needed].reset_index(drop=True)
@@ -393,7 +371,6 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
     fragments = riding_provider(
         psm_df if every_row else psm_df.iloc[needed], to_quantify
     )
-    t = _timing("riding fragments", t)
     riding_share, own_support = riding.find_riding(
         needed_rows,
         fragments,
@@ -401,7 +378,6 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         dia_cycle,
         ms2_tolerance_ppm,
     )
-    _timing("riding shares", t)
     removed = np.zeros(len(rows), dtype=bool)
     removed[needed] = (
         (riding_share >= riding.MIN_RIDING)
