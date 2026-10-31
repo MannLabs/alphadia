@@ -374,16 +374,28 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         ] = True
         loser &= best_candidate
     needed = np.flatnonzero(loser | partner)
-    logger.info(
-        f"riding fragments quantified for {len(needed):,} of {len(rows):,} PSMs"
-    )
     t = _timing("riding pools", t)
     # without a loser bound every row is needed: no copy of the PSMs (all their columns) for the provider
     every_row = len(needed) == len(rows)
-    fragments = riding_provider(psm_df if every_row else psm_df.iloc[needed])
+    needed_rows = rows if every_row else rows.iloc[needed].reset_index(drop=True)
+
+    def to_quantify(mz: np.ndarray) -> np.ndarray:
+        # a row no partner shares a library fragment with keeps a riding share of 0, whatever its signal
+        can = riding.can_ride(
+            needed_rows, mz, partner[needed], dia_cycle, ms2_tolerance_ppm
+        )
+        quantify = (can & loser[needed]) | partner[needed]
+        logger.info(
+            f"riding fragments quantified for {int(quantify.sum()):,} of {len(rows):,} PSMs"
+        )
+        return quantify
+
+    fragments = riding_provider(
+        psm_df if every_row else psm_df.iloc[needed], to_quantify
+    )
     t = _timing("riding fragments", t)
     riding_share, own_support = riding.find_riding(
-        rows if every_row else rows.iloc[needed].reset_index(drop=True),
+        needed_rows,
         fragments,
         partner[needed],
         dia_cycle,

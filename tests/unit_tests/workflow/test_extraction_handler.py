@@ -149,8 +149,11 @@ def test_perform_fdr_and_filter_candidates_provides_riding_fragments_if_asked(
         received["features_df"] = features_df.copy()
         received["kwargs"] = kwargs
         if kwargs["riding_provider"] is not None:
-            # the provider is asked for the PSMs in a different order than the candidates
-            received["riding"] = kwargs["riding_provider"](features_df.iloc[[2, 0]])
+            # the provider is asked for the PSMs in a different order than the candidates; only the second needs
+            # its fragments quantified
+            received["riding"] = kwargs["riding_provider"](
+                features_df.iloc[[2, 0]], lambda mz: np.array([False, True])
+            )
         return features_df.assign(qval=0.0)
 
     handler, _ = _fdr_handler(fit_predict)
@@ -164,7 +167,12 @@ def test_perform_fdr_and_filter_candidates_provides_riding_fragments_if_asked(
     )
     fragments_df = pd.DataFrame()
     k = riding.TOP_K_FRAGMENTS
-    dense = tuple(np.full((2, k), i, dtype=np.float32) for i in range(4))
+    library_fragments = tuple(
+        np.full((2, k), i + 1, dtype=np.float32) for i in range(2)
+    )
+    observed_fragments = tuple(
+        np.full((1, k), i + 3, dtype=np.float32) for i in range(2)
+    )
 
     # when
     with (
@@ -172,8 +180,15 @@ def test_perform_fdr_and_filter_candidates_provides_riding_fragments_if_asked(
             handler, "_quantify_fragments", return_value=fragments_df
         ) as mock_quantify,
         patch.object(
-            extraction_handler, "_riding_fragments", return_value=dense
-        ) as mock_riding_fragments,
+            extraction_handler,
+            "_riding_library_fragments",
+            return_value=library_fragments,
+        ),
+        patch.object(
+            extraction_handler,
+            "_riding_observed_fragments",
+            return_value=observed_fragments,
+        ) as mock_observed,
     ):
         handler.perform_fdr_and_filter_candidates(
             features_df,
@@ -195,16 +210,21 @@ def test_perform_fdr_and_filter_candidates_provides_riding_fragments_if_asked(
     # charge states of one peptide share a sequence id, so they never explain each other's fragments
     sequence_id = received["features_df"][riding.SEQUENCE_ID_COLUMN].tolist()
     assert sequence_id[0] == sequence_id[2] != sequence_id[1]
-    # the PSMs are quantified in the order asked, with the riding fragments at the calibrated tolerance
+    # only the PSM asked for is quantified, with the riding fragments at the calibrated tolerance
     quantified = mock_quantify.call_args.args[0]
-    assert quantified[["precursor_idx", "rank"]].values.tolist() == [[3, 1], [1, 0]]
+    assert quantified[["precursor_idx", "rank"]].values.tolist() == [[1, 0]]
     assert mock_quantify.call_args.kwargs == {
         "top_k_fragments": riding.TOP_K_FRAGMENTS,
         "tolerance_ppm": 6.5,
     }
-    assert mock_riding_fragments.call_args.args[0] is fragments_df
-    for out, expected in zip(received["riding"], dense, strict=True):
-        np.testing.assert_array_equal(out, expected)
+    assert mock_observed.call_args.args[0] is fragments_df
+    mz, library, observed, correlation = received["riding"]
+    np.testing.assert_array_equal(mz, library_fragments[0])
+    np.testing.assert_array_equal(library, library_fragments[1])
+    # the PSM not quantified carries no signal
+    assert (observed[0] == 0).all() and (correlation[0] == 0).all()
+    np.testing.assert_array_equal(observed[1], observed_fragments[0][0])
+    np.testing.assert_array_equal(correlation[1], observed_fragments[1][0])
 
 
 def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
@@ -237,8 +257,11 @@ def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
     )
 
     # when
-    mz, library, observed, correlation = extraction_handler._riding_fragments(
-        fragments_df, candidates_df, spectral_library
+    mz, library = extraction_handler._riding_library_fragments(
+        candidates_df, spectral_library
+    )
+    observed, correlation = extraction_handler._riding_observed_fragments(
+        fragments_df, candidates_df, mz
     )
 
     # then: most intense first, y1 and zero-intensity fragments left out, unquantified fragments carry no signal

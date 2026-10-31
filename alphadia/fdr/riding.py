@@ -188,6 +188,66 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
     return riding, own_support
 
 
+@nb.njit(parallel=True, cache=True)
+def _can_ride(  # noqa: PLR0913 # one array per candidate attribute, as _riding
+    window: np.ndarray,
+    rt: np.ndarray,
+    fwhm: np.ndarray,
+    elution_group: np.ndarray,
+    sequence: np.ndarray,
+    decoy: np.ndarray,
+    proba: np.ndarray,
+    mz: np.ndarray,
+    partner_rows: np.ndarray,
+    partner_start: np.ndarray,
+    partner_stop: np.ndarray,
+    partner_rt: np.ndarray,
+    max_partner_fwhm: float,
+    tolerance_ppm: float,
+    class_blind: bool,  # noqa: FBT001
+) -> np.ndarray:
+    n, n_frag = mz.shape
+    can = np.zeros(n, dtype=np.bool_)
+    for r in nb.prange(n):
+        w = window[r]
+        if w < 0:
+            continue
+        reach = CO_ELUTION_FWHM * max(max_partner_fwhm, fwhm[r])
+        start = partner_start[w] + np.searchsorted(
+            partner_rt[partner_start[w] : partner_stop[w]], rt[r] - reach, "left"
+        )
+        stop = partner_start[w] + np.searchsorted(
+            partner_rt[partner_start[w] : partner_stop[w]], rt[r] + reach, "right"
+        )
+        for j in range(start, stop):
+            p = partner_rows[j]
+            if (
+                p == r
+                or elution_group[p] == elution_group[r]
+                or sequence[p] == sequence[r]
+                or proba[p] >= proba[r]
+                or (not class_blind and decoy[p] != decoy[r])
+            ):
+                continue
+            if abs(rt[p] - rt[r]) > CO_ELUTION_FWHM * max(fwhm[p], fwhm[r]):
+                continue
+            for f in range(n_frag):
+                if mz[r, f] <= 0:
+                    continue
+                for g in range(n_frag):
+                    if (
+                        mz[p, g] > 0
+                        and abs(mz[p, g] - mz[r, f]) <= tolerance_ppm * PPM * mz[r, f]
+                    ):
+                        can[r] = True
+                        break
+                if can[r]:
+                    break
+            if can[r]:
+                break
+    return can
+
+
 def isolation_window(mz: np.ndarray, cycle: np.ndarray) -> np.ndarray:
     """Index of the first MS2 isolation window of the DIA cycle that holds each m/z, -1 if none."""
     bounds = cycle[0, :, 0, :]
@@ -224,6 +284,43 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
             correlation[part].astype(np.float64),
             library[part].astype(np.float64),
         )
+    candidates, partners = _kernel_inputs(rows, partner, cycle)
+    return _riding(
+        *candidates,
+        mz,
+        evidence,
+        library,
+        correlation,
+        *partners,
+        SHARED_TOLERANCE_FACTOR * ms2_tolerance_ppm,
+        CLASS_BLIND,
+    )
+
+
+def can_ride(
+    rows: pd.DataFrame,
+    mz: np.ndarray,
+    partner: np.ndarray,
+    cycle: np.ndarray,
+    ms2_tolerance_ppm: float,
+) -> np.ndarray:
+    """Whether a partner that could explain each row of `rows` (as in `find_riding`) shares one of its library
+    fragments `mz`. Only these rows can get a riding share above 0, so only their fragments need quantifying."""
+    candidates, partners = _kernel_inputs(rows, partner, cycle)
+    return _can_ride(
+        *candidates,
+        mz,
+        *partners,
+        SHARED_TOLERANCE_FACTOR * ms2_tolerance_ppm,
+        CLASS_BLIND,
+    )
+
+
+def _kernel_inputs(
+    rows: pd.DataFrame, partner: np.ndarray, cycle: np.ndarray
+) -> tuple[tuple, tuple]:
+    """The per-row arrays of the riding kernels, and the partners sorted by isolation window and RT with each
+    window's range, their RT and their widest fwhm."""
     window = isolation_window(rows[CalibCols.MZ_OBSERVED].to_numpy(np.float64), cycle)
     rt = rows[CalibCols.RT_OBSERVED].to_numpy(np.float64)
     fwhm = rows["fwhm_rt"].to_numpy(np.float64)
@@ -231,7 +328,7 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
     partner_rows = partner_rows[np.lexsort((rt[partner_rows], window[partner_rows]))]
     n_windows = int(window.max()) + 1 if len(window) else 0
     partner_window = window[partner_rows]
-    return _riding(
+    candidates = (
         window.astype(np.int64),
         rt,
         fwhm,
@@ -239,15 +336,12 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
         rows[SEQUENCE_ID_COLUMN].to_numpy(np.int64),
         rows["_decoy"].to_numpy(np.int64),
         rows["proba"].to_numpy(np.float64),
-        mz,
-        evidence,
-        library,
-        correlation,
+    )
+    partners = (
         partner_rows.astype(np.int64),
         np.searchsorted(partner_window, np.arange(n_windows), "left"),
         np.searchsorted(partner_window, np.arange(n_windows), "right"),
         rt[partner_rows],
         float(fwhm[partner_rows].max()) if len(partner_rows) else 0.0,
-        SHARED_TOLERANCE_FACTOR * ms2_tolerance_ppm,
-        CLASS_BLIND,
     )
+    return candidates, partners

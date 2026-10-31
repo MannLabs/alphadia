@@ -131,3 +131,36 @@ def test_isolation_window_skips_ms1_and_marks_outside():
 
     # then
     assert window.tolist() == [0, 1, -1]
+
+
+@pytest.mark.parametrize(
+    ("other", "fragments", "expected"),
+    [
+        ({"precursor_idx": 1, "proba": 0.4}, [400.0, 450.0], True),
+        ({"precursor_idx": 1, "proba": 0.4}, [450.0, 550.0], False),
+        ({"precursor_idx": 1, "proba": 0.4, "rt_observed": 120.0}, [400.0], False),
+        ({"precursor_idx": 1, "proba": 0.001}, [400.0], False),
+    ],
+    ids=[
+        "shares a fragment",
+        "shares none",
+        "not co-eluting",
+        "better than the partner",
+    ],
+)
+def test_can_ride_needs_a_partner_sharing_a_library_fragment(
+    other, fragments, expected
+):
+    # given
+    rows = _rows([{"precursor_idx": 0, "proba": 0.01}, other])
+    winner = _fragments(WINNER_FRAGMENTS, np.full(6, 1000.0), np.ones(6))
+    rider = _fragments(
+        fragments, np.full(len(fragments), 800.0), np.ones(len(fragments))
+    )
+    mz = np.stack([winner[0], rider[0]])
+
+    # when
+    can = riding.can_ride(rows, mz, np.array([True, False]), CYCLE, 10.0)
+
+    # then: the winner itself has no better partner
+    assert can.tolist() == [False, expected]

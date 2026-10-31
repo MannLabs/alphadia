@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 import numba as nb
 import numpy as np
@@ -122,17 +123,13 @@ def _fill_slots(  # noqa: PLR0913 # one array per quantified fragment attribute
                 break
 
 
-def _riding_fragments(
-    fragments_df: pd.DataFrame,
+def _riding_library_fragments(
     candidates_df: pd.DataFrame,
     spectral_library: SpecLibFlat,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """(len(candidates_df), riding.TOP_K_FRAGMENTS) library m/z, library intensity, observed intensity and correlation.
-
-    The fragments of each candidate are those the backend selects for quantification (non-zero library intensity, no
-    y1, the most intense); observed intensity and correlation come from the quantified `fragments_df` and are 0 where
-    the backend found no signal. Empty slots have m/z 0. All arrays are float32, the precision of the library and the
-    backend.
+) -> tuple[np.ndarray, np.ndarray]:
+    """(len(candidates_df), riding.TOP_K_FRAGMENTS) library m/z and intensity of the fragments the backend selects for
+    quantification (non-zero library intensity, no y1, the most intense); empty slots have m/z 0. float32, the
+    precision of the library.
     """
     precursor_df = spectral_library.precursor_df
     library_idx = precursor_df["precursor_idx"].to_numpy()
@@ -151,8 +148,17 @@ def _riding_fragments(
         fragment_df["number"].to_numpy(),
         riding.TOP_K_FRAGMENTS,
     )
-    mz, library = library_mz[inverse], library_intensity[inverse]
+    return library_mz[inverse], library_intensity[inverse]
 
+
+def _riding_observed_fragments(
+    fragments_df: pd.DataFrame,
+    candidates_df: pd.DataFrame,
+    mz: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Observed intensity and correlation of the library fragments `mz` of each candidate (rows as `candidates_df`),
+    from the quantified `fragments_df`; 0 where the backend found no signal. float32, the precision of the backend.
+    """
     observed = np.zeros(mz.shape, dtype=np.float32)
     correlation = np.zeros(mz.shape, dtype=np.float32)
     row = pd.Index(
@@ -173,7 +179,7 @@ def _riding_fragments(
         observed,
         correlation,
     )
-    return mz, library, observed, correlation
+    return observed, correlation
 
 
 class ExtractionHandler(ABC):
@@ -346,7 +352,7 @@ class ExtractionHandler(ABC):
             "=== Search parameters used ===",
             f"{'rt_error':<15}: {self._optimization_manager.rt_error}",
             f"{'mobility_error':<15}: {self._optimization_manager.mobility_error}",
-            f"{'num_candidates':<15}: { self._optimization_manager.num_candidates}",
+            f"{'num_candidates':<15}: {self._optimization_manager.num_candidates}",
             f"{'ms1_error':<15}: {self._optimization_manager.ms1_error}",
             f"{'ms2_error':<15}: {self._optimization_manager.ms2_error}",
             f"{'fwhm_rt':<15}: {self._optimization_manager.fwhm_rt}",
@@ -914,6 +920,7 @@ class NgExtractionHandler(ExtractionHandler):
 
         def riding_fragments(
             psm_df: pd.DataFrame,
+            to_quantify: Callable[[np.ndarray], np.ndarray],
         ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
             # in the row order of psm_df, which the dense fragment arrays follow; quantified in chunks, because the
             # backend's results of all candidates at once take several times the dense arrays
@@ -921,26 +928,24 @@ class NgExtractionHandler(ExtractionHandler):
                 psm_df["_candidate_idx"].to_numpy()
             )
             competing = candidates_df[_NG_CANDIDATE_COLUMNS].take(position)
-            k = riding.TOP_K_FRAGMENTS
-            dense = tuple(
-                np.zeros((len(competing), k), dtype=np.float32) for _ in range(4)
-            )
-            for start in range(0, len(competing), _RIDING_QUANT_CHUNK):
-                part = competing.iloc[start : start + _RIDING_QUANT_CHUNK]
+            mz, library = _riding_library_fragments(competing, spectral_library)
+            observed = np.zeros(mz.shape, dtype=np.float32)
+            correlation = np.zeros(mz.shape, dtype=np.float32)
+            quantified = np.flatnonzero(to_quantify(mz))
+            for start in range(0, len(quantified), _RIDING_QUANT_CHUNK):
+                rows = quantified[start : start + _RIDING_QUANT_CHUNK]
+                part = competing.iloc[rows]
                 fragments_df = self._quantify_fragments(
                     part,
                     dia_data,
                     spectral_library,
-                    top_k_fragments=k,
+                    top_k_fragments=riding.TOP_K_FRAGMENTS,
                     tolerance_ppm=self._optimization_manager.ms2_error,
                 )
-                for out, values in zip(
-                    dense,
-                    _riding_fragments(fragments_df, part, spectral_library),
-                    strict=True,
-                ):
-                    out[start : start + len(part)] = values
-            return dense
+                observed[rows], correlation[rows] = _riding_observed_fragments(
+                    fragments_df, part, mz[rows]
+                )
+            return mz, library, observed, correlation
 
         def quantified_fragments(psm_df: pd.DataFrame) -> pd.DataFrame:
             # Fragment competition needs observed fragments, which scoring does not return.
