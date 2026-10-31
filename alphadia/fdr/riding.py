@@ -1,5 +1,8 @@
 """Removal of candidates that ride on the fragment signal of a better co-eluting candidate."""
 
+import json
+import os
+
 import numba as nb
 import numpy as np
 import pandas as pd
@@ -26,6 +29,10 @@ MAX_OWN_SUPPORT = 1.0
 # Only PSMs up to this pooled q-value of the first fit can be removed (None: all), which bounds the PSMs whose
 # fragments have to be quantified.
 LOSER_POOLED_QVAL = None
+# Only the best candidate of each precursor (by the pre-score) can be removed. The final fit trains on the best
+# candidate of each precursor alone, so the other candidates mostly do not reach the training; their fragments are not
+# quantified.
+LOSERS_BEST_CANDIDATE = False
 # Partners of either class explain a PSM; otherwise only partners of its own class (targets explain targets, decoys
 # explain decoys). At a low MIN_RIDING the class-blind rule removes far more decoys than false targets (decoys ride
 # real peaks more often), which inflates the identifications; the within-class rule keeps the decoys a fair model.
@@ -38,6 +45,10 @@ PRESCORE_ROWS = 1_000_000
 PPM = 1e-6
 # rows whose fragment evidence is computed at once
 EVIDENCE_CHUNK = 1_000_000
+
+# local experiments set any of the constants above from a JSON object in this environment variable
+OVERRIDES_ENV = "ALPHADIA_RIDING_OVERRIDES"
+globals().update(json.loads(os.environ.get(OVERRIDES_ENV, "{}")))
 
 # other charge states of the same peptide share its fragments by construction, so they never explain each other
 SEQUENCE_ID_COLUMN = "_sequence_id"

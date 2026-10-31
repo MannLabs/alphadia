@@ -365,7 +365,18 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         loser[pooled["_row"].to_numpy()] = (
             pooled["qval"].to_numpy() <= riding.LOSER_POOLED_QVAL
         )
+    if riding.LOSERS_BEST_CANDIDATE:
+        best_candidate = np.zeros(len(rows), dtype=bool)
+        best_candidate[
+            keep_best(rows, group_columns=[BEST_CANDIDATE_GROUP_COLUMN])[
+                "_row"
+            ].to_numpy()
+        ] = True
+        loser &= best_candidate
     needed = np.flatnonzero(loser | partner)
+    logger.info(
+        f"riding fragments quantified for {len(needed):,} of {len(rows):,} PSMs"
+    )
     t = _timing("riding pools", t)
     # without a loser bound every row is needed: no copy of the PSMs (all their columns) for the provider
     every_row = len(needed) == len(rows)
