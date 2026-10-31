@@ -98,6 +98,8 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
     partner_rows: np.ndarray,
     partner_start: np.ndarray,
     partner_stop: np.ndarray,
+    partner_rt: np.ndarray,
+    max_partner_fwhm: float,
     tolerance_ppm: float,
     class_blind: bool,  # noqa: FBT001
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -116,7 +118,16 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
         claim = np.zeros(n_frag)
         any_shared = np.zeros(n_frag, dtype=np.bool_)
         match = np.full(n_frag, -1, dtype=np.int64)
-        for j in range(partner_start[w], partner_stop[w]):
+        # the partners of a window are sorted by RT: only those within the widest co-elution distance are visited, in
+        # the same order as a scan of the whole window
+        reach = CO_ELUTION_FWHM * max(max_partner_fwhm, fwhm[r])
+        start = partner_start[w] + np.searchsorted(
+            partner_rt[partner_start[w] : partner_stop[w]], rt[r] - reach, "left"
+        )
+        stop = partner_start[w] + np.searchsorted(
+            partner_rt[partner_start[w] : partner_stop[w]], rt[r] + reach, "right"
+        )
+        for j in range(start, stop):
             p = partner_rows[j]
             if (
                 p == r
@@ -215,6 +226,7 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
         )
     window = isolation_window(rows[CalibCols.MZ_OBSERVED].to_numpy(np.float64), cycle)
     rt = rows[CalibCols.RT_OBSERVED].to_numpy(np.float64)
+    fwhm = rows["fwhm_rt"].to_numpy(np.float64)
     partner_rows = np.flatnonzero(partner & (window >= 0))
     partner_rows = partner_rows[np.lexsort((rt[partner_rows], window[partner_rows]))]
     n_windows = int(window.max()) + 1 if len(window) else 0
@@ -222,7 +234,7 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
     return _riding(
         window.astype(np.int64),
         rt,
-        rows["fwhm_rt"].to_numpy(np.float64),
+        fwhm,
         rows["elution_group_idx"].to_numpy(np.int64),
         rows[SEQUENCE_ID_COLUMN].to_numpy(np.int64),
         rows["_decoy"].to_numpy(np.int64),
@@ -234,6 +246,8 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
         partner_rows.astype(np.int64),
         np.searchsorted(partner_window, np.arange(n_windows), "left"),
         np.searchsorted(partner_window, np.arange(n_windows), "right"),
+        rt[partner_rows],
+        float(fwhm[partner_rows].max()) if len(partner_rows) else 0.0,
         SHARED_TOLERANCE_FACTOR * ms2_tolerance_ppm,
         CLASS_BLIND,
     )
