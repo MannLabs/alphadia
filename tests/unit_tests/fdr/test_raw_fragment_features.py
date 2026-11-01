@@ -25,7 +25,7 @@ def _traces(n_rows: int, rng: np.random.Generator) -> dict[str, np.ndarray]:
         "fragment_mz": np.tile(np.array([400.0, 600.0, 800.0, 0.0], np.float32), (n_rows, 1)),
         "fragment_charge": np.tile(np.array([1, 1, 2, 0], np.uint8), (n_rows, 1)),
         "library_intensity": np.tile(np.array([1.0, 0.6, 0.3, 0.0], np.float32), (n_rows, 1)),
-        "reference_tic": rng.uniform(1e5, 1e7, n_rows).astype(np.float32),
+        "apex_tic": rng.uniform(1e5, 1e7, n_rows).astype(np.float32),
     }  # fmt: skip
 
 
@@ -80,7 +80,7 @@ def test_chunk_features_are_finite_and_follow_the_traces():
     assert np.allclose(values["t5_iso_coh_share"], 1.0)
     assert (values["t5_snr_libw"] > 0).all()
     assert np.allclose(values["t5_wrongz_libw"], 0.0)
-    assert np.allclose(values[rff.WINDOW_TIC], np.log1p(traces["reference_tic"]))
+    assert np.allclose(values[rff.WINDOW_TIC], np.log1p(traces["apex_tic"]))
 
 
 def test_chunk_features_of_a_candidate_without_signal_are_zero():
@@ -117,24 +117,6 @@ def test_mass_error_llr_prefers_errors_within_the_precision():
 
     assert values["t5_me_llr_libw"][0] > 0 > values["t5_me_llr_libw"][1]
     assert values["t5_me_llr_sum"][0] > values["t5_me_llr_sum"][1]
-
-
-def test_reference_mz_gives_decoys_their_target_mz():
-    own = np.array([500.0, 480.0, 300.0, 700.0])
-    group = np.array([1, 1, 2, 9])
-    decoy = np.array([0, 1, 1, 1])
-
-    mz = rff.reference_mz(
-        own,
-        group,
-        decoy,
-        library_elution_group_idx=np.array([2, 1, 1, 2, 9]),
-        library_decoy=np.array([0, 0, 1, 1, 1]),
-        library_mz=np.array([310.0, 501.0, 480.0, 300.0, 700.0]),
-    )
-
-    # a target keeps its own m/z, a decoy takes its group target's, a group without a target keeps the decoy's own
-    assert mz.tolist() == [500.0, 501.0, 310.0, 700.0]
 
 
 def test_compute_matches_chunk_features_in_chunks(monkeypatch):

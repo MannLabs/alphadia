@@ -12,9 +12,10 @@ at its own fragment m/z like a false target, so the features describe the eviden
 - isotopes: co-elution of the M+1 isotope with the coherent fragments, deviation of the M+1 / M0 ratio from averagine,
   intensity at the half-spacing companion of 1+ fragments.
 - peak: apex over flank intensity.
-- window ion current at the apex, read in the isolation window(s) of the precursor m/z of the candidate's elution group
-  target. A decoy is lighter than its target in most groups (inner decoys), so its own window's ion current would
-  partly encode the decoy's composition.
+- window ion current at the apex, read in the isolation window(s) the candidate's own fragments are extracted from.
+  Read at a decoy's target m/z instead, it let a classifier tell null targets from decoys on 1 ft ARATH runs (ARATH
+  targets 35 % above their decoys at the median): a candidate's peak is picked where its own window carries signal, so
+  only the window whose ion current it reads is tied to that choice.
 """
 
 import logging
@@ -59,7 +60,7 @@ EPS = 1e-9
 MASS = ("t5_me_llr_sum", "t5_me_llr_libw", "t5_mz_drift_libw")
 ISOTOPES = ("t5_iso_coh_share", "t5_iso_dev_libw", "t5_wrongz_libw")
 PEAK = ("t5_snr_libw",)
-WINDOW_TIC = "t5_log_tic_tw"
+WINDOW_TIC = "t5_log_tic"
 FEATURES = (*MASS, *ISOTOPES, *PEAK, WINDOW_TIC)
 
 Precision = tuple[np.ndarray, np.ndarray]
@@ -133,8 +134,7 @@ def fit_precision(
 def chunk_features(
     traces: dict[str, np.ndarray], precision: Precision, tolerance_ppm: float
 ) -> dict[str, np.ndarray]:
-    """FEATURES of the candidates of one export chunk: the FragmentTraceExport arrays plus `reference_tic`, the window
-    ion current at the apex at the candidate's reference precursor m/z."""
+    """FEATURES of the candidates of one export chunk of FragmentTraceExport arrays."""
     xic = np.asarray(traces["xic"], dtype=np.float32)
     present = np.asarray(traces["fragment_mz"]) > 0
     lib = np.where(present, np.asarray(traces["library_intensity"], np.float32), 0.0)
@@ -209,32 +209,8 @@ def chunk_features(
         np.where(single, lib, 0.0),
     )
 
-    out[WINDOW_TIC] = np.log1p(np.asarray(traces["reference_tic"], dtype=np.float32))
+    out[WINDOW_TIC] = np.log1p(np.asarray(traces["apex_tic"], dtype=np.float32))
     return {name: np.asarray(out[name], dtype=np.float32) for name in FEATURES}
-
-
-def reference_mz(
-    own_mz: np.ndarray,
-    elution_group_idx: np.ndarray,
-    decoy: np.ndarray,
-    library_elution_group_idx: np.ndarray,
-    library_decoy: np.ndarray,
-    library_mz: np.ndarray,
-) -> np.ndarray:
-    """The precursor m/z at which each candidate reads the window ion current: its own for a target, its elution group
-    target's for a decoy (its own if the group has no target in the library)."""
-    is_target = library_decoy == 0
-    groups, first = np.unique(library_elution_group_idx[is_target], return_index=True)
-    target_mz = library_mz[is_target][first]
-    position = np.clip(np.searchsorted(groups, elution_group_idx), 0, len(groups) - 1)
-    found = (len(groups) > 0) & (groups[position] == elution_group_idx)
-    mz = np.where(decoy == 0, own_mz, np.where(found, target_mz[position], own_mz))
-    missing = int(((decoy != 0) & ~found).sum())
-    if missing > 0:
-        logger.info(
-            f"{missing} decoy candidates without a library target read the window ion current at their own m/z"
-        )
-    return mz
 
 
 def compute(
@@ -242,8 +218,8 @@ def compute(
     export: Callable[[np.ndarray], dict[str, np.ndarray]],
     tolerance_ppm: float,
 ) -> dict[str, np.ndarray]:
-    """FEATURES of `n_rows` candidates. `export(rows)` returns the trace arrays (with `reference_tic`) of the candidates
-    `rows`; it is called on a random sample for the precision fit, then chunk by chunk."""
+    """FEATURES of `n_rows` candidates. `export(rows)` returns the trace arrays of the candidates `rows`; it is called
+    on a random sample for the precision fit, then chunk by chunk."""
     start_time = time.time()
     sample = sample_rows(n_rows)
     errors, totals = [], []

@@ -942,15 +942,6 @@ class NgExtractionHandler(ExtractionHandler):
                 .loc[psm_df["_candidate_idx"].to_numpy()]
                 .reset_index(drop=True)
             )
-            library = spectral_library.precursor_df
-            reference = raw_fragment_features.reference_mz(
-                psm_df[CalibCols.MZ_OBSERVED].to_numpy(),
-                psm_df["elution_group_idx"].to_numpy(),
-                psm_df["decoy"].to_numpy(),
-                library["elution_group_idx"].to_numpy(),
-                library["decoy"].to_numpy(),
-                library[self._column_name_handler.get_precursor_mz_column()].to_numpy(),
-            ).astype(np.float32)
             exporter = FragmentTraceExport(
                 self._optimization_manager.ms2_error,
                 top_k=riding.TOP_K_FRAGMENTS,
@@ -961,19 +952,12 @@ class NgExtractionHandler(ExtractionHandler):
             tic = FragmentTraceExport.observation_tic(dia_data)
 
             def export(rows: np.ndarray) -> dict[str, np.ndarray]:
-                traces = exporter.export(
+                return exporter.export(
                     dia_data,
                     self._speclib_ng,
                     candidates_to_ng(competing.iloc[rows], dia_data),
                     tic,
                 )
-                traces["reference_tic"] = FragmentTraceExport.reference_tic(
-                    dia_data,
-                    tic,
-                    reference[rows],
-                    traces["cycle_center"].astype(np.int64),
-                )
-                return traces
 
             return raw_fragment_features.compute(
                 len(competing), export, self._optimization_manager.ms2_error
