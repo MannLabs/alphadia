@@ -642,8 +642,53 @@ def test_perform_fdr_averages_several_fits_in_the_final_round():
         decoy_df,
     )
 
-    # Then: the classifier was fitted once per ensemble member
-    assert _CountingClassifier.n_fits == fdr.N_ENSEMBLE_FITS
+    # Then: the classifier was fitted once per cross-fit fold of every ensemble member
+    assert _CountingClassifier.n_fits == fdr.N_ENSEMBLE_FITS * fdr.CROSSFIT_FOLDS
+
+
+class _RowRecordingClassifier:
+    """Scores by the second feature; the first feature is the row number, recorded at fit and at prediction."""
+
+    def __init__(self):
+        self.trained = set()
+        self.overlap = 0
+
+    def fit(self, X, y, groups=None):  # noqa: N803
+        self.trained = set(X[:, 0].astype(int))
+
+    def predict_proba(self, X):  # noqa: N803
+        self.overlap += len(self.trained & set(X[:, 0].astype(int)))
+        p = 1 / (1 + np.exp(-X[:, 1]))
+        return np.column_stack([1 - p, p])
+
+
+def test_crossfit_predict_never_scores_a_row_with_a_fit_that_trained_on_it(monkeypatch):
+    # given: 2000 competition groups of a target and a decoy, all rows available for training
+    rng = np.random.default_rng(0)
+    n = 4000
+    competition = np.repeat(np.arange(n // 2), 2)
+    y = np.tile([0.0, 1.0], n // 2)
+    X = np.column_stack([np.arange(n), rng.normal(size=n) + y])
+    folds = fdr._crossfit_folds(competition, random_state=1)
+    members = []
+
+    def copy_member(classifier):
+        members.append(_RowRecordingClassifier())
+        return members[-1]
+
+    monkeypatch.setattr(fdr.copy, "deepcopy", copy_member)
+
+    # when
+    proba = fdr._crossfit_predict(
+        _RowRecordingClassifier(), X, y, np.arange(n), None, (folds, competition)
+    )
+
+    # then: one fit per fold, none scored its own training rows, a target and its decoy share a fold
+    assert len(members) == fdr.CROSSFIT_FOLDS
+    assert sum(m.overlap for m in members) == 0
+    assert np.all(folds[0::2] == folds[1::2])
+    assert np.all((proba > 0) & (proba < 1))
+    assert proba[y == 0].mean() < proba[y == 1].mean()
 
 
 def test_perform_fdr_fits_once_outside_the_final_round():

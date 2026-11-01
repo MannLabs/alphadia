@@ -31,6 +31,18 @@ ENSEMBLE_TRIGGER_FEATURE = "lib_explained"
 N_ENSEMBLE_FITS = 3
 # The final-round fits train on each precursor's best candidate only (classifier fit with `groups`).
 BEST_PEAK_GROUP_COLUMN = "precursor_idx"
+# The final-round fits are cross-fitted: each of CROSSFIT_FOLDS fits learns on the other folds of the competition groups
+# and scores its own fold, so no PSM is scored by a fit that trained on it (the folds are the same for every fit of the
+# ensemble). Scored in sample, the many final-round features let the fits rank their own training targets above the
+# decoys: false targets beat their decoys 1.2x at q 1 % (paired entrapment, 5 ng), 1.0x cross-fitted.
+CROSSFIT_FOLDS = 4
+# The fold fits put their logits on different scales. Each fold is aligned where q-values are cut: the last target at a
+# competed q-value of CROSSFIT_ANCHOR_QVAL maps to 0 and the median competition-winning decoy to 1, then one sigmoid
+# of slope CROSSFIT_SLOPE.
+CROSSFIT_ANCHOR_QVAL = 0.01
+CROSSFIT_SLOPE = 5.0
+CROSSFIT_MIN_SCALE = 1e-6
+CROSSFIT_MAX_ABS_Z = 700.0
 
 logger = logging.getLogger()
 
@@ -256,6 +268,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         group_columns = ["precursor_idx"]
 
     groups = psm_df[BEST_PEAK_GROUP_COLUMN].to_numpy() if final_round else None
+    crossfit = None
+    if final_round:
+        competition = psm_df.groupby(group_columns, sort=False).ngroup().to_numpy()
+        crossfit = (_crossfit_folds(competition, random_state), competition)
     keep = None
     if remove_riding:
         # quantified once for every PSM: the fragment features need all rows, the removal is served from them
@@ -294,7 +310,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
         keep = _without_riding(
             psm_df,
-            _prescore_proba(initial_classifier, X, y, random_state, groups),
+            _prescore_proba(initial_classifier, X, y, random_state, groups, crossfit),
             group_columns,
             riding_provider,
             dia_cycle,
@@ -303,16 +319,20 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     if keep is not None:
         psm_df, X, y = psm_df.iloc[keep], X[keep], y[keep]
         groups = groups[keep]
+        crossfit = (crossfit[0][keep], crossfit[1][keep])
         idxs_train, idxs_test = train_test_split_indices(
             len(X), test_size=0.2, random_state=random_state
         )
         y_train, y_test = y[idxs_train], y[idxs_test]
-    predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
-
     if final_round:
-        predicted_proba = _average_extra_fits(
-            initial_classifier, X, y, predicted_proba, random_state, groups
+        predicted_proba = _crossfit_predict(
+            initial_classifier, X, y, idxs_train, groups, crossfit, first=classifier
         )
+        predicted_proba = _average_extra_fits(
+            initial_classifier, X, y, predicted_proba, random_state, groups, crossfit
+        )
+    else:
+        predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
     del X
 
     if _is_collapsed(predicted_proba):
@@ -366,14 +386,17 @@ def _fit_predict(
     y_train: np.ndarray,
     idxs_train: np.ndarray,
     groups: np.ndarray | None = None,
+    idxs_predict: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Fit `classifier` on `idxs_train` and predict all rows; a collapsed fit is repeated from new start weights.
+    """Fit `classifier` on `idxs_train` and predict `idxs_predict` (default all rows); a collapsed fit is repeated from
+    new start weights.
 
     With `groups` (per row of X), each fit trains on the best row of each group among `idxs_train`.
     """
     train_groups = None if groups is None else groups[idxs_train]
+    X_predict = X if idxs_predict is None else X[idxs_predict]  # noqa: N806
     classifier.fit(X[idxs_train], y_train, train_groups)
-    predicted_proba = classifier.predict_proba(X)[:, 1]
+    predicted_proba = classifier.predict_proba(X_predict)[:, 1]
 
     # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
     n_reinit = 0
@@ -387,8 +410,82 @@ def _fit_predict(
         )
         classifier.reset()
         classifier.fit(X[idxs_train], y_train, train_groups)
-        predicted_proba = classifier.predict_proba(X)[:, 1]
+        predicted_proba = classifier.predict_proba(X_predict)[:, 1]
     return predicted_proba
+
+
+def _crossfit_folds(competition: np.ndarray, random_state: int | None) -> np.ndarray:
+    """The cross-fit fold of every row, drawn per competition group so that a target and its decoy share a fold."""
+    _, inverse = np.unique(competition, return_inverse=True)
+    rng = np.random.default_rng(random_state)
+    return rng.integers(0, CROSSFIT_FOLDS, inverse.max() + 1 if len(inverse) else 0)[
+        inverse
+    ]
+
+
+def _crossfit_predict(  # noqa: PLR0913 # the fold assignment comes with the competition groups
+    classifier: Classifier,
+    X: np.ndarray,  # noqa: N803
+    y: np.ndarray,
+    idxs_train: np.ndarray,
+    groups: np.ndarray | None,
+    crossfit: tuple[np.ndarray, np.ndarray],
+    first: Classifier | None = None,
+) -> np.ndarray:
+    """P(decoy) of every row from CROSSFIT_FOLDS copies of the unfitted `classifier`, each fitted on the rows of
+    `idxs_train` outside one fold and predicting that fold, aligned across folds by `_aligned_proba`.
+
+    `crossfit` holds the fold and the competition group of every row. `first`, if given, is fitted for the first fold
+    instead of a copy, so that it ends up fitted.
+    """
+    folds, competition = crossfit
+    proba = np.empty(len(X))
+    for k in range(CROSSFIT_FOLDS):
+        train = idxs_train[folds[idxs_train] != k]
+        rows = np.flatnonzero(folds == k)
+        if len(rows) == 0:
+            continue
+        member = first if k == 0 and first is not None else copy.deepcopy(classifier)
+        fold_proba = _fit_predict(member, X, y[train], train, groups, rows)
+        proba[rows] = _aligned_proba(fold_proba, y[rows] == 1, competition[rows])
+    return proba
+
+
+def _aligned_proba(
+    proba: np.ndarray, decoy: np.ndarray, competition: np.ndarray
+) -> np.ndarray:
+    """P(decoy) of one fold on the common cross-fit scale: the logit of the last target at a competed q-value of
+    CROSSFIT_ANCHOR_QVAL maps to 0 and the median logit of the competition-winning decoys to 1."""
+    proba = np.clip(proba, 1e-300, 1 - 1e-16)
+    logit = np.log(proba) - np.log1p(-proba)
+    zero, one = _competition_anchors(logit, decoy, competition)
+    z = np.clip(
+        (logit - zero) / max(one - zero, CROSSFIT_MIN_SCALE),
+        -CROSSFIT_MAX_ABS_Z,
+        CROSSFIT_MAX_ABS_Z,
+    )
+    return 1 / (1 + np.exp(-CROSSFIT_SLOPE * (z - 1)))
+
+
+def _competition_anchors(
+    logit: np.ndarray, decoy: np.ndarray, competition: np.ndarray
+) -> tuple[float, float]:
+    """The logit of the last target at a competed q-value <= CROSSFIT_ANCHOR_QVAL and the median logit of the
+    competition-winning decoys; the best decoy instead of the target if no target reaches that q-value."""
+    order = np.lexsort((logit, competition))
+    first = np.ones(len(order), dtype=bool)
+    first[1:] = competition[order][1:] != competition[order][:-1]
+    winners = order[first]
+    w_logit, w_decoy = logit[winners], decoy[winners]
+    ranked = np.argsort(w_logit, kind="stable")
+    d = np.cumsum(w_decoy[ranked])
+    t = np.cumsum(~w_decoy[ranked])
+    q = np.minimum.accumulate((d / np.maximum(t, 1))[::-1])[::-1]
+    passing = np.flatnonzero((q <= CROSSFIT_ANCHOR_QVAL) & ~w_decoy[ranked])
+    if not w_decoy.any():
+        return float(w_logit.min()), float(w_logit.max())
+    zero = w_logit[ranked][passing[-1]] if len(passing) else w_logit[w_decoy].min()
+    return float(zero), float(np.median(w_logit[w_decoy]))
 
 
 def _prescore_proba(
@@ -397,12 +494,16 @@ def _prescore_proba(
     y: np.ndarray,
     random_state: int | None,
     groups: np.ndarray | None = None,
+    crossfit: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> np.ndarray:
-    """P(decoy) of every row from one fit of a copy of `initial_classifier` on at most riding.PRESCORE_ROWS rows."""
+    """P(decoy) of every row from one fit of a copy of `initial_classifier` on at most riding.PRESCORE_ROWS rows,
+    cross-fitted with `crossfit` (fold and competition group of every row)."""
     rows = np.arange(len(X))
     if len(X) > riding.PRESCORE_ROWS:
         rng = np.random.default_rng(random_state)
         rows = np.sort(rng.choice(len(X), riding.PRESCORE_ROWS, replace=False))
+    if crossfit is not None:
+        return _crossfit_predict(initial_classifier, X, y, rows, groups, crossfit)
     return _fit_predict(copy.deepcopy(initial_classifier), X, y[rows], rows, groups)
 
 
@@ -481,22 +582,29 @@ def _average_extra_fits(
     predicted_proba: np.ndarray,
     random_state: int | None,
     groups: np.ndarray | None = None,
+    crossfit: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> np.ndarray:
-    """Average `predicted_proba` with N_ENSEMBLE_FITS - 1 further fits of the unfitted classifier on other splits."""
+    """Average `predicted_proba` with N_ENSEMBLE_FITS - 1 further fits of the unfitted classifier on other splits,
+    cross-fitted with `crossfit` (fold and competition group of every row)."""
     probas = [predicted_proba]
     for k in range(1, N_ENSEMBLE_FITS):
-        member = copy.deepcopy(initial_classifier)
         idxs_train, _ = train_test_split_indices(
             len(X),
             test_size=0.2,
             random_state=None if random_state is None else random_state + k,
         )
-        member.fit(
-            X[idxs_train],
-            y[idxs_train],
-            None if groups is None else groups[idxs_train],
-        )
-        member_proba = member.predict_proba(X)[:, 1]
+        if crossfit is not None:
+            member_proba = _crossfit_predict(
+                initial_classifier, X, y, idxs_train, groups, crossfit
+            )
+        else:
+            member = copy.deepcopy(initial_classifier)
+            member.fit(
+                X[idxs_train],
+                y[idxs_train],
+                None if groups is None else groups[idxs_train],
+            )
+            member_proba = member.predict_proba(X)[:, 1]
         if not _is_collapsed(member_proba):
             probas.append(member_proba)
     logger.info(f"averaged the probabilities of {len(probas)} final-round fits")
