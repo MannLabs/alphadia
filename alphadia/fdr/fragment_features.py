@@ -241,9 +241,10 @@ def compute(
 ) -> dict[str, np.ndarray]:
     """FEATURES of every row of the fragment arrays (m/z, library, observed, correlation, ion type, ion number,
     fragment charge per slot, and the precursor charge per row)."""
-    mz, library, observed, correlation, ion_type, number, charge, precursor_charge = (
-        fragments
-    )
+    # the arrays are stored compactly (float32, uint8) and computed on in float64 and int64
+    mz, library, observed, correlation = (a.astype(np.float64) for a in fragments[:4])
+    ion_type, number, charge = (a.astype(np.int64) for a in fragments[4:7])
+    precursor_charge = fragments[7]
     present = mz > 0
     hit = present & (observed > 0)
     corr = np.where(present, correlation, 0.0)

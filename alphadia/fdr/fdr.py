@@ -265,6 +265,8 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         riding_provider = fragment_features.serving_provider(
             psm_df["_candidate_idx"].to_numpy(), fragments[: riding.FRAGMENT_ARRAYS]
         )
+        # the ion arrays are not needed any more, and would otherwise stay alive through the final fit
+        del fragments
         # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
         keep = _without_riding(
             psm_df,

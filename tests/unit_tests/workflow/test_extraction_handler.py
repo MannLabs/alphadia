@@ -155,6 +155,71 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
     assert kwargs["fragment_provider"] is None
 
 
+def test_riding_provider_quantifies_the_psms_in_chunks_in_the_order_asked():
+    # given: an FDR step that asks for the riding fragments of two PSMs, in a different order than the candidates
+    received = {}
+
+    def fit_predict(features_df, **kwargs):
+        received["riding"] = kwargs["riding_provider"](features_df.iloc[[2, 0]])
+        return features_df.assign(qval=0.0)
+
+    handler, _ = _fdr_handler(fit_predict)
+    handler._optimization_manager.ms2_error = 6.5
+    features_df, candidates_df, spectral_library = _fdr_inputs()
+    for column in extraction_handler._NG_CANDIDATE_COLUMNS:
+        if column not in candidates_df.columns:
+            candidates_df[column] = 0
+    k = riding.TOP_K_FRAGMENTS
+    library_fragments = (
+        *(np.full((2, k), i + 1, dtype=np.float32) for i in range(2)),
+        *(np.full((2, k), i + 1, dtype=np.uint8) for i in range(3)),
+        np.array([2.0, 3.0]),
+    )
+    chunks = [
+        tuple(np.full((1, k), 10 * chunk + i, dtype=np.float32) for i in range(2))
+        for chunk in range(2)
+    ]
+    fragments_df = pd.DataFrame()
+
+    # when: one PSM per chunk
+    with (
+        patch.object(extraction_handler, "_RIDING_QUANT_CHUNK", 1),
+        patch.object(
+            handler, "_quantify_fragments", return_value=fragments_df
+        ) as mock_quantify,
+        patch.object(
+            extraction_handler,
+            "_riding_library_fragments",
+            return_value=library_fragments,
+        ),
+        patch.object(
+            extraction_handler, "_riding_observed_fragments", side_effect=chunks
+        ),
+    ):
+        handler.perform_fdr_and_filter_candidates(
+            features_df, candidates_df, MagicMock(), spectral_library
+        )
+
+    # then: each chunk is quantified in the order asked, at the calibrated tolerance
+    quantified = [call.args[0] for call in mock_quantify.call_args_list]
+    assert [q[["precursor_idx", "rank"]].values.tolist() for q in quantified] == [
+        [[3, 1]],
+        [[1, 0]],
+    ]
+    assert mock_quantify.call_args.kwargs == {
+        "top_k_fragments": riding.TOP_K_FRAGMENTS,
+        "tolerance_ppm": 6.5,
+    }
+    # and the observed fragments land in the rows of their chunk, next to the library arrays
+    mz, library, observed, correlation, *ion, precursor_charge = received["riding"]
+    np.testing.assert_array_equal(observed, np.vstack([chunks[0][0], chunks[1][0]]))
+    np.testing.assert_array_equal(correlation, np.vstack([chunks[0][1], chunks[1][1]]))
+    for got, expected in zip(
+        (mz, library, *ion, precursor_charge), library_fragments, strict=True
+    ):
+        np.testing.assert_array_equal(got, expected)
+
+
 def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
     # given: precursor 7 with five library fragments (one y1, one without intensity), quantified at rank 0 and 1
     spectral_library = MagicMock(name="spectral_library")
@@ -187,10 +252,11 @@ def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
     )
 
     # when
-    mz, library, observed, correlation, ion_type, number, charge, precursor_charge = (
-        extraction_handler._riding_fragments(
-            fragments_df, candidates_df, spectral_library
-        )
+    mz, library, ion_type, number, charge, precursor_charge = (
+        extraction_handler._riding_library_fragments(candidates_df, spectral_library)
+    )
+    observed, correlation = extraction_handler._riding_observed_fragments(
+        fragments_df, candidates_df, mz
     )
 
     # then: most intense first, y1 and zero-intensity fragments left out, unquantified fragments carry no signal

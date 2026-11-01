@@ -38,6 +38,8 @@ FRAGMENT_ARRAYS = 4
 # found no confident targets).
 PRESCORE_ROWS = 1_000_000
 PPM = 1e-6
+# rows whose fragment evidence is computed at once
+EVIDENCE_CHUNK = 1_000_000
 
 # other charge states of the same peptide share its fragments by construction, so they never explain each other
 SEQUENCE_ID_COLUMN = "_sequence_id"
@@ -193,7 +195,15 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
     such partner shares.
     """
     mz, library, observed, correlation = fragments
-    evidence = fragment_evidence(observed, correlation, library)
+    # in float64 and in chunks of rows, which bounds the (rows, fragments) temporaries of the evidence
+    evidence = np.empty(observed.shape, dtype=np.float64)
+    for start in range(0, len(evidence), EVIDENCE_CHUNK):
+        part = slice(start, start + EVIDENCE_CHUNK)
+        evidence[part] = fragment_evidence(
+            observed[part].astype(np.float64),
+            correlation[part].astype(np.float64),
+            library[part].astype(np.float64),
+        )
     window = isolation_window(rows[CalibCols.MZ_OBSERVED].to_numpy(np.float64), cycle)
     rt = rows[CalibCols.RT_OBSERVED].to_numpy(np.float64)
     partner_rows = np.flatnonzero(partner & (window >= 0))
