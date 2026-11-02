@@ -93,6 +93,21 @@ def get_feature_names() -> list[str]:
     return [f for f in CandidateFeatureCollection.get_feature_names()]
 
 
+# Rust features the FDR classifier uses only in the final round: which ions carry the peak (short ions match by chance,
+# long ones are specific), how the observed fragment intensities agree with the library, and the apex cosine with the
+# library over the co-eluting fragments.
+FINAL_ROUND_FEATURES = (
+    "ion_position_mean",
+    "num_over_50_long_ions",
+    "num_over_50_short_ions",
+    "long_ion_intensity_share",
+    "lib_explained",
+    "log_ratio_std",
+    "y_intensity_correlation",
+    "lib_cosine_coherent",
+)
+
+
 def get_context_feature_names() -> list[str]:
     """Get the competition and context feature names from NG CandidateContext."""
     return list(CandidateContext.get_feature_names())

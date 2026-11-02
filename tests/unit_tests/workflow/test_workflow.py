@@ -323,6 +323,27 @@ def test_fdr_manager():
     assert fdr_manager.classifier_base == FDR_TEST_BASE_CLASSIFIER
 
 
+def test_fdr_manager_fit_predict_leaves_out_excluded_columns():
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config={
+            "search": {"compete_for_fragments": False},
+        },
+        dia_cycle=None,
+    )
+
+    fdr_manager.fit_predict(
+        fdr_testdata(FDR_TEST_FEATURES),
+        decoy_strategy="precursor",
+        competitive=False,
+        excluded_columns=["feature_b"],
+    )
+
+    assert column_hash(["feature_a"]) in fdr_manager.classifier_store
+    assert column_hash(FDR_TEST_FEATURES) not in fdr_manager.classifier_store
+
+
 def test_fdr_manager_fit_predict():
     fdr_manager = FDRManager(
         feature_columns=FDR_TEST_FEATURES,
