@@ -28,6 +28,9 @@ _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
 
+# With `train_on_best_candidate`, the classifier trains on the best candidate of each of these groups.
+BEST_CANDIDATE_GROUP_COLUMN = "precursor_idx"
+
 
 @manage_torch_threads(max_threads=2)
 def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
@@ -42,6 +45,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     df_fragments: pd.DataFrame | None = None,
     fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     dia_cycle: np.ndarray | None = None,
+    train_on_best_candidate: bool = False,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
 ) -> pd.DataFrame:
@@ -83,6 +87,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     dia_cycle : np.ndarray, default=None
         The DIA cycle. Required if df_fragments is provided.
+
+    train_on_best_candidate : bool, default=False
+        Train the classifier only on the most target-like candidate of each precursor, as picked by a logistic
+        regression on all training rows. All rows are still scored.
 
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition
@@ -138,7 +146,12 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         return psm_df
 
     y_train, y_test = y[idxs_train], y[idxs_test]
-    classifier.fit(X[idxs_train], y_train)
+    fit_kwargs = (
+        {"groups": psm_df[BEST_CANDIDATE_GROUP_COLUMN].to_numpy()[idxs_train]}
+        if train_on_best_candidate
+        else {}
+    )
+    classifier.fit(X[idxs_train], y_train, **fit_kwargs)
 
     psm_df["_decoy"] = y
 
@@ -167,7 +180,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
         classifier.reset()
-        classifier.fit(X[idxs_train], y_train)
+        classifier.fit(X[idxs_train], y_train, **fit_kwargs)
         predicted_proba = classifier.predict_proba(X)[:, 1]
     del X
 
