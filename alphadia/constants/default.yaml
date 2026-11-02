@@ -317,7 +317,7 @@ fdr:
   # whether to keep decoy PSMs in the final output
   keep_decoys: false
   # whether to keep decoy PSMs in the MBR library
-  keep_decoys_in_mbr_library: false
+  keep_decoys_in_mbr_library: true
   # decoy generation scheme for the search library and the MBR library: "diann" or "pseudo_reverse"
   # ignored if the provided library already contains decoys
   decoy_type: "diann"
