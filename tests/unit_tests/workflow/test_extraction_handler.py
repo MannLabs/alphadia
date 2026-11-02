@@ -2,10 +2,13 @@
 
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 from conftest import mock_context_features
 
+from alphadia.fdr import fragment_features
+from alphadia.workflow.peptidecentric import extraction_handler
 from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     FINAL_ROUND_FEATURES,
@@ -152,14 +155,168 @@ def test_perform_fdr_and_filter_candidates_leaves_final_round_features_out_of_ca
     features_df, candidates_df, spectral_library = _fdr_inputs()
 
     # when
-    handler.perform_fdr_and_filter_candidates(
-        features_df,
-        candidates_df,
-        MagicMock(),
-        spectral_library,
-        df_fragments=pd.DataFrame(),
-        final_round=final_round,
-    )
+    with (
+        patch.object(handler, "_fragment_arrays"),
+        patch.object(fragment_features, "compute", return_value={}),
+    ):
+        handler.perform_fdr_and_filter_candidates(
+            features_df,
+            candidates_df,
+            MagicMock(),
+            spectral_library,
+            df_fragments=pd.DataFrame(),
+            final_round=final_round,
+        )
 
     # then
     assert fdr_manager.fit_predict.call_args.kwargs["excluded_columns"] == excluded
+
+
+@pytest.mark.parametrize("final_round", [False, True])
+def test_perform_fdr_and_filter_candidates_adds_fragment_features_in_the_final_round(
+    final_round,
+):
+    # given
+    received = {}
+
+    def fit_predict(features_df, **kwargs):
+        received["features_df"] = features_df.copy()
+        return features_df.assign(qval=0.0)
+
+    handler, _ = _fdr_handler(fit_predict)
+    features_df, candidates_df, spectral_library = _fdr_inputs()
+    values = {
+        name: np.full(3, i, dtype=np.float32)
+        for i, name in enumerate(fragment_features.FEATURES)
+    }
+
+    # when
+    with (
+        patch.object(handler, "_fragment_arrays") as mock_arrays,
+        patch.object(fragment_features, "compute", return_value=values) as mock_compute,
+    ):
+        handler.perform_fdr_and_filter_candidates(
+            features_df,
+            candidates_df,
+            MagicMock(),
+            spectral_library,
+            df_fragments=pd.DataFrame(),
+            final_round=final_round,
+        )
+
+    # then: only the final round computes them, from the fragments of every PSM
+    has_features = set(fragment_features.FEATURES) <= set(
+        received["features_df"].columns
+    )
+    assert has_features == final_round
+    assert mock_arrays.called == final_round
+    if final_round:
+        assert mock_compute.call_args.args[0] is mock_arrays.return_value
+        assert mock_compute.call_args.args[1].tolist() == [0, 0, 1]
+
+
+def test_fragment_arrays_quantifies_the_psms_in_chunks_in_their_order():
+    # given: PSMs in a different order than the candidates
+    handler, _ = _fdr_handler(None)
+    handler._optimization_manager.ms2_error = 6.5
+    _, candidates_df, spectral_library = _fdr_inputs()
+    for column in extraction_handler._NG_CANDIDATE_COLUMNS:
+        if column not in candidates_df.columns:
+            candidates_df[column] = 0
+    candidates_df["_candidate_idx"] = [10, 20, 30]
+    features_df = pd.DataFrame({"_candidate_idx": [30, 10]})
+    k = fragment_features.TOP_K_FRAGMENTS
+    library_fragments = (
+        *(np.full((2, k), i + 1, dtype=np.float32) for i in range(2)),
+        *(np.full((2, k), i + 1, dtype=np.uint8) for i in range(3)),
+    )
+    chunks = [
+        tuple(np.full((1, k), 10 * chunk + i, dtype=np.float32) for i in range(2))
+        for chunk in range(2)
+    ]
+
+    # when: one PSM per chunk
+    with (
+        patch.object(extraction_handler, "_FRAGMENT_QUANT_CHUNK", 1),
+        patch.object(
+            handler, "_quantify_fragments", return_value=pd.DataFrame()
+        ) as mock_quantify,
+        patch.object(
+            extraction_handler, "_library_fragments", return_value=library_fragments
+        ) as mock_library,
+        patch.object(extraction_handler, "_observed_fragments", side_effect=chunks),
+    ):
+        arrays = handler._fragment_arrays(
+            features_df, candidates_df, MagicMock(), spectral_library
+        )
+
+    # then: the library fragments follow the PSMs, each chunk is quantified in turn at the calibrated tolerance
+    asked = mock_library.call_args.args[0]
+    assert asked[["precursor_idx", "rank"]].values.tolist() == [[3, 1], [1, 0]]
+    quantified = [call.args[0] for call in mock_quantify.call_args_list]
+    assert [q[["precursor_idx", "rank"]].values.tolist() for q in quantified] == [
+        [[3, 1]],
+        [[1, 0]],
+    ]
+    assert mock_quantify.call_args.kwargs == {
+        "top_k_fragments": k,
+        "tolerance_ppm": 6.5,
+    }
+    # and the observed fragments land in the rows of their chunk, next to the library arrays
+    mz, library, observed, correlation, *ion = arrays
+    np.testing.assert_array_equal(observed, np.vstack([chunks[0][0], chunks[1][0]]))
+    np.testing.assert_array_equal(correlation, np.vstack([chunks[0][1], chunks[1][1]]))
+    for got, expected in zip((mz, library, *ion), library_fragments, strict=True):
+        np.testing.assert_array_equal(got, expected)
+
+
+def test_library_and_observed_fragments_select_the_top_fragments_and_fill_missing():
+    # given: precursor 7 with five library fragments (one y1, one without intensity), quantified at rank 0 and 1
+    spectral_library = MagicMock(name="spectral_library")
+    spectral_library.precursor_df = pd.DataFrame(
+        {
+            "precursor_idx": [9, 7],
+            "flat_frag_start_idx": [5, 0],
+            "flat_frag_stop_idx": [6, 5],
+        }
+    )
+    spectral_library.fragment_df = pd.DataFrame(
+        {
+            "mz_library": [200.0, 300.0, 400.0, 500.0, 600.0, 700.0],
+            "intensity": [0.5, 1.0, 0.0, 0.9, 0.2, 1.0],
+            "type": [ord("b"), ord("y"), ord("b"), ord("y"), ord("b"), ord("b")],
+            "number": [2, 1, 3, 4, 5, 2],
+            "charge": [1, 1, 1, 2, 1, 1],
+        }
+    )
+    candidates_df = pd.DataFrame({"precursor_idx": [7, 7], "rank": [1, 0]})
+    fragments_df = pd.DataFrame(
+        {
+            "precursor_idx": [7, 7],
+            "rank": [0, 1],
+            "mz_library": [500.0, 200.0],
+            "intensity": [90.0, 40.0],
+            "correlation": [0.9, 0.4],
+        }
+    )
+
+    # when
+    mz, library, ion_type, number, charge = extraction_handler._library_fragments(
+        candidates_df, spectral_library
+    )
+    observed, correlation = extraction_handler._observed_fragments(
+        fragments_df, candidates_df, mz
+    )
+
+    # then: most intense first, y1 and zero-intensity fragments left out, unquantified fragments carry no signal
+    k = fragment_features.TOP_K_FRAGMENTS
+    assert mz.shape == (2, k)
+    assert mz[:, :3].tolist() == [[500.0, 200.0, 600.0]] * 2
+    assert (mz[:, 3:] == 0).all()
+    np.testing.assert_allclose(library[0, :3], [0.9, 0.5, 0.2])
+    assert observed[:, :3].tolist() == [[0.0, 40.0, 0.0], [90.0, 0.0, 0.0]]
+    np.testing.assert_allclose(correlation[:, :3], [[0.0, 0.4, 0.0], [0.9, 0.0, 0.0]])
+    assert ion_type[0, :3].tolist() == [ord("y"), ord("b"), ord("b")]
+    assert number[0, :3].tolist() == [4, 2, 5]
+    assert charge[0, :3].tolist() == [2, 1, 1]
+    assert (ion_type[:, 3:] == 0).all()

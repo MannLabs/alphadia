@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+import numba as nb
+import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
@@ -13,6 +15,7 @@ from alphadia_search_rs import (
 )
 
 from alphadia.constants.keys import CalibCols
+from alphadia.fdr import fragment_features
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
@@ -36,6 +39,158 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     speclib_to_ng,
     to_features_df,
 )
+
+# fragment type code of y ions in the flat library (ASCII); the backend leaves y1 out of its fragment selection
+_Y_ION_TYPE = ord("y")
+# candidates whose fragments are quantified at once for the fragment features: the backend's per-candidate results and
+# their conversion to arrays take ~100 bytes per fragment, so quantifying all 40 M candidates of a 200 ng entrapment
+# file at once peaked at ~80 GB above the search
+_FRAGMENT_QUANT_CHUNK = 2_000_000
+# the candidate columns the backend needs (see candidates_to_ng)
+_NG_CANDIDATE_COLUMNS = [
+    "precursor_idx",
+    "rank",
+    "score",
+    "scan_center",
+    "scan_start",
+    "scan_stop",
+    "frame_center",
+    "frame_start",
+    "frame_stop",
+]
+
+
+@nb.njit(cache=True)
+def _top_library_fragments(  # noqa: PLR0913 # one array per library fragment attribute
+    start: np.ndarray,
+    stop: np.ndarray,
+    mz_library: np.ndarray,
+    intensity: np.ndarray,
+    fragment_type: np.ndarray,
+    fragment_number: np.ndarray,
+    fragment_charge: np.ndarray,
+    k: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """(len(start), k) m/z, intensity, ion type, ion number and fragment charge of each precursor's k most intense
+    fragments (no y1, intensity > 0).
+
+    Equal intensities keep their library order, as a stable sort does.
+    """
+    n = len(start)
+    top_mz = np.zeros((n, k), dtype=np.float32)
+    top_intensity = np.zeros((n, k), dtype=np.float32)
+    top_type = np.zeros((n, k), dtype=np.uint8)
+    top_number = np.zeros((n, k), dtype=np.uint8)
+    top_charge = np.zeros((n, k), dtype=np.uint8)
+    for i in range(n):
+        filled = 0
+        for j in range(start[i], stop[i]):
+            value = intensity[j]
+            if not value > 0 or (
+                fragment_type[j] == _Y_ION_TYPE and fragment_number[j] == 1
+            ):
+                continue
+            pos = filled
+            while pos > 0 and top_intensity[i, pos - 1] < value:
+                pos -= 1
+            if pos >= k:
+                continue
+            for m in range(min(filled, k - 1), pos, -1):
+                top_mz[i, m] = top_mz[i, m - 1]
+                top_intensity[i, m] = top_intensity[i, m - 1]
+                top_type[i, m] = top_type[i, m - 1]
+                top_number[i, m] = top_number[i, m - 1]
+                top_charge[i, m] = top_charge[i, m - 1]
+            top_mz[i, pos] = mz_library[j]
+            top_intensity[i, pos] = value
+            top_type[i, pos] = fragment_type[j]
+            top_number[i, pos] = fragment_number[j]
+            top_charge[i, pos] = fragment_charge[j]
+            filled = min(filled + 1, k)
+    return top_mz, top_intensity, top_type, top_number, top_charge
+
+
+@nb.njit(cache=True)
+def _fill_slots(  # noqa: PLR0913 # one array per quantified fragment attribute
+    row: np.ndarray,
+    fragment_mz: np.ndarray,
+    fragment_intensity: np.ndarray,
+    fragment_correlation: np.ndarray,
+    mz: np.ndarray,
+    observed: np.ndarray,
+    correlation: np.ndarray,
+) -> None:
+    """Write each quantified fragment into the first slot of its row with the same library m/z."""
+    for i in range(len(row)):
+        r = row[i]
+        if r < 0:
+            continue
+        for s in range(mz.shape[1]):
+            if mz[r, s] == fragment_mz[i]:
+                observed[r, s] = fragment_intensity[i]
+                correlation[r, s] = fragment_correlation[i]
+                break
+
+
+def _library_fragments(
+    candidates_df: pd.DataFrame,
+    spectral_library: SpecLibFlat,
+) -> tuple[np.ndarray, ...]:
+    """(len(candidates_df), fragment_features.TOP_K_FRAGMENTS) library m/z, library intensity, ion type, ion number and
+    fragment charge of the fragments the backend selects for quantification (non-zero library intensity, no y1, the
+    most intense). Empty slots have m/z 0 (and ion type, number and charge 0). m/z and intensity in float32, the
+    precision of the library.
+    """
+    precursor_df = spectral_library.precursor_df
+    library_idx = precursor_df["precursor_idx"].to_numpy()
+    by_idx = np.argsort(library_idx)
+    precursors, inverse = np.unique(
+        candidates_df["precursor_idx"].to_numpy(), return_inverse=True
+    )
+    position = by_idx[np.searchsorted(library_idx[by_idx], precursors)]
+    fragment_df = spectral_library.fragment_df
+    top = _top_library_fragments(
+        precursor_df["flat_frag_start_idx"].to_numpy(np.int64)[position],
+        precursor_df["flat_frag_stop_idx"].to_numpy(np.int64)[position],
+        fragment_df["mz_library"].to_numpy(np.float32),
+        fragment_df["intensity"].to_numpy(np.float32),
+        fragment_df["type"].to_numpy(np.uint8),
+        fragment_df["number"].to_numpy(np.uint8),
+        fragment_df["charge"].to_numpy(np.uint8),
+        fragment_features.TOP_K_FRAGMENTS,
+    )
+    return tuple(values[inverse] for values in top)
+
+
+def _observed_fragments(
+    fragments_df: pd.DataFrame,
+    candidates_df: pd.DataFrame,
+    mz: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Observed intensity and correlation of the library fragments `mz` of each candidate (rows as `candidates_df`),
+    from the quantified `fragments_df`; 0 where the backend found no signal. float32, the precision of the backend.
+    """
+    observed = np.zeros(mz.shape, dtype=np.float32)
+    correlation = np.zeros(mz.shape, dtype=np.float32)
+    row = pd.Index(
+        candidate_hash(
+            candidates_df["precursor_idx"].to_numpy(), candidates_df["rank"].to_numpy()
+        )
+    ).get_indexer(
+        candidate_hash(
+            fragments_df["precursor_idx"].to_numpy(), fragments_df["rank"].to_numpy()
+        )
+    )
+    _fill_slots(
+        row,
+        fragments_df["mz_library"].to_numpy(np.float32),
+        fragments_df["intensity"].to_numpy(np.float32),
+        fragments_df["correlation"].to_numpy(np.float32),
+        mz,
+        observed,
+        correlation,
+    )
+    return observed, correlation
 
 
 class ExtractionHandler(ABC):
@@ -671,6 +826,74 @@ class NgExtractionHandler(ExtractionHandler):
 
         return precursor_df, fragments_df
 
+    def _quantify_fragments(
+        self,
+        candidates_df: pd.DataFrame,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+        top_k_fragments: int,
+        tolerance_ppm: float,
+    ) -> pd.DataFrame:
+        """Quantified fragments (precursor_idx, rank, mz_library, intensity, correlation) of `candidates_df`.
+
+        Unlike `quantify_candidates`, no precursor table is built and nothing is merged from the candidates or the
+        library.
+        """
+        self._lazy_init_speclib_ng(spectral_library)
+        quant_params = QuantificationParameters()
+        quant_params.update(
+            {"top_k_fragments": top_k_fragments, "tolerance_ppm": tolerance_ppm}
+        )
+        quantified_lib = PeakGroupQuantification(quant_params).quantify(
+            dia_data, self._speclib_ng, candidates_to_ng(candidates_df, dia_data)
+        )
+        _, fragment_dict = quantified_lib.to_dict_arrays()
+        del quantified_lib
+        return pd.DataFrame(
+            {
+                "precursor_idx": fragment_dict["precursor_idx"],
+                "rank": fragment_dict["rank"],
+                "mz_library": fragment_dict["mz_library"],
+                "intensity": fragment_dict["intensity"],
+                "correlation": fragment_dict["correlation_observed"],
+            }
+        )
+
+    def _fragment_arrays(
+        self,
+        features_df: pd.DataFrame,
+        candidates_df: pd.DataFrame,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+    ) -> tuple[np.ndarray, ...]:
+        """The fragment arrays `fragment_features.compute` takes, in the row order of `features_df`.
+
+        Quantified in chunks, because the backend's results of all candidates at once take several times the arrays.
+        """
+        position = pd.Index(candidates_df["_candidate_idx"]).get_indexer(
+            features_df["_candidate_idx"].to_numpy()
+        )
+        candidates = candidates_df[_NG_CANDIDATE_COLUMNS].take(position)
+        mz, library, ion_type, number, charge = _library_fragments(
+            candidates, spectral_library
+        )
+        observed = np.zeros(mz.shape, dtype=np.float32)
+        correlation = np.zeros(mz.shape, dtype=np.float32)
+        for start in range(0, len(candidates), _FRAGMENT_QUANT_CHUNK):
+            rows = slice(start, start + _FRAGMENT_QUANT_CHUNK)
+            part = candidates.iloc[rows]
+            fragments_df = self._quantify_fragments(
+                part,
+                dia_data,
+                spectral_library,
+                top_k_fragments=fragment_features.TOP_K_FRAGMENTS,
+                tolerance_ppm=self._optimization_manager.ms2_error,
+            )
+            observed[rows], correlation[rows] = _observed_fragments(
+                fragments_df, part, mz[rows]
+            )
+        return mz, library, observed, correlation, ion_type, number, charge
+
     def add_columns_from_library(
         self, features_or_precursor_df: pd.DataFrame, spectral_library: SpecLibFlat
     ) -> pd.DataFrame:
@@ -718,6 +941,17 @@ class NgExtractionHandler(ExtractionHandler):
         candidates_df["_candidate_idx"] = candidate_hash(
             candidates_df["precursor_idx"].values, candidates_df["rank"].values
         )
+
+        if final_round:
+            values = fragment_features.compute(
+                self._fragment_arrays(
+                    features_df, candidates_df, dia_data, spectral_library
+                ),
+                features_df["rank"].to_numpy(),
+            )
+            # in place: a copy of all final-search PSMs would cost more than the features
+            for name, column in values.items():
+                features_df[name] = column
 
         def quantified_fragments(psm_df: pd.DataFrame) -> pd.DataFrame:
             # Fragment competition needs observed fragments, which scoring does not return.
