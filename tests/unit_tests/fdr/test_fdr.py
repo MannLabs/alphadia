@@ -334,6 +334,43 @@ def test_perform_fdr_stops_after_max_reinits():
     assert psm_df["proba"].std() == 0.0
 
 
+class _TiedBestClassifier(_CollapsingClassifier):
+    """Give the best probability to a large block of PSMs until the caller resets it `n_collapses` times."""
+
+    def predict_proba(self, x):
+        proba = np.linspace(0.0, 1.0, len(x))
+        if self.reset_count < self._n_collapses:
+            proba = np.maximum(proba, 0.5)
+        return np.stack([1 - proba, proba], axis=1)
+
+
+def test_perform_fdr_resets_classifier_tied_at_the_best_proba():
+    # Given: a classifier whose first fit gives the best probability to half the PSMs, more than the allowed block
+    classifier = _TiedBestClassifier(n_collapses=1)
+    psm_df = _gen_psm_df(n_samples=1000)
+
+    # When: perform_fdr runs
+    psm_df = fdr.perform_fdr(
+        classifier, ["feature"], psm_df, psm_df["decoy"].to_numpy() == 1
+    )
+
+    # Then: perform_fdr resets the classifier once, and the new probabilities do not tie at the best one
+    assert classifier.reset_count == 1
+    assert (psm_df["proba"] == psm_df["proba"].min()).sum() == 1
+
+
+def test_perform_fdr_keeps_classifier_with_a_small_tie_at_the_best_proba():
+    # Given: a classifier whose best probability is shared by fewer PSMs than the allowed block
+    classifier = _TiedBestClassifier(n_collapses=1)
+    psm_df = _gen_psm_df(n_samples=fdr._MAX_TIED_BEST_PROBA // 2)
+
+    # When: perform_fdr runs
+    fdr.perform_fdr(classifier, ["feature"], psm_df, psm_df["decoy"].to_numpy() == 1)
+
+    # Then: the fit is kept
+    assert classifier.reset_count == 0
+
+
 def test_fit_feature_transform_falls_back_to_raw_features_for_few_rows():
     # Given: a classifier with the quantile transform and fewer rows than the minimum
     classifier = BinaryClassifierLegacyNewBatching(
