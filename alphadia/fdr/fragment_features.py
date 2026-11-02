@@ -16,19 +16,25 @@ TOP_K_FRAGMENTS = 12
 # library predicts strong and the ones that carry its signal.
 LIBRARY_WEIGHTED = "xic_libweighted"
 OBSERVED_WEIGHTED = "xic_obsweighted"
-ION_COHERENT = tuple(
-    f"ion_coherent_{t}_{size}" for t in ("b", "y") for size in ("short", "mid", "long")
+ION_COHERENT = (
+    "ion_coherent_b_short",
+    "ion_coherent_b_long",
+    "ion_coherent_y_short",
+    "ion_coherent_y_mid",
+    "ion_coherent_y_long",
 )
+ION_SIZES = ("short", "mid", "long")
+# Left out (offline replays of the final round: permuting each moved the real identifications by less than 1 %, a refit
+# without them kept them level at an equal or lower entrapment ratio): the unweighted Fisher sum, the coherent b ions
+# of mid length, and the agreement of the doubly charged fragments.
 FEATURES = (
     LIBRARY_WEIGHTED,
     OBSERVED_WEIGHTED,
-    "ion_fisher",
     "ion_fisher_lib",
     "ion_coherent_2plus",
     *ION_COHERENT,
     "ent_sim",
     "ent_sim_coherent",
-    *(f"z2_{name}" for name in ("libw_corr", "explained", "n_over_50")),
 )
 
 B_ION, Y_ION = ord("b"), ord("y")
@@ -92,7 +98,7 @@ def ion_features(  # noqa: PLR0913 # one array per fragment attribute
     charge: np.ndarray,
     null_rows: np.ndarray,
 ) -> dict[str, np.ndarray]:
-    """Fisher sums of each fragment's chance under a label-blind noise model, and coherent counts per ion class.
+    """Library-weighted Fisher sum of each fragment's chance under a label-blind noise model, and coherent counts.
 
     The noise model of each ion class is fitted on the rows `null_rows`, the rank >= 1 candidates of both classes.
     """
@@ -126,15 +132,15 @@ def ion_features(  # noqa: PLR0913 # one array per fragment attribute
     coherent = hit & (correlation > COHERENT_CORRELATION)
     count_bucket = np.searchsorted(np.array(COUNT_NUMBER_EDGES), number, side="right")
     out = {
-        "ion_fisher": surprise.sum(1),
         "ion_fisher_lib": (library_share * surprise).sum(1),
         "ion_coherent_2plus": (coherent & (charge == MAX_FRAGMENT_CHARGE)).sum(1),
     }
     for kind, name in ((B_ION, "b"), (Y_ION, "y")):
-        for bucket, size in enumerate(("short", "mid", "long")):
-            out[f"ion_coherent_{name}_{size}"] = (
-                coherent & (ion_type == kind) & (count_bucket == bucket)
-            ).sum(1)
+        for bucket, size in enumerate(ION_SIZES):
+            if f"ion_coherent_{name}_{size}" in ION_COHERENT:
+                out[f"ion_coherent_{name}_{size}"] = (
+                    coherent & (ion_type == kind) & (count_bucket == bucket)
+                ).sum(1)
     return out
 
 
@@ -152,31 +158,6 @@ def entropy_similarity(
     p, q = _shares(library, present), _shares(observed, present)
     similarity = 1 - (2 * _entropy((p + q) / 2) - _entropy(p) - _entropy(q)) / np.log(4)
     return np.where(np.where(present, observed, 0.0).sum(1) > 0, similarity, 0.0)
-
-
-def split_agreement(
-    mask: np.ndarray, library: np.ndarray, observed: np.ndarray, correlation: np.ndarray
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Library-weighted correlation, coherent library share and coherent count of the fragments in `mask`."""
-    library_mask = np.where(mask, library, 0.0)
-    total = library_mask.sum(1)
-    coherent = mask & (observed > 0) & (correlation > COHERENT_CORRELATION)
-    zeros = np.zeros(len(mask))
-    return (
-        np.divide(
-            (library_mask * np.where(mask, correlation, 0.0)).sum(1),
-            total,
-            out=zeros.copy(),
-            where=total > 0,
-        ),
-        np.divide(
-            np.where(coherent, library, 0.0).sum(1),
-            total,
-            out=zeros.copy(),
-            where=total > 0,
-        ),
-        coherent.sum(1),
-    )
 
 
 def compute(
@@ -201,8 +182,5 @@ def compute(
     out["ent_sim"] = entropy_similarity(library, observed, present)
     out["ent_sim_coherent"] = entropy_similarity(
         library, observed * np.clip(corr, 0, None), present
-    )
-    out["z2_libw_corr"], out["z2_explained"], out["z2_n_over_50"] = split_agreement(
-        present & (charge == MAX_FRAGMENT_CHARGE), library, observed, corr
     )
     return {name: np.asarray(out[name], dtype=np.float32) for name in FEATURES}

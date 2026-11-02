@@ -92,18 +92,3 @@ def test_ion_fisher_rewards_a_correlating_fragment_noise_rarely_gives():
     assert values["ion_fisher_lib"][0] > values["ion_fisher_lib"][1] + 2
     assert values["ion_coherent_y_mid"][0] == 1
     assert values["ion_coherent_y_mid"][1] == 0
-
-
-def test_split_agreement_describes_only_the_masked_fragments():
-    mask = np.array([[True, True, False]])
-    library = np.array([[3.0, 1.0, 6.0]])
-    observed = np.array([[1.0, 1.0, 1.0]])
-    correlation = np.array([[0.9, 0.1, 0.9]])
-
-    libw_corr, explained, n_coherent = fragment_features.split_agreement(
-        mask, library, observed, correlation
-    )
-
-    assert libw_corr[0] == pytest.approx((3 * 0.9 + 1 * 0.1) / 4)
-    assert explained[0] == pytest.approx(0.75)
-    assert n_coherent[0] == 1

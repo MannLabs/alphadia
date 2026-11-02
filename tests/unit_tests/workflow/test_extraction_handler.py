@@ -12,6 +12,7 @@ from alphadia.workflow.peptidecentric import extraction_handler
 from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     FINAL_ROUND_FEATURES,
+    FINAL_ROUND_UNUSED_FEATURES,
     get_context_feature_names,
 )
 
@@ -142,7 +143,8 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
 
 
 @pytest.mark.parametrize(
-    ("final_round", "excluded"), [(False, FINAL_ROUND_FEATURES), (True, ())]
+    ("final_round", "excluded"),
+    [(False, FINAL_ROUND_FEATURES), (True, FINAL_ROUND_UNUSED_FEATURES)],
 )
 def test_perform_fdr_and_filter_candidates_leaves_final_round_features_out_of_calibration(
     final_round, excluded
