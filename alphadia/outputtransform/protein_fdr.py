@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
@@ -23,14 +24,25 @@ NO_EVIDENCE_QVAL = 1.0
 # count features (precursors, peptides, runs per group) reward the false targets that pile up in large groups.
 FEATURE_COLUMNS = ["mean_score", "best_score", "worst_score"]
 MAX_ITER = 1000
+# The features are taken on the logit of the precursor probability. The cross-fitted final-round probabilities of the
+# confident precursors spread over many decades (5 ng: targets 1e-7 to 1e-2, median 1e-4; decoys around 1e-2), so on
+# the probability scale every confident target sits at 0, the group means follow the worst precursor and the model
+# weights the best precursor negatively; on the logit scale the best precursor carries the ranking (paired entrapment,
+# real groups at matched FDP: 200 ng +10 %, 5 ng +4-7 %, 1 ft unchanged).
+MIN_PROBA = 1e-300
+MAX_PROBA = 1 - 1e-16
 
 
 def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     """Perform protein FDR on PSM dataframe"""
 
-    confident = psm_df[psm_df["qval"] <= PROTEIN_FEATURE_QVAL]
+    confident = psm_df.loc[
+        psm_df["qval"] <= PROTEIN_FEATURE_QVAL, ["pg", "decoy", "proba"]
+    ]
+    proba = confident["proba"].clip(MIN_PROBA, MAX_PROBA)
+    confident = confident.assign(logit=np.log(proba) - np.log1p(-proba))
     protein_features = (
-        confident.groupby(["pg", "decoy"])["proba"]
+        confident.groupby(["pg", "decoy"])["logit"]
         .agg(mean_score="mean", best_score="min", worst_score="max")
         .reset_index()
     )
