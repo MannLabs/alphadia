@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.fdr import fragment_features
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
@@ -25,9 +24,7 @@ def test_get_classifier_feature_columns_for_rust_backend():
     columns = get_classifier_feature_columns("rust", use_idf_features=True)
 
     # then
-    assert columns == get_feature_names() + get_context_feature_names() + list(
-        fragment_features.FEATURES
-    )
+    assert columns == get_feature_names() + get_context_feature_names()
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():
@@ -38,9 +35,7 @@ def test_get_classifier_feature_columns_leaves_out_the_idf_features():
     assert set(IDF_FEATURE_COLUMNS) <= set(get_feature_names())
     assert columns == [
         name
-        for name in get_feature_names()
-        + get_context_feature_names()
-        + list(fragment_features.FEATURES)
+        for name in get_feature_names() + get_context_feature_names()
         if name not in IDF_FEATURE_COLUMNS
     ]
 

@@ -5,7 +5,6 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import CalibCols
-from alphadia.fdr import fragment_features
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     ION_HASH_COLUMNS,
@@ -111,11 +110,7 @@ def get_classifier_feature_columns(
     if extraction_backend != "rust":
         return feature_columns
 
-    columns = (
-        get_feature_names()
-        + get_context_feature_names()
-        + list(fragment_features.FEATURES)
-    )
+    columns = get_feature_names() + get_context_feature_names()
     if use_idf_features:
         return columns
     return [column for column in columns if column not in IDF_FEATURE_COLUMNS]
