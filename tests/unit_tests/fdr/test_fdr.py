@@ -627,23 +627,23 @@ class _CountingClassifier(_CollapsingClassifier):
         super().fit(x, y, groups)
 
 
-def test_perform_fdr_averages_several_fits_in_the_final_round():
+def test_perform_fdr_fits_once_per_crossfit_fold_in_the_final_round():
     # Given: PSMs carrying a final-round feature
     _CountingClassifier.n_fits = 0
     target_df, decoy_df = _gen_target_decoy_dfs()
-    target_df[fdr.ENSEMBLE_TRIGGER_FEATURE] = target_df["feature"]
-    decoy_df[fdr.ENSEMBLE_TRIGGER_FEATURE] = decoy_df["feature"]
+    target_df[fdr.FINAL_ROUND_FEATURE] = target_df["feature"]
+    decoy_df[fdr.FINAL_ROUND_FEATURE] = decoy_df["feature"]
 
     # When: perform_fdr runs
     fdr.perform_fdr(
         _CountingClassifier(n_collapses=0),
-        ["feature", fdr.ENSEMBLE_TRIGGER_FEATURE],
+        ["feature", fdr.FINAL_ROUND_FEATURE],
         target_df,
         decoy_df,
     )
 
-    # Then: the classifier was fitted once per cross-fit fold of every ensemble member
-    assert _CountingClassifier.n_fits == fdr.N_ENSEMBLE_FITS * fdr.CROSSFIT_FOLDS
+    # Then: the classifier was fitted once per cross-fit fold
+    assert _CountingClassifier.n_fits == fdr.CROSSFIT_FOLDS
 
 
 class _RowRecordingClassifier:
@@ -689,6 +689,36 @@ def test_crossfit_predict_never_scores_a_row_with_a_fit_that_trained_on_it(monke
     assert np.all(folds[0::2] == folds[1::2])
     assert np.all((proba > 0) & (proba < 1))
     assert proba[y == 0].mean() < proba[y == 1].mean()
+
+
+def test_crossfit_predict_in_processes_fits_every_fold_and_the_first_classifier(
+    monkeypatch,
+):
+    # given: 1500 competition groups of a target and a separable decoy, folds fitted in spawned processes
+    monkeypatch.setattr(fdr, "CROSSFIT_PARALLEL_MIN_ROWS", 0)
+    rng = np.random.default_rng(0)
+    n = 3000
+    competition = np.repeat(np.arange(n // 2), 2)
+    y = np.tile([0.0, 1.0], n // 2)
+    X = rng.normal(size=(n, 3)) + y[:, None]
+    folds = fdr._crossfit_folds(competition, random_state=1)
+    first = BinaryClassifierLegacyNewBatching(input_dim=3, batch_size=100, epochs=2)
+
+    # when
+    proba = fdr._crossfit_predict(
+        BinaryClassifierLegacyNewBatching(input_dim=3, batch_size=100, epochs=2),
+        X,
+        y,
+        np.arange(n),
+        None,
+        (folds, competition),
+        first=first,
+    )
+
+    # then: every row is scored, decoys above targets, and the first classifier came back fitted
+    assert np.all((proba > 0) & (proba < 1))
+    assert proba[y == 0].mean() < proba[y == 1].mean()
+    assert first.fitted
 
 
 def test_perform_fdr_fits_once_outside_the_final_round():

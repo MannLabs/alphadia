@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import copy
 import logging
+import multiprocessing
 from collections.abc import Callable
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import shared_memory
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+import torch
 
 from alphadia.constants.keys import CalibCols
 from alphadia.exceptions import TooFewPSMError
@@ -25,17 +29,21 @@ if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier
 
 max_dia_cycle_shape = 2
-# In the final round (which alone carries this feature) the probabilities of several fits on different splits are
-# averaged: on plasma one fit in three put a few decoys at the very top of the ranking (q-cliffs at 0.1 % FDR).
-ENSEMBLE_TRIGGER_FEATURE = "lib_explained"
-N_ENSEMBLE_FITS = 3
+# Only the final round carries this feature.
+FINAL_ROUND_FEATURE = "lib_explained"
 # The final-round fits train on each precursor's best candidate only (classifier fit with `groups`).
 BEST_PEAK_GROUP_COLUMN = "precursor_idx"
 # The final-round fits are cross-fitted: each of CROSSFIT_FOLDS fits learns on the other folds of the competition groups
-# and scores its own fold, so no PSM is scored by a fit that trained on it (the folds are the same for every fit of the
-# ensemble). Scored in sample, the many final-round features let the fits rank their own training targets above the
+# and scores its own fold, so no PSM is scored by a fit that trained on it (the riding prescore and the final fit use the
+# same folds). Scored in sample, the many final-round features let the fits rank their own training targets above the
 # decoys: false targets beat their decoys 1.2x at q 1 % (paired entrapment, 5 ng), 1.0x cross-fitted.
 CROSSFIT_FOLDS = 4
+# From CROSSFIT_PARALLEL_MIN_ROWS rows on, the fold fits run side by side in spawned processes, each with an equal share
+# of the torch threads, reading the feature matrix from shared memory. One fit scales poorly with threads (1.8 M rows:
+# 29 s on 1, 16 s on 3, 10 s on 12), so four processes of 3 threads fit the folds in 27 s instead of 40 s. Threads gain
+# nothing at 12 (the training loop holds the GIL), and forked processes deadlock once torch has run.
+CROSSFIT_PARALLEL_MIN_ROWS = 100_000
+_TORCH_SEED_LIMIT = 2**31 - 1
 # The fold fits put their logits on different scales. Each fold is aligned where q-values are cut: the last target at a
 # competed q-value of CROSSFIT_ANCHOR_QVAL maps to 0 and the median competition-winning decoy to 1, then one sigmoid
 # of slope CROSSFIT_SLOPE.
@@ -247,7 +255,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     y_train, y_test = y[idxs_train], y[idxs_test]
     initial_classifier = copy.deepcopy(classifier)
-    final_round = ENSEMBLE_TRIGGER_FEATURE in available_columns
+    final_round = FINAL_ROUND_FEATURE in available_columns
     remove_riding = (
         final_round
         and riding_provider is not None
@@ -327,9 +335,6 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     if final_round:
         predicted_proba = _crossfit_predict(
             initial_classifier, X, y, idxs_train, groups, crossfit, first=classifier
-        )
-        predicted_proba = _average_extra_fits(
-            initial_classifier, X, y, predicted_proba, random_state, groups, crossfit
         )
     else:
         predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
@@ -433,22 +438,100 @@ def _crossfit_predict(  # noqa: PLR0913 # the fold assignment comes with the com
     first: Classifier | None = None,
 ) -> np.ndarray:
     """P(decoy) of every row from CROSSFIT_FOLDS copies of the unfitted `classifier`, each fitted on the rows of
-    `idxs_train` outside one fold and predicting that fold, aligned across folds by `_aligned_proba`.
+    `idxs_train` outside one fold and predicting that fold, aligned across folds by `_aligned_proba`. From
+    CROSSFIT_PARALLEL_MIN_ROWS rows on, the folds are fitted in parallel processes.
 
     `crossfit` holds the fold and the competition group of every row. `first`, if given, is fitted for the first fold
     instead of a copy, so that it ends up fitted.
     """
     folds, competition = crossfit
-    proba = np.empty(len(X))
+    fits = []
     for k in range(CROSSFIT_FOLDS):
-        train = idxs_train[folds[idxs_train] != k]
         rows = np.flatnonzero(folds == k)
         if len(rows) == 0:
             continue
         member = first if k == 0 and first is not None else copy.deepcopy(classifier)
-        fold_proba = _fit_predict(member, X, y[train], train, groups, rows)
+        fits.append((member, idxs_train[folds[idxs_train] != k], rows))
+
+    if len(X) >= CROSSFIT_PARALLEL_MIN_ROWS and len(fits) > 1:
+        fold_probas = _fit_predict_in_processes(fits, X, y, groups)
+    else:
+        fold_probas = [
+            _fit_predict(member, X, y[train], train, groups, rows)
+            for member, train, rows in fits
+        ]
+
+    proba = np.empty(len(X))
+    for (_, _, rows), fold_proba in zip(fits, fold_probas, strict=True):
         proba[rows] = _aligned_proba(fold_proba, y[rows] == 1, competition[rows])
     return proba
+
+
+def _fit_predict_in_processes(
+    fits: list[tuple[Classifier, np.ndarray, np.ndarray]],
+    X: np.ndarray,  # noqa: N803
+    y: np.ndarray,
+    groups: np.ndarray | None,
+) -> list[np.ndarray]:
+    """`_fit_predict` of every (classifier, training rows, predicted rows) of `fits` in its own spawned process; each
+    classifier ends up fitted as if it had been fitted here."""
+    n_threads = max(1, torch.get_num_threads() // len(fits))
+    # the torch weights and dropout of each process are drawn from a seed of this process's torch generator
+    seeds = torch.randint(_TORCH_SEED_LIMIT, (len(fits),)).tolist()
+    memory = shared_memory.SharedMemory(create=True, size=max(X.nbytes, 1))
+    try:
+        np.ndarray(X.shape, X.dtype, buffer=memory.buf)[:] = X
+        shared = (memory.name, X.shape, X.dtype)
+        with ProcessPoolExecutor(
+            len(fits), mp_context=multiprocessing.get_context("spawn")
+        ) as pool:
+            futures = [
+                pool.submit(
+                    _fit_predict_shared,
+                    member,
+                    shared,
+                    y[train],
+                    train,
+                    groups,
+                    rows,
+                    n_threads,
+                    seed,
+                )
+                for (member, train, rows), seed in zip(fits, seeds, strict=True)
+            ]
+            results = [future.result() for future in futures]
+    finally:
+        memory.close()
+        memory.unlink()
+    for (member, _, _), (_, fitted) in zip(fits, results, strict=True):
+        member.__dict__.update(fitted.__dict__)
+    return [proba for proba, _ in results]
+
+
+def _fit_predict_shared(  # noqa: PLR0913 # one process's fold: the classifier, its rows and its share of the threads
+    classifier: Classifier,
+    shared: tuple[str, tuple[int, ...], np.dtype],
+    y_train: np.ndarray,
+    idxs_train: np.ndarray,
+    groups: np.ndarray | None,
+    idxs_predict: np.ndarray,
+    n_threads: int,
+    seed: int,
+) -> tuple[np.ndarray, Classifier]:
+    """`_fit_predict` in a spawned process on the feature matrix in the shared memory block `shared` (name, shape,
+    dtype); returns the probabilities and the fitted classifier."""
+    torch.set_num_threads(n_threads)
+    torch.manual_seed(seed)
+    name, shape, dtype = shared
+    memory = shared_memory.SharedMemory(name=name)
+    try:
+        X = np.ndarray(shape, dtype, buffer=memory.buf)  # noqa: N806
+        proba = _fit_predict(classifier, X, y_train, idxs_train, groups, idxs_predict)
+        # the shared buffer cannot be closed while an array still views it
+        del X
+    finally:
+        memory.close()
+    return proba, classifier
 
 
 def _aligned_proba(
@@ -573,42 +656,6 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
     if not removed.any():
         return None
     return np.flatnonzero(~removed)
-
-
-def _average_extra_fits(
-    initial_classifier: Classifier,
-    X: np.ndarray,  # noqa: N803
-    y: np.ndarray,
-    predicted_proba: np.ndarray,
-    random_state: int | None,
-    groups: np.ndarray | None = None,
-    crossfit: tuple[np.ndarray, np.ndarray] | None = None,
-) -> np.ndarray:
-    """Average `predicted_proba` with N_ENSEMBLE_FITS - 1 further fits of the unfitted classifier on other splits,
-    cross-fitted with `crossfit` (fold and competition group of every row)."""
-    probas = [predicted_proba]
-    for k in range(1, N_ENSEMBLE_FITS):
-        idxs_train, _ = train_test_split_indices(
-            len(X),
-            test_size=0.2,
-            random_state=None if random_state is None else random_state + k,
-        )
-        if crossfit is not None:
-            member_proba = _crossfit_predict(
-                initial_classifier, X, y, idxs_train, groups, crossfit
-            )
-        else:
-            member = copy.deepcopy(initial_classifier)
-            member.fit(
-                X[idxs_train],
-                y[idxs_train],
-                None if groups is None else groups[idxs_train],
-            )
-            member_proba = member.predict_proba(X)[:, 1]
-        if not _is_collapsed(member_proba):
-            probas.append(member_proba)
-    logger.info(f"averaged the probabilities of {len(probas)} final-round fits")
-    return np.mean(probas, axis=0)
 
 
 def keep_best(
