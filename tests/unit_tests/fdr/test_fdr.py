@@ -804,3 +804,27 @@ def test_fit_with_groups_trains_on_the_best_row_of_each_group(monkeypatch):
     assert len(np.unique(groups[best])) == n_groups
     targets = y[best] == 0
     assert signal[best][targets].mean() > 0.9
+
+
+def test_decoy_ecdf_alignment_puts_a_stretched_fold_with_tied_decoys_on_the_common_scale():
+    # given: two folds of 1000 target-decoy groups (lower logit = more target-like); the second scores the same rows on
+    # a 7x wider logit scale and its fit outputs one logit for every decoy that loses to its target
+    rng = np.random.default_rng(0)
+    n = 1000
+    competition = np.repeat(np.arange(n), 2)
+    decoy = np.tile([False, True], n)
+    logit = rng.normal(size=2 * n) + 2 * decoy
+    stretched = 7 * logit
+    losing = np.repeat(logit[1::2] > logit[0::2], 2) & decoy
+    stretched[losing] = stretched.max()
+
+    def proba(x):
+        return 1 / (1 + np.exp(-x))
+
+    # when
+    first = fdr._aligned_proba(proba(logit), decoy, competition, decoy_ecdf=True)
+    second = fdr._aligned_proba(proba(stretched), decoy, competition, decoy_ecdf=True)
+
+    # then: the competition-winning decoys get the same aligned scores in both folds
+    winning = decoy & ~losing
+    np.testing.assert_allclose(first[winning], second[winning], atol=1e-5)

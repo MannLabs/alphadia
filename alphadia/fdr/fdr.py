@@ -38,6 +38,11 @@ BEST_PEAK_GROUP_COLUMN = "precursor_idx"
 # same folds). Scored in sample, the many final-round features let the fits rank their own training targets above the
 # decoys: false targets beat their decoys 1.2x at q 1 % (paired entrapment, 5 ng), 1.0x cross-fitted.
 CROSSFIT_FOLDS = 4
+# Below CROSSFIT_SMALL_POOL_ROWS PSMs (the MBR step searches a library of pass-1 IDs: ~80k PSMs per 5 ng file) the folds
+# train on every out-of-fold row instead of the out-of-fold part of the 80 % split (75 % of the rows instead of 60 %):
+# the starved fits cost the MBR step 5 % of its targets at q 1 % against in-sample fits (paired 5 ng 2 and 4 min, same
+# MBR library). These pools are also aligned by the decoy ECDF (`_aligned_proba`).
+CROSSFIT_SMALL_POOL_ROWS = 500_000
 # From CROSSFIT_PARALLEL_MIN_ROWS rows on, the fold fits run side by side in spawned processes, each with an equal share
 # of the torch threads, reading the feature matrix from shared memory. One fit scales poorly with threads (1.8 M rows:
 # 29 s on 1, 16 s on 3, 10 s on 12), so four processes of 3 threads fit the folds in 27 s instead of 40 s. Threads gain
@@ -51,6 +56,8 @@ CROSSFIT_ANCHOR_QVAL = 0.01
 CROSSFIT_SLOPE = 5.0
 CROSSFIT_MIN_SCALE = 1e-6
 CROSSFIT_MAX_ABS_Z = 700.0
+# weight of the anchor-aligned probability that orders the rows within one step of the decoy ECDF
+DECOY_ECDF_TIEBREAK = 1e-6
 
 logger = logging.getLogger()
 
@@ -334,7 +341,13 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         y_train, y_test = y[idxs_train], y[idxs_test]
     if final_round:
         predicted_proba = _crossfit_predict(
-            initial_classifier, X, y, idxs_train, groups, crossfit, first=classifier
+            initial_classifier,
+            X,
+            y,
+            np.arange(len(X)) if len(X) < CROSSFIT_SMALL_POOL_ROWS else idxs_train,
+            groups,
+            crossfit,
+            first=classifier,
         )
     else:
         predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
@@ -438,8 +451,9 @@ def _crossfit_predict(  # noqa: PLR0913 # the fold assignment comes with the com
     first: Classifier | None = None,
 ) -> np.ndarray:
     """P(decoy) of every row from CROSSFIT_FOLDS copies of the unfitted `classifier`, each fitted on the rows of
-    `idxs_train` outside one fold and predicting that fold, aligned across folds by `_aligned_proba`. From
-    CROSSFIT_PARALLEL_MIN_ROWS rows on, the folds are fitted in parallel processes.
+    `idxs_train` outside one fold and predicting that fold, aligned across folds by `_aligned_proba` (by the decoy ECDF
+    below CROSSFIT_SMALL_POOL_ROWS rows). From CROSSFIT_PARALLEL_MIN_ROWS rows on, the folds are fitted in parallel
+    processes.
 
     `crossfit` holds the fold and the competition group of every row. `first`, if given, is fitted for the first fold
     instead of a copy, so that it ends up fitted.
@@ -461,9 +475,12 @@ def _crossfit_predict(  # noqa: PLR0913 # the fold assignment comes with the com
             for member, train, rows in fits
         ]
 
+    decoy_ecdf = len(X) < CROSSFIT_SMALL_POOL_ROWS
     proba = np.empty(len(X))
     for (_, _, rows), fold_proba in zip(fits, fold_probas, strict=True):
-        proba[rows] = _aligned_proba(fold_proba, y[rows] == 1, competition[rows])
+        proba[rows] = _aligned_proba(
+            fold_proba, y[rows] == 1, competition[rows], decoy_ecdf=decoy_ecdf
+        )
     return proba
 
 
@@ -535,10 +552,15 @@ def _fit_predict_shared(  # noqa: PLR0913 # one process's fold: the classifier, 
 
 
 def _aligned_proba(
-    proba: np.ndarray, decoy: np.ndarray, competition: np.ndarray
+    proba: np.ndarray,
+    decoy: np.ndarray,
+    competition: np.ndarray,
+    *,
+    decoy_ecdf: bool = False,
 ) -> np.ndarray:
     """P(decoy) of one fold on the common cross-fit scale: the logit of the last target at a competed q-value of
-    CROSSFIT_ANCHOR_QVAL maps to 0 and the median logit of the competition-winning decoys to 1."""
+    CROSSFIT_ANCHOR_QVAL maps to 0 and the median logit of the competition-winning decoys to 1. With `decoy_ecdf`, the
+    share of the fold's competition-winning decoys that score better instead, ordered within a share by the former."""
     proba = np.clip(proba, 1e-300, 1 - 1e-16)
     logit = np.log(proba) - np.log1p(-proba)
     zero, one = _competition_anchors(logit, decoy, competition)
@@ -547,7 +569,27 @@ def _aligned_proba(
         -CROSSFIT_MAX_ABS_Z,
         CROSSFIT_MAX_ABS_Z,
     )
-    return 1 / (1 + np.exp(-CROSSFIT_SLOPE * (z - 1)))
+    aligned = 1 / (1 + np.exp(-CROSSFIT_SLOPE * (z - 1)))
+    if not decoy_ecdf:
+        return aligned
+    # The two anchors fail where a fold's fit outputs one logit for thousands of poor rows (6.7k of 7.3k decoys of one
+    # MBR fold): the decoy median lands in that block, the fold's scale shrinks ~7x and its best decoys outrank most
+    # targets of the other folds. The share of the fold's competition-winning decoys that score better is one scale
+    # for every fold whatever the shape of its logits.
+    winners = _competition_winners(logit, competition)
+    decoy_logits = np.sort(logit[winners][decoy[winners]])
+    share = np.searchsorted(decoy_logits, logit, side="right") / max(
+        len(decoy_logits), 1
+    )
+    return (1 - DECOY_ECDF_TIEBREAK) * share + DECOY_ECDF_TIEBREAK * aligned
+
+
+def _competition_winners(logit: np.ndarray, competition: np.ndarray) -> np.ndarray:
+    """Positions of the lowest logit of every competition group."""
+    order = np.lexsort((logit, competition))
+    first = np.ones(len(order), dtype=bool)
+    first[1:] = competition[order][1:] != competition[order][:-1]
+    return order[first]
 
 
 def _competition_anchors(
@@ -555,10 +597,7 @@ def _competition_anchors(
 ) -> tuple[float, float]:
     """The logit of the last target at a competed q-value <= CROSSFIT_ANCHOR_QVAL and the median logit of the
     competition-winning decoys; the best decoy instead of the target if no target reaches that q-value."""
-    order = np.lexsort((logit, competition))
-    first = np.ones(len(order), dtype=bool)
-    first[1:] = competition[order][1:] != competition[order][:-1]
-    winners = order[first]
+    winners = _competition_winners(logit, competition)
     w_logit, w_decoy = logit[winners], decoy[winners]
     ranked = np.argsort(w_logit, kind="stable")
     d = np.cumsum(w_decoy[ranked])
