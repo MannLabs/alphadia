@@ -96,7 +96,7 @@ def get_feature_names() -> list[str]:
 # Rust features the FDR classifier uses only in the final round: which ions carry the peak (short ions match by chance,
 # long ones are specific), how the observed fragment intensities agree with the library, the apex cosine with the
 # library over the co-eluting fragments, and the fragment-level features (weighted XIC correlations, the ion-class
-# noise model, coherent ions per class, entropy similarity, agreement of the doubly charged fragments).
+# noise model, coherent ions per class, entropy similarity).
 FINAL_ROUND_FEATURES = (
     "ion_position_mean",
     "long_ion_intensity_share",
@@ -106,20 +106,15 @@ FINAL_ROUND_FEATURES = (
     "lib_cosine_coherent",
     "xic_libweighted",
     "xic_obsweighted",
-    "ion_fisher",
     "ion_fisher_lib",
     "ion_coherent_2plus",
     "ion_coherent_b_short",
-    "ion_coherent_b_mid",
     "ion_coherent_b_long",
     "ion_coherent_y_short",
     "ion_coherent_y_mid",
     "ion_coherent_y_long",
     "ent_sim",
     "ent_sim_coherent",
-    "z2_libw_corr",
-    "z2_explained",
-    "z2_n_over_50",
 )
 # Rust features the final-round classifier leaves out: permuting each in offline replays of the final round moved the
 # real identifications by less than 1 %, and a refit without all of them kept the real identifications level at an
