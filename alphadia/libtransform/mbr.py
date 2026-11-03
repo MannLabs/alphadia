@@ -261,17 +261,3 @@ def leave_one_out_rt(
     speclib_for_run = copy(speclib)
     speclib_for_run._precursor_df = precursor_df
     return speclib_for_run
-
-
-def bound_by_library_pg_qval(
-    psm_df: pd.DataFrame, library_pg_qval: pd.DataFrame
-) -> pd.DataFrame:
-    """Raise each protein group's q-value to its q-value in the search that built the MBR library.
-
-    The MBR step only searches the protein groups that passed the first search, with fresh decoys for them, so its
-    protein FDR does not see that the false groups among them were already selected out of the whole protein space.
-    A group's q-value is therefore at least the one it had there.
-    """
-    library_qval = psm_df["pg"].map(library_pg_qval.set_index("pg")["pg_qval"])
-    psm_df["pg_qval"] = np.maximum(psm_df["pg_qval"], library_qval.fillna(0).to_numpy())
-    return psm_df

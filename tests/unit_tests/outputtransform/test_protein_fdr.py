@@ -5,6 +5,7 @@ from alphadia.outputtransform.protein_fdr import (
     NO_EVIDENCE_QVAL,
     PROTEIN_FEATURE_QVAL,
     perform_protein_fdr,
+    transfer_library_pg_qval,
 )
 
 N_TRUE_TARGET_GROUPS = 1800
@@ -116,3 +117,25 @@ def test_few_decoy_groups_still_give_accepted_groups():
     groups = scored.drop_duplicates(["pg", "decoy"])
     accepted = groups[(groups["pg_qval"] <= 0.01) & (groups["decoy"] == 0)]
     assert len(accepted) == N_SMALL_TRUE_TARGET_GROUPS
+
+
+def test_transfer_library_pg_qval_keeps_library_qval_of_confident_target_groups():
+    # given: A confident, B only weak precursors, C not in the library, and a decoy of A
+    psm_df = pd.DataFrame(
+        {
+            "pg": ["PG_A", "PG_A", "PG_B", "PG_C", "PG_A"],
+            "decoy": [0, 0, 0, 0, 1],
+            "qval": [0.0, 0.05, 0.05, 0.0, 0.0],
+            "pg_qval": [0.5, 0.5, 0.5, 0.5, 0.5],
+        }
+    )
+    library_pg_qval = pd.DataFrame({"pg": ["PG_A", "PG_B"], "pg_qval": [0.004, 0.001]})
+
+    # when
+    result = transfer_library_pg_qval(psm_df, library_pg_qval)
+
+    # then: every precursor of A gets its library q-value, all others no evidence
+    np.testing.assert_allclose(
+        result["pg_qval"],
+        [0.004, 0.004, NO_EVIDENCE_QVAL, NO_EVIDENCE_QVAL, NO_EVIDENCE_QVAL],
+    )

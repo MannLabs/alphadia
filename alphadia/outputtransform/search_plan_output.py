@@ -12,7 +12,7 @@ from alphadia.constants.keys import (
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
-from alphadia.libtransform.mbr import MbrLibraryBuilder, bound_by_library_pg_qval
+from alphadia.libtransform.mbr import MbrLibraryBuilder
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
     build_run_stat_df,
@@ -23,7 +23,10 @@ from alphadia.outputtransform.outputaccumulator import (
     AccumulationBroadcaster,
     TransferLearningAccumulator,
 )
-from alphadia.outputtransform.protein_fdr import perform_protein_fdr
+from alphadia.outputtransform.protein_fdr import (
+    perform_protein_fdr,
+    transfer_library_pg_qval,
+)
 from alphadia.outputtransform.quantification import QuantOutputBuilder
 from alphadia.outputtransform.utils import (
     apply_output_column_names,
@@ -320,10 +323,6 @@ class SearchPlanOutput:
             self.config["fdr"]["group_level"],
         )
 
-        logger.info("Performing protein FDR")
-
-        psm_df = perform_protein_fdr(psm_df, self._figure_path)
-
         library_path = self.config.get(ConfigKeys.LIBRARY_PATH)
         library_pg_qval_path = (
             None
@@ -333,10 +332,13 @@ class SearchPlanOutput:
             )
         )
         if library_pg_qval_path is not None and os.path.exists(library_pg_qval_path):
-            logger.info(f"Bounding protein q-values by {library_pg_qval_path}")
-            psm_df = bound_by_library_pg_qval(
+            logger.info(f"Taking the protein q-values from {library_pg_qval_path}")
+            psm_df = transfer_library_pg_qval(
                 psm_df, pd.read_parquet(library_pg_qval_path)
             )
+        else:
+            logger.info("Performing protein FDR")
+            psm_df = perform_protein_fdr(psm_df, self._figure_path)
 
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 

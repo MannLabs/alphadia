@@ -7,7 +7,6 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia.libtransform.mbr import (
     IndexBuilder,
     MbrLibraryBuilder,
-    bound_by_library_pg_qval,
     leave_one_out_rt,
 )
 
@@ -403,18 +402,3 @@ class TestMbrProteinFdr:
         # then
         np.testing.assert_array_equal(result.precursor_df["elution_group_idx"], [0])
         assert builder.pg_qval.to_dict("list") == {"pg": ["PG_A"], "pg_qval": [0.002]}
-
-    def test_bound_by_library_pg_qval(self):
-        # given
-        psm_df = pd.DataFrame(
-            {"pg": ["PG_A", "PG_B", "PG_C"], "pg_qval": [0.001, 0.02, 0.003]}
-        )
-        library_pg_qval = pd.DataFrame(
-            {"pg": ["PG_A", "PG_B"], "pg_qval": [0.008, 0.001]}
-        )
-
-        # when
-        result = bound_by_library_pg_qval(psm_df, library_pg_qval)
-
-        # then: raised to the library q-value, never lowered, unknown groups kept
-        np.testing.assert_allclose(result["pg_qval"], [0.008, 0.02, 0.003])
