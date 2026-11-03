@@ -26,20 +26,20 @@ logger = logging.getLogger()
 # cannot separate targets from decoys, and the FDR filter keeps all PSMs.
 _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
-# A fit can also collapse only at its target end: the network then gives one constant probability to every
-# target-like PSM (up to 94 % of a run's identifications), while the rest stays spread out. The standard deviation
-# stays high, but the ranking inside that block is lost and its q-value is set by the decoys it holds. A healthy fit
-# almost never ties at its best probability (at most a handful of PSMs).
-_MAX_TIED_BEST_PROBA = 500
+# The classifier can also collapse only partially: it assigns the same, best probability to a large share of
+# PSMs, while the remaining probabilities stay spread out. The standard deviation check does not detect this, but
+# the PSMs sharing the best probability can no longer be ranked against each other. In a healthy fit, only a few
+# PSMs share the best probability.
+_MAX_NUM_PSMS_AT_BEST_PROBA = 500
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
 
 
 def _is_collapsed(proba: np.ndarray) -> bool:
-    """Whether the probabilities are near-constant, or a large block of PSMs ties at the best one."""
+    """Whether the probabilities are near-constant, or too many PSMs share the best probability."""
     return (
         float(np.std(proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
-        or int(np.sum(proba == proba.min())) > _MAX_TIED_BEST_PROBA
+        or int(np.sum(proba == proba.min())) > _MAX_NUM_PSMS_AT_BEST_PROBA
     )
 
 
