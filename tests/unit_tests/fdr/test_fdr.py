@@ -482,9 +482,7 @@ def test_perform_fdr_trains_on_the_best_candidate_if_asked(train_on_best_candida
     )
 
     # then: with the flag, the fit gets one candidate per training precursor; every precursor is still scored
-    idxs_train, _ = train_test_split_indices(
-        len(psm_df), test_size=0.2, random_state=0
-    )
+    idxs_train, _ = train_test_split_indices(len(psm_df), test_size=0.2, random_state=0)
     fitted_precursors = classifier.fitted_x[:, 2]
     if train_on_best_candidate:
         assert len(np.unique(fitted_precursors)) == len(fitted_precursors)
