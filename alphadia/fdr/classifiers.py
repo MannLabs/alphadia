@@ -201,7 +201,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         weight_decay : float, default=0.00001
             Weight decay for training.
 
-        layers : typing.List[int], default=[100, 50, 20, 5]
+        layers : typing.List[int], default=[128, 64, 32]
             typing.List of hidden layer sizes.
 
         dropout : float, default=0.001
@@ -225,7 +225,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         """
         if layers is None:
-            layers = [100, 50, 20, 5]
+            # no narrow bottleneck: when all units of a 5-unit last layer are zero for the
+            # target-like PSMs, they all get the output bias, i.e. one tied probability
+            layers = [128, 64, 32]
         if feature_transform not in FeatureTransform.get_values():
             raise ValueError(
                 f"Unknown feature transform: {feature_transform}. "
