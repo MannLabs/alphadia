@@ -66,9 +66,11 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     logger.info(f"Protein FDR over {n_targets:,} target and {n_decoys:,} decoy groups")
 
     if figure_path is not None:
+        # get_q_values sorts the groups, so the labels are taken from the sorted frame, not from `y`
+        sorted_y = protein_features["decoy"].to_numpy()
         plot_fdr(
-            y,
-            y,
+            sorted_y,
+            sorted_y,
             protein_features["proba"].values,
             protein_features["proba"].values,
             protein_features["pg_qval"],
