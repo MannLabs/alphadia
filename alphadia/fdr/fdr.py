@@ -26,7 +26,21 @@ logger = logging.getLogger()
 # cannot separate targets from decoys, and the FDR filter keeps all PSMs.
 _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
+# The classifier can also collapse only partially: it assigns the same, best probability to a large share of
+# PSMs, while the remaining probabilities stay spread out. The standard deviation check does not detect this, but
+# the PSMs sharing the best probability can no longer be ranked against each other. In a healthy fit, only a few
+# PSMs share the best probability.
+_MAX_NUM_PSMS_AT_BEST_PROBA = 500
+
 _MAX_FDR_CLASSIFIER_REINITS = 3
+
+
+def _is_collapsed(proba: np.ndarray) -> bool:
+    """Whether the probabilities are near-constant, or too many PSMs share the best probability."""
+    return (
+        float(np.std(proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        or int(np.sum(proba == proba.min())) > _MAX_NUM_PSMS_AT_BEST_PROBA
+    )
 
 
 @manage_torch_threads(max_threads=2)
@@ -155,26 +169,24 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
     n_reinit = 0
-    while (
-        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
-        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
-    ):
+    while _is_collapsed(predicted_proba) and n_reinit < _MAX_FDR_CLASSIFIER_REINITS:
         n_reinit += 1
         logger.warning(
-            f"FDR classifier collapsed to a near-constant probability "
-            f"({np.unique(predicted_proba).size} unique value(s) over "
-            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
-            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+            f"FDR classifier collapsed ({np.unique(predicted_proba).size:,} unique "
+            f"value(s) over {len(predicted_proba):,} PSMs, "
+            f"{int(np.sum(predicted_proba == predicted_proba.min())):,} at the best "
+            f"one); reinitializing from scratch and retrying "
+            f"({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
         classifier.reset()
         classifier.fit(X[idxs_train], y_train)
         predicted_proba = classifier.predict_proba(X)[:, 1]
     del X
 
-    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
+    if _is_collapsed(predicted_proba):
         logger.warning(
-            "FDR classifier produced a near-constant probability; target/decoy "
-            "separation failed and q-values will not filter PSMs."
+            "FDR classifier still collapsed after the retries; target/decoy "
+            "separation failed and q-values may not filter PSMs."
         )
 
     psm_df["proba"] = predicted_proba
