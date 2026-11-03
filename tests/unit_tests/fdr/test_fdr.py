@@ -8,9 +8,9 @@ import pytest
 import torch
 
 from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr import classifiers as fdr_classifiers
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
+from alphadia.fdr.utils import train_test_split_indices
 
 
 def test_keep_best():
@@ -428,67 +428,33 @@ def test_perform_fdr_prefers_given_fragments_over_the_provider():
     assert mock_compete.call_args.args[1] is df_fragments
 
 
-def _best_candidate_data(n_groups: int = 3000, n_per_group: int = 3, seed: int = 0):
-    """Groups of candidates; the decoy label follows the first feature, so a lower first feature is more target-like."""
-    rng = np.random.default_rng(seed)
-    x = rng.normal(size=(n_groups * n_per_group, 2)).astype(np.float32)
+def test_best_candidate_positions_picks_the_most_target_like_row_of_each_group():
+    # given: groups of candidates whose decoy label follows the first feature, so a lower first feature is more
+    # target-like
+    rng = np.random.default_rng(0)
+    n_groups, n_per_group = 3000, 3
+    x = rng.normal(size=(n_groups * n_per_group, 2))
     y = (x[:, 0] + 0.3 * rng.normal(size=len(x)) > 0).astype(float)
     groups = np.repeat(rng.permutation(n_groups), n_per_group)
-    return x, y, groups
-
-
-def test_best_peaks_picks_the_most_target_like_row_of_each_group(monkeypatch):
-    # given: batches small enough for the logistic regression to converge on few rows
-    monkeypatch.setattr(fdr_classifiers, "_BEST_PEAK_BATCH", 256)
-    x, y, groups = _best_candidate_data()
-    classifier = BinaryClassifierLegacyNewBatching(random_state=0)
 
     # when
-    best = classifier._best_peaks(x, y, groups)
+    best = fdr._best_candidate_positions(x, y, groups, random_state=0)
 
     # then: one sorted row per group, almost always the one with the lowest first feature
-    assert len(best) == len(np.unique(groups))
+    assert len(best) == n_groups
     assert (np.diff(best) > 0).all()
-    assert len(np.unique(groups[best])) == len(best)
+    assert len(np.unique(groups[best])) == n_groups
     lowest = pd.DataFrame({"g": groups, "f": x[:, 0]}).groupby("g")["f"].idxmin()
     assert np.isin(best, lowest.to_numpy()).mean() > 0.95
 
 
-def test_fit_with_groups_trains_only_on_the_best_rows(monkeypatch):
-    # given
-    x, y, groups = _best_candidate_data()
-    classifier = BinaryClassifierLegacyNewBatching(
-        random_state=0, epochs=1, experimental_hyperparameter_tuning=True
-    )
-    trained_rows = []
-    original_split = fdr_classifiers.train_test_split_indices
+class _FitRecordingClassifier:
+    """Scores by the first feature; records the rows it was fitted on."""
 
-    def spy_split(n, *args, **kwargs):
-        trained_rows.append(n)
-        return original_split(n, *args, **kwargs)
+    fitted_x = None
 
-    monkeypatch.setattr(fdr_classifiers, "train_test_split_indices", spy_split)
-
-    # when
-    classifier.fit(x, y, groups)
-
-    # then: the network trains on one row per group, with the step size of all rows
-    assert trained_rows == [len(np.unique(groups))]
-    assert (classifier.batch_size, classifier.learning_rate) == (
-        fdr_classifiers._get_scaled_training_params(x)
-    )
-    assert classifier.predict_proba(x).shape == (len(x), 2)
-
-
-class _GroupRecordingClassifier:
-    """Scores by the first feature; records the rows and groups it was fitted on."""
-
-    fitted_rows = None
-    groups = None
-
-    def fit(self, X, y, groups=None):  # noqa: N803
-        self.fitted_rows = len(X)
-        self.groups = groups
+    def fit(self, X, y):  # noqa: N803
+        self.fitted_x = X
 
     def predict_proba(self, X):  # noqa: N803
         p = 1 / (1 + np.exp(-X[:, 0]))
@@ -497,24 +463,32 @@ class _GroupRecordingClassifier:
 
 @pytest.mark.parametrize("train_on_best_candidate", [True, False])
 def test_perform_fdr_trains_on_the_best_candidate_if_asked(train_on_best_candidate):
-    # given: two candidates of every precursor
+    # given: two candidates of every precursor; the precursor is also a feature, to trace the fitted rows back
     psm_df = _gen_psm_df()
-    psm_df = pd.concat([psm_df, psm_df.assign(feature=psm_df["feature"] + 0.01)])
-    classifier = _GroupRecordingClassifier()
+    psm_df = pd.concat(
+        [psm_df.assign(rank=0), psm_df.assign(rank=1)], ignore_index=True
+    )
+    psm_df["precursor_feature"] = psm_df["precursor_idx"]
+    classifier = _FitRecordingClassifier()
 
     # when
     result = fdr.perform_fdr(
         classifier,
-        ["feature"],
+        ["feature", "rank", "precursor_feature"],
         psm_df,
         psm_df["decoy"].to_numpy() == 1,
         train_on_best_candidate=train_on_best_candidate,
+        random_state=0,
     )
 
-    # then: the fit gets the precursor of every training row, and every precursor is still scored
+    # then: with the flag, the fit gets one candidate per training precursor; every precursor is still scored
+    idxs_train, _ = train_test_split_indices(
+        len(psm_df), test_size=0.2, random_state=0
+    )
+    fitted_precursors = classifier.fitted_x[:, 2]
     if train_on_best_candidate:
-        assert len(classifier.groups) == classifier.fitted_rows
-        assert set(classifier.groups) <= set(psm_df["precursor_idx"])
+        assert len(np.unique(fitted_precursors)) == len(fitted_precursors)
+        assert len(fitted_precursors) < len(idxs_train)
     else:
-        assert classifier.groups is None
+        assert len(fitted_precursors) == len(idxs_train)
     assert set(result["precursor_idx"]) == set(psm_df["precursor_idx"])

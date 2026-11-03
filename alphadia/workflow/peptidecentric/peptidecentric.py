@@ -250,9 +250,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     candidates_df,
                     self.dia_data,
                     self.spectral_library,
-                    train_on_best_candidate=self.config["fdr"][
-                        "train_on_best_candidate"
-                    ],
+                    train_on_best_candidate=True,
                 )
             )
 
