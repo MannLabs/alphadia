@@ -7,6 +7,9 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import InferenceStrategy, NormalizationMethods
+from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
+)
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
 )

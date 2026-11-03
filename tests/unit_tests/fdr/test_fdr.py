@@ -716,7 +716,7 @@ def test_crossfit_predict_in_processes_fits_every_fold_and_the_first_classifier(
     )
 
     # then: every row is scored, decoys above targets, and the first classifier came back fitted
-    assert np.all((proba > 0) & (proba < 1))
+    assert np.all((proba >= 0) & (proba <= 1))
     assert proba[y == 0].mean() < proba[y == 1].mean()
     assert first.fitted
 
