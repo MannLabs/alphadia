@@ -115,6 +115,28 @@ FINAL_ROUND_FEATURES = (
     "ent_sim",
     "ent_sim_corrweighted",
 )
+# Rust features the final-round classifier leaves out: permuting each in offline replays of the final round moved the
+# real identifications by less than 1 %, and a refit without all of them kept the real identifications level at an
+# equal or lower entrapment ratio. The bins above rank 12 never change: only the top 12 fragments are scored.
+FINAL_ROUND_UNUSED_FEATURES = (
+    "num_over_0_rank_12_17",
+    "num_over_0_rank_18_23",
+    "num_over_50_rank_12_17",
+    "num_over_50_rank_18_23",
+    "num_scans",
+    "num_over_0",
+    "num_over_50",
+    "num_over_90",
+    "num_over_95",
+    "num_over_0_rank_6_11",
+    "num_over_50_rank_6_11",
+    "num_over_50_rank_0_5",
+    "num_fragments",
+    "num_profiles",
+    "median_profile_sum_filtered",
+    "intensity_correlation",
+    "fwhm_rt",
+)
 
 
 def get_context_feature_names() -> list[str]:

@@ -29,6 +29,7 @@ from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     FINAL_ROUND_FEATURES,
+    FINAL_ROUND_UNUSED_FEATURES,
     candidates_to_ng,
     merge_context_features,
     parse_candidates,
@@ -744,7 +745,9 @@ class NgExtractionHandler(ExtractionHandler):
             version=self._optimization_manager.classifier_version,
             # The calibration rounds set the raw-score cutoff of the final search from their identifications: a strong
             # feature there lets low-score candidates pass, lowers the cutoff and floods the final search.
-            excluded_columns=() if final_round else FINAL_ROUND_FEATURES,
+            excluded_columns=FINAL_ROUND_UNUSED_FEATURES
+            if final_round
+            else FINAL_ROUND_FEATURES,
             train_on_best_candidate=train_on_best_candidate,
         )
         precursor_fdr_df = precursor_fdr_df[
