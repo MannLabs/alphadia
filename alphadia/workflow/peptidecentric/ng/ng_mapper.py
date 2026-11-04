@@ -93,28 +93,27 @@ def get_feature_names() -> list[str]:
     return [f for f in CandidateFeatureCollection.get_feature_names()]
 
 
-# Rust features the FDR classifier uses only in the final round: which ions carry the peak (short ions match by chance,
-# long ones are specific), how the observed fragment intensities agree with the library, the apex cosine with the
-# library over the co-eluting fragments, and the fragment-level features (weighted XIC correlations, the ion-class
-# noise model, coherent ions per class, entropy similarity).
+# Rust features the FDR classifier uses only in the final round. Ion coverage: which ions co-elute with the peak (short
+# ions match by chance, long ones are specific), weighted by library or observed intensity and scored against an
+# ion-class noise model. Library agreement: whether the observed fragment intensities match the library.
 FINAL_ROUND_FEATURES = (
     "ion_position_mean",
-    "long_ion_intensity_share",
-    "lib_explained",
-    "log_ratio_std",
-    "y_intensity_correlation",
-    "lib_cosine_coherent",
+    "short_ion_intensity_share",
+    "num_over_50_b_short",
+    "num_over_50_b_long",
+    "num_over_50_y_short",
+    "num_over_50_y_mid",
+    "num_over_50_y_long",
+    "num_over_50_z2",
+    "lib_share_over_50",
     "xic_libweighted",
     "xic_obsweighted",
     "ion_fisher_lib",
-    "ion_coherent_2plus",
-    "ion_coherent_b_short",
-    "ion_coherent_b_long",
-    "ion_coherent_y_short",
-    "ion_coherent_y_mid",
-    "ion_coherent_y_long",
+    "log_ratio_std",
+    "y_intensity_correlation",
+    "lib_cosine_over_50",
     "ent_sim",
-    "ent_sim_coherent",
+    "ent_sim_corrweighted",
 )
 # Rust features the final-round classifier leaves out: permuting each in offline replays of the final round moved the
 # real identifications by less than 1 %, and a refit without all of them kept the real identifications level at an
