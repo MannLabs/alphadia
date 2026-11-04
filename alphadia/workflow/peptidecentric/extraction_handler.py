@@ -28,6 +28,7 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    FINAL_ROUND_FEATURES,
     candidates_to_ng,
     merge_context_features,
     parse_candidates,
@@ -276,6 +277,7 @@ class ExtractionHandler(ABC):
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
+        final_round: bool = False,
         train_on_best_candidate: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
@@ -300,6 +302,8 @@ class ExtractionHandler(ABC):
             Quantified fragments of all candidates. If not given, the fragments of the
             candidates that enter fragment competition are quantified on demand.
 
+        final_round : bool, default=False
+            Whether this is the FDR of the final search, which uses the final-round features.
         train_on_best_candidate : bool, optional
             Train the classifier only on the most target-like candidate of each precursor.
 
@@ -704,6 +708,7 @@ class NgExtractionHandler(ExtractionHandler):
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
+        final_round: bool = False,
         train_on_best_candidate: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
@@ -737,6 +742,9 @@ class NgExtractionHandler(ExtractionHandler):
             df_fragments=df_fragments,
             fragment_provider=quantified_fragments if df_fragments is None else None,
             version=self._optimization_manager.classifier_version,
+            # The calibration rounds set the raw-score cutoff of the final search from their identifications: a strong
+            # feature there lets low-score candidates pass, lowers the cutoff and floods the final search.
+            excluded_columns=() if final_round else FINAL_ROUND_FEATURES,
             train_on_best_candidate=train_on_best_candidate,
         )
         precursor_fdr_df = precursor_fdr_df[

@@ -93,6 +93,30 @@ def get_feature_names() -> list[str]:
     return [f for f in CandidateFeatureCollection.get_feature_names()]
 
 
+# Rust features the FDR classifier uses only in the final round. Ion coverage: which ions co-elute with the peak (short
+# ions match by chance, long ones are specific), weighted by library or observed intensity and scored against an
+# ion-class noise model. Library agreement: whether the observed fragment intensities match the library.
+FINAL_ROUND_FEATURES = (
+    "ion_position_mean",
+    "short_ion_intensity_share",
+    "num_over_50_b_short",
+    "num_over_50_b_long",
+    "num_over_50_y_short",
+    "num_over_50_y_mid",
+    "num_over_50_y_long",
+    "num_over_50_z2",
+    "lib_share_over_50",
+    "xic_libweighted",
+    "xic_obsweighted",
+    "ion_fisher_lib",
+    "log_ratio_std",
+    "y_intensity_correlation",
+    "lib_cosine_over_50",
+    "ent_sim",
+    "ent_sim_corrweighted",
+)
+
+
 def get_context_feature_names() -> list[str]:
     """Get the competition and context feature names from NG CandidateContext."""
     return list(CandidateContext.get_feature_names())

@@ -7,7 +7,10 @@ import pytest
 from conftest import mock_context_features
 
 from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHandler
-from alphadia.workflow.peptidecentric.ng.ng_mapper import get_context_feature_names
+from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    FINAL_ROUND_FEATURES,
+    get_context_feature_names,
+)
 
 
 @pytest.mark.parametrize("candidate_context_features", [True, False])
@@ -133,6 +136,34 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["df_fragments"] is fragments_df
     assert kwargs["fragment_provider"] is None
+
+
+@pytest.mark.parametrize(
+    ("final_round", "excluded"), [(False, FINAL_ROUND_FEATURES), (True, ())]
+)
+def test_perform_fdr_and_filter_candidates_leaves_final_round_features_out_of_calibration(
+    final_round, excluded
+):
+    # given
+    def fit_predict(features_df, **kwargs):
+        return features_df.assign(qval=0.0)
+
+    handler, fdr_manager = _fdr_handler(fit_predict)
+    features_df, candidates_df, spectral_library = _fdr_inputs()
+
+    # when
+    handler.perform_fdr_and_filter_candidates(
+        features_df,
+        candidates_df,
+        MagicMock(),
+        spectral_library,
+        df_fragments=pd.DataFrame(),
+        final_round=final_round,
+    )
+
+    # then
+    kwargs = fdr_manager.fit_predict.call_args.kwargs
+    assert kwargs["excluded_columns"] == excluded
 
 
 @pytest.mark.parametrize("train_on_best_candidate", [True, False])

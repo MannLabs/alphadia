@@ -1,7 +1,7 @@
 import logging
 import os
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from copy import deepcopy
 from typing import Literal
 
@@ -110,6 +110,7 @@ class FDRManager(BaseManager):
         decoy_channel: int = -1,
         version: int = -1,
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
+        excluded_columns: Collection[str] = (),
         train_on_best_candidate: bool = False,
     ):
         """Fit the classifier and perform FDR estimation.
@@ -131,6 +132,8 @@ class FDRManager(BaseManager):
         fragment_provider: None | Callable[[pd.DataFrame], pd.DataFrame]
             Returns the fragments of the PSMs it is given, for fragment competition when `df_fragments` is not
             available up front. Only used with decoy_strategy "precursor".
+        excluded_columns: Collection[str]
+            Feature columns the classifier does not use in this call, although `features_df` carries them.
         train_on_best_candidate: bool
             Train the classifier only on the most target-like candidate of each precursor. Only used with
             decoy_strategy "precursor".
@@ -140,7 +143,9 @@ class FDRManager(BaseManager):
             The classifier_hash must be identical for every call of fit_predict for self._current_version to give the right index in self.classifier_store.
         """
         available_columns = list(
-            set(features_df.columns).intersection(set(self.feature_columns))
+            set(features_df.columns)
+            .intersection(set(self.feature_columns))
+            .difference(excluded_columns)
         )
 
         self._check_valid_input(
