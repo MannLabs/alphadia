@@ -111,6 +111,7 @@ class FDRManager(BaseManager):
         version: int = -1,
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
         excluded_columns: Collection[str] = (),
+        train_on_best_candidate: bool = False,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -133,6 +134,9 @@ class FDRManager(BaseManager):
             available up front. Only used with decoy_strategy "precursor".
         excluded_columns: Collection[str]
             Feature columns the classifier does not use in this call, although `features_df` carries them.
+        train_on_best_candidate: bool
+            Train the classifier only on the most target-like candidate of each precursor. Only used with
+            decoy_strategy "precursor".
 
         Notes
         -----
@@ -188,6 +192,7 @@ class FDRManager(BaseManager):
                 if self._compete_for_fragments
                 else None,
                 dia_cycle=self._dia_cycle,
+                train_on_best_candidate=train_on_best_candidate,
                 figure_path=self.figure_path,
                 random_state=random_state,
             )
@@ -332,10 +337,16 @@ class FDRManager(BaseManager):
                 classifier_hash = file.split(".")[0]
 
                 if classifier_hash not in self.classifier_store:
-                    classifier = deepcopy(self.classifier_base)
-                    classifier.from_state_dict(
-                        torch.load(os.path.join(path, file), weights_only=False)
+                    state_dict = torch.load(
+                        os.path.join(path, file), weights_only=False
                     )
+                    # classifiers saved with the former two-output softmax head do not fit the
+                    # one-logit network
+                    if state_dict.get("output_dim", 1) != 1:
+                        logger.info(f"Skipping {file}: saved with a two-output head")
+                        continue
+                    classifier = deepcopy(self.classifier_base)
+                    classifier.from_state_dict(state_dict)
                     self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1) -> Classifier:

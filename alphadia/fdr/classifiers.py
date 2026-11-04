@@ -165,7 +165,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
     def __init__(  # noqa: PLR0913 # Too many arguments
         self,
         input_dim: int = 10,
-        output_dim: int = 2,
         test_size: float = 0.2,
         batch_size: int = 1000,
         epochs: int = 10,
@@ -187,9 +186,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         input_dim : int, default=10
             Number of input features.
 
-        output_dim : int, default=2
-            Number of output classes.
-
         test_size : float, default=0.2
             Fraction of the data to be used for testing.
 
@@ -205,7 +201,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         weight_decay : float, default=0.00001
             Weight decay for training.
 
-        layers : typing.List[int], default=[100, 50, 20, 5]
+        layers : typing.List[int], default=[128, 64, 32]
             typing.List of hidden layer sizes.
 
         dropout : float, default=0.001
@@ -229,7 +225,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         """
         if layers is None:
-            layers = [100, 50, 20, 5]
+            # no narrow bottleneck: when all units of a 5-unit last layer are zero for the
+            # target-like PSMs, they all get the output bias, i.e. one tied probability
+            layers = [128, 64, 32]
         if feature_transform not in FeatureTransform.get_values():
             raise ValueError(
                 f"Unknown feature transform: {feature_transform}. "
@@ -243,7 +241,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.layers = layers
         self.dropout = dropout
         self.input_dim = input_dim
-        self.output_dim = output_dim
         self.metric_interval = metric_interval
         self.feature_transform = feature_transform
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
@@ -290,7 +287,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         state_dict = {
             "_fitted": self._fitted,
             "input_dim": self.input_dim,
-            "output_dim": self.output_dim,
             "test_size": self.test_size,
             "batch_size": self.batch_size,
             "epochs": self.epochs,
@@ -330,7 +326,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         if "network_state_dict" in _state_dict:
             self.network = FeedForwardNN(
                 input_dim=_state_dict.pop("input_dim"),
-                output_dim=_state_dict.pop("output_dim"),
                 layers=_state_dict.pop("layers"),
                 dropout=_state_dict.pop("dropout"),
             )
@@ -441,13 +436,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             self.input_dim = x.shape[1]
             self.network = FeedForwardNN(
                 input_dim=self.input_dim,
-                output_dim=self.output_dim,
                 layers=self.layers,
                 dropout=self.dropout,
             )
 
-        if y.ndim == 1:
-            y = np.stack([1 - y, y], axis=1)
+        if y.ndim == 2:  # noqa: PLR2004
+            y = y[:, 1]
 
         random_state = self._np_rng.integers(0, 1_000_000)
         logger.info(f"Using random state {random_state} for train-test-split")
@@ -463,7 +457,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             weight_decay=self.weight_decay,
         )
 
-        loss = nn.BCELoss()
+        # BCE on the logit: BCELoss on a softmax output loses the gradient wherever the float32
+        # probability rounds to 0 or 1.
+        loss = nn.BCEWithLogitsLoss()
 
         # Set model to training mode for BatchNorm
         self.network.train()
@@ -511,19 +507,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                         y_pred_test = self.network(x_test).detach().numpy()
 
                         self.metrics["train_accuracy"].append(
-                            np.sum(
-                                y_train_batch[:, 1].detach().numpy()
-                                == np.argmax(y_pred_train, axis=1)
+                            np.mean(
+                                y_train_batch.detach().numpy() == (y_pred_train > 0)
                             )
-                            / len(y_train_batch)
                         )
 
                         self.metrics["test_accuracy"].append(
-                            np.sum(
-                                y_test[:, 1].detach().numpy()
-                                == np.argmax(y_pred_test, axis=1)
-                            )
-                            / len(y_test)
+                            np.mean(y_test.detach().numpy() == (y_pred_test > 0))
                         )
                     self.network.train()
 
@@ -557,7 +547,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
-        return np.argmax(self._predict_output(x), axis=1)
+        return (self._predict_logit(x) > 0).astype(int)
 
     @manage_torch_threads(max_threads=2)
     def predict_proba(self, x: np.ndarray) -> np.ndarray:
@@ -585,12 +575,15 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         ), "Input data must have the same number of features as the fitted classifier."
 
         assert self.network is not None, "Network must be initialized after fitting"
-        return self._predict_output(x)
+        logit = self._predict_logit(x).astype(np.float64)
+        # in float64 the sigmoid keeps the ranking of logits far beyond where float32 rounds to 1
+        proba = 1 / (1 + np.exp(-logit))
+        return np.stack([1 - proba, proba], axis=1)
 
-    def _predict_output(self, x: np.ndarray) -> np.ndarray:
-        """Return the network's output for every row, transforming and predicting in chunks."""
+    def _predict_logit(self, x: np.ndarray) -> np.ndarray:
+        """Return the network's logit for every row, transforming and predicting in chunks."""
         self.network.eval()
-        output = np.empty((len(x), self.output_dim), dtype=np.float32)
+        output = np.empty(len(x), dtype=np.float32)
         with torch.no_grad():
             for start in range(0, len(x), _PREDICT_ROWS_CHUNK_SIZE):
                 stop = start + _PREDICT_ROWS_CHUNK_SIZE
@@ -607,16 +600,14 @@ class FeedForwardNN(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        output_dim: int = 2,
         layers: list[int] | None = None,
         dropout: float = 0.5,
     ):
-        """Built a simple feed forward network for FDR estimation."""
+        """Built a simple feed forward network for FDR estimation that outputs one logit."""
         if layers is None:
             layers = [20, 10, 5]
         super().__init__()
         self.input_dim = input_dim  # type: ignore[assignment]
-        self.output_dim = output_dim  # type: ignore[assignment]
 
         self.layers = [input_dim, *layers]  # type: ignore[assignment]
         self.dropout = dropout  # type: ignore[assignment]
@@ -633,11 +624,9 @@ class FeedForwardNN(nn.Module):
             layers.append(nn.ReLU())
             layers.append(nn.Dropout(self.dropout))
 
-        layers.append(nn.Linear(self.layers[-1], self.output_dim))
-        # add softmax layer
-        layers.append(nn.Softmax(dim=1))
+        layers.append(nn.Linear(self.layers[-1], 1))
         self.fc_layers = nn.Sequential(*layers)
 
     def forward(self, x: Any) -> Any:  # noqa: ANN401
-        """Forward pass through the network."""
-        return self.fc_layers(x)
+        """Forward pass through the network, returning the logit of each sample."""
+        return self.fc_layers(x).squeeze(1)

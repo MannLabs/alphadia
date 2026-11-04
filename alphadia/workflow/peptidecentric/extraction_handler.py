@@ -279,6 +279,7 @@ class ExtractionHandler(ABC):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         final_round: bool = False,
+        train_on_best_candidate: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -304,6 +305,8 @@ class ExtractionHandler(ABC):
 
         final_round : bool, default=False
             Whether this is the FDR of the final search, which uses the final-round features.
+        train_on_best_candidate : bool, optional
+            Train the classifier only on the most target-like candidate of each precursor.
 
         Returns
         -------
@@ -707,6 +710,7 @@ class NgExtractionHandler(ExtractionHandler):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         final_round: bool = False,
+        train_on_best_candidate: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -744,6 +748,7 @@ class NgExtractionHandler(ExtractionHandler):
             excluded_columns=FINAL_ROUND_UNUSED_FEATURES
             if final_round
             else FINAL_ROUND_FEATURES,
+            train_on_best_candidate=train_on_best_candidate,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]

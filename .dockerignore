@@ -31,3 +31,8 @@
 **/secrets.dev.yaml
 **/values.dev.yaml
 LICENSE
+
+# host-compiled Rust builds
+**/target
+alphadia/*.so
+alphadia/*.pyd
