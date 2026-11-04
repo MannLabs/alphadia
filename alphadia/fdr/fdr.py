@@ -7,6 +7,9 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.plotting import plot_fdr
@@ -34,6 +37,28 @@ _MAX_NUM_PSMS_AT_BEST_PROBA = 500
 
 _MAX_FDR_CLASSIFIER_REINITS = 3
 
+# With `train_on_best_candidate`, the classifier trains on the best candidate of each of these groups.
+BEST_CANDIDATE_GROUP_COLUMN = "precursor_idx"
+_BEST_CANDIDATE_MAX_ITER = 100
+
+
+def _best_candidate_positions(
+    x: np.ndarray, y: np.ndarray, groups: np.ndarray, random_state: int | None
+) -> np.ndarray:
+    """Sorted positions of each group's row with the lowest decoy logit of a logistic regression fit on all rows."""
+    logistic_regression = make_pipeline(
+        StandardScaler(),
+        LogisticRegression(
+            max_iter=_BEST_CANDIDATE_MAX_ITER, random_state=random_state
+        ),
+    )
+    logistic_regression.fit(x, y)
+    decoy_logit = logistic_regression.decision_function(x)
+    order = np.lexsort((decoy_logit, groups))
+    is_first_of_group = np.ones(len(order), dtype=bool)
+    is_first_of_group[1:] = groups[order][1:] != groups[order][:-1]
+    return np.sort(order[is_first_of_group])
+
 
 def _is_collapsed(proba: np.ndarray) -> bool:
     """Whether the probabilities are near-constant, or too many PSMs share the best probability."""
@@ -56,6 +81,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     df_fragments: pd.DataFrame | None = None,
     fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     dia_cycle: np.ndarray | None = None,
+    train_on_best_candidate: bool = False,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
 ) -> pd.DataFrame:
@@ -97,6 +123,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     dia_cycle : np.ndarray, default=None
         The DIA cycle. Required if df_fragments is provided.
+
+    train_on_best_candidate : bool, default=False
+        Train the classifier only on the most target-like candidate of each precursor, as picked by a logistic
+        regression on all training rows. All rows are still scored.
 
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition
@@ -152,7 +182,21 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         return psm_df
 
     y_train, y_test = y[idxs_train], y[idxs_test]
-    classifier.fit(X[idxs_train], y_train)
+    # The other candidates of a precursor are mostly noise peaks whose target label is wrong.
+    idxs_fit = idxs_train
+    if train_on_best_candidate:
+        idxs_fit = idxs_train[
+            _best_candidate_positions(
+                X[idxs_train],
+                y_train,
+                psm_df[BEST_CANDIDATE_GROUP_COLUMN].to_numpy()[idxs_train],
+                random_state,
+            )
+        ]
+        logger.info(
+            f"training on the best candidate of each precursor: {len(idxs_fit):,} of {len(idxs_train):,} rows"
+        )
+    classifier.fit(X[idxs_fit], y[idxs_fit])
 
     psm_df["_decoy"] = y
 
@@ -179,7 +223,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             f"({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
         classifier.reset()
-        classifier.fit(X[idxs_train], y_train)
+        classifier.fit(X[idxs_fit], y[idxs_fit])
         predicted_proba = classifier.predict_proba(X)[:, 1]
     del X
 

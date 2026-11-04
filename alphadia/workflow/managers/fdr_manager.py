@@ -110,6 +110,7 @@ class FDRManager(BaseManager):
         decoy_channel: int = -1,
         version: int = -1,
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
+        train_on_best_candidate: bool = False,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -130,6 +131,9 @@ class FDRManager(BaseManager):
         fragment_provider: None | Callable[[pd.DataFrame], pd.DataFrame]
             Returns the fragments of the PSMs it is given, for fragment competition when `df_fragments` is not
             available up front. Only used with decoy_strategy "precursor".
+        train_on_best_candidate: bool
+            Train the classifier only on the most target-like candidate of each precursor. Only used with
+            decoy_strategy "precursor".
 
         Notes
         -----
@@ -183,6 +187,7 @@ class FDRManager(BaseManager):
                 if self._compete_for_fragments
                 else None,
                 dia_cycle=self._dia_cycle,
+                train_on_best_candidate=train_on_best_candidate,
                 figure_path=self.figure_path,
                 random_state=random_state,
             )
