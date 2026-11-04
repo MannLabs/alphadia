@@ -1,6 +1,6 @@
 # Build the installer for Windows.
 # This script must be run from the root of the repository.
-# Prerequisites: the wheel for this platform is in dist/
+# Prerequisites: wheel has been build, e.g. using build_wheel.sh
 
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./build_pyinstaller
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./dist_pyinstaller
