@@ -30,6 +30,19 @@ MULTISTEP_SEARCH = "multistep search"
 MULTIPLEXING_CHANNELS_DELIM = ","
 MODIFICATIONS_DELIM = ";"
 
+# settings of the in-silico digest that are not printed if a spectral library is provided, as they are not used then.
+# Instead, the search space is derived from the library and logged after loading it (cf. `LogLibrarySearchSpace`).
+LIBRARY_DIGEST_KEYS = (
+    "enzyme",
+    "fixed_modifications",
+    "variable_modifications",
+    "max_var_mod_num",
+    "missed_cleavages",
+    "precursor_len",
+    "precursor_charge",
+    "precursor_mz",
+)
+
 
 class Config(UserDict):
     """Dict-like config class that can read from and write to yaml and json files and allows updating with other config objects.
@@ -148,7 +161,9 @@ class Config(UserDict):
 
         if do_print:
             try:
-                self._pretty_print(current_config, default_config, tracking_dict)
+                self._pretty_print(
+                    _get_config_to_print(current_config), default_config, tracking_dict
+                )
             except Exception as e:
                 logger.warning(f"Could not print config: {e}")
                 logger.info(f"{(yaml.dump(current_config))}")
@@ -213,6 +228,22 @@ TOLERATED_KEYS = [
     # supported until 1.10.4:
     "calibration.norm_rt_mode",
 ]
+
+
+def _get_config_to_print(config: dict) -> dict:
+    """Get the config to print, without the in-silico digest settings in case a spectral library is provided."""
+    if config.get(ConfigKeys.LIBRARY_PATH) is None or not isinstance(
+        config.get(ConfigKeys.LIBRARY_PREDICTION), dict
+    ):
+        return config
+
+    return config | {
+        ConfigKeys.LIBRARY_PREDICTION: {
+            key: value
+            for key, value in config[ConfigKeys.LIBRARY_PREDICTION].items()
+            if key not in LIBRARY_DIGEST_KEYS
+        }
+    }
 
 
 def _convert_numpy_types(data: Any) -> Any:

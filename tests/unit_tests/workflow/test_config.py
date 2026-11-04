@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from io import StringIO
@@ -402,3 +403,40 @@ def test_set_value_disallowed_key_raises():
     config = Config({"a": {"b": "old"}})
     with pytest.raises(NotImplementedError):
         config.set_value(("a", "b"), "new")
+
+
+@pytest.mark.parametrize(
+    ("library_path", "expect_digest_keys_printed"),
+    [(None, True), ("/some/library.hdf", False)],
+)
+def test_config_update_print_omits_digest_keys_if_library_provided(
+    caplog, library_path, expect_digest_keys_printed
+):
+    """Test that the in-silico digest settings are only printed if no spectral library is provided."""
+    config_1 = Config(
+        {
+            "library_path": None,
+            "library_prediction": {
+                "enabled": False,
+                "enzyme": "trypsin",
+                "precursor_len": [7, 35],
+                "fragment_mz": [200, 2000],
+            },
+        },
+        "default",
+    )
+    config_2 = Config({"library_path": library_path}, "user defined")
+
+    # when
+    with caplog.at_level(logging.INFO):
+        config_1.update([config_2], do_print=True)
+
+    # then
+    printed = "\n".join(r.getMessage() for r in caplog.records)
+    assert ("enzyme: trypsin" in printed) == expect_digest_keys_printed
+    assert ("precursor_len:" in printed) == expect_digest_keys_printed
+    assert "fragment_mz:" in printed
+    assert "└──library_prediction" in printed
+    # the config itself is unchanged
+    assert config_1["library_prediction"]["enzyme"] == "trypsin"
+    assert config_1["library_prediction"]["precursor_len"] == [7, 35]
