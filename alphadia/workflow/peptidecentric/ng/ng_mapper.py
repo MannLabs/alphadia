@@ -7,6 +7,7 @@ from alphadia_search_rs import (
     CandidateCollection,
     CandidateContext,
     CandidateFeatureCollection,
+    FragmentClaim,
     set_num_threads,
 )
 from alphadia_search_rs import (
@@ -98,31 +99,50 @@ def get_context_feature_names() -> list[str]:
     return list(CandidateContext.get_feature_names())
 
 
-def merge_context_features(
-    features_df: pd.DataFrame, context_features: dict[str, np.ndarray]
+def get_claim_feature_names() -> list[str]:
+    """Get the fragment claim feature names from NG FragmentClaim, hard and soft claims."""
+    return list(FragmentClaim.get_feature_names(soft_claims=True))
+
+
+def _merge_on_candidate(
+    features_df: pd.DataFrame, extra_features: dict[str, np.ndarray], source: str
 ) -> pd.DataFrame:
-    """Merge the output of `CandidateContext.compute()` into the scored candidates."""
-    context_df = pd.DataFrame(context_features)
+    """Merge per-candidate features one-to-one into the scored candidates."""
+    extra_df = pd.DataFrame(extra_features)
 
     # checked before the merge, so that the error can name the offending candidates
-    duplicates = context_df.loc[
-        context_df.duplicated(CANDIDATE_KEY_COLUMNS), CANDIDATE_KEY_COLUMNS
+    duplicates = extra_df.loc[
+        extra_df.duplicated(CANDIDATE_KEY_COLUMNS), CANDIDATE_KEY_COLUMNS
     ]
     if not duplicates.empty:
         raise ValueError(
-            f"Context features contain duplicate candidates:\n"
+            f"{source} features contain duplicate candidates:\n"
             f"{duplicates.to_string(index=False)}"
         )
 
     merged_df = features_df.merge(
-        context_df, on=CANDIDATE_KEY_COLUMNS, validate="one_to_one"
+        extra_df, on=CANDIDATE_KEY_COLUMNS, validate="one_to_one"
     )
 
     num_missing = len(features_df) - len(merged_df)
     if num_missing > 0:
-        raise ValueError(f"Context features are missing for {num_missing} candidates")
+        raise ValueError(f"{source} features are missing for {num_missing} candidates")
 
     return merged_df
+
+
+def merge_context_features(
+    features_df: pd.DataFrame, context_features: dict[str, np.ndarray]
+) -> pd.DataFrame:
+    """Merge the output of `CandidateContext.compute()` into the scored candidates."""
+    return _merge_on_candidate(features_df, context_features, "Context")
+
+
+def merge_claim_features(
+    features_df: pd.DataFrame, claim_features: dict[str, np.ndarray]
+) -> pd.DataFrame:
+    """Merge the output of `FragmentClaim.compute()` into the scored candidates."""
+    return _merge_on_candidate(features_df, claim_features, "Claim")
 
 
 def parse_candidates(

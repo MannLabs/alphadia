@@ -6,6 +6,7 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
+from alphadia_search_rs import FragmentClaim
 
 from alphadia.workflow.peptidecentric.ng.ng_mapper import get_context_feature_names
 
@@ -184,6 +185,19 @@ def mock_context_features(
     for name in get_context_feature_names():
         context_features[name] = np.arange(len(precursor_idx), dtype=np.float32)
     return context_features
+
+
+def mock_claim_features(
+    precursor_idx: list[int], rank: list[int], soft_claims: bool = False
+) -> dict[str, np.ndarray]:
+    """Mock `FragmentClaim.compute()` output, each feature holding the row index."""
+    claim_features = {
+        "precursor_idx": np.array(precursor_idx, dtype=np.uint64),
+        "rank": np.array(rank, dtype=np.uint64),
+    }
+    for name in FragmentClaim.get_feature_names(soft_claims=soft_claims):
+        claim_features[name] = np.arange(len(precursor_idx), dtype=np.float32)
+    return claim_features
 
 
 def pytest_configure(config):  # TODO is this still used?
