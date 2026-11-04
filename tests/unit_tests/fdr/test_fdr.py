@@ -10,6 +10,7 @@ import torch
 from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
+from alphadia.fdr.utils import train_test_split_indices
 
 
 def test_keep_best():
@@ -334,6 +335,43 @@ def test_perform_fdr_stops_after_max_reinits():
     assert psm_df["proba"].std() == 0.0
 
 
+class _SharedBestProbaClassifier(_CollapsingClassifier):
+    """Give the best probability to many PSMs until the caller resets it `n_collapses` times."""
+
+    def predict_proba(self, x):
+        proba = np.linspace(0.0, 1.0, len(x))
+        if self.reset_count < self._n_collapses:
+            proba = np.maximum(proba, 0.5)
+        return np.stack([1 - proba, proba], axis=1)
+
+
+def test_perform_fdr_resets_classifier_with_many_psms_at_best_proba():
+    # Given: a classifier whose first fit gives the best probability to half the PSMs, more than the allowed number
+    classifier = _SharedBestProbaClassifier(n_collapses=1)
+    psm_df = _gen_psm_df(n_samples=1000)
+
+    # When: perform_fdr runs
+    psm_df = fdr.perform_fdr(
+        classifier, ["feature"], psm_df, psm_df["decoy"].to_numpy() == 1
+    )
+
+    # Then: perform_fdr resets the classifier once, and only one PSM has the best new probability
+    assert classifier.reset_count == 1
+    assert (psm_df["proba"] == psm_df["proba"].min()).sum() == 1
+
+
+def test_perform_fdr_keeps_classifier_with_few_psms_at_best_proba():
+    # Given: a classifier whose best probability is shared by fewer PSMs than the allowed number
+    classifier = _SharedBestProbaClassifier(n_collapses=1)
+    psm_df = _gen_psm_df(n_samples=fdr._MAX_NUM_PSMS_AT_BEST_PROBA // 2)
+
+    # When: perform_fdr runs
+    fdr.perform_fdr(classifier, ["feature"], psm_df, psm_df["decoy"].to_numpy() == 1)
+
+    # Then: the fit is kept
+    assert classifier.reset_count == 0
+
+
 def test_fit_feature_transform_falls_back_to_raw_features_for_few_rows():
     # Given: a classifier with the quantile transform and fewer rows than the minimum
     classifier = BinaryClassifierLegacyNewBatching(
@@ -425,3 +463,67 @@ def test_perform_fdr_prefers_given_fragments_over_the_provider():
     # Then: the given fragments go to the competition, and the provider is not asked
     provider.assert_not_called()
     assert mock_compete.call_args.args[1] is df_fragments
+
+
+def test_best_candidate_positions_picks_the_most_target_like_row_of_each_group():
+    # given: groups of candidates whose decoy label follows the first feature, so a lower first feature is more
+    # target-like
+    rng = np.random.default_rng(0)
+    n_groups, n_per_group = 3000, 3
+    x = rng.normal(size=(n_groups * n_per_group, 2))
+    y = (x[:, 0] + 0.3 * rng.normal(size=len(x)) > 0).astype(float)
+    groups = np.repeat(rng.permutation(n_groups), n_per_group)
+
+    # when
+    best = fdr._best_candidate_positions(x, y, groups, random_state=0)
+
+    # then: one sorted row per group, almost always the one with the lowest first feature
+    assert len(best) == n_groups
+    assert (np.diff(best) > 0).all()
+    assert len(np.unique(groups[best])) == n_groups
+    lowest = pd.DataFrame({"g": groups, "f": x[:, 0]}).groupby("g")["f"].idxmin()
+    assert np.isin(best, lowest.to_numpy()).mean() > 0.95
+
+
+class _FitRecordingClassifier:
+    """Scores by the first feature; records the rows it was fitted on."""
+
+    fitted_x = None
+
+    def fit(self, X, y):  # noqa: N803
+        self.fitted_x = X
+
+    def predict_proba(self, X):  # noqa: N803
+        p = 1 / (1 + np.exp(-X[:, 0]))
+        return np.column_stack([1 - p, p])
+
+
+@pytest.mark.parametrize("train_on_best_candidate", [True, False])
+def test_perform_fdr_trains_on_the_best_candidate_if_asked(train_on_best_candidate):
+    # given: two candidates of every precursor; the precursor is also a feature, to trace the fitted rows back
+    psm_df = _gen_psm_df()
+    psm_df = pd.concat(
+        [psm_df.assign(rank=0), psm_df.assign(rank=1)], ignore_index=True
+    )
+    psm_df["precursor_feature"] = psm_df["precursor_idx"]
+    classifier = _FitRecordingClassifier()
+
+    # when
+    result = fdr.perform_fdr(
+        classifier,
+        ["feature", "rank", "precursor_feature"],
+        psm_df,
+        psm_df["decoy"].to_numpy() == 1,
+        train_on_best_candidate=train_on_best_candidate,
+        random_state=0,
+    )
+
+    # then: with the flag, the fit gets one candidate per training precursor; every precursor is still scored
+    idxs_train, _ = train_test_split_indices(len(psm_df), test_size=0.2, random_state=0)
+    fitted_precursors = classifier.fitted_x[:, 2]
+    if train_on_best_candidate:
+        assert len(np.unique(fitted_precursors)) == len(fitted_precursors)
+        assert len(fitted_precursors) < len(idxs_train)
+    else:
+        assert len(fitted_precursors) == len(idxs_train)
+    assert set(result["precursor_idx"]) == set(psm_df["precursor_idx"])

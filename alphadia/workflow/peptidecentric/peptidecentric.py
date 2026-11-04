@@ -251,6 +251,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     self.dia_data,
                     self.spectral_library,
                     final_round=True,
+                    train_on_best_candidate=True,
                 )
             )
 
