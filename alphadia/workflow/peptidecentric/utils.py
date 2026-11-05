@@ -89,8 +89,8 @@ feature_columns = [
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
-    For the rust backend, these are the features of the full feature set. The calibration feature set is a subset:
-    the FDR manager only uses the listed columns that the features carry, so each round uses the features of its set.
+    For the rust backend, the full feature set; the FDR manager uses only the columns present, so calibration rounds
+    use the core subset.
     """
     if extraction_backend != "rust":
         return feature_columns

@@ -264,7 +264,7 @@ class ExtractionHandler(ABC):
         spectral_library : SpecLibFlat
             Spectral library
         feature_set : FeatureSet
-            `FeatureSet.Calibration` for the optimization rounds, `FeatureSet.Full` for the final search
+            `FeatureSet.Calibration` for the calibration rounds, `FeatureSet.Full` for the final round
         Returns
         -------
         pd.DataFrame
