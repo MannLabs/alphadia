@@ -10,6 +10,7 @@ from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
 
 from alphadia.raw_data.dia_cycle import determine_dia_cycle
+from alphadia.raw_data.ms1_alignment import align_ms1_to_ms2_cycle
 from alphadia.search.jitclasses.alpharaw_jit import AlphaRawJIT
 
 DEFAULT_VALUE_NO_MOBILITY = 1e-6
@@ -76,14 +77,16 @@ class AlphaRaw(MSData_Base, ABC):
         """Process the raw data to extract relevant information."""
 
         if not self._is_ms1_dia():
-            logger.warning(
-                "The MS1 spectra in the raw file do not follow a DIA cycle.\n"
-                "AlphaDIA will therefore not be able to use the MS1 information.\n"
-                "While acquiring data, please make sure to use an integer loop count of 1 or 2 over time based loop count in seconds."
-            )
-
-            self.spectrum_df = self.spectrum_df[self.spectrum_df["ms_level"] > 1]
-            self.has_ms1 = False
+            aligned = align_ms1_to_ms2_cycle(self.spectrum_df)
+            if aligned is None:
+                logger.warning(
+                    "The MS1 spectra in the raw file do not follow a DIA cycle and could not be aligned to it.\n"
+                    "AlphaDIA will therefore not be able to use the MS1 information."
+                )
+                self.spectrum_df = self.spectrum_df[self.spectrum_df["ms_level"] > 1]
+                self.has_ms1 = False
+            else:
+                self.spectrum_df = aligned
 
         self.cycle, self._cycle_start, self._cycle_length = determine_dia_cycle(
             self.spectrum_df
