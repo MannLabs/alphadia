@@ -177,9 +177,9 @@ search:
   quant_window: 3
   # background removed from each fragment's summed XIC before quantification (rust backend): none (plain sum over
   # the window), edges (mean of the window's first and last cycle), profile (fit against the precursor's median
-  # elution profile). The window spans several peak widths, so a plain sum adds every cycle's background, which
-  # compresses ratios at low abundance.
-  quant_background_subtraction: none
+  # elution profile), weighted (profile-weighted sum, nothing subtracted). The window spans several peak widths,
+  # so a plain sum adds every cycle's background, which compresses ratios at low abundance.
+  quant_background_subtraction: weighted
   # number of peak group candidates to identify during recalibration
   target_num_candidates: 3
   # filter to apply to the channels. If set to "", all channels will be used. Comma-separated channel numbers (e.g. "0,4,8")
