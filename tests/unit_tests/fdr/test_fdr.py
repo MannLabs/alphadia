@@ -646,6 +646,32 @@ def test_perform_fdr_fits_once_per_crossfit_fold_in_the_final_round():
     assert _CountingClassifier.n_fits == fdr.CROSSFIT_FOLDS
 
 
+def test_perform_fdr_on_psms_writes_the_final_round_matrix(tmp_path):
+    # Given: PSMs carrying a final-round feature and a dump path
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    target_df[fdr.FINAL_ROUND_FEATURE] = target_df["feature"]
+    decoy_df[fdr.FINAL_ROUND_FEATURE] = decoy_df["feature"]
+    df = pd.concat([target_df, decoy_df], ignore_index=True)
+    path = tmp_path / "fdr_features.parquet"
+
+    # When: perform_fdr_on_psms runs
+    fdr.perform_fdr_on_psms(
+        _CountingClassifier(n_collapses=0),
+        ["feature", fdr.FINAL_ROUND_FEATURE],
+        df,
+        df["decoy"].to_numpy() == 1,
+        dump_path=str(path),
+    )
+
+    # Then: every row is written with its features, decoy label, fold and probability
+    dump = pd.read_parquet(path)
+    assert len(dump) == len(df)
+    assert {"feature", fdr.FINAL_ROUND_FEATURE, "decoy", "fold", "proba"} <= set(
+        dump.columns
+    )
+    assert dump["fold"].between(0, fdr.CROSSFIT_FOLDS - 1).all()
+
+
 class _RowRecordingClassifier:
     """Scores by the second feature; the first feature is the row number, recorded at fit and at prediction."""
 
