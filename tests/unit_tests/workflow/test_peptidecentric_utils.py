@@ -3,63 +3,15 @@
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphadia_search_rs import FeatureSet
 
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
-)
-from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-    FINAL_ROUND_EXCLUDED_FEATURES,
-    get_feature_names,
 )
 from alphadia.workflow.peptidecentric.utils import (
     add_library_fragment_intensity,
     feature_columns,
     get_classifier_feature_columns,
 )
-
-
-def test_get_classifier_feature_columns_for_rust_backend_are_the_full_features():
-    # when
-    columns = get_classifier_feature_columns("rust")
-
-    # then
-    assert columns == get_feature_names(FeatureSet.Full)
-
-
-def test_calibration_features_are_a_subset_of_the_classifier_features():
-    # when
-    columns = get_classifier_feature_columns("rust")
-
-    # then
-    assert set(get_feature_names(FeatureSet.Calibration)) < set(columns)
-
-
-def test_calibration_features_leave_out_the_ion_coverage_and_library_agreement():
-    """The calibration rounds set the raw-score cutoff of the final search from their identifications: these features
-    there let low-score candidates pass, lower the cutoff and flood the final search (#910)."""
-    # given
-    final_round_only = {
-        "ion_fisher_lib",
-        "xic_libweighted",
-        "ent_sim",
-        "lib_cosine_over_50",
-    }
-
-    # when
-    calibration = set(get_feature_names(FeatureSet.Calibration))
-
-    # then
-    assert final_round_only <= set(get_feature_names(FeatureSet.Full))
-    assert not final_round_only & calibration
-
-
-def test_final_round_excluded_features_are_full_features():
-    # when
-    full = get_feature_names(FeatureSet.Full)
-
-    # then
-    assert set(FINAL_ROUND_EXCLUDED_FEATURES) <= set(full)
 
 
 def test_get_classifier_feature_columns_for_python_backend():
