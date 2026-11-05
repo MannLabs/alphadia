@@ -10,10 +10,7 @@ from alphadia.outputtransform.quantification.quant_builder import (
     ION_HASH_COLUMNS,
 )
 from alphadia.reporting.reporting import Pipeline
-from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-    get_context_feature_names,
-    get_feature_names,
-)
+from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -104,16 +101,14 @@ IDF_FEATURE_COLUMNS = (
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
-    The candidate context features are always listed for the rust backend: the FDR manager
-    only uses the listed columns that the features actually carry, so the config flag that
-    computes them does not need to be repeated here.
     The IDF features are always left out.
     """
     if extraction_backend != "rust":
         return feature_columns
 
-    columns = get_feature_names() + get_context_feature_names()
-    return [column for column in columns if column not in IDF_FEATURE_COLUMNS]
+    return [
+        column for column in get_feature_names() if column not in IDF_FEATURE_COLUMNS
+    ]
 
 
 def add_library_fragment_intensity(

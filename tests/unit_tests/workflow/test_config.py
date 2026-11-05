@@ -404,7 +404,9 @@ def test_set_value_disallowed_key_raises():
         config.set_value(("a", "b"), "new")
 
 
-@pytest.mark.parametrize("removed_key", ["use_idf_features"])
+@pytest.mark.parametrize(
+    "removed_key", ["use_idf_features", "candidate_context_features"]
+)
 def test_default_config_tolerates_removed_search_keys(removed_key):
     """Test that user configs that still set a removed search key keep loading."""
     # given
