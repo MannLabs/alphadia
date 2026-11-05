@@ -14,8 +14,10 @@ from alphadia.outputtransform.quantification.fragment_accumulator import (
 )
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
+    MS1_INTENSITY_COLUMN,
     LFQOutputConfig,
     QuantBuilder,
+    add_ms1_rows,
     top_k_by_quantified_correlation,
 )
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
@@ -354,6 +356,13 @@ class QuantOutputBuilder:
             )
             filtered_intensity_df = filtered_intensity_df[keep]
             filtered_correlation_df = filtered_correlation_df[keep]
+        if (
+            self.config["search_output"]["varmodel_ms1"]
+            and MS1_INTENSITY_COLUMN in self.psm_df.columns
+        ):
+            filtered_intensity_df, filtered_correlation_df = add_ms1_rows(
+                filtered_intensity_df, filtered_correlation_df, self.psm_df
+            )
 
         precursor_df = self.quant_builder.varmodel_precursor_table(
             filtered_intensity_df,

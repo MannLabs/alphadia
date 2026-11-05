@@ -55,6 +55,7 @@ def test_search_plan_output_integration():
             "varmodel_missing_fragments": "drop",
             "varmodel_top_k_fragments": 0,
             "varmodel_quality_exponent": 0.0,
+            "varmodel_ms1": False,
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,

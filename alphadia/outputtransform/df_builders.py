@@ -324,10 +324,10 @@ def log_stat_df(stat_df: pd.DataFrame):
             continue
         logger.info(
             row["modification"].ljust(25)
-            + f'{row["num_precursors"]:,}'.rjust(space)
-            + f'{row["num_unique_precursor"]:,}'.rjust(space)
-            + f'{row["num_ms2_precursors"]:,}'.rjust(space)
-            + f'{row["num_unique_ms2_precursor"]:,}'.rjust(space)
+            + f"{row['num_precursors']:,}".rjust(space)
+            + f"{row['num_unique_precursor']:,}".rjust(space)
+            + f"{row['num_ms2_precursors']:,}".rjust(space)
+            + f"{row['num_unique_ms2_precursor']:,}".rjust(space)
         )
     # log line
     logger.info("-" * 25 + " " + "-" * space * 4)
@@ -336,8 +336,8 @@ def log_stat_df(stat_df: pd.DataFrame):
     total = stat_df[stat_df["modification"] == "Total"].iloc[0]
     logger.info(
         "Total".ljust(25)
-        + f'{total["num_precursors"]:,}'.rjust(space)
-        + f'{total["num_unique_precursor"]:,}'.rjust(space)
-        + f'{total["num_ms2_precursors"]:,}'.rjust(space)
-        + f'{total["num_unique_ms2_precursor"]:,}'.rjust(space)
+        + f"{total['num_precursors']:,}".rjust(space)
+        + f"{total['num_unique_precursor']:,}".rjust(space)
+        + f"{total['num_ms2_precursors']:,}".rjust(space)
+        + f"{total['num_unique_ms2_precursor']:,}".rjust(space)
     )

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 from alphadia_search_rs import VarModelQuantification
 
 from alphadia.outputtransform.quantification.censored_varmodel import (
@@ -7,7 +8,9 @@ from alphadia.outputtransform.quantification.censored_varmodel import (
 )
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
+    MS1_INTENSITY_COLUMN,
     QuantBuilder,
+    add_ms1_rows,
     top_k_by_quantified_correlation,
 )
 
@@ -178,3 +181,42 @@ def test_quality_exponent_downweights_interfered_values():
     # Then the interfered run reads less inflated with the quality weighting
     assert shift[0.0] > 0.05
     assert shift[1.5] < 0.75 * shift[0.0]
+
+
+def test_add_ms1_rows_adds_one_row_per_precursor_with_its_run_values():
+    # given: two precursors with two fragments in two runs, and an MS1 quantity for precursor 7 in run1 only
+    intensity_df = pd.DataFrame(
+        {
+            "precursor_idx": [7, 7, 9, 9],
+            "ion": [1, 2, 3, 4],
+            "run1": [10.0, 20.0, 30.0, 40.0],
+            "run2": [11.0, 21.0, 31.0, 41.0],
+            "pg": ["A", "A", "B", "B"],
+            "mod_seq_hash": [70, 70, 90, 90],
+            "mod_seq_charge_hash": [71, 71, 91, 91],
+            INTENSITY_LIBRARY_COLUMN: [0.2, 0.4, 0.5, 0.7],
+        }
+    )
+    correlation_df = intensity_df.drop(columns=INTENSITY_LIBRARY_COLUMN).assign(
+        run1=0.9, run2=0.9
+    )
+    psm_df = pd.DataFrame(
+        {"precursor_idx": [7], "run": ["run1"], MS1_INTENSITY_COLUMN: [500.0]}
+    )
+
+    # when
+    intensity_out, correlation_out = add_ms1_rows(intensity_df, correlation_df, psm_df)
+
+    # then
+    added = intensity_out.iloc[len(intensity_df) :].set_index("precursor_idx")
+    assert added.loc[7, "run1"] == 500.0
+    assert added.loc[7, "run2"] == 0.0
+    assert added.loc[9, ["run1", "run2"]].tolist() == [0.0, 0.0]
+    assert added.loc[7, INTENSITY_LIBRARY_COLUMN] == pytest.approx(0.3)
+    assert added.loc[7, "mod_seq_charge_hash"] == 71
+    assert len(set(intensity_out["ion"])) == len(intensity_out)
+    assert (
+        (correlation_out.iloc[len(correlation_df) :][["run1", "run2"]] == 0.95)
+        .all()
+        .all()
+    )

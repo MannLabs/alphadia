@@ -34,6 +34,12 @@ FRAGMENT_METADATA_COLUMNS = [
 
 PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
+# precursor-level MS1 M0 quantity of the rust quantification (ms1_quantification), entered as one extra "fragment"
+MS1_INTENSITY_COLUMN = "ms1_intensity"
+MS1_ION_TYPE = 77
+# quality of the MS1 row in the quality-weighted fit: as a well-correlated fragment (a fixed value beat per-run
+# isotope-consistency weights and lower weights on the ProteoBench Astral data)
+MS1_ROW_CORRELATION = 0.95
 VARMODEL_MISSING_DROP = "drop"
 VARMODEL_MISSING_CENSORED = "censored"
 
@@ -182,6 +188,49 @@ def top_k_by_quantified_correlation(
         .rank(ascending=False, method="first")
     )
     return (rank <= k).to_numpy()
+
+
+def add_ms1_rows(
+    intensity_df: pd.DataFrame, correlation_df: pd.DataFrame, psm_df: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Add one row per precursor carrying its MS1 M0 quantity per run (`MS1_INTENSITY_COLUMN` of `psm_df`).
+
+    The variance model then learns the MS1 row's offset and weight like a fragment's. Its library intensity is the
+    median of the precursor's fragments (the offset absorbs the scale), its correlation `MS1_ROW_CORRELATION`.
+    Runs without an MS1 quantity get 0 (missing).
+    """
+    run_columns = get_run_columns(intensity_df)
+    by_precursor = intensity_df.groupby(PRECURSOR_IDX_COLUMN, sort=False)
+    rows = by_precursor.first().drop(columns=run_columns)
+    rows[INTENSITY_LIBRARY_COLUMN] = by_precursor[INTENSITY_LIBRARY_COLUMN].median()
+    precursor_idx = rows.index.to_numpy(dtype=np.int64)
+    zeros = np.zeros(len(precursor_idx), dtype=np.int64)
+    rows[ION_COLUMN] = _ion_hash(
+        precursor_idx, zeros, np.full_like(zeros, MS1_ION_TYPE), zeros, zeros
+    )
+    ms1 = (
+        psm_df.pivot_table(
+            index=PRECURSOR_IDX_COLUMN,
+            columns="run",
+            values=MS1_INTENSITY_COLUMN,
+            aggfunc="max",
+        )
+        .reindex(index=rows.index, columns=run_columns)
+        .fillna(0.0)
+    )
+    intensity_rows = pd.concat([rows, ms1], axis=1).reset_index()
+    correlation_rows = intensity_rows.copy()
+    correlation_rows[run_columns] = MS1_ROW_CORRELATION
+    return (
+        pd.concat(
+            [intensity_df, intensity_rows.reindex(columns=intensity_df.columns)],
+            ignore_index=True,
+        ),
+        pd.concat(
+            [correlation_df, correlation_rows.reindex(columns=correlation_df.columns)],
+            ignore_index=True,
+        ),
+    )
 
 
 class QuantBuilder:

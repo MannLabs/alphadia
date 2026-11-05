@@ -830,6 +830,17 @@ class NgExtractionHandler(ExtractionHandler):
             quant_params.update({"top_k_fragments": top_k_fragments})
         if tolerance_ppm is not None:
             quant_params.update({"tolerance_ppm": tolerance_ppm})
+        if (
+            self._config["search_output"]["varmodel_ms1"]
+            and self._score_ms1
+            and self._ms1_tolerance_ppm is not None
+        ):
+            quant_params.update(
+                {
+                    "ms1_quantification": True,
+                    "ms1_tolerance_ppm": self._ms1_tolerance_ppm,
+                }
+            )
 
         peak_group_quantification = PeakGroupQuantification(quant_params)
         quantified_lib = peak_group_quantification.quantify(
