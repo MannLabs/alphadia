@@ -329,7 +329,8 @@ fdr:
   # compare a candidate with the pattern observed in the other runs; fragments without signal there are dropped
   mbr_empirical_intensities: false
   # decoys per target in the MBR library (with keep_decoys_in_mbr_library); a target competes with all of them and the
-  # q-value counts each winning decoy as 1 / mbr_decoys_per_target false target
+  # q-value counts each winning fresh decoy as 1 / mbr_decoys_per_target false target, a decoy kept from the first
+  # search as 1 (it stands for one false library entry)
   mbr_decoys_per_target: 3
   # MBR step: q-values within the rows whose elution group the first search identified in that run (re-found) and
   # within the others (transfers). Pooled, the re-found rows, almost all true, let the transfers run at several times
@@ -379,9 +380,9 @@ search_output:
   # varmodel_directlfq: how missing fragments of a quantified run enter the fit. "drop" leaves them out; "censored"
   # treats them as below a per-run detection limit fitted on the data, which removes the upward bias of precursors
   # near the limit (ratio compression at low abundance).
-  varmodel_missing_fragments: drop
+  varmodel_missing_fragments: censored
   # varmodel_directlfq: use only the k fragments per precursor with the best mean XIC correlation; 0 uses all
-  varmodel_top_k_fragments: 0
+  varmodel_top_k_fragments: 6
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:
