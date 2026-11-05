@@ -12,7 +12,7 @@ from alphadia.constants.keys import (
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
-from alphadia.libtransform.mbr import MbrLibraryBuilder
+from alphadia.libtransform.mbr import FRAGMENT_COLUMNS, MbrLibraryBuilder
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
     build_run_stat_df,
@@ -122,7 +122,9 @@ class SearchPlanOutput:
                 raise ValueError(
                     "Passing base spectral library is required for MBR library building."
                 )
-            self._build_mbr_library(base_spec_lib, psm_df=psm_df, save=True)
+            self._build_mbr_library(
+                base_spec_lib, psm_df=psm_df, folder_list=folder_list, save=True
+            )
 
         if self.config["transfer_library"]["enabled"]:
             self._build_transfer_library(folder_list, save=True)
@@ -498,6 +500,7 @@ class SearchPlanOutput:
         self,
         base_spec_lib: base.SpecLibBase,
         psm_df: pd.DataFrame,
+        folder_list: list[str] | None = None,
         save: bool = True,
     ) -> SpecLibBase | None:
         """Build MBR spectral library.
@@ -521,9 +524,20 @@ class SearchPlanOutput:
             logger.warning("No precursors found, skipping MBR library building")
             return None
 
+        fragments_by_run = None
+        if self.config["fdr"]["mbr_empirical_intensities"] and folder_list:
+            fragments_by_run = {
+                os.path.basename(folder): pd.read_parquet(
+                    os.path.join(folder, "frag.parquet"), columns=FRAGMENT_COLUMNS
+                )
+                for folder in folder_list
+                if os.path.exists(os.path.join(folder, "frag.parquet"))
+            }
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
             keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
+            fragments_by_run=fragments_by_run,
+            decoys_per_target=self.config["fdr"]["mbr_decoys_per_target"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 

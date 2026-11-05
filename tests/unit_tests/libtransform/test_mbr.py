@@ -10,6 +10,8 @@ from alphadia.libtransform.mbr import (
     leave_one_out_rt,
 )
 
+Y_ION = ord("y")
+
 
 class TestIndexBuilder:
     """Tests for IndexBuilder class."""
@@ -320,6 +322,94 @@ def test_mbr_library_builder_records_target_rt_by_run():
     np.testing.assert_array_equal(rt_by_run["run"], ["run_a", "run_b"])
     np.testing.assert_array_equal(rt_by_run["rt_observed"], [10.0, 14.0])
     np.testing.assert_array_equal(rt_by_run["rt_calibrated"], [11.0, 13.0])
+
+
+def _one_precursor_library() -> SpecLibBase:
+    lib = SpecLibBase()
+    lib._precursor_df = pd.DataFrame(
+        {"sequence": ["PEPTIDEKAR"], "charge": [2], "mods": [""], "mod_sites": [""]}
+    )
+    lib._precursor_df["nAA"] = lib._precursor_df["sequence"].str.len()
+    lib.calc_precursor_mz()
+    lib.calc_fragment_mz_df()
+    lib._fragment_intensity_df = pd.DataFrame(
+        0.5, index=lib._fragment_mz_df.index, columns=lib._fragment_mz_df.columns
+    )
+    lib._precursor_df["elution_group_idx"] = [0]
+    lib._precursor_df["precursor_idx"] = [0]
+    lib._precursor_df["decoy"] = 0
+    lib._precursor_df["channel"] = 0
+    lib._precursor_df = hash_precursor_df(lib._precursor_df)
+    return lib
+
+
+def _psms(lib: SpecLibBase, runs: list[str]) -> pd.DataFrame:
+    n = len(runs)
+    return pd.DataFrame(
+        {
+            "elution_group_idx": [0] * n,
+            "precursor_idx": [7] * n,
+            "decoy": [0] * n,
+            "qval": [0.001] * n,
+            "rt_observed": [10.0] * n,
+            "rt_calibrated": [10.0] * n,
+            "pg_qval": [0.001] * n,
+            "run": runs,
+            "pg": ["PG_A"] * n,
+            "mod_seq_charge_hash": [lib.precursor_df["mod_seq_charge_hash"][0]] * n,
+        }
+    )
+
+
+def _fragments(positions: list[int], intensities: list[float]) -> pd.DataFrame:
+    n = len(positions)
+    return pd.DataFrame(
+        {
+            "precursor_idx": [7] * n,
+            "type": [Y_ION] * n,
+            "charge": [1] * n,
+            "loss_type": [0] * n,
+            "position": positions,
+            "intensity": intensities,
+        }
+    )
+
+
+def test_mbr_library_builder_empirical_intensities_take_the_median_observed_pattern():
+    # given: one precursor seen in two runs, y_z1 at position 3 in both, at position 1 only in run_a
+    lib = _one_precursor_library()
+    fragments = {
+        "run_a": _fragments([3, 1], [100.0, 50.0]),
+        "run_b": _fragments([3], [80.0]),
+    }
+
+    # when
+    builder = MbrLibraryBuilder(fdr=0.01, fragments_by_run=fragments)
+    result = builder(_psms(lib, ["run_a", "run_b"]), lib)
+
+    # then: the pattern is max-normalised per run, a missing fragment counts 0, others are dropped
+    intensity = result.fragment_intensity_df
+    start = result.precursor_df["frag_start_idx"][0]
+    assert intensity["y_z1"][start + 3] == 1.0
+    assert intensity["y_z1"][start + 1] == 0.25
+    assert intensity.to_numpy().sum() == 1.25
+
+
+def test_mbr_library_builder_adds_extra_decoys_per_target():
+    # given
+    lib = _one_precursor_library()
+
+    # when
+    builder = MbrLibraryBuilder(fdr=0.01, keep_decoys=True, decoys_per_target=3)
+    result = builder(_psms(lib, ["run_a"]), lib)
+
+    # then: one target and three different decoys in its elution group
+    df = result.precursor_df
+    assert (df["decoy"] == 0).sum() == 1
+    assert (df["decoy"] == 1).sum() == 3
+    assert df["sequence"].nunique() == 4
+    assert (df["elution_group_idx"] == 0).all()
+    assert df["mod_seq_charge_hash"].nunique() == 4
 
 
 def test_leave_one_out_rt():

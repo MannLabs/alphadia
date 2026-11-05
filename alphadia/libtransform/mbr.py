@@ -8,9 +8,120 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import CalibCols
 from alphadia.libtransform.base import ProcessingStep
-from alphadia.libtransform.decoy import DIANN_INNER, DecoyGenerator
+from alphadia.libtransform.decoy import (
+    DIANN_INNER,
+    EXTRA_DECOY_TYPES,
+    DecoyGenerator,
+    generate_decoy_library,
+)
 
 logger = logging.getLogger()
+
+HASH_COLUMN = "mod_seq_charge_hash"
+# the backend writes the fragment type as its character code
+FRAGMENT_TYPE_CODES = {ord("b"): "b", ord("y"): "y"}
+FRAGMENT_COLUMNS = [
+    "precursor_idx",
+    "type",
+    "charge",
+    "loss_type",
+    "position",
+    "intensity",
+]
+DECOY_PROCESSES = 8
+
+
+def empirical_fragment_intensities(
+    admitted: pd.DataFrame, fragments_by_run: dict[str, pd.DataFrame]
+) -> pd.DataFrame:
+    """The observed fragment pattern of each library precursor: per run max-normalised, median over the runs.
+
+    `admitted` holds the admitted first-search PSMs (run, precursor_idx, mod_seq_charge_hash, decoy). A decoy carries
+    its target's hash and fragment positions, so a group admitted on its decoy gets the decoy's pattern; where the
+    target is admitted too, the target's pattern is used.
+
+    Returns columns mod_seq_charge_hash, column (library fragment column, e.g. y_z1), position and intensity.
+    """
+    frames = []
+    for run, fragments in fragments_by_run.items():
+        psms = admitted[admitted["run"] == run][["precursor_idx", HASH_COLUMN, "decoy"]]
+        f = fragments[
+            (fragments["loss_type"] == 0)
+            & fragments["type"].isin(list(FRAGMENT_TYPE_CODES))
+            & (fragments["intensity"] > 0)
+        ].merge(psms, on="precursor_idx")
+        f["intensity"] = f["intensity"] / f.groupby("precursor_idx")[
+            "intensity"
+        ].transform("max")
+        f["run"] = run
+        frames.append(f)
+    observed = pd.concat(frames, ignore_index=True)
+    # a hash admitted as a target keeps only its target observations
+    has_target = observed.groupby(HASH_COLUMN)["decoy"].transform("min") == 0
+    observed = observed[~has_target | (observed["decoy"] == 0)]
+    observed["column"] = (
+        observed["type"].map(FRAGMENT_TYPE_CODES)
+        + "_z"
+        + observed["charge"].astype(str)
+    )
+    # a fragment without signal in a run the precursor was seen in counts as 0 there
+    keys = [HASH_COLUMN, "column", "position"]
+    grid = (
+        observed[keys]
+        .drop_duplicates()
+        .merge(observed[[HASH_COLUMN, "run"]].drop_duplicates(), on=HASH_COLUMN)
+        .merge(observed[[*keys, "run", "intensity"]], on=[*keys, "run"], how="left")
+        .fillna({"intensity": 0.0})
+    )
+    summed = grid.groupby(keys, as_index=False)["intensity"].median()
+    summed = summed[summed["intensity"] > 0]
+    summed["intensity"] /= summed.groupby(HASH_COLUMN)["intensity"].transform("max")
+    return summed[[HASH_COLUMN, "column", "position", "intensity"]]
+
+
+def apply_empirical_intensities(speclib: SpecLibBase, empirical: pd.DataFrame) -> None:
+    """Replace the fragment intensities of the precursors in `empirical` by their observed pattern, in place;
+    fragments not in the pattern get 0."""
+    precursor_df = speclib._precursor_df
+    covered = precursor_df[precursor_df[HASH_COLUMN].isin(empirical[HASH_COLUMN])]
+    values = speclib._fragment_intensity_df.to_numpy(copy=True)
+    starts = covered["frag_start_idx"].to_numpy()
+    lengths = covered["frag_stop_idx"].to_numpy() - starts
+    values[
+        np.repeat(starts, lengths)
+        + np.arange(lengths.sum())
+        - np.repeat(np.cumsum(lengths) - lengths, lengths)
+    ] = 0.0
+    placed = empirical.merge(
+        covered[[HASH_COLUMN, "frag_start_idx", "frag_stop_idx"]], on=HASH_COLUMN
+    )
+    rows = placed["frag_start_idx"].to_numpy() + placed["position"].to_numpy()
+    inside = rows < placed["frag_stop_idx"].to_numpy()
+    columns = speclib._fragment_intensity_df.columns.get_indexer(placed["column"])
+    inside &= columns >= 0
+    values[rows[inside], columns[inside]] = placed["intensity"].to_numpy()[inside]
+    speclib._fragment_intensity_df = pd.DataFrame(
+        values, columns=speclib._fragment_intensity_df.columns
+    )
+    logger.info(
+        f"Empirical fragment intensities for {len(covered):,} of {len(precursor_df):,} MBR library precursors"
+    )
+
+
+def append_extra_decoys(speclib: SpecLibBase, n_extra: int) -> SpecLibBase:
+    """`speclib` (targets and one decoy each) with `n_extra` more decoys per target from `EXTRA_DECOY_TYPES`."""
+    targets = speclib.copy()
+    targets._precursor_df = targets._precursor_df[
+        targets._precursor_df["decoy"] == 0
+    ].copy()
+    targets.remove_unused_fragments()
+    for decoy_type in EXTRA_DECOY_TYPES[:n_extra]:
+        speclib.append(generate_decoy_library(targets, decoy_type, DECOY_PROCESSES))
+    speclib._precursor_df.sort_values("elution_group_idx", inplace=True)
+    speclib._precursor_df.reset_index(drop=True, inplace=True)
+    speclib._precursor_df["precursor_idx"] = np.arange(len(speclib._precursor_df))
+    speclib.remove_unused_fragments()
+    return speclib
 
 
 class IndexBuilder:
@@ -101,10 +212,20 @@ class IndexBuilder:
 
 
 class MbrLibraryBuilder(ProcessingStep):
-    def __init__(self, fdr: float = 0.01, keep_decoys: bool = False) -> None:
+    def __init__(
+        self,
+        fdr: float = 0.01,
+        keep_decoys: bool = False,
+        fragments_by_run: dict[str, pd.DataFrame] | None = None,
+        decoys_per_target: int = 1,
+    ) -> None:
+        """`fragments_by_run` (the first search's fragment tables) gives the library its observed fragment
+        intensities; `decoys_per_target` > 1 (with `keep_decoys`) adds decoys from `EXTRA_DECOY_TYPES`."""
         super().__init__()
         self.fdr = fdr
         self.keep_decoys = keep_decoys
+        self.fragments_by_run = fragments_by_run
+        self.decoys_per_target = decoys_per_target
         self.rt_by_run: pd.DataFrame | None = None
         self.pg_qval: pd.DataFrame | None = None
 
@@ -214,9 +335,20 @@ class MbrLibraryBuilder(ProcessingStep):
         ].copy()
         mbr_speclib.remove_unused_fragments()
 
+        if self.fragments_by_run is not None:
+            # before the decoys are generated, so that they copy the observed pattern of their target
+            apply_empirical_intensities(
+                mbr_speclib,
+                empirical_fragment_intensities(psm_df, self.fragments_by_run),
+            )
+
         if self.keep_decoys:
             decoy_generator = DecoyGenerator(decoy_type=DIANN_INNER)
             mbr_speclib = decoy_generator(mbr_speclib)
+            if self.decoys_per_target > 1:
+                mbr_speclib = append_extra_decoys(
+                    mbr_speclib, self.decoys_per_target - 1
+                )
             # Decoys inherit target hashes from DecoyGenerator, rehash to get unique hashes
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
 
