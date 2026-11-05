@@ -296,6 +296,8 @@ class QuantBuilder:
         self,
         intensity_df: pd.DataFrame,
         missing_fragments: str = VARMODEL_MISSING_DROP,
+        correlation_df: pd.DataFrame | None = None,
+        quality_exponent: float = 0.0,
     ) -> pd.DataFrame:
         """Estimate the precursor quantities with the variance-model fit.
 
@@ -309,6 +311,11 @@ class QuantBuilder:
             Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash, intensity_library
         missing_fragments: str
             "drop" (missing fragments are left out) or "censored"
+        correlation_df: pd.DataFrame | None
+            XIC correlations aligned row by row with intensity_df; needed when quality_exponent > 0
+        quality_exponent: float
+            > 0 multiplies each fragment value's variance by exp(quality_exponent * (1 - sqrt(correlation))) in the
+            numpy fit (`censored_varmodel`), for "drop" and "censored" alike
 
         Returns
         -------
@@ -332,13 +339,23 @@ class QuantBuilder:
         )
         intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
 
-        if missing_fragments == VARMODEL_MISSING_CENSORED:
+        if missing_fragments == VARMODEL_MISSING_CENSORED or quality_exponent > 0:
             with_library = intensity_library > 0
+            correlation = (
+                None
+                if correlation_df is None
+                else correlation_df[run_columns].to_numpy(dtype=np.float64)[
+                    with_library
+                ]
+            )
             quantity = censored_quantities(
                 intensity[with_library].astype(np.float64),
                 intensity_library[with_library].astype(np.float64),
                 fragment_precursor_index[with_library],
                 len(precursor_hashes),
+                censored=missing_fragments == VARMODEL_MISSING_CENSORED,
+                correlation=correlation,
+                quality_exponent=quality_exponent,
             )
         else:
             result = VarModelQuantification().fit(

@@ -355,17 +355,19 @@ class QuantOutputBuilder:
 
         top_k = self.config["search_output"]["varmodel_top_k_fragments"]
         if top_k > 0:
-            filtered_intensity_df = filtered_intensity_df[
-                top_k_by_quantified_correlation(
-                    filtered_intensity_df, filtered_correlation_df, top_k
-                )
-            ]
+            keep = top_k_by_quantified_correlation(
+                filtered_intensity_df, filtered_correlation_df, top_k
+            )
+            filtered_intensity_df = filtered_intensity_df[keep]
+            filtered_correlation_df = filtered_correlation_df[keep]
 
         precursor_df = self.quant_builder.varmodel_precursor_table(
             filtered_intensity_df,
             missing_fragments=self.config["search_output"][
                 "varmodel_missing_fragments"
             ],
+            correlation_df=filtered_correlation_df,
+            quality_exponent=self.config["search_output"]["varmodel_quality_exponent"],
         )
 
         level_dfs = {}

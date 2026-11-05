@@ -351,6 +351,9 @@ search_output:
   varmodel_missing_fragments: drop
   # varmodel_directlfq: use only the k fragments per precursor with the best mean XIC correlation; 0 uses all
   varmodel_top_k_fragments: 0
+  # varmodel_directlfq: > 0 multiplies each fragment value's variance by exp(gamma * (1 - sqrt(C))), C its XIC
+  # correlation in that run, so an interfered value counts less in that run only (instead of the top-k cut)
+  varmodel_quality_exponent: 1.5
 
   # Remove each run's retention-time dependent intensity drift before label-free quantification.
   # The correction curve of each run is centred on zero, so it only flattens how the intensity changes along the gradient.

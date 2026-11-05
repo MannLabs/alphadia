@@ -30,6 +30,7 @@ def config():
             "min_k_fragments": 3,
             "varmodel_missing_fragments": "drop",
             "varmodel_top_k_fragments": 0,
+            "varmodel_quality_exponent": 0.0,
             "min_correlation": 0.5,
             "min_nonnan": 1,
             "num_samples_quadratic": 50,

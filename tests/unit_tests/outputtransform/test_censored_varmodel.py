@@ -146,3 +146,35 @@ def test_top_k_keeps_the_best_correlated_fragments_of_each_precursor():
     ]
 
     assert mask.tolist() == [True, False, True, True, True]
+
+
+def test_quality_exponent_downweights_interfered_values():
+    # Given one fragment per precursor carrying a 2x interference in the last run, with a poor XIC correlation there
+    # (larger outliers are already caught by the robust weights)
+    intensity, library, precursor_index, _ = simulate(0.0, None)
+    first_fragment = np.r_[True, np.diff(precursor_index) > 0]
+    intensity[first_fragment, -1] *= 2.0
+    correlation = np.full(intensity.shape, 0.95)
+    correlation[first_fragment, -1] = 0.1
+
+    # When
+    shift = {
+        gamma: np.median(
+            (
+                q := censored_quantities(
+                    intensity,
+                    library,
+                    precursor_index,
+                    N_PRECURSORS,
+                    correlation=correlation,
+                    quality_exponent=gamma,
+                )
+            )[:, -1]
+            - q[:, :-1].mean(1)
+        )
+        for gamma in (0.0, 1.5)
+    }
+
+    # Then the interfered run reads less inflated with the quality weighting
+    assert shift[0.0] > 0.05
+    assert shift[1.5] < 0.75 * shift[0.0]
