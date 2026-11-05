@@ -348,9 +348,9 @@ class TransferLearningAccumulator(BaseAccumulator):
             self._keep_top,
             self.consensus_speclibase._precursor_df.shape[0],
         )
-        assert len(keepIndices) == self.consensus_speclibase._precursor_df.shape[0], (
-            f"keepIndices length {len(keepIndices)} must be equal to the length of the precursor_df {self.consensus_speclibase._precursor_df.shape[0]}"
-        )
+        assert (
+            len(keepIndices) == self.consensus_speclibase._precursor_df.shape[0]
+        ), f"keepIndices length {len(keepIndices)} must be equal to the length of the precursor_df {self.consensus_speclibase._precursor_df.shape[0]}"
         self.consensus_speclibase._precursor_df = (
             self.consensus_speclibase._precursor_df.iloc[keepIndices]
         )
