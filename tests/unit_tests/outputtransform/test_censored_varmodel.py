@@ -178,3 +178,28 @@ def test_quality_exponent_downweights_interfered_values():
     # Then the interfered run reads less inflated with the quality weighting
     assert shift[0.0] > 0.05
     assert shift[1.5] < 0.75 * shift[0.0]
+
+
+def test_precursor_table_of_a_single_run_uses_the_backend_fit():
+    # given: one run, where the numpy fit has no fragments seen in several runs to estimate its noise curve from
+    intensity, library, precursor_index, _ = simulate(0.0, None)
+    intensity_df = pd.DataFrame({"run0": intensity[:, 0]})
+    intensity_df.insert(0, "precursor_idx", precursor_index)
+    intensity_df.insert(1, "ion", np.arange(len(library)))
+    intensity_df["pg"] = precursor_index
+    intensity_df["mod_seq_hash"] = precursor_index
+    intensity_df["mod_seq_charge_hash"] = precursor_index
+    intensity_df[INTENSITY_LIBRARY_COLUMN] = library
+    correlation_df = intensity_df.assign(run0=0.9)
+
+    # when
+    precursor_df = QuantBuilder(pd.DataFrame()).varmodel_precursor_table(
+        intensity_df,
+        missing_fragments="censored",
+        correlation_df=correlation_df,
+        quality_exponent=1.5,
+    )
+
+    # then
+    assert len(precursor_df) == N_PRECURSORS
+    assert (precursor_df["run0"] > 0).all()

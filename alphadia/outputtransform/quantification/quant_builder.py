@@ -36,6 +36,9 @@ PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
 VARMODEL_MISSING_DROP = "drop"
 VARMODEL_MISSING_CENSORED = "censored"
+# the numpy fit (censoring, quality weights) estimates its noise curve from fragments seen in several runs; with fewer
+# runs there are no ratios to protect and the backend fit is used
+MIN_RUNS_FOR_NUMPY_FIT = 2
 
 # fragment columns consumed by `_ion_hash`, in the order of its signature
 ION_HASH_COLUMNS = [PRECURSOR_IDX_COLUMN, "number", "type", "charge", "loss_type"]
@@ -342,7 +345,9 @@ class QuantBuilder:
         )
         intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
 
-        if missing_fragments == VARMODEL_MISSING_CENSORED or quality_exponent > 0:
+        if len(run_columns) >= MIN_RUNS_FOR_NUMPY_FIT and (
+            missing_fragments == VARMODEL_MISSING_CENSORED or quality_exponent > 0
+        ):
             with_library = intensity_library > 0
             correlation = (
                 None
