@@ -7,24 +7,11 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
-from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 from alphadia.workflow.peptidecentric.utils import (
-    IDF_FEATURE_COLUMNS,
     add_library_fragment_intensity,
     feature_columns,
     get_classifier_feature_columns,
 )
-
-
-def test_get_classifier_feature_columns_for_rust_backend_leaves_out_the_idf_features():
-    # when
-    columns = get_classifier_feature_columns("rust")
-
-    # then
-    assert columns == [
-        name for name in get_feature_names() if name not in IDF_FEATURE_COLUMNS
-    ]
-    assert not set(IDF_FEATURE_COLUMNS) & set(columns)
 
 
 def test_get_classifier_feature_columns_for_python_backend():

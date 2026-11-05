@@ -4,19 +4,20 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+from alphadia_search_rs import FeatureSet
 
 from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-    FINAL_ROUND_FEATURES,
-    FINAL_ROUND_UNUSED_FEATURES,
+    FINAL_ROUND_EXCLUDED_FEATURES,
 )
 
 
+@pytest.mark.parametrize("feature_set", [FeatureSet.Calibration, FeatureSet.Full])
 @patch("alphadia.workflow.peptidecentric.extraction_handler.to_features_df")
 @patch("alphadia.workflow.peptidecentric.extraction_handler.PeakGroupScoring")
 @patch("alphadia.workflow.peptidecentric.extraction_handler.candidates_to_ng")
 def test_score_candidates_returns_the_scored_features(
-    mock_candidates_to_ng, mock_scoring, mock_to_features_df
+    mock_candidates_to_ng, mock_scoring, mock_to_features_df, feature_set
 ):
     # given
     config = {"search": {"top_k_fragments_scoring": 12}}
@@ -28,11 +29,14 @@ def test_score_candidates_returns_the_scored_features(
     spectral_library = MagicMock(name="spectral_library")
 
     # when
-    features_df = handler.score_candidates(MagicMock(), dia_data, spectral_library)
+    features_df = handler.score_candidates(
+        MagicMock(), dia_data, spectral_library, feature_set
+    )
 
     # then
     scoring_params = mock_scoring.call_args.args[0]
     assert scoring_params.top_k_fragments == 12
+    assert scoring_params.feature_set == feature_set
     assert scoring_params.mass_tolerance == 7.5
     mock_scoring.return_value.score.assert_called_once_with(
         dia_data, handler._speclib_ng, mock_candidates_to_ng.return_value
@@ -124,9 +128,9 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
 
 @pytest.mark.parametrize(
     ("final_round", "excluded"),
-    [(False, FINAL_ROUND_FEATURES), (True, FINAL_ROUND_UNUSED_FEATURES)],
+    [(False, ()), (True, FINAL_ROUND_EXCLUDED_FEATURES)],
 )
-def test_perform_fdr_and_filter_candidates_leaves_final_round_features_out_of_calibration(
+def test_perform_fdr_and_filter_candidates_leaves_fwhm_rt_out_of_the_final_round(
     final_round, excluded
 ):
     # given
