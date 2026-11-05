@@ -19,30 +19,22 @@ from alphadia.workflow.peptidecentric.utils import (
 )
 
 
-def test_get_classifier_feature_columns_for_rust_backend():
+def test_get_classifier_feature_columns_for_rust_backend_leaves_out_the_idf_features():
     # when
-    columns = get_classifier_feature_columns("rust", use_idf_features=True)
+    columns = get_classifier_feature_columns("rust")
 
     # then
-    assert columns == get_feature_names() + get_context_feature_names()
-
-
-def test_get_classifier_feature_columns_leaves_out_the_idf_features():
-    # when
-    columns = get_classifier_feature_columns("rust", use_idf_features=False)
-
-    # then
-    assert set(IDF_FEATURE_COLUMNS) <= set(get_feature_names())
     assert columns == [
         name
         for name in get_feature_names() + get_context_feature_names()
         if name not in IDF_FEATURE_COLUMNS
     ]
+    assert not set(IDF_FEATURE_COLUMNS) & set(columns)
 
 
 def test_get_classifier_feature_columns_for_python_backend():
     # when
-    columns = get_classifier_feature_columns("python", use_idf_features=False)
+    columns = get_classifier_feature_columns("python")
 
     # then
     assert columns == feature_columns
