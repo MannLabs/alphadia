@@ -3,6 +3,7 @@ from functools import wraps
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import FeatureSet
 
 from alphadia.constants.keys import CalibCols
 from alphadia.outputtransform.quantification.quant_builder import (
@@ -85,30 +86,16 @@ feature_columns = [
 ]
 
 
-# The rust scoring still computes the IDF features, but the classifier never uses them: every fragment's IDF is taken
-# at its own m/z over all library fragments, decoys included. The decoy mutation moves decoy fragments onto masses of
-# their own, so the IDF features leak the target/decoy label from the library.
-# TODO: remove once alphadia-search-rs no longer computes them
-IDF_FEATURE_COLUMNS = (
-    "idf_hyperscore",
-    "idf_xic_dot_product",
-    "idf_intensity_dot_product",
-    "num_over_0_top6_idf",
-    "num_over_50_top6_idf",
-)
-
-
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
-    The IDF features are always left out.
+    For the rust backend, these are the features of the full feature set. The calibration feature set is a subset:
+    the FDR manager only uses the listed columns that the features carry, so each round uses the features of its set.
     """
     if extraction_backend != "rust":
         return feature_columns
 
-    return [
-        column for column in get_feature_names() if column not in IDF_FEATURE_COLUMNS
-    ]
+    return get_feature_names(FeatureSet.Full)
 
 
 def add_library_fragment_intensity(

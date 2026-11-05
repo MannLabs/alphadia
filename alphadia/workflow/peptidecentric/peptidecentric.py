@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import FeatureSet
 
 from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
@@ -240,7 +241,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         else:
             precursor_w_features_df = extraction_handler.score_candidates(
-                candidates_df, self.dia_data, self.spectral_library
+                candidates_df, self.dia_data, self.spectral_library, FeatureSet.Full
             )
 
             candidates_fdr_df, precursor_fdr_df = (

@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
+    FeatureSet,
     PeakGroupQuantification,
     PeakGroupScoring,
     PeakGroupSelection,
@@ -27,8 +28,7 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-    FINAL_ROUND_FEATURES,
-    FINAL_ROUND_UNUSED_FEATURES,
+    FINAL_ROUND_EXCLUDED_FEATURES,
     candidates_to_ng,
     parse_candidates,
     parse_quantification,
@@ -249,6 +249,7 @@ class ExtractionHandler(ABC):
         candidates_df: pd.DataFrame,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
+        feature_set: FeatureSet,
     ) -> pd.DataFrame:
         """Score candidates.
 
@@ -262,6 +263,8 @@ class ExtractionHandler(ABC):
             DIA data to extract from.
         spectral_library : SpecLibFlat
             Spectral library
+        feature_set : FeatureSet
+            `FeatureSet.Calibration` for the optimization rounds, `FeatureSet.Full` for the final search
         Returns
         -------
         pd.DataFrame
@@ -302,7 +305,7 @@ class ExtractionHandler(ABC):
             candidates that enter fragment competition are quantified on demand.
 
         final_round : bool, default=False
-            Whether this is the FDR of the final search, which uses the final-round features.
+            Whether this is the FDR of the final search, which leaves `FINAL_ROUND_EXCLUDED_FEATURES` out.
         train_on_best_candidate : bool, optional
             Train the classifier only on the most target-like candidate of each precursor.
 
@@ -594,6 +597,7 @@ class NgExtractionHandler(ExtractionHandler):
         candidates_df: pd.DataFrame,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
+        feature_set: FeatureSet,
     ) -> pd.DataFrame:
         """Score candidates using NG backend.
 
@@ -608,6 +612,7 @@ class NgExtractionHandler(ExtractionHandler):
             {
                 "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
                 "mass_tolerance": self._optimization_manager.ms2_error,
+                "feature_set": feature_set,
             }
         )
 
@@ -730,11 +735,7 @@ class NgExtractionHandler(ExtractionHandler):
             df_fragments=df_fragments,
             fragment_provider=quantified_fragments if df_fragments is None else None,
             version=self._optimization_manager.classifier_version,
-            # The calibration rounds set the raw-score cutoff of the final search from their identifications: a strong
-            # feature there lets low-score candidates pass, lowers the cutoff and floods the final search.
-            excluded_columns=FINAL_ROUND_UNUSED_FEATURES
-            if final_round
-            else FINAL_ROUND_FEATURES,
+            excluded_columns=FINAL_ROUND_EXCLUDED_FEATURES if final_round else (),
             train_on_best_candidate=train_on_best_candidate,
         )
         precursor_fdr_df = precursor_fdr_df[
