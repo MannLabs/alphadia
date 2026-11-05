@@ -530,7 +530,10 @@ class SearchPlanOutput:
             decoy_multiplicity=config_fdr["mbr_decoys_per_target"]
             if config_fdr["keep_decoys_in_mbr_library"]
             else 1,
-            random_state=None if random_state < 0 else random_state,
+            # null (the default) and -1 both mean no fixed random state
+            random_state=None
+            if random_state is None or random_state < 0
+            else random_state,
         )
         for folder in folder_list:
             mbr_transfer.restrict_run_outputs(
