@@ -97,6 +97,9 @@ def rescore_transfers(
         logger.warning("No MBR transfer features found, transfers are dropped")
         return psm_df[keep]
 
+    if fdr.KEPT_DECOY_COLUMN not in features.columns:
+        # a library without kept first-search decoys: every decoy is fresh
+        features[fdr.KEPT_DECOY_COLUMN] = False
     feature_columns = [c for c in features.columns if c not in NON_FEATURE_COLUMNS]
     features["pooled_proba"] = cross_fitted_proba(
         features, feature_columns, config_fdr, random_state

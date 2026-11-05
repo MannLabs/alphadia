@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from alphadia.fdr import fdr, mbr_transfer
 
@@ -12,7 +13,9 @@ N_GROUPS = 400
 N_REAL = 250
 
 
-def _write_run(folder, run_index: int, rng: np.random.Generator) -> pd.DataFrame:
+def _write_run(
+    folder, run_index: int, rng: np.random.Generator, kept_decoy_column: bool = True
+) -> pd.DataFrame:
     """Transfer features of one run (a target and a decoy per group, the first N_REAL targets real) and its
     competition winners as the PSM table holds them."""
     groups = np.arange(N_GROUPS)
@@ -36,7 +39,8 @@ def _write_run(folder, run_index: int, rng: np.random.Generator) -> pd.DataFrame
         signal=rng.normal(0, 1, N_GROUPS),
     )
     features = pd.concat([target, decoy], ignore_index=True)
-    features[fdr.KEPT_DECOY_COLUMN] = np.int8(0)
+    if kept_decoy_column:
+        features[fdr.KEPT_DECOY_COLUMN] = np.int8(0)
     features[fdr.TRANSFER_COLUMN] = np.int8(1)
     folder.mkdir()
     features.to_parquet(folder / mbr_transfer.TRANSFER_FEATURES_FILE_NAME)
@@ -47,12 +51,19 @@ def _write_run(folder, run_index: int, rng: np.random.Generator) -> pd.DataFrame
     return winners.assign(run=folder.name, proba=0.5, qval=0.5)
 
 
-def test_rescore_transfers_accepts_the_real_transfers_and_keeps_re_found_rows(tmp_path):
+# a library built without kept first-search decoys has no kept-decoy column
+@pytest.mark.parametrize("kept_decoy_column", [True, False])
+def test_rescore_transfers_accepts_the_real_transfers_and_keeps_re_found_rows(
+    tmp_path, kept_decoy_column
+):
     # given: two runs of transfers, of which N_REAL groups are real, and one re-found PSM
     rng = np.random.default_rng(0)
     folders = [tmp_path / f"run_{i}" for i in range(2)]
     transfers = pd.concat(
-        [_write_run(folder, i, rng) for i, folder in enumerate(folders)],
+        [
+            _write_run(folder, i, rng, kept_decoy_column)
+            for i, folder in enumerate(folders)
+        ],
         ignore_index=True,
     )
     refound = pd.DataFrame(
