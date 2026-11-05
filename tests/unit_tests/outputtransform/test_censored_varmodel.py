@@ -1,0 +1,148 @@
+import numpy as np
+import pandas as pd
+from alphadia_search_rs import VarModelQuantification
+
+from alphadia.outputtransform.quantification.censored_varmodel import (
+    censored_quantities,
+)
+from alphadia.outputtransform.quantification.quant_builder import (
+    INTENSITY_LIBRARY_COLUMN,
+    QuantBuilder,
+    top_k_by_quantified_correlation,
+)
+
+N_PRECURSORS = 3000
+N_FRAGMENTS = 8
+N_RUNS = 6
+NOISE_SD = 0.25
+DETECTION_LIMIT = 9.0
+SEED = 1
+
+
+def simulate(log2_ratio: float, detection_limit: float | None):
+    """Precursors at log2 abundance a in runs 0-2 and a + log2_ratio in runs 3-5; fragments below the limit missing."""
+    rng = np.random.default_rng(SEED)
+    abundance = rng.uniform(10.0, 18.0, N_PRECURSORS)
+    shift = np.r_[np.zeros(N_RUNS // 2), np.full(N_RUNS // 2, log2_ratio)]
+    library = rng.uniform(0.05, 1.0, (N_PRECURSORS, N_FRAGMENTS))
+    log_share = np.log2(library / library.sum(1, keepdims=True))
+    log_intensity = (
+        abundance[:, None, None]
+        + shift[None, None, :]
+        + log_share[:, :, None]
+        + rng.normal(0, NOISE_SD, (N_PRECURSORS, N_FRAGMENTS, N_RUNS))
+    )
+    intensity = np.exp2(log_intensity)
+    if detection_limit is not None:
+        intensity[log_intensity < detection_limit] = 0.0
+    precursor_index = np.repeat(np.arange(N_PRECURSORS), N_FRAGMENTS)
+    return (
+        intensity.reshape(-1, N_RUNS),
+        library.ravel(),
+        precursor_index,
+        abundance,
+    )
+
+
+def test_without_censoring_the_port_reproduces_the_backend_fit():
+    intensity, library, precursor_index, _ = simulate(-1.0, DETECTION_LIMIT)
+
+    port = censored_quantities(
+        intensity, library, precursor_index, N_PRECURSORS, censored=False
+    )
+    backend = (
+        VarModelQuantification()
+        .fit(
+            np.ascontiguousarray(intensity.T.astype(np.float32)),
+            library.astype(np.float32),
+            precursor_index.astype(np.uintp),
+            N_PRECURSORS,
+        )["quantity"]
+        .T
+    )
+
+    both = np.isfinite(port) & np.isfinite(backend)
+    assert both.mean() > 0.6
+    np.testing.assert_allclose(port[both], backend[both], atol=0.02)
+
+
+def test_censoring_removes_the_compression_near_the_detection_limit():
+    # Given precursors whose fragments in the low condition straddle the detection limit
+    log2_ratio = -2.0
+    intensity, library, precursor_index, abundance = simulate(
+        log2_ratio, DETECTION_LIMIT
+    )
+    quantities = {
+        censored: censored_quantities(
+            intensity, library, precursor_index, N_PRECURSORS, censored=censored
+        )
+        for censored in (False, True)
+    }
+    quantified = np.isfinite(quantities[False]).all(1) & np.isfinite(
+        quantities[True]
+    ).all(1)
+    straddling = quantified & (abundance > 13.5) & (abundance < 14.5)
+
+    # When
+    bias = {
+        censored: np.median(
+            q[straddling, N_RUNS // 2 :].mean(1) - q[straddling, : N_RUNS // 2].mean(1)
+        )
+        - log2_ratio
+        for censored, q in quantities.items()
+    }
+
+    # Then the plain fit reads the low runs too high (compression) and the censored fit does not
+    assert bias[False] > 0.03
+    assert abs(bias[True]) < bias[False]
+
+
+def test_precursor_table_censored_option_quantifies_every_precursor():
+    intensity, library, precursor_index, _ = simulate(-1.0, None)
+    runs = [f"run{i}" for i in range(N_RUNS)]
+    intensity_df = pd.DataFrame(intensity, columns=runs)
+    intensity_df.insert(0, "precursor_idx", precursor_index)
+    intensity_df.insert(1, "ion", np.arange(len(library)))
+    intensity_df["pg"] = precursor_index
+    intensity_df["mod_seq_hash"] = precursor_index
+    intensity_df["mod_seq_charge_hash"] = precursor_index
+    intensity_df[INTENSITY_LIBRARY_COLUMN] = library
+
+    precursor_df = QuantBuilder(pd.DataFrame()).varmodel_precursor_table(
+        intensity_df, missing_fragments="censored"
+    )
+
+    assert len(precursor_df) == N_PRECURSORS
+    assert (precursor_df[runs].to_numpy() > 0).all()
+
+
+def test_top_k_keeps_the_best_correlated_fragments_of_each_precursor():
+    precursor = np.array([1, 1, 1, 2, 2])
+    intensity_df = pd.DataFrame(
+        {
+            "run1": [1.0, 1.0, 1.0, 1.0, 1.0],
+            "run2": [1.0, 0.0, 1.0, 1.0, 1.0],
+            "mod_seq_charge_hash": precursor,
+        }
+    )
+    # fragment 1's high correlation in run2 does not count: it was not quantified there
+    correlation_df = pd.DataFrame(
+        {
+            "run1": [0.9, 0.2, 0.5, 0.1, 0.8],
+            "run2": [0.9, 0.99, 0.5, 0.1, 0.8],
+            "mod_seq_charge_hash": precursor,
+        }
+    )
+
+    mask = top_k_by_quantified_correlation(intensity_df, correlation_df, 2)
+    assert top_k_by_quantified_correlation(
+        intensity_df, correlation_df, 1
+    ).tolist() == [
+        True,
+        False,
+        False,
+        False,
+        True,
+    ]
+
+    assert mask.tolist() == [True, False, True, True, True]
