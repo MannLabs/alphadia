@@ -88,6 +88,10 @@ feature_columns = [
 ]
 
 
+# The rust scoring still computes the IDF features, but the classifier never uses them: every fragment's IDF is taken
+# at its own m/z over all library fragments, decoys included. The decoy mutation moves decoy fragments onto masses of
+# their own, so the IDF features leak the target/decoy label from the library.
+# TODO: remove once alphadia-search-rs no longer computes them
 IDF_FEATURE_COLUMNS = (
     "idf_hyperscore",
     "idf_xic_dot_product",
@@ -97,22 +101,18 @@ IDF_FEATURE_COLUMNS = (
 )
 
 
-def get_classifier_feature_columns(
-    extraction_backend: str, use_idf_features: bool
-) -> list[str]:
+def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
     The candidate context features are always listed for the rust backend: the FDR manager
     only uses the listed columns that the features actually carry, so the config flag that
     computes them does not need to be repeated here.
-    The IDF features are left out unless `use_idf_features` is set.
+    The IDF features are always left out.
     """
     if extraction_backend != "rust":
         return feature_columns
 
     columns = get_feature_names() + get_context_feature_names()
-    if use_idf_features:
-        return columns
     return [column for column in columns if column not in IDF_FEATURE_COLUMNS]
 
 
