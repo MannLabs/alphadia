@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.fdr import mbr_transfer
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -109,6 +110,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
         config_fdr = self.config["fdr"]
+        is_mbr_step = (
+            os.path.basename(self.config["library_path"] or "") == MBR_LIBRARY_FILE_NAME
+        )
+        self._pooled_transfers = is_mbr_step and config_fdr["mbr_pooled_transfer_model"]
         self._fdr_manager = FDRManager(
             feature_columns=get_classifier_feature_columns(
                 self._config["search"]["extraction_backend"]
@@ -126,10 +131,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             feature_matrix_path=self.path
             if config_fdr["save_feature_matrix"]
             else None,
+            # the MBR library builder adds the extra decoys only next to the kept ones
             decoy_multiplicity=config_fdr["mbr_decoys_per_target"]
-            if os.path.basename(self.config["library_path"] or "")
-            == MBR_LIBRARY_FILE_NAME
+            if is_mbr_step and config_fdr["keep_decoys_in_mbr_library"]
             else 1,
+            transfer_features_path=os.path.join(
+                self.path, mbr_transfer.TRANSFER_FEATURES_FILE_NAME
+            )
+            if self._pooled_transfers
+            else None,
         )
 
         init_spectral_library(
@@ -268,6 +278,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     candidates_df,
                     self.dia_data,
                     self.spectral_library,
+                    keep_transfers=self._pooled_transfers,
                 )
             )
 

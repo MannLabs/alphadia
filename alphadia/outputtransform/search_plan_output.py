@@ -9,9 +9,11 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphadia import utils
 from alphadia.constants.keys import (
     ConfigKeys,
+    SearchStepFiles,
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
+from alphadia.fdr import mbr_transfer
 from alphadia.libtransform.mbr import FRAGMENT_COLUMNS, MbrLibraryBuilder
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
@@ -315,6 +317,9 @@ class SearchPlanOutput:
         if len(psm_df) == 0:
             raise NoPSMFoundError()
 
+        if self.config["fdr"].get("mbr_pooled_transfer_model", False):
+            psm_df = self._rescore_mbr_transfers(psm_df, folder_list)
+
         logger.info("Performing protein inference")
 
         psm_df = prepare_psm_dataframe(psm_df)
@@ -496,6 +501,46 @@ class SearchPlanOutput:
 
         return lfq_results
 
+    def _rescore_mbr_transfers(
+        self, psm_df: pd.DataFrame, folder_list: list[str]
+    ) -> pd.DataFrame:
+        """Rescore the MBR step's transfers with the classifier pooled over runs (`mbr_transfer`) and restrict each
+        run's PSM and fragment tables to the PSMs that pass. Only in the MBR step, which searches a library written
+        with its first-search identifications by run."""
+        library_path = self.config.get(ConfigKeys.LIBRARY_PATH)
+        if library_path is None:
+            return psm_df
+        rt_by_run_path = os.path.join(
+            os.path.dirname(library_path), SearchPlanOutput.LIBRARY_RT_BY_RUN_OUTPUT
+        )
+        if not os.path.exists(rt_by_run_path):
+            return psm_df
+        rt_by_run = pd.read_parquet(rt_by_run_path)
+        refound = pd.MultiIndex.from_frame(rt_by_run[["elution_group_idx", "run"]])
+        transfer = ~pd.MultiIndex.from_frame(psm_df[["elution_group_idx", "run"]]).isin(
+            refound
+        )
+        config_fdr = self.config["fdr"]
+        random_state = self.config["general"]["random_state"]
+        psm_df = mbr_transfer.rescore_transfers(
+            psm_df.reset_index(drop=True),
+            transfer,
+            folder_list,
+            config_fdr,
+            decoy_multiplicity=config_fdr["mbr_decoys_per_target"]
+            if config_fdr["keep_decoys_in_mbr_library"]
+            else 1,
+            random_state=None if random_state < 0 else random_state,
+        )
+        for folder in folder_list:
+            mbr_transfer.restrict_run_outputs(
+                folder,
+                psm_df[psm_df["run"] == os.path.basename(folder)],
+                f"{self.PSM_INPUT}.parquet",
+                SearchStepFiles.FRAG_FILE_NAME,
+            )
+        return psm_df
+
     def _build_mbr_library(
         self,
         base_spec_lib: base.SpecLibBase,
@@ -525,19 +570,20 @@ class SearchPlanOutput:
             return None
 
         fragments_by_run = None
-        if self.config["fdr"]["mbr_empirical_intensities"] and folder_list:
+        if self.config["fdr"].get("mbr_empirical_intensities", False) and folder_list:
             fragments_by_run = {
                 os.path.basename(folder): pd.read_parquet(
-                    os.path.join(folder, "frag.parquet"), columns=FRAGMENT_COLUMNS
+                    os.path.join(folder, SearchStepFiles.FRAG_FILE_NAME),
+                    columns=FRAGMENT_COLUMNS,
                 )
                 for folder in folder_list
-                if os.path.exists(os.path.join(folder, "frag.parquet"))
+                if os.path.exists(os.path.join(folder, SearchStepFiles.FRAG_FILE_NAME))
             }
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
             keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
             fragments_by_run=fragments_by_run,
-            decoys_per_target=self.config["fdr"]["mbr_decoys_per_target"],
+            decoys_per_target=self.config["fdr"].get("mbr_decoys_per_target", 1),
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 

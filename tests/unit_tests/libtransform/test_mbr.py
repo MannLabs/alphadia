@@ -5,6 +5,8 @@ from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.libtransform.mbr import (
+    KEPT_DECOY_COLUMN,
+    TRANSFER_COLUMN,
     IndexBuilder,
     MbrLibraryBuilder,
     leave_one_out_rt,
@@ -410,6 +412,58 @@ def test_mbr_library_builder_adds_extra_decoys_per_target():
     assert df["sequence"].nunique() == 4
     assert (df["elution_group_idx"] == 0).all()
     assert df["mod_seq_charge_hash"].nunique() == 4
+
+
+def test_mbr_library_builder_marks_the_first_search_decoy_of_groups_admitted_on_it():
+    # given: a group admitted on its decoy, with three decoys per target
+    lib = _one_precursor_library()
+    psms = _psms(lib, ["run_a"]).assign(decoy=1)
+
+    # when
+    builder = MbrLibraryBuilder(fdr=0.01, keep_decoys=True, decoys_per_target=3)
+    df = builder(psms, lib).precursor_df
+
+    # then: one decoy is the kept one, the extra decoys and the target are not
+    assert df[KEPT_DECOY_COLUMN].sum() == 1
+    assert (df.loc[df[KEPT_DECOY_COLUMN] == 1, "decoy"] == 1).all()
+
+
+def test_mbr_library_builder_marks_no_decoy_of_groups_admitted_on_their_target():
+    # given
+    lib = _one_precursor_library()
+
+    # when
+    builder = MbrLibraryBuilder(fdr=0.01, keep_decoys=True)
+    df = builder(_psms(lib, ["run_a"]), lib).precursor_df
+
+    # then
+    assert df[KEPT_DECOY_COLUMN].sum() == 0
+
+
+def test_leave_one_out_rt_marks_the_groups_not_identified_in_the_run():
+    # given: groups 0 and 1 identified in run_a, group 2 only in run_b
+    speclib = SpecLibFlat()
+    speclib._precursor_df = pd.DataFrame(
+        {
+            "elution_group_idx": [0, 0, 1, 2],
+            "decoy": [0, 1, 0, 0],
+            "rt_library": [100.0, 100.0, 200.0, 300.0],
+        }
+    )
+    rt_by_run = pd.DataFrame(
+        {
+            "elution_group_idx": [0, 1, 2],
+            "run": ["run_a", "run_a", "run_b"],
+            "rt_observed": [10.0, 20.0, 30.0],
+            "rt_calibrated": [10.0, 20.0, 30.0],
+        }
+    )
+
+    # when
+    result = leave_one_out_rt(speclib, rt_by_run, "run_a")
+
+    # then: target and decoy of a group share the flag
+    np.testing.assert_array_equal(result.precursor_df[TRANSFER_COLUMN], [0, 0, 0, 1])
 
 
 def test_leave_one_out_rt():

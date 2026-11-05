@@ -18,6 +18,10 @@ from alphadia.libtransform.decoy import (
 logger = logging.getLogger()
 
 HASH_COLUMN = "mod_seq_charge_hash"
+# 1 for the decoy of an elution group the first search admitted on its decoy: it stands for a false library entry
+KEPT_DECOY_COLUMN = "mbr_kept_decoy"
+# 1 for the precursors of elution groups the first search did not identify in the run being searched
+TRANSFER_COLUMN = "mbr_transfer"
 # the backend writes the fragment type as its character code
 FRAGMENT_TYPE_CODES = {ord("b"): "b", ord("y"): "y"}
 FRAGMENT_COLUMNS = [
@@ -345,6 +349,13 @@ class MbrLibraryBuilder(ProcessingStep):
         if self.keep_decoys:
             decoy_generator = DecoyGenerator(decoy_type=DIANN_INNER)
             mbr_speclib = decoy_generator(mbr_speclib)
+            # the first search's decoy is the DIANN_INNER copy; extra decoys appended below are fresh
+            kept_groups = psm_df.loc[psm_df["decoy"] == 1, "elution_group_idx"]
+            precursor_df = mbr_speclib._precursor_df
+            precursor_df[KEPT_DECOY_COLUMN] = (
+                (precursor_df["decoy"] == 1)
+                & precursor_df["elution_group_idx"].isin(kept_groups)
+            ).astype(np.int8)
             if self.decoys_per_target > 1:
                 mbr_speclib = append_extra_decoys(
                     mbr_speclib, self.decoys_per_target - 1
@@ -389,6 +400,9 @@ def leave_one_out_rt(
     precursor_df[CalibCols.RT_LIBRARY] = loo_rt.fillna(
         precursor_df[CalibCols.RT_LIBRARY]
     ).to_numpy()
+    precursor_df[TRANSFER_COLUMN] = (
+        ~precursor_df["elution_group_idx"].isin(this_run["elution_group_idx"])
+    ).astype(np.int8)
 
     speclib_for_run = copy(speclib)
     speclib_for_run._precursor_df = precursor_df

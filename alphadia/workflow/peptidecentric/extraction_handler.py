@@ -15,8 +15,9 @@ from alphadia_search_rs import (
 )
 
 from alphadia.constants.keys import CalibCols
-from alphadia.fdr import raw_fragment_features, riding
+from alphadia.fdr import fdr, raw_fragment_features, riding
 from alphadia.fragcomp.utils import candidate_hash
+from alphadia.libtransform import mbr
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
 from alphadia.reporting.reporting import Pipeline
@@ -386,6 +387,7 @@ class ExtractionHandler(ABC):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
+        keep_transfers: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -411,6 +413,9 @@ class ExtractionHandler(ABC):
 
         warm_start_epochs : int, optional
             Training epochs if the classifier continues from stored weights, see `FDRManager.fit_predict`.
+
+        keep_transfers : bool, optional
+            Keep the MBR transfer rows (`fdr.TRANSFER_COLUMN`) whatever their q-value, for the output step to rescore.
 
         Returns
         -------
@@ -885,6 +890,7 @@ class NgExtractionHandler(ExtractionHandler):
         spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
+        keep_transfers: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -915,6 +921,23 @@ class NgExtractionHandler(ExtractionHandler):
         features_df[riding.SEQUENCE_ID_COLUMN] = (
             features_df["precursor_idx"].map(sequence_id).to_numpy()
         )
+        config_fdr = self._config["fdr"]
+        if mbr.KEPT_DECOY_COLUMN in library_precursors.columns:
+            features_df[fdr.KEPT_DECOY_COLUMN] = (
+                features_df["precursor_idx"]
+                .map(library_precursors[mbr.KEPT_DECOY_COLUMN])
+                .fillna(0)
+                .to_numpy(np.int8)
+            )
+        if mbr.TRANSFER_COLUMN in library_precursors.columns and (
+            config_fdr["mbr_stratified_q"] or config_fdr["mbr_pooled_transfer_model"]
+        ):
+            features_df[fdr.TRANSFER_COLUMN] = (
+                features_df["precursor_idx"]
+                .map(library_precursors[mbr.TRANSFER_COLUMN])
+                .fillna(0)
+                .to_numpy(np.int8)
+            )
 
         def riding_fragments(
             psm_df: pd.DataFrame,
@@ -987,9 +1010,11 @@ class NgExtractionHandler(ExtractionHandler):
             raw_fragment_provider=raw_fragment_values,
             ms2_tolerance_ppm=self._optimization_manager.ms2_error,
         )
-        precursor_fdr_df = precursor_fdr_df[
-            precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
-        ]
+        accepted = precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
+        if keep_transfers and fdr.TRANSFER_COLUMN in precursor_fdr_df.columns:
+            # rescored over all runs in the output step, which needs them quantified whatever their q-value here
+            accepted |= precursor_fdr_df[fdr.TRANSFER_COLUMN] == 1
+        precursor_fdr_df = precursor_fdr_df[accepted]
 
         # filter2: candidates by precursors
         candidates_filtered = candidates_df[

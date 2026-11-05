@@ -56,6 +56,12 @@ CROSSFIT_ANCHOR_QVAL = 0.01
 CROSSFIT_SLOPE = 5.0
 CROSSFIT_MIN_SCALE = 1e-6
 CROSSFIT_MAX_ABS_Z = 700.0
+# MBR step: decoys kept from the first search (1) and rows of elution groups the first search did not identify in this
+# file (1, transfers). A kept decoy stands for one false library entry, a fresh decoy for 1 / k noise matches when
+# every target competes with k decoys; transfers and re-found rows get their own q-values.
+KEPT_DECOY_COLUMN = "_kept_decoy"
+TRANSFER_COLUMN = "_mbr_transfer"
+DECOY_WEIGHT_COLUMN = "_decoy_weight"
 # identity columns written next to the features by `dump_path`: enough to compete, stratify and label the rows offline
 DUMP_ID_COLUMNS = [
     "precursor_idx",
@@ -72,6 +78,8 @@ DUMP_ID_COLUMNS = [
     CalibCols.RT_OBSERVED,
     CalibCols.RT_LIBRARY,
     CalibCols.MZ_LIBRARY,
+    KEPT_DECOY_COLUMN,
+    TRANSFER_COLUMN,
 ]
 # weight of the anchor-aligned probability that orders the rows within one step of the decoy ECDF
 DECOY_ECDF_TIEBREAK = 1e-6
@@ -173,6 +181,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     random_state: int | None = None,
     dump_path: str | None = None,
     decoy_multiplicity: int = 1,
+    transfer_features_path: str | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
@@ -238,7 +247,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     decoy_multiplicity : int, default=1
         Decoys per target in the library. A target competes with all of them, so the q-values count each winning decoy
-        as 1 / decoy_multiplicity false target.
+        as 1 / decoy_multiplicity false target; a decoy kept from the first search (`KEPT_DECOY_COLUMN` in `df`)
+        counts as one. With `TRANSFER_COLUMN` in `df`, the q-values are computed within transfers and re-found rows.
+
+    transfer_features_path : str, optional
+        In the final round, the rows of `TRANSFER_COLUMN` are written there like `dump_path` writes all rows.
 
     Returns
     -------
@@ -300,6 +313,13 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     )
 
     psm_df["_decoy"] = y
+    kept = (
+        psm_df[KEPT_DECOY_COLUMN].to_numpy(bool)
+        if KEPT_DECOY_COLUMN in psm_df.columns
+        else np.zeros(len(psm_df), dtype=bool)
+    )
+    psm_df[DECOY_WEIGHT_COLUMN] = y * np.where(kept, 1.0, 1 / decoy_multiplicity)
+    stratum_column = TRANSFER_COLUMN if TRANSFER_COLUMN in psm_df.columns else None
 
     if competitive:
         group_columns = (
@@ -356,7 +376,6 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             riding_provider,
             dia_cycle,
             ms2_tolerance_ppm,
-            decoy_weight=1 / decoy_multiplicity,
         )
     if keep is not None:
         psm_df, X, y = psm_df.iloc[keep], X[keep], y[keep]
@@ -380,6 +399,16 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             _dump_feature_matrix(
                 dump_path, psm_df, X, x_columns, crossfit[0], predicted_proba
             )
+        if transfer_features_path is not None and stratum_column is not None:
+            transfer = psm_df[stratum_column].to_numpy(bool)
+            _dump_feature_matrix(
+                transfer_features_path,
+                psm_df[transfer],
+                X[transfer],
+                x_columns,
+                crossfit[0][transfer],
+                predicted_proba[transfer],
+            )
     else:
         predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
     del X
@@ -391,19 +420,25 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
 
     psm_df["proba"] = predicted_proba
-    psm_df = get_q_values(
-        psm_df, "proba", "_decoy", decoy_weight=1 / decoy_multiplicity
+    psm_df = get_q_values_by_length(
+        psm_df,
+        "proba",
+        "_decoy",
+        decoy_weight_column=DECOY_WEIGHT_COLUMN,
+        stratum_column=stratum_column,
+        by_length=False,
     )
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
         # if there are no PSMs with a FDR < 10% use all PSMs
-        start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
-        if start_idx == 0:
-            start_idx = len(psm_df)
+        # within stratum the q-values are not monotone in the sorted order, so the rows are picked by mask
+        competing = (psm_df["qval"] < fdr_heuristic).to_numpy()
+        if not competing.any():
+            competing[:] = True
 
         if df_fragments is None and fragment_provider is not None:
-            df_fragments = fragment_provider(psm_df.iloc[:start_idx])
+            df_fragments = fragment_provider(psm_df[competing])
 
         # make sure fragments are not reused
         if df_fragments is not None:
@@ -411,13 +446,15 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
                 raise ValueError(
                     "dia_cycle must be provided if df_fragments is provided"
                 )
-            psm_df = compete_for_fragments(
-                psm_df.iloc[:start_idx], df_fragments, dia_cycle
-            )
+            psm_df = compete_for_fragments(psm_df[competing], df_fragments, dia_cycle)
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values_by_length(
-        psm_df, "proba", "_decoy", decoy_weight=1 / decoy_multiplicity
+        psm_df,
+        "proba",
+        "_decoy",
+        decoy_weight_column=DECOY_WEIGHT_COLUMN,
+        stratum_column=stratum_column,
     )
 
     if figure_path is not None:
@@ -691,7 +728,6 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
     riding_provider: Callable[[pd.DataFrame], tuple],
     dia_cycle: np.ndarray,
     ms2_tolerance_ppm: float,
-    decoy_weight: float = 1.0,
 ) -> np.ndarray | None:
     """Positions of `psm_df` to keep after removing the PSMs that ride on a better co-eluting PSM.
 
@@ -708,13 +744,14 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
     rows = psm_df[columns].reset_index(drop=True)
     rows["proba"] = predicted_proba
     rows["_decoy"] = psm_df["_decoy"].to_numpy()
+    rows[DECOY_WEIGHT_COLUMN] = psm_df[DECOY_WEIGHT_COLUMN].to_numpy()
     rows["_row"] = np.arange(len(rows))
 
     competed = get_q_values(
         keep_best(rows, group_columns=group_columns),
         "proba",
         "_decoy",
-        decoy_weight=decoy_weight,
+        decoy_weight_column=DECOY_WEIGHT_COLUMN,
     )
     confident = competed[
         (competed["_decoy"] == 0) & (competed["qval"] <= riding.WINNER_QVAL)
@@ -727,7 +764,9 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
 
     loser = np.ones(len(rows), dtype=bool)
     if riding.LOSER_POOLED_QVAL is not None:
-        pooled = get_q_values(rows, "proba", "_decoy", decoy_weight=decoy_weight)
+        pooled = get_q_values(
+            rows, "proba", "_decoy", decoy_weight_column=DECOY_WEIGHT_COLUMN
+        )
         loser[pooled["_row"].to_numpy()] = (
             pooled["qval"].to_numpy() <= riding.LOSER_POOLED_QVAL
         )
@@ -818,23 +857,40 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     return np.flip(q_values_flipped)
 
 
-def get_q_values_by_length(
+def get_q_values_by_length(  # noqa: PLR0913 # the stratification options
     df: pd.DataFrame,
     score_column: str = "proba",
     decoy_column: str = "_decoy",
     qval_column: str = "qval",
     decoy_weight: float = 1.0,
+    decoy_weight_column: str | None = None,
+    stratum_column: str | None = None,
+    *,
+    by_length: bool = True,
 ) -> pd.DataFrame:
-    """Calculate q-values separately within each peptide length stratum of `PEPTIDE_LENGTH_STRATA`.
+    """Calculate q-values separately within each peptide length stratum of `PEPTIDE_LENGTH_STRATA` and, with
+    `stratum_column`, within each of its values.
 
-    Falls back to pooled q-values when the dataframe has no `naa` column. The result is sorted by `score_column`.
+    Without `naa` (or with `by_length` False) only `stratum_column` splits; without either the q-values are pooled.
+    `decoy_weight` and `decoy_weight_column` as in `get_q_values`. The result is sorted by `score_column`.
     """
-    if "naa" not in df.columns:
+    keys = []
+    if by_length and "naa" in df.columns:
+        keys.append(
+            np.searchsorted(PEPTIDE_LENGTH_STRATA, df["naa"].to_numpy(), side="left")
+        )
+    if stratum_column is not None:
+        keys.append(df[stratum_column].to_numpy())
+    if not keys:
         return get_q_values(
-            df, score_column, decoy_column, qval_column, decoy_weight=decoy_weight
+            df,
+            score_column,
+            decoy_column,
+            qval_column,
+            decoy_weight=decoy_weight,
+            decoy_weight_column=decoy_weight_column,
         )
 
-    strata = np.searchsorted(PEPTIDE_LENGTH_STRATA, df["naa"].to_numpy(), side="left")
     df = pd.concat(
         [
             get_q_values(
@@ -843,8 +899,9 @@ def get_q_values_by_length(
                 decoy_column,
                 qval_column,
                 decoy_weight=decoy_weight,
+                decoy_weight_column=decoy_weight_column,
             )
-            for _, stratum_df in df.groupby(strata)
+            for _, stratum_df in df.groupby(keys)
         ]
     )
     return df.sort_values([score_column, decoy_column, "precursor_idx"], ascending=True)
@@ -858,6 +915,7 @@ def get_q_values(
     extra_sort_columns: list[str] | None = None,
     decoy_offset: int = 0,
     decoy_weight: float = 1.0,
+    decoy_weight_column: str | None = None,
 ) -> pd.DataFrame:
     """Calculates q-values for a dataframe containing PSMs.
 
@@ -886,6 +944,9 @@ def get_q_values(
     decoy_weight : float, default=1.0
         False targets counted per decoy: 1 / k when every target competes with k decoys.
 
+    decoy_weight_column : str, optional
+        The false targets each row counts for (0 for targets), instead of `decoy_weight` for every decoy.
+
     Returns
     -------
     pd.DataFrame
@@ -899,10 +960,14 @@ def get_q_values(
         [score_column, decoy_column, *extra_sort_columns], ascending=True
     )  # last sort to break ties
     target_values = 1 - df[decoy_column].to_numpy()
-    decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
+    decoy_cumsum = (
+        np.cumsum(df[decoy_column].to_numpy()) * decoy_weight
+        if decoy_weight_column is None
+        else np.cumsum(df[decoy_weight_column].to_numpy())
+    )
     target_cumsum = np.cumsum(target_values)
     fdr_values = np.divide(
-        decoy_weight * decoy_cumsum + decoy_offset,
+        decoy_cumsum + decoy_offset,
         target_cumsum,
         out=np.ones(len(df), dtype=float),
         where=target_cumsum > 0,

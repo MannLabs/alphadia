@@ -689,6 +689,69 @@ def test_get_q_values_counts_each_decoy_by_its_weight():
     np.testing.assert_allclose(out["qval"].to_numpy()[-1], 1 / 4)
 
 
+def test_get_q_values_counts_each_row_by_its_decoy_weight_column():
+    # given: two targets, a kept decoy (weight 1), two fresh decoys of three per target, two targets
+    df = pd.DataFrame(
+        {
+            "proba": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+            "_decoy": [0, 0, 1, 1, 1, 0, 0],
+            "w": [0, 0, 1, 1 / 3, 1 / 3, 0, 0],
+            "precursor_idx": np.arange(7),
+        }
+    )
+
+    # when
+    out = fdr.get_q_values(df, "proba", "_decoy", decoy_weight_column="w")
+
+    # then: 1 + 2 / 3 false targets over four targets
+    np.testing.assert_allclose(out["qval"].to_numpy()[-1], (5 / 3) / 4)
+
+
+def test_get_q_values_by_length_separates_the_strata_of_a_column():
+    # given: a clean stratum and a stratum whose decoys sit among its targets
+    df = pd.DataFrame(
+        {
+            "proba": [0.1, 0.2, 0.3, 0.15, 0.25, 0.35],
+            "_decoy": [0, 0, 0, 1, 0, 1],
+            "stratum": [0, 0, 0, 1, 1, 1],
+            "precursor_idx": np.arange(6),
+        }
+    )
+
+    # when
+    out = fdr.get_q_values_by_length(df, "proba", "_decoy", stratum_column="stratum")
+
+    # then: the clean stratum is at q 0, the other carries its own decoys
+    q = out.set_index("precursor_idx")["qval"]
+    assert (q[[0, 1, 2]] == 0).all()
+    assert q[4] == 1.0
+
+
+def test_perform_fdr_on_psms_writes_the_transfer_rows_of_the_final_round(tmp_path):
+    # given: final-round PSMs, half of them transfers, and a kept decoy column
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    df = pd.concat([target_df, decoy_df], ignore_index=True)
+    df[fdr.FINAL_ROUND_FEATURE] = df["feature"]
+    df[fdr.TRANSFER_COLUMN] = (df["precursor_idx"] % 2).astype(np.int8)
+    df[fdr.KEPT_DECOY_COLUMN] = np.int8(0)
+    path = tmp_path / "transfer_features.parquet"
+
+    # when
+    psm_df = fdr.perform_fdr_on_psms(
+        _CountingClassifier(n_collapses=0),
+        ["feature", fdr.FINAL_ROUND_FEATURE],
+        df,
+        df["decoy"].to_numpy() == 1,
+        transfer_features_path=str(path),
+    )
+
+    # then: only the transfer rows are written, and the q-values carry the stratum column
+    written = pd.read_parquet(path)
+    assert len(written) == int(df[fdr.TRANSFER_COLUMN].sum())
+    assert (written[fdr.TRANSFER_COLUMN] == 1).all()
+    assert fdr.TRANSFER_COLUMN in psm_df.columns
+
+
 class _RowRecordingClassifier:
     """Scores by the second feature; the first feature is the row number, recorded at fit and at prediction."""
 
