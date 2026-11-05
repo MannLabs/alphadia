@@ -16,6 +16,7 @@ from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     LFQOutputConfig,
     QuantBuilder,
+    top_k_by_quantified_correlation,
 )
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
@@ -334,18 +335,31 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name, empty without fragments
         """
-        filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
-            feature_dfs_dict["intensity"],
-            feature_dfs_dict["correlation"],
-            top_n=self.config["search_output"]["min_k_fragments"],
-            min_correlation=self.config["search_output"]["min_correlation"],
-            group_column=QuantificationLevelKey.PRECURSOR,
+        filtered_intensity_df, filtered_correlation_df = (
+            self.quant_builder.filter_frag_df(
+                feature_dfs_dict["intensity"],
+                feature_dfs_dict["correlation"],
+                top_n=self.config["search_output"]["min_k_fragments"],
+                min_correlation=self.config["search_output"]["min_correlation"],
+                group_column=QuantificationLevelKey.PRECURSOR,
+            )
         )
         if len(filtered_intensity_df) == 0:
             return {}
 
+        top_k = self.config["search_output"]["varmodel_top_k_fragments"]
+        if top_k > 0:
+            filtered_intensity_df = filtered_intensity_df[
+                top_k_by_quantified_correlation(
+                    filtered_intensity_df, filtered_correlation_df, top_k
+                )
+            ]
+
         precursor_df = self.quant_builder.varmodel_precursor_table(
-            filtered_intensity_df
+            filtered_intensity_df,
+            missing_fragments=self.config["search_output"][
+                "varmodel_missing_fragments"
+            ],
         )
 
         level_dfs = {}
