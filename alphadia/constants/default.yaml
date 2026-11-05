@@ -179,7 +179,7 @@ search:
   # the window), edges (mean of the window's first and last cycle), profile (fit against the precursor's median
   # elution profile). The window spans several peak widths, so a plain sum adds every cycle's background, which
   # compresses ratios at low abundance.
-  quant_background_subtraction: none
+  quant_background_subtraction: edges
   # number of peak group candidates to identify during recalibration
   target_num_candidates: 3
   # filter to apply to the channels. If set to "", all channels will be used. Comma-separated channel numbers (e.g. "0,4,8")
