@@ -120,6 +120,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             config=self.config,
             figure_path=self._figure_path,
             random_state=self._random_state_fdr_manager,
+            feature_matrix_path=self.path
+            if config_fdr["save_feature_matrix"]
+            else None,
         )
 
         init_spectral_library(

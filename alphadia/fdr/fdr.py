@@ -56,6 +56,23 @@ CROSSFIT_ANCHOR_QVAL = 0.01
 CROSSFIT_SLOPE = 5.0
 CROSSFIT_MIN_SCALE = 1e-6
 CROSSFIT_MAX_ABS_Z = 700.0
+# identity columns written next to the features by `dump_path`: enough to compete, stratify and label the rows offline
+DUMP_ID_COLUMNS = [
+    "precursor_idx",
+    "elution_group_idx",
+    "channel",
+    "decoy",
+    "rank",
+    "sequence",
+    "mods",
+    "mod_sites",
+    "charge",
+    "proteins",
+    "genes",
+    CalibCols.RT_OBSERVED,
+    CalibCols.RT_LIBRARY,
+    CalibCols.MZ_LIBRARY,
+]
 # weight of the anchor-aligned probability that orders the rows within one step of the decoy ECDF
 DECOY_ECDF_TIEBREAK = 1e-6
 
@@ -154,6 +171,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    dump_path: str | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
@@ -213,6 +231,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     random_state : int, optional
         The random state for train-test split reproducibility.
 
+    dump_path : str, optional
+        In the final round, the feature matrix the classifier was fitted on (after the riding removal), the identity
+        columns of its rows, their cross-fit fold and their cross-fitted probability are written to this parquet file.
+
     Returns
     -------
     psm_df : pd.DataFrame
@@ -246,6 +268,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     psm_df = df.take(np.concatenate([target_rows, decoy_rows]))
     X = psm_df[available_columns].to_numpy()
+    x_columns = list(available_columns)
     y = np.concatenate([np.zeros(n_target), np.ones(n_decoy)])
 
     try:
@@ -307,16 +330,14 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             for c in available_columns
             if c not in fragment_features.UNUSED_SCORE_COLUMNS
         ]
+        x_columns = [
+            *score_columns,
+            *fragment_features.FEATURES,
+            *(name for name in raw_fragment_features.FEATURES if name in values),
+        ]
         X = np.column_stack(
-            [
-                psm_df[score_columns].to_numpy(),
-                *(values[name] for name in fragment_features.FEATURES),
-                *(
-                    values[name]
-                    for name in raw_fragment_features.FEATURES
-                    if name in values
-                ),
-            ]
+            [psm_df[score_columns].to_numpy()]
+            + [values[name] for name in x_columns[len(score_columns) :]]
         )
         # the removal needs the m/z, library, observed and correlation arrays only
         riding_provider = fragment_features.serving_provider(
@@ -349,6 +370,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             crossfit,
             first=classifier,
         )
+        if dump_path is not None:
+            _dump_feature_matrix(
+                dump_path, psm_df, X, x_columns, crossfit[0], predicted_proba
+            )
     else:
         predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
     del X
@@ -396,6 +421,26 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
 
     return psm_df
+
+
+def _dump_feature_matrix(  # noqa: PLR0913 # one row-aligned array per argument
+    path: str,
+    psm_df: pd.DataFrame,
+    X: np.ndarray,  # noqa: N803
+    x_columns: list[str],
+    fold: np.ndarray,
+    proba: np.ndarray,
+) -> None:
+    matrix = pd.DataFrame(X, columns=x_columns)
+    for column in DUMP_ID_COLUMNS:
+        if column in psm_df.columns and column not in matrix.columns:
+            matrix[column] = psm_df[column].to_numpy()
+    matrix["fold"] = fold
+    matrix["proba"] = proba
+    matrix.to_parquet(path, index=False)
+    logger.info(
+        f"Saved the final-round feature matrix ({len(matrix):,} rows, {len(x_columns)} features) to {path}"
+    )
 
 
 def _fit_predict(

@@ -18,6 +18,8 @@ from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
 
+FDR_FEATURES_FILE_NAME = "fdr_features.parquet"
+
 
 def get_group_columns(competitive: bool, group_channels: bool) -> list[str]:
     """
@@ -62,6 +64,7 @@ class FDRManager(BaseManager):
         path: None | str = None,
         load_from_file: bool = True,
         random_state: int | None = None,
+        feature_matrix_path: str | None = None,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -82,6 +85,8 @@ class FDRManager(BaseManager):
             If True, the manager will be loaded from file if it exists.
         random_state: int, optional
             Random state for reproducibility.
+        feature_matrix_path: str, optional
+            Folder to write the final-round feature matrix to. If None, nothing is written.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
@@ -99,6 +104,7 @@ class FDRManager(BaseManager):
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
+        self._feature_matrix_path = feature_matrix_path
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -204,6 +210,9 @@ class FDRManager(BaseManager):
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
+                dump_path=None
+                if self._feature_matrix_path is None
+                else os.path.join(self._feature_matrix_path, FDR_FEATURES_FILE_NAME),
             )
 
         elif decoy_strategy == "precursor_channel_wise":
