@@ -821,6 +821,13 @@ class NgExtractionHandler(ExtractionHandler):
 
         # run quantification
         quant_params = QuantificationParameters()
+        quant_params.update(
+            {
+                "background_subtraction": self._config["search"][
+                    "quant_background_subtraction"
+                ]
+            }
+        )
         if top_k_fragments is not None:
             quant_params.update({"top_k_fragments": top_k_fragments})
         if tolerance_ppm is not None:
