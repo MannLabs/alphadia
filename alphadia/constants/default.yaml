@@ -382,7 +382,10 @@ search_output:
   # near the limit (ratio compression at low abundance).
   varmodel_missing_fragments: censored
   # varmodel_directlfq: use only the k fragments per precursor with the best mean XIC correlation; 0 uses all
-  varmodel_top_k_fragments: 8
+  varmodel_top_k_fragments: 0
+  # varmodel_directlfq: > 0 multiplies each fragment value's variance by exp(gamma * (1 - sqrt(C))), C its XIC
+  # correlation in that run, so an interfered value counts less in that run only (instead of the top-k cut)
+  varmodel_quality_exponent: 1.5
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:

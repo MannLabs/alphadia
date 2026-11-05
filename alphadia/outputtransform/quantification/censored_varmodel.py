@@ -12,6 +12,10 @@ and the fit maximises the observed-data likelihood: observed cells keep the vari
 cell of a quantified run adds log P(missing | mu), entered as an EM pseudo-observation (its conditional mean under
 the censored component, weight = posterior censoring probability / s^2), which has the exact score of that term.
 Without censoring the fit is the variance model's (numpy port, same estimates).
+
+Optionally each observed cell's variance also depends on the fragment's XIC correlation C in that run, as in QuantUMS
+(Kistner et al.): variance * exp(gamma * (1 - sqrt(C))). A value with a poor correlation in one run (interference,
+background) is down-weighted in that run only, instead of dropping the fragment in every run.
 """
 
 import itertools
@@ -52,6 +56,21 @@ class Padded:
         np.ndarray
     )  # (precursors, fragments, runs), log2(I / share), NaN where missing or padding
     log_share: np.ndarray  # (precursors, fragments), NaN for padding
+
+
+def pad_quality(
+    correlation: np.ndarray,
+    precursor_index: np.ndarray,
+    n_precursors: int,
+    n_fragments: int,
+) -> np.ndarray:
+    """1 - sqrt(clip(C, 0, 1)) per cell in the (precursors, fragments, runs) layout of `pad`, 1 for padding."""
+    position = pd.Series(precursor_index).groupby(precursor_index).cumcount().to_numpy()
+    t = np.ones((n_precursors, n_fragments, correlation.shape[1]))
+    t[precursor_index, position] = 1 - np.sqrt(
+        np.clip(np.nan_to_num(correlation), 0.0, 1.0)
+    )
+    return t
 
 
 @dataclass
@@ -169,7 +188,10 @@ def censored_pseudo_observations(
 
 
 def fit(
-    p: Padded, noise: Noise, dropout: Dropout | None = None
+    p: Padded,
+    noise: Noise,
+    dropout: Dropout | None = None,
+    log_variance_factor: np.ndarray | float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Run quantities (log2, NaN with fewer than MIN_IONS observed fragments) and fragment offsets."""
     q0 = initial_quantities(p)
@@ -180,7 +202,9 @@ def fit(
     quantified = observed.any(1)
     censored = valid & ~observed & quantified[:, None, :]
     # fixed at the share-weighted first pass, as in the variance model, so the weights cannot chase the fit
-    variance = noise.variance(p.log_share[:, :, None] + q0[:, None, :])
+    variance = noise.variance(p.log_share[:, :, None] + q0[:, None, :]) * np.exp(
+        log_variance_factor
+    )
     y = np.where(observed, p.y, 0.0)
     q = np.nan_to_num(q0)
     o = np.zeros(p.log_share.shape)
@@ -255,6 +279,8 @@ def censored_quantities(
     precursor_index: np.ndarray,
     n_precursors: int,
     censored: bool = True,
+    correlation: np.ndarray | None = None,
+    quality_exponent: float = 0.0,
 ) -> np.ndarray:
     """Precursor quantities (precursors, runs), log2, NaN where not quantified.
 
@@ -270,15 +296,24 @@ def censored_quantities(
         Number of precursors; one without fragments is not quantified.
     censored : bool
         Missing fragments of quantified runs as censored observations; False gives the plain variance model.
+    correlation : np.ndarray | None
+        (fragments, runs) XIC correlation of each fragment value; needed when quality_exponent > 0.
+    quality_exponent : float
+        gamma of the per-cell variance factor exp(gamma * (1 - sqrt(correlation))); 0 leaves it out.
 
     """
     p = pad(np.nan_to_num(intensity), intensity_library, precursor_index, n_precursors)
+    log_variance_factor = 0.0
+    if quality_exponent > 0:
+        log_variance_factor = quality_exponent * pad_quality(
+            correlation, precursor_index, n_precursors, p.y.shape[1]
+        )
     noise = estimate_noise(p, initial_quantities(p))
-    q, o = fit(p, noise)
+    q, o = fit(p, noise, log_variance_factor=log_variance_factor)
     if censored:
         for _ in range(CURVE_ROUNDS):
             dropout = fit_dropout(p, q, o)
-            q, o = fit(p, noise, dropout)
+            q, o = fit(p, noise, dropout, log_variance_factor)
         logger.info(
             f"Censored variance model: detection limit {np.round(dropout.limit, 2)} log2, width "
             f"{np.round(dropout.width, 2)}, abundance-independent dropout {np.round(dropout.plateau, 4)}"
