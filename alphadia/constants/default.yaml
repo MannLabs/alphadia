@@ -324,6 +324,13 @@ fdr:
   keep_decoys: false
   # whether to keep decoy PSMs in the MBR library
   keep_decoys_in_mbr_library: false
+  # give the MBR library the fragment intensities its groups showed in the first search (median over the runs of the
+  # max-normalised observed intensities of the admitted precursor), so the library-intensity features of the MBR step
+  # compare a candidate with the pattern observed in the other runs; fragments without signal there are dropped
+  mbr_empirical_intensities: false
+  # decoys per target in the MBR library (with keep_decoys_in_mbr_library); a target competes with all of them and the
+  # q-value counts each winning decoy as 1 / mbr_decoys_per_target false target
+  mbr_decoys_per_target: 1
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network

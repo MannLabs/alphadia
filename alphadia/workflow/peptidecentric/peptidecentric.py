@@ -29,6 +29,9 @@ from alphadia.workflow.peptidecentric.utils import (
     use_timing_manager,
 )
 
+# the MBR step searches the library the first search wrote under this name (SearchPlanOutput.LIBRARY_OUTPUT)
+MBR_LIBRARY_FILE_NAME = "speclib.mbr.hdf"
+
 
 def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool = False,
@@ -123,6 +126,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             feature_matrix_path=self.path
             if config_fdr["save_feature_matrix"]
             else None,
+            decoy_multiplicity=config_fdr["mbr_decoys_per_target"]
+            if os.path.basename(self.config["library_path"] or "")
+            == MBR_LIBRARY_FILE_NAME
+            else 1,
         )
 
         init_spectral_library(

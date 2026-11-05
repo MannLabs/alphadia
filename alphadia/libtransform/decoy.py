@@ -61,6 +61,48 @@ class DIANNInnerDecoyGenerator(DIANNKeepProlineDecoyGenerator):
 
 decoy_lib_provider.register(DIANN_INNER, DIANNInnerDecoyGenerator)
 
+DIANN_INNER_ALT1 = "diann_inner_alt1"
+DIANN_INNER_ALT2 = "diann_inner_alt2"
+# Residue maps of the extra MBR decoys: the same mutated positions as `DIANNInnerDecoyGenerator`, other residues. Each
+# map gives every residue a mass shift different from the other maps (and none near-isobaric to the original, e.g. no
+# K <-> Q), so the decoys of one target share only its unmutated ions and are separate draws of the same null.
+_RAW_AAS = "GAVLIFMPWSCTYHKRQENDBJOUXZsty"
+_ALT1_AAS = "AGFFFMFAYAAGFNRKHASTVVVVVVtss"
+_ALT2_AAS = "STYYYWYSFGGAWFHHTSGAVVVVVVtss"
+
+
+class DIANNInnerAlt1DecoyGenerator(DIANNInnerDecoyGenerator):
+    """`DIANNInnerDecoyGenerator` with the first alternative residue map."""
+
+    def __init__(self, raw_AAs: str = _RAW_AAS, mutated_AAs: str = _ALT1_AAS):  # noqa: N803 # alphabase's names
+        super().__init__(raw_AAs, mutated_AAs)
+
+
+class DIANNInnerAlt2DecoyGenerator(DIANNInnerDecoyGenerator):
+    """`DIANNInnerDecoyGenerator` with the second alternative residue map."""
+
+    def __init__(self, raw_AAs: str = _RAW_AAS, mutated_AAs: str = _ALT2_AAS):  # noqa: N803 # alphabase's names
+        super().__init__(raw_AAs, mutated_AAs)
+
+
+decoy_lib_provider.register(DIANN_INNER_ALT1, DIANNInnerAlt1DecoyGenerator)
+decoy_lib_provider.register(DIANN_INNER_ALT2, DIANNInnerAlt2DecoyGenerator)
+EXTRA_DECOY_TYPES = (DIANN_INNER_ALT1, DIANN_INNER_ALT2)
+
+
+def generate_decoy_library(
+    target_lib: SpecLibBase, decoy_type: str, mp_process_num: int
+) -> SpecLibBase:
+    """A library of one decoy of `decoy_type` per target of `target_lib` (a copy, `target_lib` is not changed)."""
+    decoy_lib = decoy_lib_provider.get_decoy_lib(decoy_type, target_lib.copy())
+    decoy_lib.charged_frag_types = target_lib.charged_frag_types
+    decoy_lib.decoy_sequence(mp_process_num=mp_process_num)
+    decoy_lib.calc_precursor_mz()
+    decoy_lib.remove_unused_fragments()
+    decoy_lib.calc_fragment_mz_df()
+    decoy_lib._precursor_df["decoy"] = 1
+    return decoy_lib
+
 
 class DecoyGenerator(ProcessingStep):
     def __init__(self, decoy_type: str = "diann", mp_process_num: int = 8) -> None:
@@ -91,14 +133,7 @@ class DecoyGenerator(ProcessingStep):
             logger.info("Decoys already present, skipping decoy generation")
             return input
 
-        decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())
-
-        decoy_lib.charged_frag_types = input.charged_frag_types
-        decoy_lib.decoy_sequence(mp_process_num=self.mp_process_num)
-        decoy_lib.calc_precursor_mz()
-        decoy_lib.remove_unused_fragments()
-        decoy_lib.calc_fragment_mz_df()
-        decoy_lib._precursor_df["decoy"] = 1
+        decoy_lib = generate_decoy_library(input, self.decoy_type, self.mp_process_num)
 
         # keep original precursor_idx and only create new ones for decoys
         start_precursor_idx = input.precursor_df["precursor_idx"].max() + 1

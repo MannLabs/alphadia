@@ -172,6 +172,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
     dump_path: str | None = None,
+    decoy_multiplicity: int = 1,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
@@ -234,6 +235,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     dump_path : str, optional
         In the final round, the feature matrix the classifier was fitted on (after the riding removal), the identity
         columns of its rows, their cross-fit fold and their cross-fitted probability are written to this parquet file.
+
+    decoy_multiplicity : int, default=1
+        Decoys per target in the library. A target competes with all of them, so the q-values count each winning decoy
+        as 1 / decoy_multiplicity false target.
 
     Returns
     -------
@@ -351,6 +356,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             riding_provider,
             dia_cycle,
             ms2_tolerance_ppm,
+            decoy_weight=1 / decoy_multiplicity,
         )
     if keep is not None:
         psm_df, X, y = psm_df.iloc[keep], X[keep], y[keep]
@@ -385,7 +391,9 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
 
     psm_df["proba"] = predicted_proba
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+    psm_df = get_q_values(
+        psm_df, "proba", "_decoy", decoy_weight=1 / decoy_multiplicity
+    )
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
@@ -408,7 +416,9 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             )
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
-    psm_df = get_q_values_by_length(psm_df, "proba", "_decoy")
+    psm_df = get_q_values_by_length(
+        psm_df, "proba", "_decoy", decoy_weight=1 / decoy_multiplicity
+    )
 
     if figure_path is not None:
         plot_fdr(
@@ -681,6 +691,7 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
     riding_provider: Callable[[pd.DataFrame], tuple],
     dia_cycle: np.ndarray,
     ms2_tolerance_ppm: float,
+    decoy_weight: float = 1.0,
 ) -> np.ndarray | None:
     """Positions of `psm_df` to keep after removing the PSMs that ride on a better co-eluting PSM.
 
@@ -700,7 +711,10 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
     rows["_row"] = np.arange(len(rows))
 
     competed = get_q_values(
-        keep_best(rows, group_columns=group_columns), "proba", "_decoy"
+        keep_best(rows, group_columns=group_columns),
+        "proba",
+        "_decoy",
+        decoy_weight=decoy_weight,
     )
     confident = competed[
         (competed["_decoy"] == 0) & (competed["qval"] <= riding.WINNER_QVAL)
@@ -713,7 +727,7 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
 
     loser = np.ones(len(rows), dtype=bool)
     if riding.LOSER_POOLED_QVAL is not None:
-        pooled = get_q_values(rows, "proba", "_decoy")
+        pooled = get_q_values(rows, "proba", "_decoy", decoy_weight=decoy_weight)
         loser[pooled["_row"].to_numpy()] = (
             pooled["qval"].to_numpy() <= riding.LOSER_POOLED_QVAL
         )
@@ -809,18 +823,27 @@ def get_q_values_by_length(
     score_column: str = "proba",
     decoy_column: str = "_decoy",
     qval_column: str = "qval",
+    decoy_weight: float = 1.0,
 ) -> pd.DataFrame:
     """Calculate q-values separately within each peptide length stratum of `PEPTIDE_LENGTH_STRATA`.
 
     Falls back to pooled q-values when the dataframe has no `naa` column. The result is sorted by `score_column`.
     """
     if "naa" not in df.columns:
-        return get_q_values(df, score_column, decoy_column, qval_column)
+        return get_q_values(
+            df, score_column, decoy_column, qval_column, decoy_weight=decoy_weight
+        )
 
     strata = np.searchsorted(PEPTIDE_LENGTH_STRATA, df["naa"].to_numpy(), side="left")
     df = pd.concat(
         [
-            get_q_values(stratum_df, score_column, decoy_column, qval_column)
+            get_q_values(
+                stratum_df,
+                score_column,
+                decoy_column,
+                qval_column,
+                decoy_weight=decoy_weight,
+            )
             for _, stratum_df in df.groupby(strata)
         ]
     )
@@ -834,6 +857,7 @@ def get_q_values(
     qval_column: str = "qval",
     extra_sort_columns: list[str] | None = None,
     decoy_offset: int = 0,
+    decoy_weight: float = 1.0,
 ) -> pd.DataFrame:
     """Calculates q-values for a dataframe containing PSMs.
 
@@ -859,6 +883,9 @@ def get_q_values(
     decoy_offset : int, default=0
         Added to the running decoy count before dividing by the running target count.
 
+    decoy_weight : float, default=1.0
+        False targets counted per decoy: 1 / k when every target competes with k decoys.
+
     Returns
     -------
     pd.DataFrame
@@ -875,7 +902,7 @@ def get_q_values(
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
     fdr_values = np.divide(
-        decoy_cumsum + decoy_offset,
+        decoy_weight * decoy_cumsum + decoy_offset,
         target_cumsum,
         out=np.ones(len(df), dtype=float),
         where=target_cumsum > 0,

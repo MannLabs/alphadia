@@ -672,6 +672,23 @@ def test_perform_fdr_on_psms_writes_the_final_round_matrix(tmp_path):
     assert dump["fold"].between(0, fdr.CROSSFIT_FOLDS - 1).all()
 
 
+def test_get_q_values_counts_each_decoy_by_its_weight():
+    # given: two targets, then two decoys, then two targets
+    df = pd.DataFrame(
+        {
+            "proba": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+            "_decoy": [0, 0, 1, 1, 0, 0],
+            "precursor_idx": np.arange(6),
+        }
+    )
+
+    # when: every target competed with two decoys
+    out = fdr.get_q_values(df, "proba", "_decoy", decoy_weight=0.5)
+
+    # then: the two decoys count as one false target
+    np.testing.assert_allclose(out["qval"].to_numpy()[-1], 1 / 4)
+
+
 class _RowRecordingClassifier:
     """Scores by the second feature; the first feature is the row number, recorded at fit and at prediction."""
 

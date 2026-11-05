@@ -65,6 +65,7 @@ class FDRManager(BaseManager):
         load_from_file: bool = True,
         random_state: int | None = None,
         feature_matrix_path: str | None = None,
+        decoy_multiplicity: int = 1,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -87,6 +88,8 @@ class FDRManager(BaseManager):
             Random state for reproducibility.
         feature_matrix_path: str, optional
             Folder to write the final-round feature matrix to. If None, nothing is written.
+        decoy_multiplicity: int, optional
+            Decoys per target in the searched library (see `fdr.perform_fdr_on_psms`).
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
@@ -105,6 +108,7 @@ class FDRManager(BaseManager):
 
         self._dia_cycle = dia_cycle
         self._feature_matrix_path = feature_matrix_path
+        self._decoy_multiplicity = decoy_multiplicity
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -213,6 +217,7 @@ class FDRManager(BaseManager):
                 dump_path=None
                 if self._feature_matrix_path is None
                 else os.path.join(self._feature_matrix_path, FDR_FEATURES_FILE_NAME),
+                decoy_multiplicity=self._decoy_multiplicity,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
