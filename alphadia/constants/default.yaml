@@ -380,12 +380,12 @@ search_output:
   # varmodel_directlfq: how missing fragments of a quantified run enter the fit. "drop" leaves them out; "censored"
   # treats them as below a per-run detection limit fitted on the data, which removes the upward bias of precursors
   # near the limit (ratio compression at low abundance).
-  varmodel_missing_fragments: censored
+  varmodel_missing_fragments: drop
   # varmodel_directlfq: use only the k fragments per precursor with the best mean XIC correlation; 0 uses all
   varmodel_top_k_fragments: 0
   # varmodel_directlfq: > 0 multiplies each fragment value's variance by exp(gamma * (1 - sqrt(C))), C its XIC
   # correlation in that run, so an interfered value counts less in that run only (instead of the top-k cut)
-  varmodel_quality_exponent: 1.5
+  varmodel_quality_exponent: 0.0
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:
