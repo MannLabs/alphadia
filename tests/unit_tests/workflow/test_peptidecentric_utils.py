@@ -8,10 +8,12 @@ from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    FRAGMENT_SHADOW_FEATURES,
     MS1_CLASSIFIER_FEATURES,
     MS1_PREFIX,
     get_context_feature_names,
     get_feature_names,
+    get_final_round_feature_names,
 )
 from alphadia.workflow.peptidecentric.utils import (
     DECOY_SCHEME_FEATURES,
@@ -32,6 +34,16 @@ def test_get_classifier_feature_columns_for_rust_backend():
         if name not in DECOY_SCHEME_FEATURES
         and (not name.startswith(MS1_PREFIX) or name in MS1_CLASSIFIER_FEATURES)
     ]
+
+
+def test_fragment_shadow_features_enter_the_classifier_in_the_final_round_only():
+    # when
+    columns = get_classifier_feature_columns("rust")
+
+    # then
+    assert set(FRAGMENT_SHADOW_FEATURES) <= set(get_feature_names())
+    assert set(FRAGMENT_SHADOW_FEATURES) <= set(columns)
+    assert set(FRAGMENT_SHADOW_FEATURES) <= set(get_final_round_feature_names())
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():

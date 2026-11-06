@@ -147,9 +147,23 @@ FRAGMENT_AGREEMENT_FEATURES = [
 ]
 
 
+# rust features of whether a fragment peak is the M+1 isotope of another ion (its M-1 "shadow"): chance matches land on
+# isotope peaks, real fragments on monoisotopic ones
+FRAGMENT_SHADOW_FEATURES = [
+    "shadow_lib_share",
+    "shadow_clean_libw_corr",
+    "shadow_corr_sum6",
+]
+
+
 def get_final_round_feature_names() -> list[str]:
     """Features the FDR classifier uses only in the final round, not in the calibration rounds."""
-    return ION_IDENTITY_FEATURES + FRAGMENT_AGREEMENT_FEATURES + MS1_CLASSIFIER_FEATURES
+    return (
+        ION_IDENTITY_FEATURES
+        + FRAGMENT_AGREEMENT_FEATURES
+        + MS1_CLASSIFIER_FEATURES
+        + FRAGMENT_SHADOW_FEATURES
+    )
 
 
 def get_context_feature_names() -> list[str]:
