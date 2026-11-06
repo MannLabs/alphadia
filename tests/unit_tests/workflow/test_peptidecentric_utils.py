@@ -8,6 +8,8 @@ from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    DETECTION_CLASSIFIER_FEATURES,
+    DETECTION_PREFIX,
     MS1_CLASSIFIER_FEATURES,
     MS1_PREFIX,
     get_context_feature_names,
@@ -31,7 +33,23 @@ def test_get_classifier_feature_columns_for_rust_backend():
         for name in get_feature_names() + get_context_feature_names()
         if name not in DECOY_SCHEME_FEATURES
         and (not name.startswith(MS1_PREFIX) or name in MS1_CLASSIFIER_FEATURES)
+        and (
+            not name.startswith(DETECTION_PREFIX)
+            or name in DETECTION_CLASSIFIER_FEATURES
+        )
     ]
+
+
+def test_get_classifier_feature_columns_keeps_only_the_chosen_detection_features():
+    # when
+    columns = get_classifier_feature_columns("rust")
+
+    # then
+    assert [c for c in columns if c.startswith(DETECTION_PREFIX)] == [
+        c for c in get_feature_names() if c in DETECTION_CLASSIFIER_FEATURES
+    ]
+    assert "det_llr_hits" in get_feature_names()
+    assert "det_llr_hits" not in columns
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():
