@@ -319,7 +319,7 @@ fdr:
   # feature transform before the neural network, either "none" or "quantile".
   # "quantile" keeps extreme values inside the range the network was trained on.
   feature_transform: quantile
-  # training of the final FDR classifier (the calibration rounds always use the constant schedule without averaging).
+  # training of the FDR classifier, applied to every fit (the calibration rounds and the final round alike).
   # cosine + weight averaging reduce the run-to-run variation of the IDs; "constant" + false is the previous training.
   # learning rate schedule, "constant" or "cosine" (decays from the start value to zero over all minibatches of the fit)
   lr_schedule: cosine

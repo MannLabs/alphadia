@@ -694,21 +694,6 @@ class NgExtractionHandler(ExtractionHandler):
 
         return features_or_precursor_df
 
-    def _classifier_training(self, final_round: bool) -> dict:
-        """Training settings of a classifier fit.
-
-        The final round uses fdr.lr_schedule and fdr.weight_averaging, the calibration rounds the plain training
-        (constant learning rate, no weight averaging). They are set for every fit, so a classifier configured for
-        the final round never trains a calibration round with those settings.
-        """
-        if not final_round:
-            return {"lr_schedule": "constant", "weight_averaging": False}
-        config_fdr = self._config["fdr"]
-        return {
-            "lr_schedule": config_fdr.get("lr_schedule", "cosine"),
-            "weight_averaging": config_fdr.get("weight_averaging", True),
-        }
-
     def perform_fdr_and_filter_candidates(
         self,
         features_df: pd.DataFrame,
@@ -752,7 +737,6 @@ class NgExtractionHandler(ExtractionHandler):
             version=self._optimization_manager.classifier_version,
             excluded_columns=FINAL_ROUND_EXCLUDED_FEATURES if final_round else (),
             train_on_best_candidate=train_on_best_candidate,
-            classifier_training=self._classifier_training(final_round),
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
