@@ -10,8 +10,11 @@ from alphadia.outputtransform.quantification.quant_builder import (
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     MS1_CLASSIFIER_FEATURES,
     MS1_PREFIX,
+    NF_CLASSIFIER_FEATURES,
+    NF_PREFIX,
     get_context_feature_names,
     get_feature_names,
+    get_final_round_feature_names,
 )
 from alphadia.workflow.peptidecentric.utils import (
     DECOY_SCHEME_FEATURES,
@@ -31,7 +34,17 @@ def test_get_classifier_feature_columns_for_rust_backend():
         for name in get_feature_names() + get_context_feature_names()
         if name not in DECOY_SCHEME_FEATURES
         and (not name.startswith(MS1_PREFIX) or name in MS1_CLASSIFIER_FEATURES)
+        and (not name.startswith(NF_PREFIX) or name in NF_CLASSIFIER_FEATURES)
     ]
+
+
+def test_get_classifier_feature_columns_uses_the_nf_features_in_the_final_round_only():
+    # when
+    columns = get_classifier_feature_columns("rust")
+
+    # then
+    assert [c for c in columns if c.startswith(NF_PREFIX)] == NF_CLASSIFIER_FEATURES
+    assert set(NF_CLASSIFIER_FEATURES) <= set(get_final_round_feature_names())
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():
