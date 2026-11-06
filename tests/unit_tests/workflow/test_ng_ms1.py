@@ -125,6 +125,11 @@ def _candidate_features() -> SimpleNamespace:
             "ms1_iso_cosine": np.array([0.99, 0.5, 0.0]),
             "ms1_contrast": np.array([1.0, 0.2, 0.0]),
             "ms1_ppm_signed": np.array([0.5, -2.0, 0.0]),
+            "ms1_fine_frag_corr": np.array([0.8, 0.2, 0.0]),
+            "ms1_fine_shape": np.array([0.9, 0.1, 0.0]),
+            "ms1_fine_apex_shift": np.array([0.3, -4.0, 0.0]),
+            "ms1_fine_iso_corr": np.array([0.95, 0.3, 0.0]),
+            "ms1_fine_n_points": np.array([7.0, 2.0, 0.0]),
         }
     )
 

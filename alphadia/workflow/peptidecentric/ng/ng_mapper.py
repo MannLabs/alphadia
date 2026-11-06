@@ -22,12 +22,19 @@ CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
 # library isotope abundances (IsotopeGenerator) scored against the MS1 isotope XICs
 MS1_ISOTOPE_COLUMNS = ["i_0", "i_1", "i_2", "i_3"]
 MS1_PREFIX = "ms1_"
-# the rust MS1 features the final-round classifier uses, the set validated in replay; the other four are dropped
+# the rust MS1 features the final-round classifier uses, the set validated in replay; the other four are dropped.
+# The ms1_fine_* features score the MS1 scans at their own times instead of summed per cycle: on Astral a cycle holds
+# ~3 MS1 scans but the precursor's MS2 window only one point, so MS1 carries the low-input peak shape best.
 MS1_CLASSIFIER_FEATURES = [
     "ms1_log_m0_apex",
     "ms1_n_isotopes",
     "ms1_frag_corr",
     "ms1_iso_cosine",
+    "ms1_fine_frag_corr",
+    "ms1_fine_shape",
+    "ms1_fine_apex_shift",
+    "ms1_fine_iso_corr",
+    "ms1_fine_n_points",
 ]
 
 
