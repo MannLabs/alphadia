@@ -310,12 +310,14 @@ class OptimizationHandler:
                         precursor_df, self._optlock.fragments_df
                     )
                     self.calibration_identifications = precursor_df_filtered
+                    # taken before the lock update, which drops the batches' candidates once the target is reached
+                    calibration_candidates = self._optlock.features_df
 
                     self._optlock.update()
                     recalibration_handler.recalibrate(
                         precursor_df_filtered,
                         fragments_df_filtered,
-                        self._optlock.features_df,
+                        calibration_candidates,
                     )
                     self._optlock.update_with_calibration(self._calibration_manager)
 
