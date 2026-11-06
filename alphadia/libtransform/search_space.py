@@ -28,10 +28,10 @@ PRECURSOR_MZ_COLUMNS = ("precursor_mz", CalibCols.MZ_LIBRARY, "mz")
 # (same modifications on different residues) count as different modified peptides.
 MODIFIED_PEPTIDE_COLUMNS = ("sequence", "mods", "mod_sites")
 
-# A protein group is the `proteins` entry of a precursor, i.e. the (';'-joined) set of proteins its peptide maps to.
-# Each distinct `proteins` string is counted as one protein group. No parsimony is applied; this is the
-# search space as given by the library, not the protein groups reported after the search.
-PROTEIN_GROUP_COLUMN = "proteins"
+# The `proteins` entry of a precursor is the ';'-joined list of proteins its peptide maps to. The search space counts
+# the distinct individual proteins over all entries (no protein grouping or parsimony; those happen after the search).
+PROTEIN_COLUMN = "proteins"
+PROTEIN_DELIMITER = ";"
 
 MODIFICATIONS_SEPARATOR = ";"
 
@@ -43,13 +43,13 @@ class LibrarySearchSpace:
     Ranges are None if the respective column is missing from the library.
     """
 
-    precursor_len: tuple[int, int] | None
+    peptide_len: tuple[int, int] | None
     precursor_charge: tuple[int, int] | None
     precursor_mz: tuple[int, int] | None
     modifications: list[str] = field(default_factory=list)
     n_modified_peptides: int = 0
     n_precursors: int = 0
-    n_protein_groups: int | None = None
+    n_proteins: int | None = None
 
 
 def _min_max(values: np.ndarray) -> tuple[float, float] | None:
@@ -57,6 +57,13 @@ def _min_max(values: np.ndarray) -> tuple[float, float] | None:
     if len(values) == 0:
         return None
     return values.min(), values.max()
+
+
+def _count_proteins(protein_entries: np.ndarray | pd.Series) -> int:
+    """Number of distinct proteins in ';'-joined protein entries; only the distinct entries are split."""
+    entries = pd.unique(pd.Series(protein_entries).dropna())
+    proteins = pd.Series(entries, dtype=object).str.split(PROTEIN_DELIMITER).explode().str.strip()
+    return int(proteins[proteins.astype(bool)].nunique())
 
 
 def _int_min_max(values: np.ndarray) -> tuple[int, int] | None:
@@ -163,20 +170,20 @@ def get_library_search_space(precursor_df: pd.DataFrame) -> LibrarySearchSpace:
         )
         n_precursors = len(np.unique(precursor_codes))
 
-    n_protein_groups = (
-        len(pd.factorize(get_target_values(PROTEIN_GROUP_COLUMN))[1])
-        if PROTEIN_GROUP_COLUMN in columns
+    n_proteins = (
+        _count_proteins(get_target_values(PROTEIN_COLUMN))
+        if PROTEIN_COLUMN in columns
         else None
     )
 
     return LibrarySearchSpace(
-        precursor_len=_int_min_max(lengths),
+        peptide_len=_int_min_max(lengths),
         precursor_charge=None if charges is None else _int_min_max(charges),
         precursor_mz=precursor_mz,
         modifications=modifications,
         n_modified_peptides=n_modified_peptides,
         n_precursors=n_precursors,
-        n_protein_groups=n_protein_groups,
+        n_proteins=n_proteins,
     )
 
 
@@ -190,7 +197,7 @@ def log_library_search_space(search_space: LibrarySearchSpace) -> None:
     logger.info("Derived from the target precursors of the spectral library")
 
     for key, min_max in [
-        ("precursor_len", search_space.precursor_len),
+        ("peptide_len", search_space.peptide_len),
         ("precursor_charge", search_space.precursor_charge),
         ("precursor_mz", search_space.precursor_mz),
     ]:
@@ -205,8 +212,8 @@ def log_library_search_space(search_space: LibrarySearchSpace) -> None:
     )
     logger.info(f"n_modified_peptides: {search_space.n_modified_peptides}")
     logger.info(f"n_precursors: {search_space.n_precursors}")
-    if search_space.n_protein_groups is not None:
-        logger.info(f"n_protein_groups: {search_space.n_protein_groups}")
+    if search_space.n_proteins is not None:
+        logger.info(f"n_proteins: {search_space.n_proteins}")
 
 
 class LogLibrarySearchSpace(ProcessingStep):

@@ -49,7 +49,7 @@ general:
   save_mbr_library: True
 
   # whether to derive the search space (precursor length/charge/m-z ranges, modifications, numbers of modified peptides,
-  # precursors and protein groups) from the target precursors of a provided spectral library and write it to the log
+  # precursors and proteins) from the target precursors of a provided spectral library and write it to the log
   # (block "Library search space", e.g. parsed by ProteoBench). If false, nothing is computed.
   log_library_search_space: True
 

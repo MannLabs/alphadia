@@ -70,13 +70,13 @@ def test_get_library_search_space():
 
     # then
     assert search_space == LibrarySearchSpace(
-        precursor_len=(7, 27),
+        peptide_len=(7, 27),
         precursor_charge=(2, 4),
         precursor_mz=(300, 702),
         modifications=["Acetyl@Protein_N-term", "Carbamidomethyl@C", "Oxidation@M"],
         n_modified_peptides=6,
         n_precursors=7,
-        n_protein_groups=5,  # 'P2;P3' is its own protein group
+        n_proteins=4,  # P1-P4: 'P2;P3' adds no new protein, the decoy proteins D1 and D2 are ignored
     )
 
 
@@ -89,7 +89,7 @@ def test_get_library_search_space_uses_naa_and_flat_library_mz_column():
     search_space = get_library_search_space(precursor_df)
 
     # then
-    assert search_space.precursor_len == (10, 10)
+    assert search_space.peptide_len == (10, 10)
     assert search_space.precursor_mz == (300, 702)
 
 
@@ -122,13 +122,13 @@ def test_get_library_search_space_without_optional_columns():
 
     # then
     assert search_space == LibrarySearchSpace(
-        precursor_len=(8, 9),
+        peptide_len=(8, 9),
         precursor_charge=None,
         precursor_mz=None,
         modifications=[],
         n_modified_peptides=2,
         n_precursors=2,
-        n_protein_groups=None,
+        n_proteins=None,
     )
 
 
@@ -142,13 +142,13 @@ def test_get_library_search_space_without_targets():
 
     # then
     assert search_space == LibrarySearchSpace(
-        precursor_len=None,
+        peptide_len=None,
         precursor_charge=None,
         precursor_mz=None,
         modifications=[],
         n_modified_peptides=0,
         n_precursors=0,
-        n_protein_groups=0,
+        n_proteins=0,
     )
 
 
@@ -168,7 +168,7 @@ def test_log_library_search_space_format(caplog):
     assert messages[start:] == [
         "============ Library search space ============",
         "Derived from the target precursors of the spectral library",
-        "precursor_len:",
+        "peptide_len:",
         "    - 7",
         "    - 27",
         "precursor_charge:",
@@ -180,7 +180,7 @@ def test_log_library_search_space_format(caplog):
         "modifications: Acetyl@Protein_N-term;Carbamidomethyl@C;Oxidation@M",
         "n_modified_peptides: 6",
         "n_precursors: 7",
-        "n_protein_groups: 5",
+        "n_proteins: 4",
     ]
 
 
