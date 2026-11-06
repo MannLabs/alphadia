@@ -198,6 +198,10 @@ search:
   # add the CandidateContext competition and isolation-window features to the classifier (rust backend only)
   candidate_context_features: False
 
+  # score the MS1 isotope traces and use the MS1 features in the calibration rounds and the final round (rust backend
+  # only). False searches on MS2 evidence alone.
+  ms1_features: True
+
   # === python backend only ===
   # exclude fragments shared between multiple channels
   exclude_shared_ions: True

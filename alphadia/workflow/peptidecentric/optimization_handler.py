@@ -28,7 +28,10 @@ from alphadia.workflow.optimizers.targeted import (
 )
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
-from alphadia.workflow.peptidecentric.ng.ng_mapper import get_final_round_feature_names
+from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    MS1_CLASSIFIER_FEATURES,
+    get_final_round_feature_names,
+)
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
@@ -310,7 +313,9 @@ class OptimizationHandler:
 
                     self._optlock.update()
                     recalibration_handler.recalibrate(
-                        precursor_df_filtered, fragments_df_filtered
+                        precursor_df_filtered,
+                        fragments_df_filtered,
+                        self._optlock.features_df,
                     )
                     self._optlock.update_with_calibration(self._calibration_manager)
 
@@ -345,7 +350,9 @@ class OptimizationHandler:
             self.calibration_identifications = precursor_df_filtered
             if precursor_df_filtered.shape[0] >= 6:
                 recalibration_handler.recalibrate(
-                    precursor_df_filtered, fragments_df_filtered
+                    precursor_df_filtered,
+                    fragments_df_filtered,
+                    self._optlock.features_df,
                 )
 
             for optimizers in ordered_optimizers:
@@ -382,6 +389,13 @@ class OptimizationHandler:
                 dia_data_has_mobility=self._dia_data.has_mobility,
             ),
         )
+
+        score_ms1 = (
+            self._config["search"]["extraction_backend"] == "rust"
+            and self._config["search"]["ms1_features"]
+        )
+        if score_ms1:
+            extraction_handler.enable_ms1_scoring()
 
         candidates_df = extraction_handler.select_candidates(
             self._dia_data,
@@ -458,11 +472,17 @@ class OptimizationHandler:
                 precursor_quantified_w_features_df, fragments_df
             )
 
-            # The calibration rounds set the raw-score cutoff from their IDs (0.85 x P3); a strong new
-            # feature lets low-score candidates pass there, lowers the cutoff and floods the final extraction.
+            # The MS1 features take part in calibration: the linear candidate prefilter, not the raw score of the
+            # calibration IDs, sets which candidates the final extraction scores. The other final-round features
+            # stay out of calibration.
+            final_round_only = [
+                name
+                for name in get_final_round_feature_names()
+                if not (score_ms1 and name in MS1_CLASSIFIER_FEATURES)
+            ]
             _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
                 self._optlock.features_df.drop(
-                    columns=get_final_round_feature_names(), errors="ignore"
+                    columns=final_round_only, errors="ignore"
                 ),
                 candidates_df,
                 self._dia_data,

@@ -30,6 +30,7 @@ from alphadia.search.selection.selection import CandidateSelection
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.peptidecentric.candidate_prefilter import SELECTION_FEATURES
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ms1_calibration import (
     Ms1Calibration,
@@ -301,13 +302,22 @@ class ExtractionHandler(ABC):
         """
         # This is filter 1
         num_before = len(candidates_df)
-        candidates_df = candidates_df[
-            candidates_df["score"] > self._optimization_manager.score_cutoff
-        ]
-        num_after = len(candidates_df)
-        num_removed = num_before - num_after
+        prefilter = self._optimization_manager.candidate_prefilter
+        if prefilter is not None and set(SELECTION_FEATURES) <= set(
+            candidates_df.columns
+        ):
+            candidates_df = candidates_df[prefilter.keep(candidates_df)]
+            rule = (
+                f"the linear candidate prefilter (threshold {prefilter.threshold:.3f})"
+            )
+        else:
+            candidates_df = candidates_df[
+                candidates_df["score"] > self._optimization_manager.score_cutoff
+            ]
+            rule = f"score cutoff {self._optimization_manager.score_cutoff}"
+        num_removed = num_before - len(candidates_df)
         self._reporter.log_string(
-            f"Removed {num_removed} precursors with score below cutoff {self._optimization_manager.score_cutoff}",
+            f"Removed {num_removed} of {num_before} precursors with {rule}",
         )
         return candidates_df
 

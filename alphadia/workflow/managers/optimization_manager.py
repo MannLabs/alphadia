@@ -44,6 +44,8 @@ class OptimizationManager(BaseManager):
             self.fwhm_rt = config["optimization_manager"]["fwhm_rt"]
             self.fwhm_mobility = config["optimization_manager"]["fwhm_mobility"]
             self.score_cutoff = config["optimization_manager"]["score_cutoff"]
+            # replaces the raw-score cutoff once calibration has fitted it (rust backend)
+            self.candidate_prefilter = None
 
             self.classifier_version = -1
 
@@ -74,6 +76,7 @@ class OptimizationManager(BaseManager):
         fwhm_rt: float | None = None,
         fwhm_mobility: float | None = None,
         score_cutoff: float | None = None,
+        candidate_prefilter: "CandidatePrefilter | None" = None,  # noqa: F821
     ):
         """Update the parameters dict with the values in update_dict."""
 
@@ -112,6 +115,11 @@ class OptimizationManager(BaseManager):
         if score_cutoff is not None:
             _add_update_log("score_cutoff", self.score_cutoff, score_cutoff)
             self.score_cutoff = score_cutoff
+        if candidate_prefilter is not None:
+            _add_update_log(
+                "candidate_prefilter", self.candidate_prefilter, candidate_prefilter
+            )
+            self.candidate_prefilter = candidate_prefilter
 
         for log in update_logs:
             self.reporter.log_string(

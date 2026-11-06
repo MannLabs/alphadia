@@ -217,6 +217,9 @@ def parse_candidates(
         }
     )
 
+    for name, values in candidates.selection_feature_arrays().items():
+        candidates_df[name] = values
+
     candidates_df = candidates_df.merge(
         spectral_library.precursor_df[["precursor_idx", "elution_group_idx", "decoy"]],
         on="precursor_idx",

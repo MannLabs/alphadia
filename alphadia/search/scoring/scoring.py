@@ -29,6 +29,7 @@ from alphadia.validation.schemas import (
     fragments_flat_schema,
     precursors_flat_schema,
 )
+from alphadia.workflow.peptidecentric.candidate_prefilter import SELECTION_FEATURES
 
 logger = logging.getLogger()
 
@@ -478,7 +479,9 @@ class CandidateScoring:
         if candidate_columns is None:
             candidate_columns = DEFAULT_CANDIDATE_COLUMNS.copy()
 
-        candidate_columns += ["score"] if "score" in candidates_df.columns else []
+        candidate_columns += [
+            c for c in ["score", *SELECTION_FEATURES] if c in candidates_df.columns
+        ]
 
         return merge_missing_columns(
             df,

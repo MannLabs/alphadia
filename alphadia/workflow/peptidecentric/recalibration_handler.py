@@ -8,6 +8,7 @@ from alphadia.workflow.managers.calibration_manager import (
     CalibrationManager,
 )
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.peptidecentric.candidate_prefilter import fit_prefilter
 
 
 class RecalibrationHandler:
@@ -46,7 +47,10 @@ class RecalibrationHandler:
         self._dia_data_has_ms1 = dia_data_has_ms1
 
     def recalibrate(
-        self, precursor_df_filtered: pd.DataFrame, fragments_df_filtered: pd.DataFrame
+        self,
+        precursor_df_filtered: pd.DataFrame,
+        fragments_df_filtered: pd.DataFrame,
+        candidates_df: pd.DataFrame | None = None,
     ) -> None:
         """Performs recalibration of the MS1, MS2, RT and mobility properties and fits the convolution kernel and the score cutoff.
 
@@ -59,6 +63,10 @@ class RecalibrationHandler:
 
         fragments_df_filtered : pd.DataFrame
             Filtered fragment dataframe (see filter_dfs)
+
+        candidates_df : pd.DataFrame, optional
+            The scored candidates of the calibration batches (targets and decoys). With the selection features of the
+            rust backend, the linear candidate prefilter is fitted on them and replaces the raw-score cutoff.
 
         """
         self._calibration_manager.fit(
@@ -88,8 +96,22 @@ class RecalibrationHandler:
 
         self._reporter.log_string(f"Using score_cutoff {score_cutoff} ({fac=}, {q=})")
 
+        prefilter = None
+        if candidates_df is not None:
+            kept_share = float((score > score_cutoff).mean())
+            prefilter = fit_prefilter(candidates_df, precursor_df_filtered, kept_share)
+            if prefilter is not None:
+                kept = prefilter.keep(candidates_df)
+                self._reporter.log_string(
+                    f"Candidate prefilter replaces the score cutoff: coefficients {prefilter.coef} on standardized "
+                    f"score / detected library share / detected fragments, threshold {prefilter.threshold:.3f}, keeps "
+                    f"{kept_share:.3f} of the calibration identifications and {kept.mean():.3f} of the calibration "
+                    f"candidates (score cutoff {(candidates_df['score'] > score_cutoff).mean():.3f})"
+                )
+
         self._optimization_manager.update(
             fwhm_rt=precursor_df_filtered["fwhm_rt"].median(),
             fwhm_mobility=precursor_df_filtered["fwhm_mobility"].median(),
             score_cutoff=score_cutoff,
+            candidate_prefilter=prefilter,
         )
