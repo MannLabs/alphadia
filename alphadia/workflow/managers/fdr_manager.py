@@ -12,7 +12,7 @@ import xxhash
 
 import alphadia
 from alphadia.fdr import fdr
-from alphadia.fdr.classifiers import Classifier
+from alphadia.fdr.classifiers import Classifier, LRSchedule
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -108,6 +108,11 @@ class FDRManager(BaseManager):
         self.load_classifier_store()
 
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
+        # the final-round fits train with these; calibration rounds keep the constant schedule without averaging
+        self._final_round_training = {
+            "lr_schedule": config["fdr"]["lr_schedule"],
+            "weight_averaging": config["fdr"]["weight_averaging"],
+        }
 
         self._dia_cycle = dia_cycle
         self._feature_matrix_path = feature_matrix_path
@@ -192,6 +197,12 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"competitive: {competitive}")
 
         classifier = self.get_classifier(available_columns, version)
+        if fdr.FINAL_ROUND_FEATURE in available_columns:
+            classifier.configure_training(**self._final_round_training)
+        else:
+            classifier.configure_training(
+                lr_schedule=LRSchedule.CONSTANT, weight_averaging=False
+            )
         own_epochs = classifier.epochs
         if warm_start_epochs is not None and classifier.fitted:
             classifier.epochs = warm_start_epochs

@@ -42,6 +42,20 @@ _QUANTILE_SUBSAMPLE_SEED = 42
 # layer for every row, gigabytes for the 10 M+ rows of a final search.
 _PREDICT_CHUNK_ROWS = 250_000
 
+
+class LRSchedule:
+    """Learning rate schedules of `BinaryClassifierLegacyNewBatching`."""
+
+    CONSTANT = "constant"
+    # decays the learning rate along a half cosine from its start value to zero over all minibatches of the fit
+    COSINE = "cosine"
+
+    @classmethod
+    def get_values(cls) -> list[str]:
+        """All valid schedule names."""
+        return [cls.CONSTANT, cls.COSINE]
+
+
 # Best-peak training (fit with `groups`): a logistic regression on all rows picks each group's most target-like row,
 # and only those rows train the network. The other candidates of a precursor are mostly noise peaks: without them the
 # network fits about a third of the rows (final-round fit -33 % on 5 ng HeLa) and, in final-round replays with the
@@ -209,6 +223,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         *,
         experimental_hyperparameter_tuning: bool = False,
         random_state: int | None = None,
+        lr_schedule: str = LRSchedule.CONSTANT,
+        weight_averaging: bool = False,
         **kwargs,  # TODO: needed?
     ):
         """Binary Classifier using a feed forward neural network.
@@ -271,6 +287,11 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.metric_interval = metric_interval
         self.feature_transform = feature_transform
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
+        self.lr_schedule = LRSchedule.CONSTANT
+        self.weight_averaging = False
+        self.configure_training(
+            lr_schedule=lr_schedule, weight_averaging=weight_averaging
+        )
 
         self.network = None
         self.optimizer = None
@@ -301,6 +322,30 @@ class BinaryClassifierLegacyNewBatching(Classifier):
     def fitted(self) -> bool:
         """Return whether the classifier has been fitted."""
         return self._fitted
+
+    def configure_training(
+        self, *, lr_schedule: str | None = None, weight_averaging: bool | None = None
+    ) -> None:
+        """Set the learning rate schedule and the weight averaging of the next fits; None leaves a setting as is."""
+        if lr_schedule is not None:
+            if lr_schedule not in LRSchedule.get_values():
+                raise ValueError(
+                    f"Unknown learning rate schedule: {lr_schedule}. "
+                    f"Valid options are {LRSchedule.get_values()}"
+                )
+            self.lr_schedule = lr_schedule
+        if weight_averaging is not None:
+            self.weight_averaging = weight_averaging
+
+    def _lr_scheduler(
+        self, optimizer: optim.Optimizer, num_steps: int
+    ) -> optim.lr_scheduler.LRScheduler:
+        """The learning rate scheduler of a fit with `num_steps` minibatches, stepped once per minibatch."""
+        if getattr(self, "lr_schedule", LRSchedule.CONSTANT) == LRSchedule.COSINE:
+            return optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=max(1, num_steps), eta_min=0.0
+            )
+        return optim.lr_scheduler.LambdaLR(optimizer, lambda _: 1.0)
 
     def to_state_dict(self) -> dict:
         """Save the state of the classifier as a dictionary.
@@ -555,6 +600,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         batch_count = 0
 
+        scheduler = self._lr_scheduler(optimizer, num_batches * self.epochs)
+        # Running mean of the network state over the minibatches of the last epoch. Without it the
+        # last minibatches alone decide where the decision boundary in the thin 1% tail ends up.
+        averaged_state: dict[str, torch.Tensor] | None = None
+        num_averaged = 0
+        average_weights = getattr(self, "weight_averaging", False)
+
         for epoch in tqdm(range(self.epochs)):
             # shuffle batches
             order = self._np_rng.permutation(num_batches)
@@ -572,6 +624,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 self.network.zero_grad()
                 loss_value.backward()
                 optimizer.step()
+                scheduler.step()
+
+                if average_weights and epoch == self.epochs - 1:
+                    averaged_state, num_averaged = _update_average_state(
+                        averaged_state, num_averaged, self.network.state_dict()
+                    )
 
                 if batch_count % self.metric_interval == 0:
                     self.network.eval()
@@ -599,6 +657,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                     self.network.train()
 
                 batch_count += 1
+
+        if averaged_state is not None:
+            logger.info(
+                f"Using the network weights averaged over the last {num_averaged:,} minibatches"
+            )
+            self.network.load_state_dict(averaged_state)
 
         self._fitted = True
 
@@ -698,6 +762,27 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 )
                 logit[start:stop] = self.network(x_chunk).numpy()
         return logit
+
+
+def _update_average_state(
+    averaged_state: dict[str, torch.Tensor] | None,
+    num_averaged: int,
+    state: dict[str, torch.Tensor],
+) -> tuple[dict[str, torch.Tensor], int]:
+    """Add one network state to the running mean of the states.
+
+    Floating point tensors (weights, biases, batch norm running statistics) are averaged,
+    integer ones (the batch norm batch counter) take the latest value.
+    """
+    num_averaged += 1
+    if averaged_state is None:
+        return {key: value.detach().clone() for key, value in state.items()}, 1
+    for key, value in state.items():
+        if value.is_floating_point():
+            averaged_state[key] += (value.detach() - averaged_state[key]) / num_averaged
+        else:
+            averaged_state[key] = value.detach().clone()
+    return averaged_state, num_averaged
 
 
 class FeedForwardNN(nn.Module):

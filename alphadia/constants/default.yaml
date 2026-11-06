@@ -347,6 +347,13 @@ fdr:
   # "quantile" replaces every feature by its rank in the training distribution, mapped to a standard
   # normal score. This keeps extreme values inside the range the network was trained on.
   feature_transform: quantile
+  # training of the final FDR classifier (the calibration rounds always use the constant schedule without averaging).
+  # cosine + weight averaging reduce the run-to-run variation of the IDs; "constant" + false is the previous training.
+  # learning rate schedule, "constant" or "cosine" (decays from the start value to zero over all minibatches of the fit)
+  lr_schedule: cosine
+  # predict with the network weights averaged over the minibatches of the last epoch instead of the weights after
+  # the last minibatch
+  weight_averaging: true
   # write the final-round FDR feature matrix with the cross-fitted probability to fdr_features.parquet in each run's
   # quant folder, unfiltered, for offline replays of the classifier
   save_feature_matrix: false
