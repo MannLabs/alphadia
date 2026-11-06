@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import FeatureSet
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.exceptions import NoOptimizationLockTargetError
@@ -410,7 +411,10 @@ class OptimizationHandler:
             )
         else:
             precursor_w_features_df = extraction_handler.score_candidates(
-                candidates_df, self._dia_data, self._optlock.batch_library
+                candidates_df,
+                self._dia_data,
+                self._optlock.batch_library,
+                FeatureSet.Calibration,
             )
 
             precursor_quantified_df, fragments_df = (

@@ -440,3 +440,24 @@ def test_config_update_print_omits_digest_keys_if_library_provided(
     # the config itself is unchanged
     assert config_1["library_prediction"]["enzyme"] == "trypsin"
     assert config_1["library_prediction"]["precursor_len"] == [7, 35]
+
+
+@pytest.mark.parametrize(
+    "removed_key", ["use_idf_features", "candidate_context_features"]
+)
+def test_default_config_tolerates_removed_search_keys(removed_key):
+    """Test that user configs that still set a removed search key keep loading."""
+    # given
+    default_config = Config(name="default")
+    default_config.from_yaml(
+        os.path.join(
+            os.path.dirname(__file__), "../../../alphadia/constants/default.yaml"
+        )
+    )
+    user_config = Config({"search": {removed_key: True}}, "user")
+
+    # when
+    default_config.update([user_config])
+
+    # then
+    assert removed_key not in default_config["search"]

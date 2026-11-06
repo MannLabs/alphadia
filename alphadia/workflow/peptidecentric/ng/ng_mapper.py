@@ -5,8 +5,8 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
     CandidateCollection,
-    CandidateContext,
     CandidateFeatureCollection,
+    FeatureSet,
     set_num_threads,
 )
 from alphadia_search_rs import (
@@ -16,8 +16,6 @@ from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.constants.keys import CalibCols
 from alphadia.raw_data import DiaData
-
-CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
 
 
 def set_ng_thread_count(thread_count: int) -> None:
@@ -88,87 +86,14 @@ def speclib_to_ng(
     )
 
 
-def get_feature_names() -> list[str]:
-    """Get feature names from NG CandidateFeatureCollection."""
-    return [f for f in CandidateFeatureCollection.get_feature_names()]
+def get_feature_names(feature_set: FeatureSet) -> list[str]:
+    """Get the names of the features NG scoring computes with `feature_set`."""
+    return list(CandidateFeatureCollection.get_feature_names(feature_set))
 
 
-# Rust features the FDR classifier uses only in the final round. Ion coverage: which ions co-elute with the peak (short
-# ions match by chance, long ones are specific), weighted by library or observed intensity and scored against an
-# ion-class noise model. Library agreement: whether the observed fragment intensities match the library.
-FINAL_ROUND_FEATURES = (
-    "ion_position_mean",
-    "short_ion_intensity_share",
-    "num_over_50_b_short",
-    "num_over_50_b_long",
-    "num_over_50_y_short",
-    "num_over_50_y_mid",
-    "num_over_50_y_long",
-    "num_over_50_z2",
-    "lib_share_over_50",
-    "xic_libweighted",
-    "xic_obsweighted",
-    "ion_fisher_lib",
-    "log_ratio_std",
-    "y_intensity_correlation",
-    "lib_cosine_over_50",
-    "ent_sim",
-    "ent_sim_corrweighted",
-)
-# Rust features the final-round classifier leaves out: permuting each in offline replays of the final round moved the
-# real identifications by less than 1 %, and a refit without all of them kept the real identifications level at an
-# equal or lower entrapment ratio. The bins above rank 12 never change: only the top 12 fragments are scored.
-FINAL_ROUND_UNUSED_FEATURES = (
-    "num_over_0_rank_12_17",
-    "num_over_0_rank_18_23",
-    "num_over_50_rank_12_17",
-    "num_over_50_rank_18_23",
-    "num_scans",
-    "num_over_0",
-    "num_over_50",
-    "num_over_90",
-    "num_over_95",
-    "num_over_0_rank_6_11",
-    "num_over_50_rank_6_11",
-    "num_over_50_rank_0_5",
-    "num_fragments",
-    "num_profiles",
-    "median_profile_sum_filtered",
-    "intensity_correlation",
-    "fwhm_rt",
-)
-
-
-def get_context_feature_names() -> list[str]:
-    """Get the competition and context feature names from NG CandidateContext."""
-    return list(CandidateContext.get_feature_names())
-
-
-def merge_context_features(
-    features_df: pd.DataFrame, context_features: dict[str, np.ndarray]
-) -> pd.DataFrame:
-    """Merge the output of `CandidateContext.compute()` into the scored candidates."""
-    context_df = pd.DataFrame(context_features)
-
-    # checked before the merge, so that the error can name the offending candidates
-    duplicates = context_df.loc[
-        context_df.duplicated(CANDIDATE_KEY_COLUMNS), CANDIDATE_KEY_COLUMNS
-    ]
-    if not duplicates.empty:
-        raise ValueError(
-            f"Context features contain duplicate candidates:\n"
-            f"{duplicates.to_string(index=False)}"
-        )
-
-    merged_df = features_df.merge(
-        context_df, on=CANDIDATE_KEY_COLUMNS, validate="one_to_one"
-    )
-
-    num_missing = len(features_df) - len(merged_df)
-    if num_missing > 0:
-        raise ValueError(f"Context features are missing for {num_missing} candidates")
-
-    return merged_df
+# The final-round classifier leaves fwhm_rt out: permuting it in offline replays of the final round moved the real
+# identifications by less than 1 %. It is still scored, because the precursor output reports it as the peak width.
+FINAL_ROUND_EXCLUDED_FEATURES = ("fwhm_rt",)
 
 
 def parse_candidates(

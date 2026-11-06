@@ -3,6 +3,7 @@ from functools import wraps
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import FeatureSet
 
 from alphadia.constants.keys import CalibCols
 from alphadia.outputtransform.quantification.quant_builder import (
@@ -10,10 +11,7 @@ from alphadia.outputtransform.quantification.quant_builder import (
     ION_HASH_COLUMNS,
 )
 from alphadia.reporting.reporting import Pipeline
-from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-    get_context_feature_names,
-    get_feature_names,
-)
+from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -88,32 +86,16 @@ feature_columns = [
 ]
 
 
-IDF_FEATURE_COLUMNS = (
-    "idf_hyperscore",
-    "idf_xic_dot_product",
-    "idf_intensity_dot_product",
-    "num_over_0_top6_idf",
-    "num_over_50_top6_idf",
-)
-
-
-def get_classifier_feature_columns(
-    extraction_backend: str, use_idf_features: bool
-) -> list[str]:
+def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
-    The candidate context features are always listed for the rust backend: the FDR manager
-    only uses the listed columns that the features actually carry, so the config flag that
-    computes them does not need to be repeated here.
-    The IDF features are left out unless `use_idf_features` is set.
+    For the rust backend, the full feature set; the FDR manager uses only the columns present, so calibration rounds
+    use the core subset.
     """
     if extraction_backend != "rust":
         return feature_columns
 
-    columns = get_feature_names() + get_context_feature_names()
-    if use_idf_features:
-        return columns
-    return [column for column in columns if column not in IDF_FEATURE_COLUMNS]
+    return get_feature_names(FeatureSet.Full)
 
 
 def add_library_fragment_intensity(
