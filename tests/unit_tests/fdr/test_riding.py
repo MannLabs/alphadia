@@ -14,6 +14,7 @@ def _rows(spec: list[dict]) -> pd.DataFrame:
         "fwhm_rt": 2.0,
         "rt_observed": 100.0,
         "mz_observed": 500.0,
+        riding.CHARGE_COLUMN: 2.0,
         "_decoy": 0,
     }
     rows = pd.DataFrame([defaults | s for s in spec])
@@ -64,7 +65,7 @@ def test_rider_is_explained_by_the_better_partner():
     )
 
     # when
-    share, own = _winner_and({"precursor_idx": 1, "proba": 0.4}, rider)
+    share, own, _ = _winner_and({"precursor_idx": 1, "proba": 0.4}, rider)
 
     # then
     assert share[1] == pytest.approx(1.0)
@@ -81,7 +82,7 @@ def test_real_co_eluter_keeps_its_own_evidence():
     )
 
     # when
-    share, own = _winner_and({"precursor_idx": 1, "proba": 0.4}, real)
+    share, own, _ = _winner_and({"precursor_idx": 1, "proba": 0.4}, real)
 
     # then
     assert share[1] == pytest.approx(1 / 6)
@@ -103,7 +104,7 @@ def test_no_partner_explains(other):
     rider = _fragments([400.0, 600.0], [800.0, 800.0], [1.0, 1.0])
 
     # when
-    share, _ = _winner_and(other, rider)
+    share, _, _ = _winner_and(other, rider)
 
     # then
     assert share[1] == 0
@@ -116,13 +117,55 @@ def test_within_class_keeps_decoys_from_target_partners(monkeypatch):
 
     # when
     monkeypatch.setattr(riding, "CLASS_BLIND", True)
-    blind, _ = _winner_and(other, rider)
+    blind, _, _ = _winner_and(other, rider)
     monkeypatch.setattr(riding, "CLASS_BLIND", False)
-    within, _ = _winner_and(other, rider)
+    within, _, _ = _winner_and(other, rider)
 
     # then
     assert blind[1] == pytest.approx(1.0)
     assert within[1] == 0
+
+
+@pytest.mark.parametrize(
+    ("mz", "charge", "expected"),
+    [
+        (500.0, 2.0, True),
+        (500.0 + riding.C13_SPACING / 2, 2.0, True),
+        (500.0 - riding.C13_SPACING / 3, 3.0, True),
+        (500.3, 2.0, False),
+        (500.0 + 20e-6 * 500.0, 2.0, False),
+    ],
+    ids=["same M0", "partner M+1", "own M+1 at charge 3", "other mass", "20 ppm off"],
+)
+def test_partner_precursor_flags_a_shared_ms1_signal(mz, charge, expected):
+    # given: a rider at the given precursor m/z next to the winner at 500.0 (charge 2)
+    rider = _fragments([400.0, 600.0], [800.0, 800.0], [1.0, 1.0])
+    other = {
+        "precursor_idx": 1,
+        "proba": 0.4,
+        "mz_observed": mz,
+        riding.CHARGE_COLUMN: charge,
+    }
+
+    # when
+    share, _, shares_precursor = _winner_and(other, rider)
+
+    # then: the fragment share does not depend on the precursor, the flag does
+    assert share[1] == pytest.approx(1.0)
+    assert bool(shares_precursor[1]) is expected
+
+
+def test_partner_precursor_needs_a_co_eluting_better_partner():
+    # given: the same precursor m/z, but the partner elutes elsewhere
+    rider = _fragments([400.0, 600.0], [800.0, 800.0], [1.0, 1.0])
+
+    # when
+    _, _, shares_precursor = _winner_and(
+        {"precursor_idx": 1, "proba": 0.4, "rt_observed": 120.0}, rider
+    )
+
+    # then
+    assert not shares_precursor[1]
 
 
 def test_isolation_window_skips_ms1_and_marks_outside():

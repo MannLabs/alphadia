@@ -17,10 +17,11 @@ CO_ELUTION_FWHM = 2.0
 SHARED_TOLERANCE_FACTOR = 1.0
 # A fragment co-elutes with its candidate when its profile correlates at least this much with the median profile.
 COHERENT_CORRELATION = 0.5
-# A candidate is removed when partners explain at least this share of its fragment evidence ... Set where the removal
-# of interfered false targets (ARATH entrapment, 5 ng) costs 3 % of the real ones: below ~0.1 the real losses grow
-# faster than the false removals.
-MIN_RIDING = 0.11
+# A candidate is removed when partners explain at least this share of its fragment evidence ... 0.5 is carried over
+# from an offline replay on library intensities of the top 12 fragments (class-blind, with the partner precursor
+# condition below), where it replaced fragment competition at matched entrapment; it is not re-tuned on the observed
+# evidence used here.
+MIN_RIDING = 0.5
 # ... and at most this share of the library intensity of its unshared fragments co-elutes.
 MAX_OWN_SUPPORT = 1.0
 # Only PSMs up to this pooled q-value of the first fit can be removed (None: all), which bounds the PSMs whose
@@ -28,8 +29,17 @@ MAX_OWN_SUPPORT = 1.0
 LOSER_POOLED_QVAL = None
 # Partners of either class explain a PSM; otherwise only partners of its own class (targets explain targets, decoys
 # explain decoys). At a low MIN_RIDING the class-blind rule removes far more decoys than false targets (decoys ride
-# real peaks more often), which inflates the identifications; the within-class rule keeps the decoys a fair model.
-CLASS_BLIND = False
+# real peaks more often), which inflates the identifications; at MIN_RIDING 0.5 with the partner precursor condition
+# the offline replay kept the entrapment-over-decoy ratio of the within-class rule with fragment competition.
+CLASS_BLIND = True
+# ... and, when set, only if a co-eluting better partner's precursor (M0 or M+-1, at either charge) lies within this many
+# ppm of the candidate's: the candidate's MS1 signal is then the partner's too, so nothing independent supports it.
+PARTNER_PRECURSOR_PPM = 10.0
+C13_SPACING = 1.0033548350700006
+ISOTOPE_SHIFTS = (-1, 0, 1)
+# Fragment competition after the final fit. The class-blind removal before the fit takes over its job (a rider loses
+# its fragments to the better partner), so it is off in the final round; calibration rounds keep it.
+FRAGMENT_COMPETITION = False
 TOP_K_FRAGMENTS = 12
 # a riding provider returns the library m/z, library intensity, observed intensity and correlation first
 FRAGMENT_ARRAYS = 4
@@ -41,6 +51,8 @@ PPM = 1e-6
 
 # other charge states of the same peptide share its fragments by construction, so they never explain each other
 SEQUENCE_ID_COLUMN = "_sequence_id"
+# the precursor charge, for the isotope spacing of the partner precursor condition
+CHARGE_COLUMN = "_precursor_charge"
 REQUIRED_COLUMNS = (
     "precursor_idx",
     SEQUENCE_ID_COLUMN,
@@ -49,6 +61,7 @@ REQUIRED_COLUMNS = (
     "fwhm_rt",
     CalibCols.RT_OBSERVED,
     CalibCols.MZ_OBSERVED,
+    CHARGE_COLUMN,
 )
 
 
@@ -81,6 +94,8 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
     decoy: np.ndarray,
     proba: np.ndarray,
     mz: np.ndarray,
+    precursor_mz: np.ndarray,
+    charge: np.ndarray,
     evidence: np.ndarray,
     library: np.ndarray,
     correlation: np.ndarray,
@@ -89,10 +104,12 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
     partner_stop: np.ndarray,
     tolerance_ppm: float,
     class_blind: bool,  # noqa: FBT001
-) -> tuple[np.ndarray, np.ndarray]:
+    partner_precursor_ppm: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     n, n_frag = evidence.shape
     riding = np.zeros(n, dtype=np.float32)
     own_support = np.ones(n, dtype=np.float32)
+    shares_precursor = np.zeros(n, dtype=np.bool_)
     for r in nb.prange(n):
         w = window[r]
         if w < 0:
@@ -117,6 +134,16 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
                 continue
             if abs(rt[p] - rt[r]) > CO_ELUTION_FWHM * max(fwhm[p], fwhm[r]):
                 continue
+            if not shares_precursor[r]:
+                limit = partner_precursor_ppm * PPM * precursor_mz[r]
+                delta = precursor_mz[r] - precursor_mz[p]
+                for k in ISOTOPE_SHIFTS:
+                    if (
+                        abs(delta - k * C13_SPACING / charge[p]) <= limit
+                        or abs(delta - k * C13_SPACING / charge[r]) <= limit
+                    ):
+                        shares_precursor[r] = True
+                        break
             n_shared = 0
             for f in range(n_frag):
                 match[f] = -1
@@ -163,7 +190,7 @@ def _riding(  # noqa: PLR0913, C901, PLR0912 # one array per candidate attribute
                     own_coherent += library[r, f]
         riding[r] = explained / total
         own_support[r] = own_coherent / own_library if own_library > 0 else 0.0
-    return riding, own_support
+    return riding, own_support, shares_precursor
 
 
 def isolation_window(mz: np.ndarray, cycle: np.ndarray) -> np.ndarray:
@@ -183,14 +210,15 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
     partner: np.ndarray,
     cycle: np.ndarray,
     ms2_tolerance_ppm: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Riding share and own support of every row of `rows`.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Riding share, own support and partner-precursor flag of every row of `rows`.
 
     `rows` needs REQUIRED_COLUMNS, `proba` (P(decoy)) and `_decoy`; `fragments` are the (len(rows), TOP_K_FRAGMENTS)
     library m/z (0: empty slot), library intensity, observed intensity and correlation of each row; `partner` marks the rows that can explain others. A row's
     riding share is the part of its fragment evidence that co-eluting partners with a lower proba and more evidence on
     their own fragments explain; its own support is the coherent share of the library intensity of the fragments no
-    such partner shares.
+    such partner shares; the flag marks rows with a co-eluting better partner whose precursor M0 or M+-1 lies within
+    PARTNER_PRECURSOR_PPM of the row's.
     """
     mz, library, observed, correlation = fragments
     evidence = fragment_evidence(observed, correlation, library)
@@ -209,6 +237,8 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
         rows["_decoy"].to_numpy(np.int64),
         rows["proba"].to_numpy(np.float64),
         mz,
+        rows[CalibCols.MZ_OBSERVED].to_numpy(np.float64),
+        rows[CHARGE_COLUMN].to_numpy(np.float64),
         evidence,
         library,
         correlation,
@@ -217,4 +247,5 @@ def find_riding(  # noqa: PLR0913 # the dense fragment arrays come as four array
         np.searchsorted(partner_window, np.arange(n_windows), "right"),
         SHARED_TOLERANCE_FACTOR * ms2_tolerance_ppm,
         CLASS_BLIND,
+        PARTNER_PRECURSOR_PPM if PARTNER_PRECURSOR_PPM is not None else 0.0,
     )

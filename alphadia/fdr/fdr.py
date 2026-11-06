@@ -429,7 +429,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         by_length=False,
     )
 
-    if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
+    if (
+        dia_cycle is not None
+        and dia_cycle.shape[2] <= max_dia_cycle_shape
+        and (riding.FRAGMENT_COMPETITION or not remove_riding)
+    ):
         # use a FDR of 10% as starting point
         # if there are no PSMs with a FDR < 10% use all PSMs
         # within stratum the q-values are not monotone in the sorted order, so the rows are picked by mask
@@ -772,7 +776,7 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         )
     needed = np.flatnonzero(loser | partner)
     fragments = riding_provider(psm_df.iloc[needed])
-    riding_share, own_support = riding.find_riding(
+    riding_share, own_support, shares_precursor = riding.find_riding(
         rows.iloc[needed].reset_index(drop=True),
         fragments,
         partner[needed],
@@ -785,6 +789,8 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         & (own_support <= riding.MAX_OWN_SUPPORT)
         & loser[needed]
     )
+    if riding.PARTNER_PRECURSOR_PPM is not None:
+        removed[needed] &= shares_precursor
     is_decoy = rows["_decoy"].to_numpy() == 1
     logger.info(
         f"removed {int((removed & ~is_decoy).sum()):,} target and {int((removed & is_decoy).sum()):,} decoy PSMs "

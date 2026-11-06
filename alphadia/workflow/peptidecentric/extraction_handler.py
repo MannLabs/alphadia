@@ -921,6 +921,11 @@ class NgExtractionHandler(ExtractionHandler):
         features_df[riding.SEQUENCE_ID_COLUMN] = (
             features_df["precursor_idx"].map(sequence_id).to_numpy()
         )
+        features_df[riding.CHARGE_COLUMN] = (
+            features_df["precursor_idx"]
+            .map(library_precursors["charge"])
+            .to_numpy(np.float64)
+        )
         config_fdr = self._config["fdr"]
         if mbr.KEPT_DECOY_COLUMN in library_precursors.columns:
             features_df[fdr.KEPT_DECOY_COLUMN] = (

@@ -84,6 +84,7 @@ def _fdr_inputs():
             "precursor_idx": [3, 2, 1],
             "mz_calibrated": [503.0, 502.0, 501.0],
             "sequence": ["PEPTIDEK", "SAMPLER", "PEPTIDEK"],
+            "charge": [2, 2, 3],
         }
     )
     return features_df, candidates_df, spectral_library
