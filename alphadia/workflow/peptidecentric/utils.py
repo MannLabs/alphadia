@@ -11,6 +11,8 @@ from alphadia.outputtransform.quantification.quant_builder import (
 )
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    DETECTION_CLASSIFIER_FEATURES,
+    DETECTION_PREFIX,
     MS1_CLASSIFIER_FEATURES,
     MS1_PREFIX,
     get_context_feature_names,
@@ -121,6 +123,10 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
         for name in get_feature_names() + get_context_feature_names()
         if name not in DECOY_SCHEME_FEATURES
         and (not name.startswith(MS1_PREFIX) or name in MS1_CLASSIFIER_FEATURES)
+        and (
+            not name.startswith(DETECTION_PREFIX)
+            or name in DETECTION_CLASSIFIER_FEATURES
+        )
     ]
 
 

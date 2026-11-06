@@ -29,6 +29,13 @@ MS1_CLASSIFIER_FEATURES = [
     "ms1_frag_corr",
     "ms1_iso_cosine",
 ]
+# rust fragment detection features (hits at the apex scan against each channel's flank background): the final-round
+# classifier uses these; det_llr_hits (the hit terms of det_llr alone) is the fallback if the miss terms leak
+DETECTION_PREFIX = "det_"
+DETECTION_CLASSIFIER_FEATURES = [
+    "det_llr",
+    "det_bg_surprise",
+]
 
 
 def set_ng_thread_count(thread_count: int) -> None:
@@ -163,6 +170,7 @@ def get_final_round_feature_names() -> list[str]:
         + FRAGMENT_AGREEMENT_FEATURES
         + MS1_CLASSIFIER_FEATURES
         + FRAGMENT_SHADOW_FEATURES
+        + DETECTION_CLASSIFIER_FEATURES
     )
 
 
