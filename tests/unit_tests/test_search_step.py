@@ -531,22 +531,24 @@ def test_raises_value_error_for_invalid_config(
 
 
 @pytest.mark.parametrize(
-    ("library_path", "step_name", "expect_logged"),
+    ("library_path", "step_name", "enabled", "expect_logged"),
     [
-        ("/some/library.hdf", None, True),
-        ("/some/library.hdf", "library", True),
-        ("/some/library.hdf", search_step.MBR_STEP_NAME, False),
-        (None, None, False),
+        ("/some/library.hdf", None, True, True),
+        ("/some/library.hdf", "library", True, True),
+        ("/some/library.hdf", search_step.MBR_STEP_NAME, True, False),
+        (None, None, True, False),
+        ("/some/library.hdf", None, False, False),
     ],
 )
 @patch("alphadia.search_step.LogLibrarySearchSpace")
 def test_log_library_search_space(
-    mock_log_library_search_space, library_path, step_name, expect_logged
+    mock_log_library_search_space, library_path, step_name, enabled, expect_logged
 ):
-    """Test that the library search space is only logged for a provided library and not in the MBR step."""
+    """Test that the library search space is only logged for a provided library, if enabled, and not in the MBR step."""
     step = SearchStep.__new__(SearchStep)
     step.library_path = library_path
     step._step_name = step_name
+    step._config = {"general": {"log_library_search_space": enabled}}
     step.spectral_library = MagicMock()
 
     # when

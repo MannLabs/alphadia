@@ -59,6 +59,7 @@ class ConfigKeys(metaclass=ConstantsClass):
         REUSE_QUANT_FROM="reuse_quant_from",
         FAIL_FAST="fail_fast",
         THREAD_COUNT="thread_count",
+        LOG_LIBRARY_SEARCH_SPACE="log_library_search_space",
     )
 
     LIBRARY_PREDICTION = ConstantNamespace(

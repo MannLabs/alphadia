@@ -412,9 +412,15 @@ class SearchStep:
 
         Only done if a library was provided: in this case, the in-silico digest settings are omitted from the config print
         (cf. `LIBRARY_DIGEST_KEYS`). Skipped for the MBR step, whose library is built from the identifications of the
-        previous step and is therefore not the search space.
+        previous step and is therefore not the search space, and if disabled by `general.log_library_search_space`.
         """
-        if self.library_path is None or self._step_name == MBR_STEP_NAME:
+        if (
+            self.library_path is None
+            or self._step_name == MBR_STEP_NAME
+            or not self.config[ConfigKeys.GENERAL][
+                ConfigKeys.GENERAL.LOG_LIBRARY_SEARCH_SPACE
+            ]
+        ):
             return
 
         try:

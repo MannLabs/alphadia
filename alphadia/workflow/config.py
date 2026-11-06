@@ -31,7 +31,8 @@ MULTIPLEXING_CHANNELS_DELIM = ","
 MODIFICATIONS_DELIM = ";"
 
 # settings of the in-silico digest that are not printed if a spectral library is provided, as they are not used then.
-# Instead, the search space is derived from the library and logged after loading it (cf. `LogLibrarySearchSpace`).
+# Instead, parts of the search space are derived from the library and logged after loading it (cf. `LogLibrarySearchSpace`,
+# `general.log_library_search_space`).
 LIBRARY_DIGEST_KEYS = (
     "enzyme",
     "fixed_modifications",

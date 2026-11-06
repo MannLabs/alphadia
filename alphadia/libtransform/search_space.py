@@ -1,17 +1,19 @@
-"""Derive the search space (digestion and modification settings) of a spectral library from its target precursors.
+"""Derive the search space of a spectral library from its target precursors.
 
-If a spectral library is provided, the in-silico digest settings in the config (`library_prediction.enzyme`, ...)
+If a spectral library is provided, the in-silico digest settings in the config (`library_prediction.precursor_len`, ...)
 are not used. To still document the actual search space (e.g. for ProteoBench, which parses the log),
-it is inferred from the peptide sequences of the library and logged using the same keys as the config.
+it is derived from the target precursors of the library and logged.
+
+All quantities are computed column-wise with vectorized pandas/numpy operations (no per-precursor Python code),
+as libraries can have tens of millions of precursors.
 """
 
 import logging
 import math
-import re
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
-from alphabase.protein.fasta import protease_dict
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.keys import CalibCols
@@ -19,130 +21,78 @@ from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
 
-# Candidate enzymes and the residues they cleave after (C-terminal), ordered from most to least specific.
-# Keys are names in alphabase's `protease_dict` (and valid values for `library_prediction.enzyme`).
-ENZYME_C_TERM_RESIDUES = {
-    "lys-c": "K",
-    "arg-c": "R",
-    "glu-c": "E",
-    "trypsin": "KR",
-    "chymotrypsin": "FLYWMH",
-}
-
-# minimum share of target peptides that need to end with a cleavage residue of an enzyme to infer this enzyme
-MIN_ENZYME_SPECIFICITY = 0.9
-
-UNKNOWN_ENZYME = "unknown"
-
 # precursor m/z column candidates: `precursor_mz` in alphabase libraries, renamed to `mz_library` by `InitFlatColumns`
 PRECURSOR_MZ_COLUMNS = ("precursor_mz", CalibCols.MZ_LIBRARY, "mz")
 
-N_TERM = "N-term"
-C_TERM = "C-term"
+# columns that define a modified peptide. `mod_sites` is included so that positional isomers
+# (same modifications on different residues) count as different modified peptides.
+MODIFIED_PEPTIDE_COLUMNS = ("sequence", "mods", "mod_sites")
+
+# A protein group is the `proteins` entry of a precursor, i.e. the (';'-joined) set of proteins its peptide maps to.
+# Each distinct `proteins` string is counted as one protein group. No parsimony is applied; this is the
+# search space as given by the library, not the protein groups reported after the search.
+PROTEIN_GROUP_COLUMN = "proteins"
+
+MODIFICATIONS_SEPARATOR = ";"
 
 
 @dataclass
 class LibrarySearchSpace:
-    """Search space of a spectral library, derived from its target precursors."""
+    """Search space of a spectral library, derived from its target precursors.
 
-    n_precursors: int
-    n_peptides: int
-    precursor_len: tuple[int, int]
+    Ranges are None if the respective column is missing from the library.
+    """
+
+    precursor_len: tuple[int, int] | None
     precursor_charge: tuple[int, int] | None
     precursor_mz: tuple[int, int] | None
-    enzyme: str
-    enzyme_specificity: float
-    missed_cleavages: int | None
-    missed_cleavages_distribution: dict[int, int] = field(default_factory=dict)
-    fixed_modifications: list[str] = field(default_factory=list)
-    variable_modifications: list[str] = field(default_factory=list)
-    max_var_mod_num: int = 0
+    modifications: list[str] = field(default_factory=list)
+    n_modified_peptides: int = 0
+    n_precursors: int = 0
+    n_protein_groups: int | None = None
 
 
-def _infer_enzyme(sequences: pd.Series) -> tuple[str, float]:
-    """Infer the enzyme from the C-terminal residues of the peptides.
+def _min_max(values: np.ndarray) -> tuple[float, float] | None:
+    """Get (min, max) of an array, None if it is empty."""
+    if len(values) == 0:
+        return None
+    return values.min(), values.max()
 
-    Returns the most specific enzyme for which at least `MIN_ENZYME_SPECIFICITY` of the peptides end with one of its
-    cleavage residues, and the share of peptides that do so. Note that protein C-terminal peptides do not need to end
-    with a cleavage residue, so the share is slightly below 1 also for a perfectly specific digest.
+
+def _int_min_max(values: np.ndarray) -> tuple[int, int] | None:
+    min_max = _min_max(values)
+    return None if min_max is None else (int(min_max[0]), int(min_max[1]))
+
+
+def _factorize(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Get an integer code per value and the distinct values, with missing values treated as ''.
+
+    Missing values occur e.g. as `mods` and `mod_sites` of unmodified peptides, which are '' otherwise.
     """
-    c_term_residues = sequences.str[-1]
-    for enzyme, residues in ENZYME_C_TERM_RESIDUES.items():
-        specificity = float(c_term_residues.isin(list(residues)).mean())
-        if specificity >= MIN_ENZYME_SPECIFICITY:
-            return enzyme, specificity
-
-    trypsin_specificity = float(
-        c_term_residues.isin(list(ENZYME_C_TERM_RESIDUES["trypsin"])).mean()
-    )
-    return UNKNOWN_ENZYME, trypsin_specificity
-
-
-def _count_missed_cleavages(sequences: pd.Series, enzyme: str) -> pd.Series:
-    """Count the internal cleavage sites of each peptide, using the cleavage rule of alphabase's `protease_dict`."""
-    regex = re.compile(protease_dict[enzyme])
-
-    def _count(sequence: str) -> int:
-        return sum(
-            1 for match in regex.finditer(sequence) if match.start() + 1 < len(sequence)
-        )
-
-    return sequences.map(_count)
-
-
-def _get_eligible_count(site: str, sequences: pd.Series) -> int:
-    """Get the number of positions in `sequences` that could carry a modification on `site`.
-
-    `site` is the part of the alphabase modification name after the '@', e.g. 'C', 'Any_N-term', 'Q^Any_N-term'.
-    Terminal modifications are not distinguished by 'Any' and 'Protein', i.e. a 'Protein_N-term' modification
-    is eligible on all peptide N-termini.
-    """
-    residue, _, terminus = site.rpartition("^") if "^" in site else ("", "", site)
-    if terminus.endswith(N_TERM):
-        if residue:
-            return int(sequences.str.startswith(residue).sum())
-        return len(sequences)
-    if terminus.endswith(C_TERM):
-        if residue:
-            return int(sequences.str.endswith(residue).sum())
-        return len(sequences)
-    # residue-specific modification
-    return int(sequences.str.count(re.escape(terminus)).sum())
-
-
-def _get_modifications(peptide_df: pd.DataFrame) -> tuple[list[str], list[str], int]:
-    """Classify the modifications of the peptides as fixed or variable and get the max. number of variable modifications.
-
-    A modification is considered fixed if every eligible residue (or terminus) carries it, else variable.
-    The max. number of variable modifications counts the variable modifications on one peptide, terminal ones included
-    and fixed ones never. Note that alphabase's `max_var_mod_num` leaves out terminal modifications, so this can be one
-    higher than the setting the library was built with (e.g. Acetyl@Protein_N-term on top of one Oxidation@M).
-    """
-    if "mods" not in peptide_df.columns:
-        return [], [], 0
-
-    mods_per_peptide = peptide_df["mods"].fillna("").str.split(";")
-    all_mods = mods_per_peptide.explode()
-    mod_counts = all_mods[all_mods != ""].value_counts()
-
-    fixed_mods, variable_mods = [], []
-    for mod, n_occupied in mod_counts.items():
-        site = mod.rsplit("@", 1)[-1]
-        n_eligible = _get_eligible_count(site, peptide_df["sequence"])
-        if n_occupied >= n_eligible > 0:
-            fixed_mods.append(mod)
+    codes, uniques = pd.factorize(values)
+    missing = codes < 0
+    if missing.any():
+        empty_idx = np.flatnonzero(uniques == "")
+        if len(empty_idx):
+            codes[missing] = empty_idx[0]
         else:
-            variable_mods.append(mod)
+            codes[missing] = len(uniques)
+            uniques = np.append(uniques, "")
+    return codes.astype(np.int64, copy=False), uniques
 
-    variable_mods_set = set(variable_mods)
-    n_var_mods_per_peptide = mods_per_peptide.map(
-        lambda mods: sum(1 for mod in mods if mod in variable_mods_set)
-    )
-    max_var_mod_num = (
-        int(n_var_mods_per_peptide.max()) if len(n_var_mods_per_peptide) else 0
-    )
 
-    return sorted(fixed_mods), sorted(variable_mods), max_var_mod_num
+def _combine_codes(
+    codes: np.ndarray, n_codes: int, other_codes: np.ndarray, n_other: int
+) -> tuple[np.ndarray, int]:
+    """Combine codes in [0, n_codes) and [0, n_other) into one code per row that is unique per pair of codes.
+
+    Returns the combined codes and their upper bound. Integer arithmetic only, so no strings are concatenated.
+    """
+    if n_codes * n_other >= 2**62:
+        # make the codes dense first to avoid an int64 overflow
+        codes, uniques = pd.factorize(codes)
+        n_codes = len(uniques)
+    return codes * n_other + other_codes, n_codes * n_other
 
 
 def get_library_search_space(precursor_df: pd.DataFrame) -> LibrarySearchSpace:
@@ -152,96 +102,92 @@ def get_library_search_space(precursor_df: pd.DataFrame) -> LibrarySearchSpace:
     ----------
     precursor_df : pd.DataFrame
         Precursor dataframe with at least a `sequence` column. Optional columns: `decoy` (decoys are excluded),
-        `mods`, `mod_sites`, `charge`, precursor m/z (`precursor_mz` or `mz_library`).
+        `nAA` (used for the length if present), `mods`, `mod_sites`, `charge`, precursor m/z (`precursor_mz` or
+        `mz_library`), `proteins`.
 
     Returns
     -------
     LibrarySearchSpace
         The derived search space.
     """
-    if "decoy" in precursor_df.columns:
-        precursor_df = precursor_df[precursor_df["decoy"] == 0]
+    columns = precursor_df.columns
+    target_mask = precursor_df["decoy"].to_numpy() == 0 if "decoy" in columns else None
 
-    peptide_columns = [
-        c for c in ["sequence", "mods", "mod_sites"] if c in precursor_df.columns
-    ]
-    peptide_df = precursor_df[peptide_columns].drop_duplicates()
-    sequences = precursor_df["sequence"].drop_duplicates()
+    def get_target_values(column: str) -> np.ndarray:
+        """Get the values of the target precursors, copying only this column."""
+        values = precursor_df[column].to_numpy()
+        return values if target_mask is None else values[target_mask]
 
-    sequence_lengths = sequences.str.len()
-
-    precursor_charge = (
-        (int(precursor_df["charge"].min()), int(precursor_df["charge"].max()))
-        if "charge" in precursor_df.columns
-        else None
+    sequences = get_target_values("sequence")
+    lengths = (
+        get_target_values("nAA")
+        if "nAA" in columns
+        else pd.Series(sequences, dtype=object).str.len().to_numpy()
     )
-    mz_column = next(
-        (c for c in PRECURSOR_MZ_COLUMNS if c in precursor_df.columns), None
+
+    charges = (
+        get_target_values("charge").astype(np.int64) if "charge" in columns else None
+    )
+
+    mz_column = next((c for c in PRECURSOR_MZ_COLUMNS if c in columns), None)
+    mz_min_max = (
+        _min_max(get_target_values(mz_column)) if mz_column is not None else None
     )
     precursor_mz = (
-        (
-            math.floor(precursor_df[mz_column].min()),
-            math.ceil(precursor_df[mz_column].max()),
+        None
+        if mz_min_max is None
+        else (math.floor(mz_min_max[0]), math.ceil(mz_min_max[1]))
+    )
+
+    # modified peptides: combine the integer codes of the factorized columns
+    peptide_codes, n_peptide_codes = np.zeros(len(sequences), dtype=np.int64), 1
+    modifications = []
+    for column in MODIFIED_PEPTIDE_COLUMNS:
+        if column not in columns:
+            continue
+        column_codes, uniques = _factorize(get_target_values(column))
+        peptide_codes, n_peptide_codes = _combine_codes(
+            peptide_codes, n_peptide_codes, column_codes, len(uniques)
         )
-        if mz_column is not None
+        if column == "mods":
+            # split only the distinct ';'-joined modification strings
+            mods = MODIFICATIONS_SEPARATOR.join(uniques).split(MODIFICATIONS_SEPARATOR)
+            modifications = sorted(set(mods) - {""})
+    n_modified_peptides = len(np.unique(peptide_codes))
+
+    if charges is None or len(charges) == 0:
+        n_precursors = n_modified_peptides
+    else:
+        precursor_codes, _ = _combine_codes(
+            peptide_codes, n_peptide_codes, charges, int(charges.max()) + 1
+        )
+        n_precursors = len(np.unique(precursor_codes))
+
+    n_protein_groups = (
+        len(pd.factorize(get_target_values(PROTEIN_GROUP_COLUMN))[1])
+        if PROTEIN_GROUP_COLUMN in columns
         else None
     )
 
-    enzyme, enzyme_specificity = _infer_enzyme(sequences)
-    if enzyme == UNKNOWN_ENZYME:
-        missed_cleavages, missed_cleavages_distribution = None, {}
-    else:
-        n_missed_cleavages = _count_missed_cleavages(sequences, enzyme)
-        missed_cleavages = int(n_missed_cleavages.max())
-        missed_cleavages_distribution = {
-            int(k): int(v)
-            for k, v in n_missed_cleavages.value_counts().sort_index().items()
-        }
-
-    fixed_mods, variable_mods, max_var_mod_num = _get_modifications(peptide_df)
-
     return LibrarySearchSpace(
-        n_precursors=len(precursor_df),
-        n_peptides=len(peptide_df),
-        precursor_len=(int(sequence_lengths.min()), int(sequence_lengths.max())),
-        precursor_charge=precursor_charge,
+        precursor_len=_int_min_max(lengths),
+        precursor_charge=None if charges is None else _int_min_max(charges),
         precursor_mz=precursor_mz,
-        enzyme=enzyme,
-        enzyme_specificity=enzyme_specificity,
-        missed_cleavages=missed_cleavages,
-        missed_cleavages_distribution=missed_cleavages_distribution,
-        fixed_modifications=fixed_mods,
-        variable_modifications=variable_mods,
-        max_var_mod_num=max_var_mod_num,
+        modifications=modifications,
+        n_modified_peptides=n_modified_peptides,
+        n_precursors=n_precursors,
+        n_protein_groups=n_protein_groups,
     )
 
 
 def log_library_search_space(search_space: LibrarySearchSpace) -> None:
-    """Log the search space using the keys and format of the config tree print (`library_prediction` section).
+    """Log the search space; ranges use the keys and format of the config tree print (`library_prediction` section).
 
     The log is parsed by external tools (e.g. ProteoBench), so keys and format should be kept stable.
     Free-text lines must not contain a colon or any of the keys.
     """
     logger.info("============ Library search space ============")
-    logger.info(
-        f"Derived from {search_space.n_precursors:,} target precursors "
-        f"({search_space.n_peptides:,} modified peptides) of the spectral library"
-    )
-    logger.info(
-        f"Share of peptides with a C-terminal cleavage residue of the inferred enzyme ({search_space.enzyme}) "
-        f"is {search_space.enzyme_specificity:.1%}"
-    )
-    logger.info(
-        "The enzyme is an estimate from the C-terminal residues of the peptides and not always exact "
-        "(e.g. trypsin and trypsin/P, or N-terminal cutters, cannot be told apart)"
-    )
-    logger.info(f"enzyme: {search_space.enzyme}")
-    if search_space.missed_cleavages is not None:
-        logger.info(f"missed_cleavages: {search_space.missed_cleavages}")
-        distribution = ", ".join(
-            f"{k}={v:,}" for k, v in search_space.missed_cleavages_distribution.items()
-        )
-        logger.info(f"Peptides per number of missed cleavages {distribution}")
+    logger.info("Derived from the target precursors of the spectral library")
 
     for key, min_max in [
         ("precursor_len", search_space.precursor_len),
@@ -254,16 +200,18 @@ def log_library_search_space(search_space: LibrarySearchSpace) -> None:
         for value in min_max:
             logger.info(f"    - {value}")
 
-    logger.info(f"fixed_modifications: {';'.join(search_space.fixed_modifications)}")
     logger.info(
-        f"variable_modifications: {';'.join(search_space.variable_modifications)}"
+        f"modifications: {MODIFICATIONS_SEPARATOR.join(search_space.modifications)}"
     )
-    logger.info(f"max_var_mod_num: {search_space.max_var_mod_num}")
+    logger.info(f"n_modified_peptides: {search_space.n_modified_peptides}")
+    logger.info(f"n_precursors: {search_space.n_precursors}")
+    if search_space.n_protein_groups is not None:
+        logger.info(f"n_protein_groups: {search_space.n_protein_groups}")
 
 
 class LogLibrarySearchSpace(ProcessingStep):
     def __init__(self) -> None:
-        """Log the search space (digestion and modification settings) derived from the target precursors of a library."""
+        """Log the search space (ranges, modifications and counts) derived from the target precursors of a library."""
         super().__init__()
 
     def validate(self, input: SpecLibBase) -> bool:
