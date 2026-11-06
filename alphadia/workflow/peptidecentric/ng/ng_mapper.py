@@ -29,6 +29,15 @@ MS1_CLASSIFIER_FEATURES = [
     "ms1_frag_corr",
     "ms1_iso_cosine",
 ]
+# rust unfragmented-precursor features (the precursor ion read in the candidate's own MS2 scans): the final-round
+# classifier uses all four
+NF_PREFIX = "nf_"
+NF_CLASSIFIER_FEATURES = [
+    "nf_corr",
+    "nf_log_ratio",
+    "nf_present",
+    "nf_iso_corr",
+]
 
 
 def set_ng_thread_count(thread_count: int) -> None:
@@ -149,7 +158,12 @@ FRAGMENT_AGREEMENT_FEATURES = [
 
 def get_final_round_feature_names() -> list[str]:
     """Features the FDR classifier uses only in the final round, not in the calibration rounds."""
-    return ION_IDENTITY_FEATURES + FRAGMENT_AGREEMENT_FEATURES + MS1_CLASSIFIER_FEATURES
+    return (
+        ION_IDENTITY_FEATURES
+        + FRAGMENT_AGREEMENT_FEATURES
+        + MS1_CLASSIFIER_FEATURES
+        + NF_CLASSIFIER_FEATURES
+    )
 
 
 def get_context_feature_names() -> list[str]:
