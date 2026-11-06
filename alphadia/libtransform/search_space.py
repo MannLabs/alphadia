@@ -62,7 +62,12 @@ def _min_max(values: np.ndarray) -> tuple[float, float] | None:
 def _count_proteins(protein_entries: np.ndarray | pd.Series) -> int:
     """Number of distinct proteins in ';'-joined protein entries; only the distinct entries are split."""
     entries = pd.unique(pd.Series(protein_entries).dropna())
-    proteins = pd.Series(entries, dtype=object).str.split(PROTEIN_DELIMITER).explode().str.strip()
+    proteins = (
+        pd.Series(entries, dtype=object)
+        .str.split(PROTEIN_DELIMITER)
+        .explode()
+        .str.strip()
+    )
     return int(proteins[proteins.astype(bool)].nunique())
 
 

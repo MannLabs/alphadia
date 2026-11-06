@@ -68,7 +68,7 @@ def test_get_library_search_space():
     # when
     search_space = get_library_search_space(_precursor_df())
 
-    # then
+    # then: n_proteins counts P1-P4 ('P2;P3' adds no new protein, the decoy proteins are ignored)
     assert search_space == LibrarySearchSpace(
         peptide_len=(7, 27),
         precursor_charge=(2, 4),
@@ -76,7 +76,7 @@ def test_get_library_search_space():
         modifications=["Acetyl@Protein_N-term", "Carbamidomethyl@C", "Oxidation@M"],
         n_modified_peptides=6,
         n_precursors=7,
-        n_proteins=4,  # P1-P4: 'P2;P3' adds no new protein, the decoy proteins D1 and D2 are ignored
+        n_proteins=4,
     )
 
 
