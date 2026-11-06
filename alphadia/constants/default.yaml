@@ -200,7 +200,7 @@ search:
 
   # score the MS1 isotope traces and use the MS1 features in the calibration rounds and the final round (rust backend
   # only). False searches on MS2 evidence alone.
-  ms1_features: True
+  ms1_features: False
 
   # === python backend only ===
   # exclude fragments shared between multiple channels
