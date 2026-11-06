@@ -179,3 +179,35 @@ def test_perform_fdr_and_filter_candidates_passes_train_on_best_candidate(
     # then
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["train_on_best_candidate"] is train_on_best_candidate
+
+
+@pytest.mark.parametrize(
+    ("final_round", "expected"),
+    [
+        (False, {"lr_schedule": "constant", "weight_averaging": False}),
+        (True, {"lr_schedule": "cosine", "weight_averaging": True}),
+    ],
+)
+def test_perform_fdr_and_filter_candidates_smooths_only_the_final_classifier(
+    final_round, expected
+):
+    # given: smoothing configured for the final classifier
+    def fit_predict(features_df, **kwargs):
+        return features_df.assign(qval=0.0)
+
+    handler, fdr_manager = _fdr_handler(fit_predict)
+    handler._config["fdr"].update({"lr_schedule": "cosine", "weight_averaging": True})
+    features_df, candidates_df, spectral_library = _fdr_inputs()
+
+    # when
+    handler.perform_fdr_and_filter_candidates(
+        features_df,
+        candidates_df,
+        MagicMock(name="dia_data"),
+        spectral_library,
+        df_fragments=pd.DataFrame(),
+        final_round=final_round,
+    )
+
+    # then: the calibration rounds train as before, only the final round gets the configured settings
+    assert fdr_manager.fit_predict.call_args.kwargs["classifier_training"] == expected

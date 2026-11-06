@@ -112,6 +112,7 @@ class FDRManager(BaseManager):
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
         excluded_columns: Collection[str] = (),
         train_on_best_candidate: bool = False,
+        classifier_training: dict | None = None,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -137,6 +138,9 @@ class FDRManager(BaseManager):
         train_on_best_candidate: bool
             Train the classifier only on the most target-like candidate of each precursor. Only used with
             decoy_strategy "precursor".
+        classifier_training: None | dict
+            Keyword arguments of the classifier's `configure_training` for this fit (lr_schedule, weight_averaging).
+            None leaves the classifier's settings as they are.
 
         Notes
         -----
@@ -168,6 +172,8 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"competitive: {competitive}")
 
         classifier = self.get_classifier(available_columns, version)
+        if classifier_training:
+            classifier.configure_training(**classifier_training)
         random_state = (
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
         )
