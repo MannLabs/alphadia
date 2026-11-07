@@ -243,7 +243,7 @@ def test_mid_rank_ties_centres_a_feature_that_is_mostly_zero():
     x, y = _separable_data()
     x[:, 0] = np.abs(x[:, 0]) + 1.0
     x[: int(0.9 * len(x)), 0] = 0.0
-    clamped, mid_ranked = _classifier(), _classifier(mid_rank_ties=True)
+    clamped, mid_ranked = _classifier(mid_rank_ties=False), _classifier()
 
     # When fitting the quantile transform with and without mid-ranked ties
     for classifier in (clamped, mid_ranked):
