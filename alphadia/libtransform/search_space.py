@@ -107,6 +107,84 @@ def _combine_codes(
     return codes * n_other + other_codes, n_codes * n_other
 
 
+def _get_target_values(
+    precursor_df: pd.DataFrame, column: str, target_mask: np.ndarray | None
+) -> np.ndarray:
+    """Get the values of `column` for the target precursors, copying only this column."""
+    values = precursor_df[column].to_numpy()
+    return values if target_mask is None else values[target_mask]
+
+
+def _get_peptide_len(
+    precursor_df: pd.DataFrame, target_mask: np.ndarray | None
+) -> tuple[int, int] | None:
+    """Get the peptide length range, from `nAA` if present, else from the sequences."""
+    if "nAA" in precursor_df.columns:
+        lengths = _get_target_values(precursor_df, "nAA", target_mask)
+    else:
+        sequences = _get_target_values(precursor_df, "sequence", target_mask)
+        lengths = pd.Series(sequences, dtype=object).str.len().to_numpy()
+    return _int_min_max(lengths)
+
+
+def _get_precursor_mz(
+    precursor_df: pd.DataFrame, target_mask: np.ndarray | None
+) -> tuple[int, int] | None:
+    """Get the precursor m/z range, rounded outwards to integers."""
+    mz_column = next(
+        (c for c in PRECURSOR_MZ_COLUMNS if c in precursor_df.columns), None
+    )
+    if mz_column is None:
+        return None
+    mz_min_max = _min_max(_get_target_values(precursor_df, mz_column, target_mask))
+    if mz_min_max is None:
+        return None
+    return math.floor(mz_min_max[0]), math.ceil(mz_min_max[1])
+
+
+def _get_modified_peptides(
+    precursor_df: pd.DataFrame, target_mask: np.ndarray | None
+) -> tuple[np.ndarray, int, list[str]]:
+    """Get an integer code per target precursor that identifies its modified peptide, and the distinct modifications.
+
+    The columns of `MODIFIED_PEPTIDE_COLUMNS` are factorized once each and their codes combined. The distinct
+    modifications are taken from the factorized `mods` column, so only its distinct ';'-joined strings are split.
+
+    Returns
+    -------
+    tuple[np.ndarray, int, list[str]]
+        Codes of the modified peptides, upper bound of the codes (exclusive), sorted distinct modifications.
+    """
+    n_targets = len(precursor_df) if target_mask is None else int(target_mask.sum())
+    peptide_codes, n_peptide_codes = np.zeros(n_targets, dtype=np.int64), 1
+    modifications = []
+    for column in MODIFIED_PEPTIDE_COLUMNS:
+        if column not in precursor_df.columns:
+            continue
+        column_codes, uniques = _factorize(
+            _get_target_values(precursor_df, column, target_mask)
+        )
+        peptide_codes, n_peptide_codes = _combine_codes(
+            peptide_codes, n_peptide_codes, column_codes, len(uniques)
+        )
+        if column == "mods":
+            mods = MODIFICATIONS_SEPARATOR.join(uniques).split(MODIFICATIONS_SEPARATOR)
+            modifications = sorted(set(mods) - {""})
+    return peptide_codes, n_peptide_codes, modifications
+
+
+def _count_precursors(
+    peptide_codes: np.ndarray, n_peptide_codes: int, charges: np.ndarray | None
+) -> int:
+    """Count the distinct (modified peptide, charge) combinations."""
+    if charges is None or len(charges) == 0:
+        return len(np.unique(peptide_codes))
+    precursor_codes, _ = _combine_codes(
+        peptide_codes, n_peptide_codes, charges, int(charges.max()) + 1
+    )
+    return len(np.unique(precursor_codes))
+
+
 def get_library_search_space(precursor_df: pd.DataFrame) -> LibrarySearchSpace:
     """Derive the search space from the target precursors of a spectral library.
 
@@ -125,70 +203,29 @@ def get_library_search_space(precursor_df: pd.DataFrame) -> LibrarySearchSpace:
     columns = precursor_df.columns
     target_mask = precursor_df["decoy"].to_numpy() == 0 if "decoy" in columns else None
 
-    def get_target_values(column: str) -> np.ndarray:
-        """Get the values of the target precursors, copying only this column."""
-        values = precursor_df[column].to_numpy()
-        return values if target_mask is None else values[target_mask]
-
-    sequences = get_target_values("sequence")
-    lengths = (
-        get_target_values("nAA")
-        if "nAA" in columns
-        else pd.Series(sequences, dtype=object).str.len().to_numpy()
-    )
-
     charges = (
-        get_target_values("charge").astype(np.int64) if "charge" in columns else None
-    )
-
-    mz_column = next((c for c in PRECURSOR_MZ_COLUMNS if c in columns), None)
-    mz_min_max = (
-        _min_max(get_target_values(mz_column)) if mz_column is not None else None
-    )
-    precursor_mz = (
-        None
-        if mz_min_max is None
-        else (math.floor(mz_min_max[0]), math.ceil(mz_min_max[1]))
-    )
-
-    # modified peptides: combine the integer codes of the factorized columns
-    peptide_codes, n_peptide_codes = np.zeros(len(sequences), dtype=np.int64), 1
-    modifications = []
-    for column in MODIFIED_PEPTIDE_COLUMNS:
-        if column not in columns:
-            continue
-        column_codes, uniques = _factorize(get_target_values(column))
-        peptide_codes, n_peptide_codes = _combine_codes(
-            peptide_codes, n_peptide_codes, column_codes, len(uniques)
-        )
-        if column == "mods":
-            # split only the distinct ';'-joined modification strings
-            mods = MODIFICATIONS_SEPARATOR.join(uniques).split(MODIFICATIONS_SEPARATOR)
-            modifications = sorted(set(mods) - {""})
-    n_modified_peptides = len(np.unique(peptide_codes))
-
-    if charges is None or len(charges) == 0:
-        n_precursors = n_modified_peptides
-    else:
-        precursor_codes, _ = _combine_codes(
-            peptide_codes, n_peptide_codes, charges, int(charges.max()) + 1
-        )
-        n_precursors = len(np.unique(precursor_codes))
-
-    n_proteins = (
-        _count_proteins(get_target_values(PROTEIN_COLUMN))
-        if PROTEIN_COLUMN in columns
+        _get_target_values(precursor_df, "charge", target_mask).astype(np.int64)
+        if "charge" in columns
         else None
+    )
+    peptide_codes, n_peptide_codes, modifications = _get_modified_peptides(
+        precursor_df, target_mask
     )
 
     return LibrarySearchSpace(
-        peptide_len=_int_min_max(lengths),
+        peptide_len=_get_peptide_len(precursor_df, target_mask),
         precursor_charge=None if charges is None else _int_min_max(charges),
-        precursor_mz=precursor_mz,
+        precursor_mz=_get_precursor_mz(precursor_df, target_mask),
         modifications=modifications,
-        n_modified_peptides=n_modified_peptides,
-        n_precursors=n_precursors,
-        n_proteins=n_proteins,
+        n_modified_peptides=len(np.unique(peptide_codes)),
+        n_precursors=_count_precursors(peptide_codes, n_peptide_codes, charges),
+        n_proteins=(
+            _count_proteins(
+                _get_target_values(precursor_df, PROTEIN_COLUMN, target_mask)
+            )
+            if PROTEIN_COLUMN in columns
+            else None
+        ),
     )
 
 
