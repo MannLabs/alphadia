@@ -236,3 +236,46 @@ def test_state_dict_carries_the_training_configuration():
 
     # Then the training configuration is carried over
     assert (target.lr_schedule, target.weight_averaging) == ("cosine", True)
+
+
+def test_mid_rank_ties_centres_a_feature_that_is_mostly_zero():
+    # Given a feature that is 0 (its minimum) in 90 % of the rows
+    x, y = _separable_data()
+    x[:, 0] = np.abs(x[:, 0]) + 1.0
+    x[: int(0.9 * len(x)), 0] = 0.0
+    clamped, mid_ranked = _classifier(), _classifier(mid_rank_ties=True)
+
+    # When fitting the quantile transform with and without mid-ranked ties
+    for classifier in (clamped, mid_ranked):
+        classifier._quantiles = classifier._fit_feature_transform(
+            np.ascontiguousarray(x, dtype=np.float32), seed=0
+        )
+    z_clamped = clamped._transform_features(np.ascontiguousarray(x, dtype=np.float32))
+    z_mid = mid_ranked._transform_features(np.ascontiguousarray(x, dtype=np.float32))
+
+    # Then sklearn's rule puts the zeros at the clip value, the mid rank near the middle of their group
+    assert z_clamped[0, 0] < -5.0
+    assert abs(z_mid[0, 0]) < 0.2
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"mid_rank_ties": True},
+        {"input_batch_norm": True},
+        {"mid_rank_ties": True, "input_batch_norm": True},
+    ],
+)
+def test_options_fit_separate_and_survive_the_state_dict(options):
+    # Given separable data
+    x, y = _separable_data()
+    classifier = _classifier(**options)
+
+    # When fitting, and restoring the state into a plain classifier
+    classifier.fit(x, y)
+    restored = _classifier()
+    restored.from_state_dict(classifier.to_state_dict())
+
+    # Then the classes separate and the restored classifier predicts the same
+    assert np.mean(classifier.predict(x) == y) > 0.95
+    assert np.allclose(restored.predict_proba(x), classifier.predict_proba(x))
