@@ -52,6 +52,13 @@ _Y_ION_TYPE = ord("y")
 # quantified fragments are placed into their slots in chunks of this many, which bounds the (rows, slots) comparison
 _SLOT_CHUNK = 5_000_000
 
+# Library-intensity share of a candidate's fragments with signal within one cycle of its apex (rust selection). The
+# raw-score cutoff scales with intensity, so faint candidates with most fragments present fall below it; admitting
+# those above this share as well recovered ~75 % of the cutoff losses of real precursors at +22 % candidates at 5 ng
+# (e2e/dev/analysis/FDR/first_pass_gap/FINDINGS.md).
+SELECTION_DET_SHARE = "selection_det_share"
+DET_SHARE_GATE = 0.65
+
 # The rust path never calibrates the precursor m/z (ms1_error stays at its start value), so before the MS1 features are
 # scored, a pre-pass extracts the MS1 of the best-scoring target candidates at a wide tolerance and fits the MS1
 # mass calibration on them (ms1_calibration.py).
@@ -301,13 +308,21 @@ class ExtractionHandler(ABC):
         """
         # This is filter 1
         num_before = len(candidates_df)
-        candidates_df = candidates_df[
+        above_cutoff = (
             candidates_df["score"] > self._optimization_manager.score_cutoff
-        ]
+        ).to_numpy()
+        keep = above_cutoff
+        if SELECTION_DET_SHARE in candidates_df.columns:
+            keep = (
+                keep | (candidates_df[SELECTION_DET_SHARE] > DET_SHARE_GATE).to_numpy()
+            )
+        candidates_df = candidates_df[keep]
         num_after = len(candidates_df)
         num_removed = num_before - num_after
         self._reporter.log_string(
-            f"Removed {num_removed} precursors with score below cutoff {self._optimization_manager.score_cutoff}",
+            f"Removed {num_removed} precursors with score below cutoff {self._optimization_manager.score_cutoff}"
+            f" and detection share at most {DET_SHARE_GATE} ({int((keep & ~above_cutoff).sum())} admitted by"
+            " detection share only)",
         )
         return candidates_df
 

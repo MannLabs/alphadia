@@ -206,3 +206,45 @@ def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
     assert charge[0, :3].tolist() == [2, 1, 1]
     assert (ion_type[:, 3:] == 0).all()
     assert precursor_charge.tolist() == [2, 2]
+
+
+def test_score_cutoff_also_admits_candidates_with_a_high_detection_share():
+    # given
+    handler = NgExtractionHandler(
+        {"search": {}},
+        MagicMock(score_cutoff=10.0),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+    )
+    candidates_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2, 3],
+            "score": [12.0, 8.0, 8.0, 12.0],
+            extraction_handler.SELECTION_DET_SHARE: [0.1, 0.9, 0.5, 0.9],
+        }
+    )
+
+    # when
+    kept = handler._apply_score_cutoff(candidates_df)
+
+    # then
+    assert kept["precursor_idx"].tolist() == [0, 1, 3]
+
+
+def test_score_cutoff_alone_without_the_detection_share():
+    # given
+    handler = NgExtractionHandler(
+        {"search": {}},
+        MagicMock(score_cutoff=10.0),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+    )
+    candidates_df = pd.DataFrame({"precursor_idx": [0, 1], "score": [12.0, 8.0]})
+
+    # when
+    kept = handler._apply_score_cutoff(candidates_df)
+
+    # then
+    assert kept["precursor_idx"].tolist() == [0]
