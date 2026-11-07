@@ -40,6 +40,7 @@ from alphadia.libtransform.harmonize import (
 from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
 from alphadia.libtransform.prediction import PeptDeepPrediction
+from alphadia.libtransform.search_space import LogLibrarySearchSpace
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.utils import expand_path
@@ -53,6 +54,8 @@ from alphadia.workflow.config import (
     Config,
 )
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+
+MBR_STEP_NAME = "mbr"
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
@@ -314,6 +317,7 @@ class SearchStep:
             speclib_flat.load_hdf(self.library_path)
             LogFlatLibraryStats()(speclib_flat)
             self.spectral_library = speclib_flat
+            self._log_library_search_space()
             return
 
         else:
@@ -393,6 +397,7 @@ class SearchStep:
         )
 
         self.spectral_library = prepare_pipeline(spectral_library)
+        self._log_library_search_space()
 
         if self.config["multiplexing"]["enabled"]:
             self._validate_multiplexing()
@@ -401,6 +406,27 @@ class SearchStep:
             library_path = os.path.join(self.output_folder, SPECLIB_FLAT_FILE_NAME)
             logger.info(f"Saving flat library to {library_path}")
             self.spectral_library.save_hdf(library_path)
+
+    def _log_library_search_space(self) -> None:
+        """Log the search space derived from the provided spectral library.
+
+        Only done if a library was provided: in this case, the in-silico digest settings are omitted from the config print
+        (cf. `LIBRARY_DIGEST_KEYS`). Skipped for the MBR step, whose library is built from the identifications of the
+        previous step and is therefore not the search space, and if disabled by `general.log_library_search_space`.
+        """
+        if (
+            self.library_path is None
+            or self._step_name == MBR_STEP_NAME
+            or not self.config[ConfigKeys.GENERAL][
+                ConfigKeys.GENERAL.LOG_LIBRARY_SEARCH_SPACE
+            ]
+        ):
+            return
+
+        try:
+            LogLibrarySearchSpace()(self.spectral_library)
+        except Exception as e:  # noqa: BLE001 logging must never break the search
+            logger.warning(f"Could not log library search space ({e})")
 
     def _validate_multiplexing(self):
         """Validate that the spectral library contains the required channels for multiplexing."""

@@ -528,3 +528,36 @@ def test_raises_value_error_for_invalid_config(
     with pytest.raises(TypeError, match="'str' object is not a mapping"):
         # when
         SearchStep._init_config(config1, config2, config3, "/output")
+
+
+@pytest.mark.parametrize(
+    ("library_path", "step_name", "enabled", "expect_logged"),
+    [
+        ("/some/library.hdf", None, True, True),
+        ("/some/library.hdf", "library", True, True),
+        ("/some/library.hdf", search_step.MBR_STEP_NAME, True, False),
+        (None, None, True, False),
+        ("/some/library.hdf", None, False, False),
+    ],
+)
+@patch("alphadia.search_step.LogLibrarySearchSpace")
+def test_log_library_search_space(
+    mock_log_library_search_space, library_path, step_name, enabled, expect_logged
+):
+    """Test that the library search space is only logged for a provided library, if enabled, and not in the MBR step."""
+    step = SearchStep.__new__(SearchStep)
+    step.library_path = library_path
+    step._step_name = step_name
+    step._config = {"general": {"log_library_search_space": enabled}}
+    step.spectral_library = MagicMock()
+
+    # when
+    step._log_library_search_space()
+
+    # then
+    if expect_logged:
+        mock_log_library_search_space.return_value.assert_called_once_with(
+            step.spectral_library
+        )
+    else:
+        mock_log_library_search_space.assert_not_called()
