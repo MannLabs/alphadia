@@ -319,6 +319,9 @@ fdr:
   # feature transform before the neural network, either "none" or "quantile".
   # "quantile" keeps extreme values inside the range the network was trained on.
   feature_transform: quantile
+  # implementation of the FDR classifier: "rust" (alphadia-search-rs) or "torch".
+  # "rust" trains the same network without batch norm and dropout, many times faster.
+  classifier_backend: rust
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

@@ -12,8 +12,11 @@ import torch
 
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
-from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.constants.keys import FdrClassifierBackend, FeatureTransform
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    RustMLPClassifier,
+)
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
@@ -398,12 +401,35 @@ def test_fdr_manager_fit_predict():
     os.remove(temp_path)
 
 
-def test_get_classifier_base_passes_feature_transform():
+@pytest.mark.parametrize("backend", FdrClassifierBackend.get_values())
+def test_get_classifier_base_passes_feature_transform(backend):
     # When: the base classifier is created with the quantile feature transform
-    classifier = _get_classifier_base(feature_transform=FeatureTransform.QUANTILE)
+    classifier = _get_classifier_base(
+        feature_transform=FeatureTransform.QUANTILE, classifier_backend=backend
+    )
 
     # Then: the classifier applies the transform
     assert classifier.feature_transform == FeatureTransform.QUANTILE
+
+
+def test_get_classifier_base_selects_backend():
+    # When: the base classifier is created by default and for each backend
+    default = _get_classifier_base()
+    rust = _get_classifier_base(classifier_backend=FdrClassifierBackend.RUST)
+    torch_classifier = _get_classifier_base(
+        classifier_backend=FdrClassifierBackend.TORCH
+    )
+
+    # Then: the default is the Rust classifier, and each backend gives its classifier
+    assert isinstance(default, RustMLPClassifier)
+    assert isinstance(rust, RustMLPClassifier)
+    assert isinstance(torch_classifier, BinaryClassifierLegacyNewBatching)
+
+
+def test_get_classifier_base_raises_for_unknown_backend():
+    # When / Then: an unknown backend raises
+    with pytest.raises(ValueError, match="Unknown FDR classifier backend"):
+        _get_classifier_base(classifier_backend="unknown")
 
 
 def test_fdr_manager_skips_stored_two_output_classifiers():

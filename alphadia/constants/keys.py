@@ -129,6 +129,15 @@ class FeatureTransform(metaclass=ConstantsClass):
     QUANTILE = "quantile"
 
 
+class FdrClassifierBackend(metaclass=ConstantsClass):
+    """String constants for the implementation of the FDR classifier."""
+
+    # network and feature transform computed in alphadia-search-rs
+    RUST = "rust"
+    # torch network with a sklearn feature transform
+    TORCH = "torch"
+
+
 class DecoyType(metaclass=ConstantsClass):
     """String constants for decoy generation schemes."""
 
