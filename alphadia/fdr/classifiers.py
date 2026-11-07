@@ -680,6 +680,8 @@ class RustMLPClassifier(Classifier):
         matmul_backend: str | None = None,
         lr_schedule: str = LRSchedule.CONSTANT,
         weight_averaging: bool = False,
+        input_batch_norm: bool = False,
+        mid_rank_ties: bool = False,
     ):
         """Binary classifier for FDR estimation, computed in alphadia-search-rs.
 
@@ -725,6 +727,15 @@ class RustMLPClassifier(Classifier):
             Predict with the mean of the parameters over the minibatches of the last epoch instead of the
             parameters after the last minibatch.
 
+        mid_rank_ties : bool, default=False
+            In the quantile transform, map ties at the lowest or highest quantile (e.g. a feature that is 0 in
+            most rows) to the middle of their tie group, as every other tie group, instead of clamping them to
+            the clip value of about -5.2 / +5.2 as sklearn does.
+
+        input_batch_norm : bool, default=False
+            Pass the input through a batch norm layer, as the torch classifier does: training normalizes each
+            minibatch and learns a scale and shift per feature, prediction uses the running statistics.
+
         """
         if feature_transform not in FeatureTransform.get_values():
             raise ValueError(
@@ -740,6 +751,8 @@ class RustMLPClassifier(Classifier):
         self.quantile_subsample = quantile_subsample
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
         self.matmul_backend = matmul_backend
+        self.input_batch_norm = input_batch_norm
+        self.mid_rank_ties = mid_rank_ties
         self.lr_schedule = LRSchedule.CONSTANT
         self.weight_averaging = False
         self.configure_training(
@@ -815,6 +828,7 @@ class RustMLPClassifier(Classifier):
             backend=self.matmul_backend,
             cosine_schedule=self.lr_schedule == LRSchedule.COSINE,
             average_last_epoch=self.weight_averaging,
+            input_batch_norm=self.input_batch_norm,
         )
 
     def reset(self) -> None:
@@ -871,6 +885,8 @@ class RustMLPClassifier(Classifier):
             "quantile_subsample": self.quantile_subsample,
             "lr_schedule": self.lr_schedule,
             "weight_averaging": self.weight_averaging,
+            "input_batch_norm": self.input_batch_norm,
+            "mid_rank_ties": self.mid_rank_ties,
             "params": None if self._params is None else self._params.copy(),
             "quantiles": None if self._quantiles is None else self._quantiles.copy(),
         }
@@ -895,6 +911,10 @@ class RustMLPClassifier(Classifier):
             )
         self.input_dim = state_dict["input_dim"]
         self.layers = list(state_dict["layers"])
+        # the parameter vector holds the batch norm block, so its layout is part of the state
+        self.input_batch_norm = state_dict.get("input_batch_norm", False)
+        # the transform the network was trained on
+        self.mid_rank_ties = state_dict.get("mid_rank_ties", False)
         self._params = state_dict["params"]
         self._quantiles = state_dict["quantiles"]
         if load_hyperparameters:
@@ -931,7 +951,9 @@ class RustMLPClassifier(Classifier):
         """Map every feature to a standard normal score, or return x if no transform was fitted."""
         if self._quantiles is None:
             return x
-        return fdr_quantile_transform(x, self._quantiles)
+        return fdr_quantile_transform(
+            x, self._quantiles, mid_rank_bounds=self.mid_rank_ties
+        )
 
     def _predict_logit(self, x: np.ndarray) -> np.ndarray:
         if not self.fitted:
@@ -946,4 +968,5 @@ class RustMLPClassifier(Classifier):
             hidden_layers=self.layers,
             params=self._params,
             backend=self.matmul_backend,
+            input_batch_norm=self.input_batch_norm,
         )
