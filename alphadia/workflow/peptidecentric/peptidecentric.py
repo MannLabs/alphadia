@@ -26,6 +26,7 @@ from alphadia.workflow.peptidecentric.transfer_library_requantification_handler 
 from alphadia.workflow.peptidecentric.utils import (
     add_library_fragment_intensity,
     get_classifier_feature_columns,
+    get_interference_feature_groups,
     log_precursor_df,
     use_timing_manager,
 )
@@ -114,7 +115,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
             feature_columns=get_classifier_feature_columns(
-                self._config["search"]["extraction_backend"]
+                self._config["search"]["extraction_backend"],
+                get_interference_feature_groups(self._config["search"]),
             ),
             classifier_base=_get_classifier_base(
                 enable_nn_hyperparameter_tuning=config_fdr[

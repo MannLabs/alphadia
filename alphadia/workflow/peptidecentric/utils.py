@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from functools import wraps
 
 import numpy as np
@@ -86,16 +87,61 @@ feature_columns = [
 ]
 
 
-def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
+# The interference features of the rust backend by the `search.<flag>` that adds them to the classifier. They are in
+# FeatureSet.Full only, so they only exist in the final round and never enter the calibration fits.
+INTERFERENCE_FEATURE_GROUPS = {
+    # |fitted - library| of the unit-sum fragment intensities, each fragment XIC fitted to the median elution profile
+    "fitted_spread_features": (
+        "fit_intensity_abs_diff_mean",
+        "fit_intensity_abs_diff_std",
+        "fit_intensity_abs_diff_max",
+        "fit_y_intensity_abs_diff_std",
+    ),
+    # the candidate's share of its isolation window's MS2 signal at the apex, raw and against its neighbours
+    "window_signal_share_features": (
+        "apex_window_signal_frac",
+        "apex_window_signal_frac_rank",
+        "apex_window_signal_frac_zscore",
+    ),
+}
+
+
+def get_interference_feature_groups(search_config: dict) -> list[str]:
+    """Get the interference feature groups whose `search.<group>` flag is set."""
+    return [
+        group
+        for group in INTERFERENCE_FEATURE_GROUPS
+        if search_config.get(group, False)
+    ]
+
+
+def get_classifier_feature_columns(
+    extraction_backend: str, interference_feature_groups: Collection[str] = ()
+) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
     For the rust backend, the full feature set; the FDR manager uses only the columns present, so calibration rounds
-    use the core subset.
+    use the core subset. The interference features are left out unless their group is in
+    `interference_feature_groups`.
     """
     if extraction_backend != "rust":
         return feature_columns
 
-    return get_feature_names(FeatureSet.Full)
+    unknown_groups = set(interference_feature_groups) - set(INTERFERENCE_FEATURE_GROUPS)
+    if unknown_groups:
+        raise ValueError(f"Unknown interference feature groups: {unknown_groups}")
+
+    excluded = {
+        column
+        for group, columns in INTERFERENCE_FEATURE_GROUPS.items()
+        if group not in interference_feature_groups
+        for column in columns
+    }
+    return [
+        column
+        for column in get_feature_names(FeatureSet.Full)
+        if column not in excluded
+    ]
 
 
 def add_library_fragment_intensity(
