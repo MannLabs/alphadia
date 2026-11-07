@@ -13,17 +13,13 @@ from alphadia.workflow.managers.calibration_manager import CalibrationGroups
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
+from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.library_init import init_spectral_library
-from alphadia.workflow.peptidecentric.multiplexing_requantification_handler import (
-    MultiplexingRequantificationHandler,
-)
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.transfer_library_requantification_handler import (
     TransferLibraryRequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.utils import (
-    get_classifier_feature_columns,
-    log_precursor_df,
     use_timing_manager,
 )
 
@@ -68,6 +64,9 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
 
     Each extraction backend has its own subclass, chosen by `workflow_factory.get_workflow_class`.
     """
+
+    OPTIMIZATION_HANDLER_CLASS: type[OptimizationHandler]
+    EXTRACTION_HANDLER_CLASS: type[ExtractionHandler]
 
     def __init__(
         self,
@@ -115,9 +114,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
         )
         config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
-            feature_columns=get_classifier_feature_columns(
-                self._config["search"]["extraction_backend"]
-            ),
+            feature_columns=self._classifier_feature_columns(),
             classifier_base=_get_classifier_base(
                 enable_nn_hyperparameter_tuning=config_fdr[
                     "enable_nn_hyperparameter_tuning"
@@ -139,6 +136,24 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
             self.config["search"]["channel_filter"],
         )
 
+    @abstractmethod
+    def _classifier_feature_columns(self) -> list[str]:
+        """Feature columns the FDR classifier is trained on."""
+
+    def _create_extraction_handler(self) -> ExtractionHandler:
+        """Create an extraction handler for the current calibration state."""
+        return self.EXTRACTION_HANDLER_CLASS(
+            self.config,
+            self.optimization_manager,
+            self._fdr_manager,
+            self.reporter,
+            ColumnNameHandler(
+                self.calibration_manager,
+                dia_data_has_ms1=self.dia_data.has_ms1,
+                dia_data_has_mobility=self.dia_data.has_mobility,
+            ),
+        )
+
     def _save_managers(self):
         """Saves the optimization manager to disk so that it can be reused if needed.
         Note the timing manager is not saved at this point as it is saved with every call to it.
@@ -156,7 +171,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
 
         Delegates the actual optimization to the OptimizationHandler.search_parameter_optimization(), see docstring there for more details.
         """
-        optimization_handler = OptimizationHandler(
+        optimization_handler = self.OPTIMIZATION_HANDLER_CLASS(
             self.config,
             self.optimization_manager,
             self.calibration_manager,
@@ -188,33 +203,11 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
             Precursors below the FDR threshold and their quantified fragments.
         """
 
-    @use_timing_manager("requantify")
     def requantify(self, psm_df: pd.DataFrame) -> pd.DataFrame:
-        """TODO.
-
-        Delegates to MultiplexingRequantificationHandler.requantify(), see docstring there for more details.
-        """
-
-        requantification_handler = MultiplexingRequantificationHandler(
-            self.config,
-            self.calibration_manager,
-            self._fdr_manager,
-            self.reporter,
-            ColumnNameHandler(
-                self.calibration_manager,
-                dia_data_has_ms1=self.dia_data.has_ms1,
-                dia_data_has_mobility=self.dia_data.has_mobility,
-            ),
-            self.spectral_library,
+        """Requantify the precursors across multiplexing channels."""
+        raise NotImplementedError(
+            f"Multiplexing is not supported by {type(self).__name__}."
         )
-
-        psm_df = requantification_handler.requantify(self.dia_data, psm_df)
-
-        psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
-
-        log_precursor_df(self.reporter, psm_df)
-
-        return psm_df
 
     @use_timing_manager("requantify_fragments")
     def requantify_fragments(
@@ -236,6 +229,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
                 dia_data_has_mobility=self.dia_data.has_mobility,
             ),
             self.reporter,
+            self.EXTRACTION_HANDLER_CLASS,
         )
 
         return requantification_handler.requantify(self.dia_data, psm_df)

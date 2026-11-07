@@ -36,6 +36,7 @@ class TransferLibraryRequantificationHandler:
         fdr_manager: FDRManager,
         column_name_handler: ColumnNameHandler,
         reporter: Pipeline,
+        extraction_handler_class: type[ExtractionHandler],
     ):
         self._config = config
         self._calibration_manager = calibration_manager
@@ -43,6 +44,7 @@ class TransferLibraryRequantificationHandler:
         self._optimization_manager = optimization_manager
         self._column_name_handler = column_name_handler
         self._reporter = reporter
+        self._extraction_handler_class = extraction_handler_class
 
     def requantify(
         self, dia_data: DiaData, psm_df: pd.DataFrame
@@ -99,7 +101,7 @@ class TransferLibraryRequantificationHandler:
             f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
         )
 
-        extraction_handler = ExtractionHandler.create_handler(
+        extraction_handler = self._extraction_handler_class(
             self._config,
             self._optimization_manager,
             self._fdr_manager,

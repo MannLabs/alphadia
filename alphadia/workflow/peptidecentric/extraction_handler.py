@@ -69,57 +69,6 @@ class ExtractionHandler(ABC):
 
         self._column_name_handler: ColumnNameHandler = column_name_handler
 
-    @staticmethod
-    def create_handler(
-        config: Config,
-        optimization_manager: OptimizationManager,
-        fdr_manager: FDRManager,
-        reporter: Pipeline,
-        column_name_handler: ColumnNameHandler,
-    ) -> "ExtractionHandler":
-        """Create an extraction handler based on configuration.
-
-        Parameters
-        ----------
-        config : Config
-            AlphaDIA configuration
-        optimization_manager : OptimizationManager
-            Optimization manager with current parameters
-        fdr_manager: FDRManager
-            FDR manager
-        reporter : Pipeline
-            Reporter for logging
-        column_name_handler : ColumnNameHandler
-            Column name handler for data access
-
-        Returns
-        -------
-        ExtractionHandler
-            Configured extraction handler
-
-        Raises
-        ------
-        ValueError
-            If extraction_backend is not supported
-        """
-        backend = config["search"]["extraction_backend"].lower()
-
-        reporter.log_string(f"Using {backend} extraction backend", verbosity="info")
-        if backend == "python":
-            return ClassicExtractionHandler(
-                config, optimization_manager, fdr_manager, reporter, column_name_handler
-            )
-        elif backend == "rust":
-            return NgExtractionHandler(
-                config, optimization_manager, fdr_manager, reporter, column_name_handler
-            )
-        # add implementations for other backends here
-        else:
-            raise ValueError(
-                f"Invalid extraction backend '{backend}'. "
-                "Supported backends are: 'python', 'rust'"
-            )
-
     def select_candidates(
         self,
         dia_data: "DiaData | DiaDataNG",  # noqa: F821

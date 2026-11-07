@@ -37,9 +37,9 @@ from alphadia.workflow.optimizers.targeted import (
     TargetedMS2Optimizer,
     TargetedRTOptimizer,
 )
-from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import _get_classifier_base
 from alphadia.workflow.peptidecentric.python_workflow import (
+    PythonOptimizationHandler,
     PythonPeptideCentricWorkflow,
 )
 from alphadia.workflow.peptidecentric.utils import feature_columns
@@ -491,7 +491,7 @@ def create_workflow_instance():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
-        workflow._optimization_handler = OptimizationHandler(
+        workflow._optimization_handler = PythonOptimizationHandler(
             workflow.config,
             workflow._optimization_manager,
             workflow._calibration_manager,

@@ -7,8 +7,8 @@ import pandas as pd
 import pytest
 
 from alphadia.exceptions import NoOptimizationLockTargetError
-from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.python_workflow import (
+    PythonOptimizationHandler,
     PythonPeptideCentricWorkflow,
 )
 
@@ -39,7 +39,7 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
-        instance._optimization_handler = OptimizationHandler(
+        instance._optimization_handler = PythonOptimizationHandler(
             mock_config,
             MagicMock(),
             MagicMock(),
@@ -84,7 +84,7 @@ def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
-        handler = OptimizationHandler(
+        handler = PythonOptimizationHandler(
             {"calibration": {"max_steps": 20}},
             SimpleNamespace(ms2_error=100.0),
             MagicMock(),

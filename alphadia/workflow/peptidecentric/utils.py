@@ -3,7 +3,6 @@ from functools import wraps
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphadia_search_rs import FeatureSet
 
 from alphadia.constants.keys import CalibCols
 from alphadia.outputtransform.quantification.quant_builder import (
@@ -11,7 +10,6 @@ from alphadia.outputtransform.quantification.quant_builder import (
     ION_HASH_COLUMNS,
 )
 from alphadia.reporting.reporting import Pipeline
-from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -84,18 +82,6 @@ feature_columns = [
     "mean_overlapping_intensity",
     "mean_overlapping_mass_error",
 ]
-
-
-def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
-    """Get the feature columns the FDR classifier is trained on.
-
-    For the rust backend, the full feature set; the FDR manager uses only the columns present, so calibration rounds
-    use the core subset.
-    """
-    if extraction_backend != "rust":
-        return feature_columns
-
-    return get_feature_names(FeatureSet.Full)
 
 
 def add_library_fragment_intensity(
