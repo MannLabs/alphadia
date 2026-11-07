@@ -8,7 +8,9 @@ import pytest
 
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
-from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.python_workflow import (
+    PythonPeptideCentricWorkflow,
+)
 
 
 @pytest.fixture
@@ -32,7 +34,7 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
             "correlation": [0.7, 0.5, 0.8, 0.6, 0.9, 0.95],
         }
     )
-    instance = PeptideCentricWorkflow("test_instance", mock_config)
+    instance = PythonPeptideCentricWorkflow("test_instance", mock_config)
     instance.reporter = MagicMock()
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"

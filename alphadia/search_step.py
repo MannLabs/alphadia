@@ -53,6 +53,7 @@ from alphadia.workflow.config import (
     Config,
 )
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.workflow_factory import get_workflow_class
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
@@ -578,7 +579,7 @@ class SearchStep:
                     workflow_folder_list.append(reused_folder)
                     continue
 
-                workflow = PeptideCentricWorkflow(
+                workflow = get_workflow_class(self.config)(
                     raw_name,
                     self.config,
                     quant_path=self.config[ConfigKeys.QUANT_DIRECTORY],
