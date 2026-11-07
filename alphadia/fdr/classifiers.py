@@ -681,7 +681,7 @@ class RustMLPClassifier(Classifier):
         lr_schedule: str = LRSchedule.CONSTANT,
         weight_averaging: bool = False,
         input_batch_norm: bool = False,
-        mid_rank_ties: bool = False,
+        mid_rank_ties: bool = True,
     ):
         """Binary classifier for FDR estimation, computed in alphadia-search-rs.
 
@@ -727,10 +727,12 @@ class RustMLPClassifier(Classifier):
             Predict with the mean of the parameters over the minibatches of the last epoch instead of the
             parameters after the last minibatch.
 
-        mid_rank_ties : bool, default=False
+        mid_rank_ties : bool, default=True
             In the quantile transform, map ties at the lowest or highest quantile (e.g. a feature that is 0 in
             most rows) to the middle of their tie group, as every other tie group, instead of clamping them to
-            the clip value of about -5.2 / +5.2 as sklearn does.
+            the clip value of about -5.2 / +5.2 as sklearn does. The clamp leaves such features far from a
+            standard normal; on final-round features of HeLa and Astral runs the mid rank gives 2.4-6 % more
+            identifications at 1 % FDR.
 
         input_batch_norm : bool, default=False
             Pass the input through a batch norm layer, as the torch classifier does: training normalizes each
