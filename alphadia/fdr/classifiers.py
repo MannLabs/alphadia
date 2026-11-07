@@ -9,6 +9,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
+from alphadia_search_rs import (
+    fdr_mlp_fit,
+    fdr_mlp_predict,
+    fdr_quantile_fit,
+    fdr_quantile_transform,
+)
 from sklearn.preprocessing import QuantileTransformer
 from torch import nn, optim
 from tqdm import tqdm
@@ -630,3 +636,266 @@ class FeedForwardNN(nn.Module):
     def forward(self, x: Any) -> Any:  # noqa: ANN401
         """Forward pass through the network, returning the logit of each sample."""
         return self.fc_layers(x).squeeze(1)
+
+
+class RustMLPClassifier(Classifier):
+    """Binary classifier for FDR estimation, computed in alphadia-search-rs.
+
+    The same task and training as `BinaryClassifierLegacyNewBatching`: fully connected ReLU
+    layers with one output logit, BCE-with-logits loss and Adam, on quantile-transformed
+    features. It has no batch norm (the quantile transform already standardises the input)
+    and no dropout. The feature transform and the training run in Rust on the
+    alphadia-search-rs thread pool.
+
+    All state is held as numpy arrays (quantiles and the flat network parameters), so the
+    classifier pickles and deep-copies like a plain Python object. A second `fit` continues
+    from the current parameters, as the torch classifier does.
+    """
+
+    def __init__(  # noqa: PLR0913 # Too many arguments
+        self,
+        layers: list[int] | None = None,
+        epochs: int = 10,
+        batch_size: int = 5000,
+        learning_rate: float = 0.001,
+        weight_decay: float = 0.00001,
+        feature_transform: str = FeatureTransform.QUANTILE,
+        quantile_subsample: int | None = None,
+        *,
+        experimental_hyperparameter_tuning: bool = False,
+        random_state: int | None = None,
+        matmul_backend: str | None = None,
+    ):
+        """Binary classifier for FDR estimation, computed in alphadia-search-rs.
+
+        Parameters
+        ----------
+        layers : list[int], default=[128, 64, 32]
+            Hidden layer sizes.
+
+        epochs : int, default=10
+            Number of passes over the training data.
+
+        batch_size : int, default=5000
+            Rows per optimizer step.
+
+        learning_rate : float, default=0.001
+            Adam learning rate.
+
+        weight_decay : float, default=0.00001
+            L2 penalty added to the gradient.
+
+        feature_transform : str, default="quantile"
+            Transform applied to the features before they enter the network,
+            either "none" or "quantile".
+
+        quantile_subsample : int, optional
+            Fit the quantile transform on this many random rows instead of all rows.
+
+        experimental_hyperparameter_tuning : bool, default=False
+            Scale batch size and learning rate with the number of rows, as the torch
+            classifier does.
+
+        random_state : int, optional
+            Seed for the weight initialisation, row order and quantile subsample.
+
+        matmul_backend : str, optional
+            Override the matrix multiplication backend of alphadia-search-rs
+            ("accelerate", "simd" or "gemm"). Defaults to the fastest one for the platform.
+
+        """
+        if feature_transform not in FeatureTransform.get_values():
+            raise ValueError(
+                f"Unknown feature transform: {feature_transform}. "
+                f"Valid options are {FeatureTransform.get_values()}"
+            )
+        self.layers = [128, 64, 32] if layers is None else list(layers)
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.feature_transform = feature_transform
+        self.quantile_subsample = quantile_subsample
+        self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
+        self.matmul_backend = matmul_backend
+
+        self.input_dim: int | None = None
+        self._params: np.ndarray | None = None
+        self._quantiles: np.ndarray | None = None
+        self._np_rng = np.random.default_rng(seed=random_state)
+
+    @property
+    def fitted(self) -> bool:
+        """Return whether the classifier has been fitted."""
+        return self._params is not None
+
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+        """Fit the classifier to the data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Training data of shape (n_samples, n_features).
+
+        y : np.ndarray, dtype=int
+            Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        """
+        x = np.ascontiguousarray(x, dtype=np.float32)
+        if y.ndim == 2:  # noqa: PLR2004
+            y = y[:, 1]
+        y = np.ascontiguousarray(y, dtype=np.float32)
+        seed = int(self._np_rng.integers(0, 2**31))
+
+        self._quantiles = self._fit_feature_transform(x, seed)
+        x = self._transform_features(x)
+
+        batch_size, learning_rate = self.batch_size, self.learning_rate
+        if self.experimental_hyperparameter_tuning:
+            batch_size, learning_rate = _get_scaled_training_params(x)
+
+        if self._params is not None and self.input_dim != x.shape[1]:
+            warnings.warn(
+                "Input dimension of network has changed. Network has been reinitialized."
+            )
+            self._params = None
+        self.input_dim = x.shape[1]
+
+        self._params = fdr_mlp_fit(
+            x,
+            y,
+            hidden_layers=self.layers,
+            epochs=self.epochs,
+            batch_size=int(batch_size),
+            learning_rate=float(learning_rate),
+            weight_decay=self.weight_decay,
+            seed=seed,
+            params=self._params,
+            backend=self.matmul_backend,
+        )
+
+    def reset(self) -> None:
+        """Set the classifier back to an unfitted state; the next fit starts from new random weights."""
+        self._params = None
+        self._quantiles = None
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class of the data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        y : np.ndarray, dtype=int
+            Predicted class of shape (n_samples,).
+
+        """
+        return (self._predict_logit(x) > 0).astype(int)
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class probabilities of the data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        y : np.ndarray, dtype=float
+            Predicted class probabilities of shape (n_samples, n_classes).
+
+        """
+        logit = self._predict_logit(x).astype(np.float64)
+        # in float64 the sigmoid keeps the ranking of logits far beyond where float32 rounds to 1
+        proba = 1 / (1 + np.exp(-logit))
+        return np.stack([1 - proba, proba], axis=1)
+
+    def to_state_dict(self) -> dict:
+        """Return the state of the classifier as a dictionary of plain values and numpy arrays."""
+        return {
+            "_fitted": self.fitted,
+            "input_dim": self.input_dim,
+            "layers": self.layers,
+            "epochs": self.epochs,
+            "batch_size": self.batch_size,
+            "learning_rate": self.learning_rate,
+            "weight_decay": self.weight_decay,
+            "feature_transform": self.feature_transform,
+            "quantile_subsample": self.quantile_subsample,
+            "params": None if self._params is None else self._params.copy(),
+            "quantiles": None if self._quantiles is None else self._quantiles.copy(),
+        }
+
+    def from_state_dict(
+        self, state_dict: dict, *, load_hyperparameters: bool = False
+    ) -> None:
+        """Load the state of the classifier from a dictionary written by `to_state_dict`.
+
+        Parameters
+        ----------
+        state_dict : dict
+            Dictionary containing the state of the classifier.
+
+        load_hyperparameters : bool, default=False
+            Whether to load hyperparameters from the state dict.
+
+        """
+        if "params" not in state_dict:
+            raise ValueError(
+                "State dict was not written by RustMLPClassifier, it has no 'params'."
+            )
+        self.input_dim = state_dict["input_dim"]
+        self.layers = list(state_dict["layers"])
+        self._params = state_dict["params"]
+        self._quantiles = state_dict["quantiles"]
+        if load_hyperparameters:
+            for key in (
+                "epochs",
+                "batch_size",
+                "learning_rate",
+                "weight_decay",
+                "feature_transform",
+                "quantile_subsample",
+            ):
+                setattr(self, key, state_dict[key])
+
+    def _fit_feature_transform(self, x: np.ndarray, seed: int) -> np.ndarray | None:
+        """Fit the configured feature transform; returns the quantiles or None for raw features."""
+        if self.feature_transform == FeatureTransform.NONE:
+            return None
+
+        if len(x) < _MIN_ROWS_FOR_QUANTILE_TRANSFORM:
+            logger.warning(
+                f"Only {len(x):,} rows available for the quantile feature transform "
+                f"(minimum {_MIN_ROWS_FOR_QUANTILE_TRANSFORM:,}), using the raw features instead."
+            )
+            return None
+
+        return fdr_quantile_fit(
+            x, n_quantiles=_N_QUANTILES, subsample=self.quantile_subsample, seed=seed
+        )
+
+    def _transform_features(self, x: np.ndarray) -> np.ndarray:
+        """Map every feature to a standard normal score, or return x if no transform was fitted."""
+        if self._quantiles is None:
+            return x
+        return fdr_quantile_transform(x, self._quantiles)
+
+    def _predict_logit(self, x: np.ndarray) -> np.ndarray:
+        if not self.fitted:
+            raise ValueError("Classifier has not been fitted yet.")
+        if x.ndim != 2 or x.shape[1] != self.input_dim:  # noqa: PLR2004
+            raise ValueError(
+                f"Input data must have shape (n_samples, {self.input_dim}), got {x.shape}."
+            )
+        x = self._transform_features(np.ascontiguousarray(x, dtype=np.float32))
+        return fdr_mlp_predict(
+            x,
+            hidden_layers=self.layers,
+            params=self._params,
+            backend=self.matmul_backend,
+        )
