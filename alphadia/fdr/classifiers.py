@@ -36,6 +36,19 @@ _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 _PREDICT_ROWS_CHUNK_SIZE = 250_000
 
 
+class LRSchedule:
+    """Learning rate schedules of `BinaryClassifierLegacyNewBatching`."""
+
+    CONSTANT = "constant"
+    # decays the learning rate along a half cosine from its start value to zero over all minibatches of the fit
+    COSINE = "cosine"
+
+    @classmethod
+    def get_values(cls) -> list[str]:
+        """All valid schedule names."""
+        return [cls.CONSTANT, cls.COSINE]
+
+
 class Classifier(ABC):
     """Abstract base class for classifiers.
 
@@ -665,6 +678,8 @@ class RustMLPClassifier(Classifier):
         experimental_hyperparameter_tuning: bool = False,
         random_state: int | None = None,
         matmul_backend: str | None = None,
+        lr_schedule: str = LRSchedule.CONSTANT,
+        weight_averaging: bool = False,
     ):
         """Binary classifier for FDR estimation, computed in alphadia-search-rs.
 
@@ -703,6 +718,13 @@ class RustMLPClassifier(Classifier):
             Override the matrix multiplication backend of alphadia-search-rs
             ("accelerate", "simd" or "gemm"). Defaults to the fastest one for the platform.
 
+        lr_schedule : str, default="constant"
+            Learning rate schedule, "constant" or "cosine" (half cosine from `learning_rate` to zero over the fit).
+
+        weight_averaging : bool, default=False
+            Predict with the mean of the parameters over the minibatches of the last epoch instead of the
+            parameters after the last minibatch.
+
         """
         if feature_transform not in FeatureTransform.get_values():
             raise ValueError(
@@ -718,6 +740,11 @@ class RustMLPClassifier(Classifier):
         self.quantile_subsample = quantile_subsample
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
         self.matmul_backend = matmul_backend
+        self.lr_schedule = LRSchedule.CONSTANT
+        self.weight_averaging = False
+        self.configure_training(
+            lr_schedule=lr_schedule, weight_averaging=weight_averaging
+        )
 
         self.input_dim: int | None = None
         self._params: np.ndarray | None = None
@@ -728,6 +755,20 @@ class RustMLPClassifier(Classifier):
     def fitted(self) -> bool:
         """Return whether the classifier has been fitted."""
         return self._params is not None
+
+    def configure_training(
+        self, *, lr_schedule: str | None = None, weight_averaging: bool | None = None
+    ) -> None:
+        """Set the learning rate schedule and the weight averaging of the next fits; None leaves a setting as is."""
+        if lr_schedule is not None:
+            if lr_schedule not in LRSchedule.get_values():
+                raise ValueError(
+                    f"Unknown learning rate schedule: {lr_schedule}. "
+                    f"Valid options are {LRSchedule.get_values()}"
+                )
+            self.lr_schedule = lr_schedule
+        if weight_averaging is not None:
+            self.weight_averaging = weight_averaging
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:
         """Fit the classifier to the data.
@@ -772,6 +813,8 @@ class RustMLPClassifier(Classifier):
             seed=seed,
             params=self._params,
             backend=self.matmul_backend,
+            cosine_schedule=self.lr_schedule == LRSchedule.COSINE,
+            average_last_epoch=self.weight_averaging,
         )
 
     def reset(self) -> None:
@@ -826,6 +869,8 @@ class RustMLPClassifier(Classifier):
             "weight_decay": self.weight_decay,
             "feature_transform": self.feature_transform,
             "quantile_subsample": self.quantile_subsample,
+            "lr_schedule": self.lr_schedule,
+            "weight_averaging": self.weight_averaging,
             "params": None if self._params is None else self._params.copy(),
             "quantiles": None if self._quantiles is None else self._quantiles.copy(),
         }
@@ -860,8 +905,11 @@ class RustMLPClassifier(Classifier):
                 "weight_decay",
                 "feature_transform",
                 "quantile_subsample",
+                "lr_schedule",
+                "weight_averaging",
             ):
-                setattr(self, key, state_dict[key])
+                if key in state_dict:
+                    setattr(self, key, state_dict[key])
 
     def _fit_feature_transform(self, x: np.ndarray, seed: int) -> np.ndarray | None:
         """Fit the configured feature transform; returns the quantiles or None for raw features."""

@@ -187,3 +187,52 @@ def test_hyperparameter_tuning_fits_small_data():
 
     # Then the classifier is fitted and separates the data
     assert np.mean(classifier.predict(x) == y) > 0.9
+
+
+@pytest.mark.parametrize(
+    ("lr_schedule", "weight_averaging"),
+    [("cosine", False), ("constant", True), ("cosine", True)],
+)
+def test_configured_training_changes_the_fit_and_still_separates(
+    lr_schedule, weight_averaging
+):
+    # Given separable data and the plain (constant, last parameters) fit
+    x, y = _separable_data()
+    plain = _classifier()
+    plain.fit(x, y)
+
+    # When fitting with the configured smoothing, as FDRManager sets it
+    smoothed = _classifier()
+    smoothed.configure_training(
+        lr_schedule=lr_schedule, weight_averaging=weight_averaging
+    )
+    smoothed.fit(x, y)
+
+    # Then the network differs from the plain fit and still separates the classes
+    assert not np.array_equal(smoothed._params, plain._params)
+    assert np.mean(smoothed.predict(x) == y) > 0.95
+
+
+def test_configure_training_keeps_unset_values_and_rejects_unknown_schedule():
+    # Given a classifier with the cosine schedule
+    classifier = _classifier(lr_schedule="cosine")
+
+    # When only the averaging is configured
+    classifier.configure_training(weight_averaging=True)
+
+    # Then the schedule is kept, and an unknown schedule raises
+    assert (classifier.lr_schedule, classifier.weight_averaging) == ("cosine", True)
+    with pytest.raises(ValueError, match="learning rate schedule"):
+        classifier.configure_training(lr_schedule="linear")
+
+
+def test_state_dict_carries_the_training_configuration():
+    # Given a classifier with smoothing
+    source = _classifier(lr_schedule="cosine", weight_averaging=True)
+
+    # When loading its state with hyperparameters into a plain one
+    target = _classifier()
+    target.from_state_dict(source.to_state_dict(), load_hyperparameters=True)
+
+    # Then the training configuration is carried over
+    assert (target.lr_schedule, target.weight_averaging) == ("cosine", True)
