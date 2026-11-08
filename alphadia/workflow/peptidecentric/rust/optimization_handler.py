@@ -18,23 +18,14 @@ class RustOptimizationHandler(OptimizationHandler[RustExtractionHandler]):
     def _extract_batch(
         self, extraction_handler: RustExtractionHandler
     ) -> ExtractedBatch:
-        candidates_df = extraction_handler.select_candidates(
-            self._dia_data,
-            self._optlock.batch_library,
-        )
+        candidates_df = extraction_handler.select_candidates()
 
         precursor_w_features_df = extraction_handler.score_candidates(
-            candidates_df,
-            self._dia_data,
-            self._optlock.batch_library,
-            FeatureSet.Calibration,
+            candidates_df, FeatureSet.Calibration
         )
 
         precursor_quantified_df, fragments_df = extraction_handler.quantify_candidates(
-            candidates_df,
-            None,
-            self._dia_data,
-            self._optlock.batch_library,
+            candidates_df, None
         )
 
         # in order to keep the relation between precursor_quantified_df and fragments_df, we keep the former, but merge the features from scoring
@@ -64,8 +55,6 @@ class RustOptimizationHandler(OptimizationHandler[RustExtractionHandler]):
         _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
             self._optlock.features_df,
             batch.candidates_df,
-            self._dia_data,
-            self._optlock.batch_library,
             df_fragments=self._optlock.fragments_df,
         )
         return precursor_df

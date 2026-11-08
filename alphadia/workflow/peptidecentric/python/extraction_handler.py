@@ -57,9 +57,17 @@ class PythonExtractionHandler(ExtractionHandler):
         fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
+        dia_data: DiaData,
+        spectral_library: SpecLibFlat,
     ):
         super().__init__(
-            config, optimization_manager, fdr_manager, reporter, column_name_handler
+            config,
+            optimization_manager,
+            fdr_manager,
+            reporter,
+            column_name_handler,
+            dia_data,
+            spectral_library,
         )
 
         self._selection_config = CandidateSelectionConfig()
@@ -83,11 +91,7 @@ class PythonExtractionHandler(ExtractionHandler):
             }
         )
 
-    def _select_candidates(
-        self,
-        dia_data: DiaData,  # noqa: F821
-        spectral_library: SpecLibFlat,
-    ) -> pd.DataFrame:
+    def _select_candidates(self) -> pd.DataFrame:
         """Select candidates from DIA data using CandidateSelection.
 
         See superclass documentation for interface details.
@@ -106,9 +110,9 @@ class PythonExtractionHandler(ExtractionHandler):
         )
 
         extraction = CandidateSelection(
-            dia_data,
-            spectral_library.precursor_df,
-            spectral_library.fragment_df,
+            self._dia_data,
+            self._spectral_library.precursor_df,
+            self._spectral_library.fragment_df,
             self._selection_config,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),
@@ -124,8 +128,6 @@ class PythonExtractionHandler(ExtractionHandler):
     def score_and_quantify_candidates(
         self,
         candidates_df: pd.DataFrame,
-        dia_data: DiaData,  # noqa: F821
-        spectral_library: SpecLibFlat,
         top_k_fragments: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Score and quantify candidates.
@@ -134,10 +136,6 @@ class PythonExtractionHandler(ExtractionHandler):
         ----------
         candidates_df : pd.DataFrame
             DataFrame with selected candidates
-        dia_data : DiaData
-            DIA data to extract from.
-        spectral_library : SpecLibFlat
-            Spectral library containing precursors and fragments
         top_k_fragments : int, optional
             top k fragments to use for scoring (None means default from config)
         Returns
@@ -156,9 +154,9 @@ class PythonExtractionHandler(ExtractionHandler):
         )
 
         candidate_scoring = CandidateScoring(
-            dia_data=dia_data,
-            precursors_flat=spectral_library.precursor_df,
-            fragments_flat=spectral_library.fragment_df,
+            dia_data=self._dia_data,
+            precursors_flat=self._spectral_library.precursor_df,
+            fragments_flat=self._spectral_library.fragment_df,
             config=self._scoring_config,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),
@@ -177,8 +175,6 @@ class PythonExtractionHandler(ExtractionHandler):
         self,
         candidates_df: pd.DataFrame,
         precursor_fdr_df: pd.DataFrame | None,
-        dia_data: DiaData,  # noqa: F821
-        spectral_library: SpecLibFlat,
         top_k_fragments: int | None = None,
     ) -> tuple[pd.DataFrame | None, pd.DataFrame]:
         """Quantify candidates using classic backend.
@@ -190,6 +186,6 @@ class PythonExtractionHandler(ExtractionHandler):
         del precursor_fdr_df
 
         features_df_, fragments_df = self.score_and_quantify_candidates(
-            candidates_df, dia_data, spectral_library, top_k_fragments
+            candidates_df, top_k_fragments
         )
         return None, fragments_df

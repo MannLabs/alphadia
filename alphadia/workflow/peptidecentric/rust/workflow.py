@@ -3,6 +3,7 @@
 import time
 
 import pandas as pd
+from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import DIAData as DiaDataNG
 from alphadia_search_rs import FeatureSet
 
@@ -40,13 +41,17 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
         # The FDR manager uses only the columns present, so calibration rounds use the core subset.
         return get_feature_names(FeatureSet.Full)
 
-    def _create_extraction_handler(self) -> RustExtractionHandler:
+    def _create_extraction_handler(
+        self, spectral_library: SpecLibFlat
+    ) -> RustExtractionHandler:
         return RustExtractionHandler(
             self.config,
             self.optimization_manager,
             self._fdr_manager,
             self.reporter,
             self._create_column_name_handler(),
+            self.dia_data,
+            spectral_library,
         )
 
     def _prepare_dia_data(self, dia_data: DiaData) -> DiaDataNG:
@@ -75,34 +80,25 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
 
     @use_timing_manager("extraction")
     def extraction(self) -> tuple[pd.DataFrame, pd.DataFrame]:
-        extraction_handler = self._create_extraction_handler()
+        extraction_handler = self._create_extraction_handler(self.spectral_library)
 
-        candidates_df = extraction_handler.select_candidates(
-            self.dia_data,
-            self.spectral_library,
-            apply_cutoff=True,
-        )
+        candidates_df = extraction_handler.select_candidates(apply_cutoff=True)
 
         precursor_w_features_df = extraction_handler.score_candidates(
-            candidates_df, self.dia_data, self.spectral_library, FeatureSet.Full
+            candidates_df, FeatureSet.Full
         )
 
         candidates_fdr_df, precursor_fdr_df = (
             extraction_handler.perform_fdr_and_filter_candidates(
                 precursor_w_features_df,
                 candidates_df,
-                self.dia_data,
-                self.spectral_library,
                 final_round=True,
                 train_on_best_candidate=True,
             )
         )
 
         precursor_df, fragments_df = extraction_handler.quantify_candidates(
-            candidates_fdr_df,
-            precursor_fdr_df,
-            self.dia_data,
-            self.spectral_library,
+            candidates_fdr_df, precursor_fdr_df
         )
 
         fragments_df = add_library_fragment_intensity(
