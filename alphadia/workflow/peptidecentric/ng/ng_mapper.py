@@ -22,12 +22,16 @@ CANDIDATE_KEY_COLUMNS = ["precursor_idx", "rank"]
 # library isotope abundances (IsotopeGenerator) scored against the MS1 isotope XICs
 MS1_ISOTOPE_COLUMNS = ["i_0", "i_1", "i_2", "i_3"]
 MS1_PREFIX = "ms1_"
-# the rust MS1 features the final-round classifier uses, the set validated in replay; the other four are dropped
+# the rust MS1 features the final-round classifier uses, the set validated in replay; the other four are dropped.
+# The accurate-mass shares count apex MS1 scans with M0 / M+1 close to the calibrated m/z: at low input a chance peak
+# lies somewhere in the extraction tolerance at a random peptide m/z often, so presence and co-elution alone are weak.
 MS1_CLASSIFIER_FEATURES = [
     "ms1_log_m0_apex",
     "ms1_n_isotopes",
     "ms1_frag_corr",
     "ms1_iso_cosine",
+    "ms1_m0_accurate_share",
+    "ms1_m1_accurate_share",
 ]
 # rust fragment detection features (hits at the apex scan against each channel's flank background): the final-round
 # classifier uses these; det_llr_hits (the hit terms of det_llr alone) is the fallback if the miss terms leak
