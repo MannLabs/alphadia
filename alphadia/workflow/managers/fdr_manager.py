@@ -11,7 +11,7 @@ import torch
 import xxhash
 
 import alphadia
-from alphadia.fdr import fdr
+from alphadia.fdr import fdr, joint_features
 from alphadia.fdr.classifiers import Classifier
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
@@ -67,6 +67,7 @@ class FDRManager(BaseManager):
         feature_matrix_path: str | None = None,
         decoy_multiplicity: int = 1,
         transfer_features_path: str | None = None,
+        joint_rescoring_folder: str | None = None,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -93,6 +94,8 @@ class FDRManager(BaseManager):
             Decoys per target in the searched library (see `fdr.perform_fdr_on_psms`).
         transfer_features_path: str, optional
             File to write the final-round features of the MBR transfer rows to (see `fdr.perform_fdr_on_psms`).
+        joint_rescoring_folder: str, optional
+            Folder to write the final-round joint feature files to (see `fdr.perform_fdr_on_psms`).
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
@@ -113,6 +116,7 @@ class FDRManager(BaseManager):
         self._feature_matrix_path = feature_matrix_path
         self._decoy_multiplicity = decoy_multiplicity
         self._transfer_features_path = transfer_features_path
+        self._joint_rescoring_folder = joint_rescoring_folder
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -223,6 +227,7 @@ class FDRManager(BaseManager):
                 else os.path.join(self._feature_matrix_path, FDR_FEATURES_FILE_NAME),
                 decoy_multiplicity=self._decoy_multiplicity,
                 transfer_features_path=self._transfer_features_path,
+                joint_rescoring_folder=self._joint_rescoring_folder,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -399,6 +404,14 @@ class FDRManager(BaseManager):
         else:
             classifier = self.classifier_base
         return deepcopy(classifier)
+
+    @property
+    def joint_features_written(self) -> bool:
+        """Whether the final round wrote the joint feature files of this run."""
+        return (
+            self._joint_rescoring_folder is not None
+            and joint_features.has_run_features(self._joint_rescoring_folder)
+        )
 
     @property
     def current_version(self):

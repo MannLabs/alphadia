@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.fdr import mbr_transfer
+from alphadia.constants.keys import ConfigKeys
+from alphadia.fdr import joint_features, joint_rescoring, mbr_transfer
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -114,6 +115,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             os.path.basename(self.config["library_path"] or "") == MBR_LIBRARY_FILE_NAME
         )
         self._pooled_transfers = is_mbr_step and config_fdr["mbr_pooled_transfer_model"]
+        # the multiplexing requantification refits the FDR per channel, and the python backend has no final round
+        self._joint_rescoring = (
+            config_fdr["joint_rescoring"]
+            and not is_mbr_step
+            and len(self.config.get(ConfigKeys.RAW_PATHS) or [])
+            >= joint_rescoring.MIN_RUNS
+            and not self.config["multiplexing"]["enabled"]
+            and self._config["search"]["extraction_backend"] == "rust"
+        )
+        # files of an earlier search into this folder must not reach the output step
+        joint_features.remove_run_files(self.path)
         self._fdr_manager = FDRManager(
             feature_columns=get_classifier_feature_columns(
                 self._config["search"]["extraction_backend"]
@@ -140,6 +152,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
             if self._pooled_transfers
             else None,
+            joint_rescoring_folder=self.path if self._joint_rescoring else None,
         )
 
         init_spectral_library(
@@ -279,6 +292,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     self.dia_data,
                     self.spectral_library,
                     keep_transfers=self._pooled_transfers,
+                    keep_for_joint_rescoring=self._joint_rescoring,
                 )
             )
 

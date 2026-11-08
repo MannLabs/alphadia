@@ -8,7 +8,7 @@ import torch
 from scipy.stats import norm
 
 from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr import classifiers, fdr
+from alphadia.fdr import classifiers, fdr, joint_features
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
 
@@ -934,3 +934,42 @@ def test_decoy_ecdf_alignment_puts_a_stretched_fold_with_tied_decoys_on_the_comm
     # then: the competition-winning decoys get the same aligned scores in both folds
     winning = decoy & ~losing
     np.testing.assert_allclose(first[winning], second[winning], atol=1e-5)
+
+
+def test_perform_fdr_on_psms_writes_the_joint_features_without_changing_the_result(
+    tmp_path,
+):
+    # given: final-round PSMs of which 0 and 1 share their fragments
+    target_df, decoy_df = _gen_competing_psms()
+    df = pd.concat([target_df, decoy_df], ignore_index=True)
+    df[fdr.FINAL_ROUND_FEATURE] = df["feature"]
+
+    def run(joint_rescoring_folder):
+        return fdr.perform_fdr_on_psms(
+            _CollapsingClassifier(n_collapses=0),
+            ["feature", fdr.FINAL_ROUND_FEATURE],
+            df,
+            df["decoy"].to_numpy() == 1,
+            fragment_provider=_fragments_of,
+            dia_cycle=_DIA_CYCLE,
+            random_state=0,
+            joint_rescoring_folder=joint_rescoring_folder,
+        )
+
+    # when
+    without = run(None)
+    with_joint = run(str(tmp_path))
+
+    # then: the PSMs are the same as without the joint features
+    pd.testing.assert_frame_equal(with_joint, without)
+    # and every row is written, with the one that lost its fragments marked
+    ids = joint_features.read_ids(str(tmp_path))
+    assert len(ids) == len(df)
+    assert joint_features.feature_columns(str(tmp_path)) == [
+        "feature",
+        fdr.FINAL_ROUND_FEATURE,
+    ]
+    lost = ids.loc[ids["lost"], "precursor_idx"].tolist()
+    assert len(lost) == 1
+    assert lost[0] in (0, 1)
+    assert lost[0] not in without["precursor_idx"].tolist()

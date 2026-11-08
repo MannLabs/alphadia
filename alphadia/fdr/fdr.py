@@ -16,7 +16,12 @@ import torch
 
 from alphadia.constants.keys import CalibCols
 from alphadia.exceptions import TooFewPSMError
-from alphadia.fdr import fragment_features, raw_fragment_features, riding
+from alphadia.fdr import (
+    fragment_features,
+    joint_features,
+    raw_fragment_features,
+    riding,
+)
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import (
     MAX_FDR_TORCH_THREADS,
@@ -81,6 +86,8 @@ DUMP_ID_COLUMNS = [
     KEPT_DECOY_COLUMN,
     TRANSFER_COLUMN,
 ]
+# position of a final-round row in the run's joint feature file, carried through the fragment competition
+JOINT_ROW_COLUMN = "_joint_row"
 # weight of the anchor-aligned probability that orders the rows within one step of the decoy ECDF
 DECOY_ECDF_TIEBREAK = 1e-6
 
@@ -182,6 +189,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     dump_path: str | None = None,
     decoy_multiplicity: int = 1,
     transfer_features_path: str | None = None,
+    joint_rescoring_folder: str | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
@@ -252,6 +260,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     transfer_features_path : str, optional
         In the final round, the rows of `TRANSFER_COLUMN` are written there like `dump_path` writes all rows.
+
+    joint_rescoring_folder : str, optional
+        In the final round, every row's features, identity columns and cross-fitted probability, and which rows lost
+        the fragment competition, are written to the joint feature files (`joint_features`) in this folder.
 
     Returns
     -------
@@ -409,6 +421,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
                 crossfit[0][transfer],
                 predicted_proba[transfer],
             )
+        if joint_rescoring_folder is not None:
+            joint_features.write_run_features(
+                joint_rescoring_folder, psm_df, X, x_columns, predicted_proba
+            )
     else:
         predicted_proba = _fit_predict(classifier, X, y_train, idxs_train, groups)
     del X
@@ -420,6 +436,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         )
 
     psm_df["proba"] = predicted_proba
+    joint_lost = None
+    if final_round and joint_rescoring_folder is not None:
+        joint_lost = np.zeros(len(psm_df), dtype=bool)
+        psm_df[JOINT_ROW_COLUMN] = np.arange(len(psm_df))
     psm_df = get_q_values_by_length(
         psm_df,
         "proba",
@@ -446,7 +466,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
                 raise ValueError(
                     "dia_cycle must be provided if df_fragments is provided"
                 )
-            psm_df = compete_for_fragments(psm_df[competing], df_fragments, dia_cycle)
+            competed = psm_df[competing]
+            psm_df = compete_for_fragments(competed, df_fragments, dia_cycle)
+            if joint_lost is not None:
+                joint_lost[competed[JOINT_ROW_COLUMN].to_numpy()] = True
+                joint_lost[psm_df[JOINT_ROW_COLUMN].to_numpy()] = False
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values_by_length(
@@ -456,6 +480,9 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         decoy_weight_column=DECOY_WEIGHT_COLUMN,
         stratum_column=stratum_column,
     )
+    if joint_lost is not None:
+        joint_features.write_fragcomp_lost(joint_rescoring_folder, joint_lost)
+        psm_df = psm_df.drop(columns=JOINT_ROW_COLUMN)
 
     if figure_path is not None:
         plot_fdr(

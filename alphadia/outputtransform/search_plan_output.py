@@ -13,7 +13,7 @@ from alphadia.constants.keys import (
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
-from alphadia.fdr import mbr_transfer
+from alphadia.fdr import joint_features, joint_rescoring, mbr_transfer
 from alphadia.libtransform.mbr import FRAGMENT_COLUMNS, MbrLibraryBuilder
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
@@ -317,6 +317,9 @@ class SearchPlanOutput:
         if len(psm_df) == 0:
             raise NoPSMFoundError()
 
+        if self.config["fdr"].get("joint_rescoring", False):
+            psm_df = self._rescore_jointly(psm_df, folder_list)
+
         if self.config["fdr"].get("mbr_pooled_transfer_model", False):
             psm_df = self._rescore_mbr_transfers(psm_df, folder_list)
 
@@ -500,6 +503,39 @@ class SearchPlanOutput:
                 )
 
         return lfq_results
+
+    def _rescore_jointly(
+        self, psm_df: pd.DataFrame, folder_list: list[str]
+    ) -> pd.DataFrame:
+        """Rescore the first-search precursors of the runs that wrote joint features (`joint_rescoring`) and restrict
+        each such run's PSM and fragment tables to the PSMs that pass."""
+        config_fdr = self.config["fdr"]
+        random_state = self.config["general"].get("random_state")
+        group_columns = (
+            ["elution_group_idx", "channel"]
+            if config_fdr.get("competitive_scoring", True)
+            else ["precursor_idx"]
+        )
+        psm_df, rescored_folders = joint_rescoring.rescore(
+            psm_df.reset_index(drop=True),
+            folder_list,
+            config_fdr,
+            group_columns,
+            # null (the default) and -1 both mean no fixed random state
+            random_state=None
+            if random_state is None or random_state < 0
+            else random_state,
+        )
+        for folder in rescored_folders:
+            mbr_transfer.restrict_run_outputs(
+                folder,
+                psm_df[psm_df["run"] == os.path.basename(os.path.normpath(folder))],
+                f"{self.PSM_INPUT}.parquet",
+                SearchStepFiles.FRAG_FILE_NAME,
+            )
+            if not config_fdr.get("save_feature_matrix", False):
+                joint_features.remove_run_files(folder)
+        return psm_df
 
     def _rescore_mbr_transfers(
         self, psm_df: pd.DataFrame, folder_list: list[str]

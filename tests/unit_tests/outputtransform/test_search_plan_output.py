@@ -7,6 +7,7 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import InferenceStrategy, NormalizationMethods
+from alphadia.fdr import joint_features, joint_rescoring
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
@@ -257,3 +258,53 @@ def test_merge_quant_levels_to_psm_merges_all_levels():
         }
     )
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_rescore_jointly_restricts_the_run_outputs_and_removes_the_joint_files(
+    tmp_path, monkeypatch
+):
+    # given: two runs with joint features, PSM and fragment tables
+    folders = [str(tmp_path / f"run_{i}") for i in range(2)]
+    psm_df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2, 1, 2],
+            "run": ["run_0", "run_0", "run_1", "run_1"],
+            "qval": [0.0, 0.03, 0.0, 0.03],
+        }
+    )
+    for folder in folders:
+        os.makedirs(folder)
+        open(joint_features.features_path(folder), "w").close()
+        pd.DataFrame({"precursor_idx": [1, 1, 2]}).to_parquet(
+            os.path.join(folder, "frag.parquet")
+        )
+    received = {}
+
+    def rescore(psm_df, folder_list, config_fdr, group_columns, random_state):
+        received["group_columns"] = group_columns
+        received["random_state"] = random_state
+        return psm_df[psm_df["precursor_idx"] == 1], folder_list
+
+    monkeypatch.setattr(joint_rescoring, "rescore", rescore)
+    config = {
+        "general": {"save_figures": False, "random_state": -1},
+        "fdr": {"joint_rescoring": True, "competitive_scoring": True},
+    }
+
+    # when
+    out = SearchPlanOutput(config, str(tmp_path))._rescore_jointly(psm_df, folders)
+
+    # then: the passing PSMs and their fragments are written back, the joint files removed
+    assert out["precursor_idx"].tolist() == [1, 1]
+    assert received == {
+        "group_columns": ["elution_group_idx", "channel"],
+        "random_state": None,
+    }
+    for folder in folders:
+        assert pd.read_parquet(os.path.join(folder, "psm.parquet"))[
+            "precursor_idx"
+        ].tolist() == [1]
+        assert pd.read_parquet(os.path.join(folder, "frag.parquet"))[
+            "precursor_idx"
+        ].tolist() == [1, 1]
+        assert not joint_features.has_run_features(folder)

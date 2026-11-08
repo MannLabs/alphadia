@@ -15,7 +15,7 @@ from alphadia_search_rs import (
 )
 
 from alphadia.constants.keys import CalibCols
-from alphadia.fdr import fdr, raw_fragment_features, riding
+from alphadia.fdr import fdr, joint_rescoring, raw_fragment_features, riding
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.libtransform import mbr
 from alphadia.raw_data import DiaData
@@ -403,6 +403,7 @@ class ExtractionHandler(ABC):
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
         keep_transfers: bool = False,
+        keep_for_joint_rescoring: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -431,6 +432,10 @@ class ExtractionHandler(ABC):
 
         keep_transfers : bool, optional
             Keep the MBR transfer rows (`fdr.TRANSFER_COLUMN`) whatever their q-value, for the output step to rescore.
+
+        keep_for_joint_rescoring : bool, optional
+            If the final round wrote the joint feature files, keep the precursors up to `joint_rescoring.keep_qval`
+            instead of the configured FDR, for the joint rescoring of the output step.
 
         Returns
         -------
@@ -906,6 +911,7 @@ class NgExtractionHandler(ExtractionHandler):
         df_fragments: pd.DataFrame | None = None,
         warm_start_epochs: int | None = None,
         keep_transfers: bool = False,
+        keep_for_joint_rescoring: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -1025,7 +1031,10 @@ class NgExtractionHandler(ExtractionHandler):
             raw_fragment_provider=raw_fragment_values,
             ms2_tolerance_ppm=self._optimization_manager.ms2_error,
         )
-        accepted = precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
+        qval_cutoff = self._config["fdr"]["fdr"]
+        if keep_for_joint_rescoring and self._fdr_manager.joint_features_written:
+            qval_cutoff = joint_rescoring.keep_qval(qval_cutoff)
+        accepted = precursor_fdr_df["qval"] <= qval_cutoff
         if keep_transfers and fdr.TRANSFER_COLUMN in precursor_fdr_df.columns:
             # rescored over all runs in the output step, which needs them quantified whatever their q-value here
             accepted |= precursor_fdr_df[fdr.TRANSFER_COLUMN] == 1

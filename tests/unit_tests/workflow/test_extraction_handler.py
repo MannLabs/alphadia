@@ -155,6 +155,35 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
     assert kwargs["fragment_provider"] is None
 
 
+@pytest.mark.parametrize(
+    ("keep_for_joint_rescoring", "written", "expected"),
+    [(True, True, [1, 2]), (True, False, [1]), (False, True, [1])],
+)
+def test_perform_fdr_and_filter_candidates_keeps_precursors_for_the_joint_rescoring(
+    keep_for_joint_rescoring, written, expected
+):
+    # given: precursors at q 0, 3 % and 20 %
+    def fit_predict(features_df, **kwargs):
+        return features_df.assign(qval=[0.0, 0.03, 0.2])
+
+    handler, fdr_manager = _fdr_handler(fit_predict)
+    fdr_manager.joint_features_written = written
+    features_df, candidates_df, spectral_library = _fdr_inputs()
+
+    # when
+    with patch.object(handler, "quantify_candidates", return_value=(None, None)):
+        _, precursor_fdr_df = handler.perform_fdr_and_filter_candidates(
+            features_df,
+            candidates_df,
+            MagicMock(),
+            spectral_library,
+            keep_for_joint_rescoring=keep_for_joint_rescoring,
+        )
+
+    # then: up to q 5 % only if the final round wrote the joint features, else up to the configured 1 %
+    assert precursor_fdr_df["precursor_idx"].tolist() == expected
+
+
 def test_riding_fragments_selects_top_library_fragments_and_fills_missing():
     # given: precursor 7 with five library fragments (one y1, one without intensity), quantified at rank 0 and 1
     spectral_library = MagicMock(name="spectral_library")
