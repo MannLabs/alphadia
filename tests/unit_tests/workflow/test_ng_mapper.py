@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
-from alphadia.workflow.peptidecentric.ng.ng_mapper import to_features_df
+from alphadia.workflow.peptidecentric.rust.ng_mapper import to_features_df
 
 
 def test_to_features_df_sets_the_library_mz_as_observed_mz():
