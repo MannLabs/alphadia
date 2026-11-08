@@ -179,3 +179,65 @@ def test_perform_fdr_and_filter_candidates_passes_train_on_best_candidate(
     # then
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["train_on_best_candidate"] is train_on_best_candidate
+
+
+@pytest.mark.parametrize(
+    ("max_qval", "expected_precursors"), [(None, [1]), (0.1, [1, 2])]
+)
+def test_perform_fdr_and_filter_candidates_removes_precursors_above_max_qval(
+    max_qval, expected_precursors
+):
+    """Test that the precursors are filtered at max_qval, or at fdr.fdr without it."""
+
+    # given
+    def fit_predict(features_df, **kwargs):
+        return features_df.assign(qval=[0.005, 0.05, 0.5])
+
+    handler, _ = _fdr_handler(fit_predict)
+    features_df, candidates_df, spectral_library = _fdr_inputs()
+
+    # when
+    candidates_filtered, precursor_fdr_df = handler.perform_fdr_and_filter_candidates(
+        features_df,
+        candidates_df,
+        MagicMock(),
+        spectral_library,
+        df_fragments=pd.DataFrame(),
+        max_qval=max_qval,
+    )
+
+    # then
+    assert precursor_fdr_df["precursor_idx"].tolist() == expected_precursors
+    assert candidates_filtered["precursor_idx"].tolist() == expected_precursors
+
+
+@pytest.mark.parametrize(
+    ("max_qval", "expected_fdr_heuristic"), [(None, 0.1), (0.05, 0.1), (0.2, 0.2)]
+)
+def test_perform_fdr_and_filter_candidates_keeps_the_qvals_up_to_max_qval_in_fragment_competition(
+    max_qval, expected_fdr_heuristic
+):
+    """Test that a max_qval above the fragment competition heuristic raises it."""
+
+    # given
+    def fit_predict(features_df, **kwargs):
+        return features_df.assign(qval=0.0)
+
+    handler, fdr_manager = _fdr_handler(fit_predict)
+    features_df, candidates_df, spectral_library = _fdr_inputs()
+
+    # when
+    handler.perform_fdr_and_filter_candidates(
+        features_df,
+        candidates_df,
+        MagicMock(),
+        spectral_library,
+        df_fragments=pd.DataFrame(),
+        max_qval=max_qval,
+    )
+
+    # then
+    assert (
+        fdr_manager.fit_predict.call_args.kwargs["fdr_heuristic"]
+        == expected_fdr_heuristic
+    )

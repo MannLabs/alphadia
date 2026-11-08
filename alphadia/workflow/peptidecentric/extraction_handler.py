@@ -13,6 +13,7 @@ from alphadia_search_rs import (
 )
 
 from alphadia.constants.keys import CalibCols
+from alphadia.fdr.fdr import FDR_HEURISTIC
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
@@ -281,6 +282,8 @@ class ExtractionHandler(ABC):
         df_fragments: pd.DataFrame | None = None,
         final_round: bool = False,
         train_on_best_candidate: bool = False,
+        max_qval: float | None = None,
+        max_train_samples: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -308,6 +311,13 @@ class ExtractionHandler(ABC):
             Whether this is the FDR of the final search, which leaves `FINAL_ROUND_EXCLUDED_FEATURES` out.
         train_on_best_candidate : bool, optional
             Train the classifier only on the most target-like candidate of each precursor.
+
+        max_qval : float, optional
+            Precursors with a higher q-value are removed. Defaults to `fdr.fdr`. Above `FDR_HEURISTIC`, it also
+            raises the FDR below which PSMs enter fragment competition, so that their q-values are kept.
+
+        max_train_samples : int, optional
+            Fit the classifier on a random subset of at most this many training rows.
 
         Returns
         -------
@@ -703,6 +713,8 @@ class NgExtractionHandler(ExtractionHandler):
         df_fragments: pd.DataFrame | None = None,
         final_round: bool = False,
         train_on_best_candidate: bool = False,
+        max_qval: float | None = None,
+        max_train_samples: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -737,10 +749,14 @@ class NgExtractionHandler(ExtractionHandler):
             version=self._optimization_manager.classifier_version,
             excluded_columns=FINAL_ROUND_EXCLUDED_FEATURES if final_round else (),
             train_on_best_candidate=train_on_best_candidate,
+            fdr_heuristic=FDR_HEURISTIC
+            if max_qval is None
+            else max(FDR_HEURISTIC, max_qval),
+            max_train_samples=max_train_samples,
         )
-        precursor_fdr_df = precursor_fdr_df[
-            precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
-        ]
+        if max_qval is None:
+            max_qval = self._config["fdr"]["fdr"]
+        precursor_fdr_df = precursor_fdr_df[precursor_fdr_df["qval"] <= max_qval]
 
         # filter2: candidates by precursors
         candidates_filtered = candidates_df[

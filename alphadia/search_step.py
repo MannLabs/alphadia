@@ -52,6 +52,7 @@ from alphadia.workflow.config import (
     USER_DEFINED_CLI_PARAM,
     Config,
 )
+from alphadia.workflow.managers.optimization_manager import WARM_START_TOLERANCES
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 SPECLIB_FILE_NAME = "speclib.hdf"
@@ -557,6 +558,9 @@ class SearchStep:
 
         workflow_folder_list = []
         raw_files_with_errors = []
+        # optimized tolerances of the processed raw files, for `calibration.warm_start`
+        optimized_tolerances = []
+        config_calibration = self.config["calibration"]
 
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
@@ -578,16 +582,35 @@ class SearchStep:
                     workflow_folder_list.append(reused_folder)
                     continue
 
+                initial_tolerances = (
+                    _get_warm_start_tolerances(
+                        optimized_tolerances, config_calibration["warm_start_factor"]
+                    )
+                    if config_calibration["warm_start"]
+                    else None
+                )
+                if initial_tolerances:
+                    logger.info(
+                        f"Warm start from {len(optimized_tolerances)} raw files: {initial_tolerances}"
+                    )
+
                 workflow = PeptideCentricWorkflow(
                     raw_name,
                     self.config,
                     quant_path=self.config[ConfigKeys.QUANT_DIRECTORY],
                     random_state=random_state,
+                    initial_tolerances=initial_tolerances,
                 )
 
                 self._process_raw_file(workflow, dia_path, speclib)
 
                 workflow_folder_list.append(workflow.path)
+                optimized_tolerances.append(
+                    {
+                        key: getattr(workflow.optimization_manager, key)
+                        for key in WARM_START_TOLERANCES
+                    }
+                )
 
             except Exception as e:
                 _log_exception_event(e, raw_name, workflow)
@@ -772,6 +795,31 @@ class SearchStep:
                 "final",
                 f"At most {MAX_WINDOWS_PROCESS_COUNT} threads are supported on Windows with Python < 3.13.",
             )
+
+
+def _get_warm_start_tolerances(
+    optimized_tolerances: list[dict[str, float]], factor: float
+) -> dict[str, float] | None:
+    """Get the initial tolerances of the next raw file from the optimized tolerances of the previous ones.
+
+    Parameters
+    ----------
+    optimized_tolerances : list[dict[str, float]]
+        Optimized tolerances of each processed raw file, keyed by `WARM_START_TOLERANCES`.
+    factor : float
+        Factor applied to the median of the optimized tolerances, as margin for the next raw file.
+
+    Returns
+    -------
+    dict[str, float] | None
+        Initial tolerances, or None if no raw file has been processed yet.
+    """
+    if not optimized_tolerances:
+        return None
+    return {
+        key: factor * float(np.median([t[key] for t in optimized_tolerances]))
+        for key in WARM_START_TOLERANCES
+    }
 
 
 def _log_exception_event(

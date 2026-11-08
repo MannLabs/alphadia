@@ -5,6 +5,7 @@ from alphadia_search_rs import FeatureSet
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.exceptions import NoOptimizationLockTargetError
+from alphadia.fdr.fdr import FDR_HEURISTIC
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
@@ -31,6 +32,9 @@ from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandl
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
+
+# fewest precursors at 1% FDR that a recalibration needs
+MIN_PRECURSORS_TO_RECALIBRATE = 6
 
 
 class OptimizationHandler:
@@ -305,6 +309,13 @@ class OptimizationHandler:
                     )
 
                     self._optlock.update()
+                    if self._optlock.pruned_in_last_update:
+                        num_pruned = self._optlock.num_pruned_elution_groups
+                        log_string(
+                            f"Pruned the optimization lock: removed {num_pruned:,} of {self._optlock.stop_idx:,} "
+                            f"elution groups ({100 * num_pruned / self._optlock.stop_idx:.1f}%).",
+                            verbosity="progress",
+                        )
                     recalibration_handler.recalibrate(
                         precursor_df_filtered, fragments_df_filtered
                     )
@@ -325,6 +336,12 @@ class OptimizationHandler:
                     verbosity="warning",
                 )
 
+        if (
+            not insufficient_precursors_to_optimize
+            and self._config["calibration"]["final_refit"]
+        ):
+            self._refit_with_final_tolerances(recalibration_handler)
+
         log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
             verbosity="progress",
@@ -338,7 +355,7 @@ class OptimizationHandler:
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
                 precursor_df, self._optlock.fragments_df
             )
-            if precursor_df_filtered.shape[0] >= 6:
+            if precursor_df_filtered.shape[0] >= MIN_PRECURSORS_TO_RECALIBRATE:
                 recalibration_handler.recalibrate(
                     precursor_df_filtered, fragments_df_filtered
                 )
@@ -357,6 +374,33 @@ class OptimizationHandler:
                 )
         log_string(
             "==============================================", verbosity="progress"
+        )
+
+    def _refit_with_final_tolerances(
+        self, recalibration_handler: RecalibrationHandler
+    ) -> None:
+        """Search the lock once more with the final tolerances and take its calibration, score cutoff, peak widths and classifier forward.
+
+        Without this, these come from the optimum step of the optimizer history (classifier, score cutoff, peak
+        widths) and from the last step (calibration), which depend on which noisy step won.
+        """
+        self._reporter.log_string(
+            "Final calibration step with the optimized tolerances.",
+            verbosity="progress",
+        )
+        precursor_df = self._process_batch()
+        precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
+            precursor_df, self._optlock.fragments_df
+        )
+        if precursor_df_filtered.shape[0] < MIN_PRECURSORS_TO_RECALIBRATE:
+            self._reporter.log_string(
+                f"Final calibration step skipped: {precursor_df_filtered.shape[0]} precursors at 1% FDR.",
+                verbosity="warning",
+            )
+            return
+        recalibration_handler.recalibrate(precursor_df_filtered, fragments_df_filtered)
+        self._optimization_manager.update(
+            classifier_version=self._fdr_manager.current_version
         )
 
     def _process_batch(self):
@@ -381,6 +425,14 @@ class OptimizationHandler:
         candidates_df = extraction_handler.select_candidates(
             self._dia_data,
             self._optlock.batch_library,
+        )
+
+        # pruning the lock needs the q-values above the FDR threshold
+        config_calibration = self._config["calibration"]
+        max_qval = (
+            config_calibration["prune_lock_qval"]
+            if config_calibration["prune_lock"]
+            else None
         )
 
         if self._config["search"]["extraction_backend"] == "python":
@@ -408,6 +460,10 @@ class OptimizationHandler:
                 competitive=self._config["fdr"]["competitive_scoring"],
                 df_fragments=self._optlock.fragments_df,
                 version=self._optimization_manager.classifier_version,
+                fdr_heuristic=FDR_HEURISTIC
+                if max_qval is None
+                else max(FDR_HEURISTIC, max_qval),
+                max_train_samples=config_calibration["classifier_max_train_samples"],
             )
         else:
             precursor_w_features_df = extraction_handler.score_candidates(
@@ -453,6 +509,8 @@ class OptimizationHandler:
                 self._dia_data,
                 self._optlock.batch_library,
                 df_fragments=self._optlock.fragments_df,
+                max_qval=max_qval,
+                max_train_samples=config_calibration["classifier_max_train_samples"],
             )
 
         self._reporter.log_string(

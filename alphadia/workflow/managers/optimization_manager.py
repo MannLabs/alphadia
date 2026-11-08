@@ -5,6 +5,9 @@ from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
 
+# tolerances that the next raw file of a search step can start from, see `calibration.warm_start`
+WARM_START_TOLERANCES = ("ms1_error", "ms2_error", "mobility_error")
+
 
 class OptimizationManager(BaseManager):
     ms1_error: float
@@ -23,8 +26,25 @@ class OptimizationManager(BaseManager):
         gradient_length: None | float = None,
         path: None | str = None,
         load_from_file: bool = True,
+        initial_tolerances: dict[str, float] | None = None,
         **kwargs,
     ):
+        """Manager of the search parameters that the optimization changes.
+
+        Parameters
+        ----------
+        config : Config, optional
+            Configuration, `search_initial` gives the initial values.
+        gradient_length : float, optional
+            Gradient length in seconds, for an initial retention time tolerance given as a proportion of it.
+        path : str, optional
+            Path to save the manager to and load it from.
+        load_from_file : bool, default=True
+            Load the manager from `path` if the file exists.
+        initial_tolerances : dict[str, float], optional
+            Initial values of `WARM_START_TOLERANCES` (e.g. from previous raw files) that replace narrower
+            values only: a tolerance never starts wider than `search_initial`.
+        """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
         if not self.is_loaded_from_file:
@@ -37,7 +57,15 @@ class OptimizationManager(BaseManager):
                 if initial_rt_tolerance > 1
                 else initial_rt_tolerance * gradient_length
             )
+            max_rt_tolerance = config["search_initial"].get("max_rt_tolerance")
+            if max_rt_tolerance is not None:
+                self.rt_error = min(self.rt_error, max_rt_tolerance)
             self.mobility_error = config["search_initial"]["mobility_tolerance"]
+
+            for key, value in (initial_tolerances or {}).items():
+                if key not in WARM_START_TOLERANCES:
+                    raise ValueError(f"Unknown initial tolerance: {key}")
+                setattr(self, key, min(getattr(self, key), value))
 
             self.num_candidates = config["search_initial"]["num_candidates"]
 
