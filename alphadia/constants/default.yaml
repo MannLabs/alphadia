@@ -354,7 +354,9 @@ fdr:
   # normal score. This keeps extreme values inside the range the network was trained on.
   feature_transform: quantile
   # write the final-round FDR feature matrix with the cross-fitted probability to fdr_features.parquet in each run's
-  # quant folder, unfiltered, for offline replays of the classifier
+  # quant folder, unfiltered, for offline replays of the classifier; next to it the diagnostic files of the final
+  # extraction (alphadia/fdr/candidate_dump.py): every selected candidate with the raw-score cutoff decision, every
+  # final-round row with the riding removal decision, the features of the removed rows and the library precursors
   save_feature_matrix: false
 
 search_output:

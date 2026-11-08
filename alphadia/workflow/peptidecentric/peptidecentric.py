@@ -5,7 +5,12 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import ConfigKeys
-from alphadia.fdr import joint_features, joint_rescoring, mbr_transfer
+from alphadia.fdr import (
+    candidate_dump,
+    joint_features,
+    joint_rescoring,
+    mbr_transfer,
+)
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -231,10 +236,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         if self._config["search"]["extraction_backend"] == "rust":
             extraction_handler.enable_ms1_scoring()
 
+        candidate_dump_folder = (
+            self.path if self.config["fdr"]["save_feature_matrix"] else None
+        )
+        if candidate_dump_folder is not None:
+            candidate_dump.write_library_precursors(
+                candidate_dump_folder, self.spectral_library.precursor_df
+            )
         candidates_df = extraction_handler.select_candidates(
             self.dia_data,
             self.spectral_library,
             apply_cutoff=True,
+            candidate_dump_folder=candidate_dump_folder,
         )
 
         if self._config["search"]["extraction_backend"] == "python":

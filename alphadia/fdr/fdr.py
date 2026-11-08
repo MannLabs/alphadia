@@ -17,6 +17,7 @@ import torch
 from alphadia.constants.keys import CalibCols
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr import (
+    candidate_dump,
     fragment_features,
     joint_features,
     raw_fragment_features,
@@ -190,6 +191,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     decoy_multiplicity: int = 1,
     transfer_features_path: str | None = None,
     joint_rescoring_folder: str | None = None,
+    candidate_dump_folder: str | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
@@ -264,6 +266,10 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     joint_rescoring_folder : str, optional
         In the final round, every row's features, identity columns and cross-fitted probability, and which rows lost
         the fragment competition, are written to the joint feature files (`joint_features`) in this folder.
+
+    candidate_dump_folder : str, optional
+        In the final round, the riding removal result of every row and the features of the removed rows are written
+        to the candidate dump files (`candidate_dump`) in this folder.
 
     Returns
     -------
@@ -381,14 +387,28 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             psm_df["_candidate_idx"].to_numpy(), fragments[: riding.FRAGMENT_ARRAYS]
         )
         # the removal only needs a ranking of the candidates: a fit on a sample of the rows ranks them alike
-        keep = _without_riding(
+        prescore = _prescore_proba(
+            initial_classifier, X, y, random_state, groups, crossfit
+        )
+        riding_rows = _riding_rows(
             psm_df,
-            _prescore_proba(initial_classifier, X, y, random_state, groups, crossfit),
+            prescore,
             group_columns,
             riding_provider,
             dia_cycle,
             ms2_tolerance_ppm,
         )
+        keep = _kept_rows(riding_rows)
+        if candidate_dump_folder is not None:
+            _dump_riding(
+                candidate_dump_folder,
+                psm_df,
+                X,
+                x_columns,
+                crossfit[0],
+                prescore,
+                riding_rows,
+            )
     if keep is not None:
         psm_df, X, y = psm_df.iloc[keep], X[keep], y[keep]
         groups = groups[keep]
@@ -770,6 +790,41 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
     often as a false target does, so removing both keeps the decoys a fair model of the false targets. Returns None if
     nothing is removed or the columns needed are missing.
     """
+    return _kept_rows(
+        _riding_rows(
+            psm_df,
+            predicted_proba,
+            group_columns,
+            riding_provider,
+            dia_cycle,
+            ms2_tolerance_ppm,
+        )
+    )
+
+
+def _kept_rows(riding_rows: pd.DataFrame | None) -> np.ndarray | None:
+    """Positions of the rows `_riding_rows` did not remove, or None if it removed none."""
+    if riding_rows is None:
+        return None
+    removed = riding_rows[candidate_dump.RIDING_REMOVED_COLUMN].to_numpy()
+    if not removed.any():
+        return None
+    return np.flatnonzero(~removed)
+
+
+def _riding_rows(  # noqa: PLR0913 # the fragment source, the cycle and the tolerance come from the caller
+    psm_df: pd.DataFrame,
+    predicted_proba: np.ndarray,
+    group_columns: list[str],
+    riding_provider: Callable[[pd.DataFrame], tuple],
+    dia_cycle: np.ndarray,
+    ms2_tolerance_ppm: float,
+) -> pd.DataFrame | None:
+    """The riding removal result of every row of `psm_df` (row-aligned, `candidate_dump.RIDING_COLUMNS`): whether it
+    is a partner that can explain others, a candidate for removal, its riding share and own support (NaN where not
+    computed) and whether it is removed. See `_without_riding`. Returns None if the columns needed are missing or no
+    target is confident enough to be a partner.
+    """
     columns = list(dict.fromkeys([*riding.REQUIRED_COLUMNS, *group_columns]))
     missing = [c for c in columns if c not in psm_df.columns]
     if missing:
@@ -825,9 +880,46 @@ def _without_riding(  # noqa: PLR0913 # the fragment source, the cycle and the t
         f"removed {int((removed & ~is_decoy).sum()):,} target and {int((removed & is_decoy).sum()):,} decoy PSMs "
         f"riding on {int(partner.sum()):,} co-eluting partners"
     )
-    if not removed.any():
-        return None
-    return np.flatnonzero(~removed)
+    share = np.full(len(rows), np.nan, dtype=np.float32)
+    share[needed] = riding_share
+    support = np.full(len(rows), np.nan, dtype=np.float32)
+    support[needed] = own_support
+    return pd.DataFrame(
+        {
+            candidate_dump.RIDING_PARTNER_COLUMN: partner,
+            candidate_dump.RIDING_LOSER_COLUMN: loser,
+            candidate_dump.RIDING_SHARE_COLUMN: share,
+            candidate_dump.RIDING_OWN_SUPPORT_COLUMN: support,
+            candidate_dump.RIDING_REMOVED_COLUMN: removed,
+        }
+    )
+
+
+def _dump_riding(  # noqa: PLR0913 # one row-aligned array per argument
+    folder: str,
+    psm_df: pd.DataFrame,
+    X: np.ndarray,  # noqa: N803
+    x_columns: list[str],
+    fold: np.ndarray,
+    prescore: np.ndarray,
+    riding_rows: pd.DataFrame | None,
+) -> None:
+    """Write the riding removal result of every row and the feature matrix of the removed rows (with the pre-score
+    P(decoy) as `proba`) to the candidate dump files in `folder`."""
+    candidate_dump.write_riding(folder, psm_df, prescore, riding_rows)
+    removed = (
+        np.zeros(len(psm_df), dtype=bool)
+        if riding_rows is None
+        else riding_rows[candidate_dump.RIDING_REMOVED_COLUMN].to_numpy()
+    )
+    _dump_feature_matrix(
+        candidate_dump.removed_features_path(folder),
+        psm_df[removed],
+        X[removed],
+        x_columns,
+        fold[removed],
+        prescore[removed],
+    )
 
 
 def keep_best(

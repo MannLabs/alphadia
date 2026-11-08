@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from conftest import mock_context_features
 
-from alphadia.fdr import riding
+from alphadia.fdr import candidate_dump, riding
 from alphadia.workflow.peptidecentric import extraction_handler
 from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import get_context_feature_names
@@ -277,3 +277,44 @@ def test_score_cutoff_alone_without_the_detection_share():
 
     # then
     assert kept["precursor_idx"].tolist() == [0]
+
+
+def test_score_cutoff_writes_every_candidate_with_its_decision(tmp_path):
+    # given
+    handler = NgExtractionHandler(
+        {"search": {}},
+        MagicMock(score_cutoff=10.0, rt_error=200.0, num_candidates=3),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+    )
+    candidates_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2],
+            "rank": [0, 0, 0],
+            "score": [12.0, 8.0, 8.0],
+            "frame_center": [0, 2, 4],
+            extraction_handler.SELECTION_DET_SHARE: [0.1, 0.9, 0.5],
+        }
+    )
+
+    # when
+    kept = handler._apply_score_cutoff(
+        candidates_df,
+        rt_values=np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
+        candidate_dump_folder=str(tmp_path),
+    )
+
+    # then: the scored candidates are unchanged and every candidate is written
+    assert kept["precursor_idx"].tolist() == [0, 1]
+    table = pd.read_parquet(tmp_path / candidate_dump.CANDIDATES_FILE_NAME)
+    assert table["precursor_idx"].tolist() == [0, 1, 2]
+    assert table[candidate_dump.ABOVE_CUTOFF_COLUMN].tolist() == [True, False, False]
+    assert table[candidate_dump.GATE_ADMITTED_COLUMN].tolist() == [False, True, False]
+    assert table[candidate_dump.RT_OBSERVED_COLUMN].tolist() == [1.0, 3.0, 5.0]
+    assert (table[candidate_dump.SCORE_CUTOFF_COLUMN] == 10.0).all()
+    assert (
+        table[candidate_dump.DET_SHARE_GATE_COLUMN]
+        == np.float32(extraction_handler.DET_SHARE_GATE)
+    ).all()
+    assert (table[candidate_dump.RT_TOLERANCE_COLUMN] == 200.0).all()

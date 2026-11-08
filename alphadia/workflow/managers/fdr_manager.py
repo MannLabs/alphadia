@@ -89,7 +89,8 @@ class FDRManager(BaseManager):
         random_state: int, optional
             Random state for reproducibility.
         feature_matrix_path: str, optional
-            Folder to write the final-round feature matrix to. If None, nothing is written.
+            Folder to write the final-round feature matrix and the riding removal files of `fdr.candidate_dump` to. If
+            None, nothing is written.
         decoy_multiplicity: int, optional
             Decoys per target in the searched library (see `fdr.perform_fdr_on_psms`).
         transfer_features_path: str, optional
@@ -228,6 +229,7 @@ class FDRManager(BaseManager):
                 decoy_multiplicity=self._decoy_multiplicity,
                 transfer_features_path=self._transfer_features_path,
                 joint_rescoring_folder=self._joint_rescoring_folder,
+                candidate_dump_folder=self._feature_matrix_path,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
