@@ -3,6 +3,7 @@
 import pytest
 
 from alphadia.constants.keys import ExtractionBackend
+from alphadia.exceptions import ConfigError
 from alphadia.workflow.peptidecentric.python.workflow import (
     PythonPeptideCentricWorkflow,
 )
@@ -34,5 +35,5 @@ def test_get_workflow_class_raises_for_unknown_backend():
     config = {"search": {"extraction_backend": "fortran"}}
 
     # when / then
-    with pytest.raises(ValueError, match="fortran"):
+    with pytest.raises(ConfigError, match="CONFIG_ERROR"):
         get_workflow_class(config)

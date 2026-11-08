@@ -15,6 +15,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia import __version__ as alphadia_version
 from alphadia.constants.keys import (
     ConfigKeys,
+    ExtractionBackend,
     SearchStepFiles,
 )
 from alphadia.exceptions import (
@@ -53,7 +54,10 @@ from alphadia.workflow.config import (
     Config,
 )
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
-from alphadia.workflow.peptidecentric.workflow_factory import get_workflow_class
+from alphadia.workflow.peptidecentric.workflow_factory import (
+    get_extraction_backend,
+    get_workflow_class,
+)
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
@@ -210,20 +214,16 @@ class SearchStep:
 
     @staticmethod
     def _is_ng_activated(config: Config, config_updates: list[Config]) -> bool:
-        """Decide if the extraction backend is 'ng'.
+        """Decide if the extraction backend is 'rust'.
 
         If no updates are provided, the decision is based on the default config.
         If updates are provided, they are applied in order to be able to decide based on the final config.
         """
         if config_updates:
-            tmp_updated_config = deepcopy(config)
-            tmp_updated_config.update(config_updates)
+            config = deepcopy(config)
+            config.update(config_updates)
 
-            extraction_backend = tmp_updated_config["search"]["extraction_backend"]
-        else:
-            extraction_backend = config["search"]["extraction_backend"]
-
-        return extraction_backend == "rust"
+        return get_extraction_backend(config) == ExtractionBackend.RUST
 
     def _get_random_number_generator(self) -> np.random.Generator | None:
         """Get numpy random number generator if random state is set."""
@@ -738,15 +738,16 @@ class SearchStep:
 
         TODO move this to a dedicated class.
         """
+        workflow_class = get_workflow_class(self._config)
         if (
-            self._config["search"]["extraction_backend"] == "rust"
-            and self._config["multiplexing"]["enabled"]
+            self._config["multiplexing"]["enabled"]
+            and not workflow_class.SUPPORTS_MULTIPLEXING
         ):
             raise ConfigError(
                 "multiplexing.enabled",
                 "True",
                 "final",
-                "Multiplexing is not yet supported with the 'ng' extraction backend.",
+                f"Multiplexing is not yet supported with the '{get_extraction_backend(self._config)}' extraction backend.",
             )
 
         general_config = self._config[ConfigKeys.GENERAL]

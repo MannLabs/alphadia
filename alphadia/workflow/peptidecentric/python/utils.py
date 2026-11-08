@@ -1,6 +1,7 @@
 """Helpers of the Python (numba) backend."""
 
 from alphadia.constants.keys import CalibCols
+from alphadia.workflow.config import Config
 
 # Features the Python backend scores, which the FDR classifier is trained on.
 feature_columns = [
@@ -74,3 +75,10 @@ feature_columns = [
     "mean_overlapping_intensity",
     "mean_overlapping_mass_error",
 ]
+
+
+def get_decoy_strategy(config: Config) -> str:
+    """Decoy strategy for FDR, depending on whether FDR is controlled per channel."""
+    return (
+        "precursor_channel_wise" if config["fdr"]["channel_wise_fdr"] else "precursor"
+    )
