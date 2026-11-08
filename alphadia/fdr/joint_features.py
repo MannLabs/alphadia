@@ -20,6 +20,10 @@ FEATURE_COLUMNS_METADATA_KEY = b"alphadia_joint_feature_columns"
 ID_COLUMNS = ["precursor_idx", "elution_group_idx", "channel", "decoy", "rank", "naa"]
 PROBA_COLUMN = "proba"
 WRITE_CHUNK_ROWS = 1_000_000
+# a run whose own final-round fit accepts more targets than this has enough training data on its own: the joint
+# rescoring gained nothing at 200 ng (~75-90k targets per run, +22 % run time) and 4-5 % at 5 ng (20-35k per run)
+DATA_LIMITED_MAX_TARGETS = 50_000
+DATA_LIMITED_QVAL = 0.01
 
 
 def features_path(folder: str) -> str:
@@ -28,6 +32,22 @@ def features_path(folder: str) -> str:
 
 def lost_path(folder: str) -> str:
     return os.path.join(folder, JOINT_LOST_FILE_NAME)
+
+
+def is_data_limited(groups: np.ndarray, decoy: np.ndarray, proba: np.ndarray) -> bool:
+    """Whether the run's own fit accepts at most `DATA_LIMITED_MAX_TARGETS` targets at `DATA_LIMITED_QVAL`, with the
+    best row (lowest decoy probability `proba`) of each competition group in `groups` competing."""
+    best = (
+        pd.DataFrame({"group": groups, "decoy": decoy, "proba": proba})
+        .sort_values("proba", kind="stable")
+        .drop_duplicates("group")
+    )
+    is_decoy = best["decoy"].to_numpy(bool)
+    fdp = np.cumsum(is_decoy) / np.maximum(np.cumsum(~is_decoy), 1)
+    qval = np.minimum.accumulate(fdp[::-1])[::-1]
+    return (
+        int(((qval <= DATA_LIMITED_QVAL) & ~is_decoy).sum()) <= DATA_LIMITED_MAX_TARGETS
+    )
 
 
 def write_run_features(
