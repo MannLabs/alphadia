@@ -421,6 +421,14 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
                 crossfit[0][transfer],
                 predicted_proba[transfer],
             )
+        if joint_rescoring_folder is not None and not joint_features.is_data_limited(
+            crossfit[1], y.astype(bool), predicted_proba
+        ):
+            logger.info(
+                "Joint rescoring skipped for this run: its own fit accepts more than "
+                f"{joint_features.DATA_LIMITED_MAX_TARGETS:,} targets"
+            )
+            joint_rescoring_folder = None
         if joint_rescoring_folder is not None:
             joint_features.write_run_features(
                 joint_rescoring_folder, psm_df, X, x_columns, predicted_proba

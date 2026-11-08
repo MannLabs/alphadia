@@ -300,3 +300,27 @@ def test_rescored_run_computes_q_values_within_length_strata():
     q = best.set_index("precursor_idx")["qval"]
     assert (q[[3, 4, 5]] == 0).all()
     assert (q[[1, 2]] > 0).all()
+
+
+def test_is_data_limited_counts_competed_targets(monkeypatch):
+    # given: 5 groups, each with a target ranked before its decoy, so all 5 targets pass at q 0
+    groups = np.repeat(np.arange(5), 2)
+    decoy = np.tile([False, True], 5)
+    proba = np.where(decoy, 0.9, 0.1) + np.repeat(np.arange(5), 2) * 1e-3
+
+    # when / then: at or below the target limit the run is data-limited, above it not
+    monkeypatch.setattr(joint_features, "DATA_LIMITED_MAX_TARGETS", 5)
+    assert joint_features.is_data_limited(groups, decoy, proba)
+    monkeypatch.setattr(joint_features, "DATA_LIMITED_MAX_TARGETS", 4)
+    assert not joint_features.is_data_limited(groups, decoy, proba)
+
+
+def test_is_data_limited_ignores_targets_beyond_the_qvalue(monkeypatch):
+    # given: 100 groups whose decoys outrank their targets, so no target passes q 1 %
+    groups = np.repeat(np.arange(100), 2)
+    decoy = np.tile([False, True], 100)
+    proba = np.where(decoy, 0.1, 0.9)
+
+    # when / then: even a limit of 0 targets is met
+    monkeypatch.setattr(joint_features, "DATA_LIMITED_MAX_TARGETS", 0)
+    assert joint_features.is_data_limited(groups, decoy, proba)
