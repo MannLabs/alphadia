@@ -1,4 +1,7 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Generic, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -33,15 +36,24 @@ from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandle
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
+ExtractionHandlerT = TypeVar("ExtractionHandlerT", bound=ExtractionHandler)
 
-class OptimizationHandler(ABC):
+
+@dataclass
+class ExtractedBatch:
+    """Extraction results for one batch of the optimization lock."""
+
+    candidates_df: pd.DataFrame
+    precursors_df: pd.DataFrame
+    fragments_df: pd.DataFrame
+
+
+class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
     """
     Handles the optimization of peptide-centric workflows.
 
-    Each extraction backend has its own subclass, which extracts the batches of the optimization lock.
+    Each extraction backend has its own subclass, which extracts the batches of the optimization lock and performs FDR on them.
     """
-
-    EXTRACTION_HANDLER_CLASS: type[ExtractionHandler]
 
     def __init__(
         self,
@@ -52,6 +64,7 @@ class OptimizationHandler(ABC):
         reporter: Pipeline,
         spectral_library: SpecLibFlat,
         dia_data: "DiaData | DiaDataNG",  # noqa: F821
+        create_extraction_handler: Callable[[], ExtractionHandlerT],
         figure_path: str | None = None,
     ):
         self._config = config
@@ -63,6 +76,7 @@ class OptimizationHandler(ABC):
         self._spectral_library = spectral_library
         self._dia_data: DiaData | DiaDataNG = dia_data  # noqa: F821
         self._figure_path = figure_path
+        self._create_extraction_handler = create_extraction_handler
 
         self._optlock: OptimizationLock = OptimizationLock(
             self._spectral_library, self._config
@@ -371,12 +385,17 @@ class OptimizationHandler(ABC):
             verbosity="progress",
         )
 
-        precursor_df = self._extract_batch()
+        extraction_handler = self._create_extraction_handler()
+
+        batch = self._extract_batch(extraction_handler)
+        self._optlock.update_with_extraction(batch.precursors_df, batch.fragments_df)
 
         self._reporter.log_string(
             f"=== Extracted {len(self._optlock.features_df)} precursors and {len(self._optlock.fragments_df)} fragments ===",
             verbosity="progress",
         )
+
+        precursor_df = self._perform_fdr(extraction_handler, batch)
 
         self._optlock.update_with_fdr(precursor_df)
 
@@ -388,31 +407,20 @@ class OptimizationHandler(ABC):
 
         return precursor_df
 
-    def _create_extraction_handler(self) -> ExtractionHandler:
-        """Create an extraction handler for the current calibration state."""
-        return self.EXTRACTION_HANDLER_CLASS(
-            self._config,
-            self._optimization_manager,
-            self._fdr_manager,
-            self._reporter,
-            ColumnNameHandler(
-                self._calibration_manager,
-                dia_data_has_ms1=self._dia_data.has_ms1,
-                dia_data_has_mobility=self._dia_data.has_mobility,
-            ),
-        )
+    @abstractmethod
+    def _extract_batch(self, extraction_handler: ExtractionHandlerT) -> ExtractedBatch:
+        """Select, score and quantify the candidates of the current batch library."""
 
     @abstractmethod
-    def _extract_batch(self) -> pd.DataFrame:
-        """Extract the current batch library and perform FDR on it.
-
-        Implementations pass the extracted precursors and fragments to the optimization lock
-        via `update_with_extraction`.
+    def _perform_fdr(
+        self, extraction_handler: ExtractionHandlerT, batch: ExtractedBatch
+    ) -> pd.DataFrame:
+        """Perform FDR on all precursors the optimization lock has collected so far.
 
         Returns
         -------
         pd.DataFrame
-            Precursors of the batch, with FDR results
+            Precursors with FDR results
         """
 
     def _initiate_search_parameter_optimization(self):

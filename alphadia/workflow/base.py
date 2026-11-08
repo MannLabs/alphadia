@@ -3,6 +3,7 @@ import os
 import time
 
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import DIAData as DiaDataNG
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
@@ -73,7 +74,7 @@ class WorkflowBase:
 
         self._config: Config = config
         self.reporter: reporting.Pipeline | None = None
-        self._dia_data: DiaData | None = None
+        self._dia_data: DiaData | DiaDataNG | None = None
         self._spectral_library: SpecLibFlat | None = None
         self._calibration_manager: CalibrationManager | None = None
         self._optimization_manager: OptimizationManager | None = None
@@ -141,7 +142,7 @@ class WorkflowBase:
         )
         self.reporter.log_event("section_stop", {})
 
-    def _prepare_dia_data(self, dia_data: DiaData) -> DiaData:
+    def _prepare_dia_data(self, dia_data: DiaData) -> DiaData | DiaDataNG:
         """Convert the loaded DIA data into the representation the extraction backend works on."""
         return dia_data
 
@@ -178,6 +179,6 @@ class WorkflowBase:
     @property
     def dia_data(
         self,
-    ) -> DiaData:
+    ) -> DiaData | DiaDataNG:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data

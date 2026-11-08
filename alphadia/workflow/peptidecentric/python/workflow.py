@@ -3,59 +3,25 @@
 import pandas as pd
 
 from alphadia.fragcomp.utils import candidate_hash
-from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
-from alphadia.workflow.peptidecentric.extraction_handler import (
-    ClassicExtractionHandler,
+from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.python.extraction_handler import (
+    PythonExtractionHandler,
 )
-from alphadia.workflow.peptidecentric.multiplexing_requantification_handler import (
+from alphadia.workflow.peptidecentric.python.multiplexing_requantification_handler import (
     MultiplexingRequantificationHandler,
 )
-from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
-from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.python.optimization_handler import (
+    PythonOptimizationHandler,
+)
+from alphadia.workflow.peptidecentric.python.utils import (
+    feature_columns,
+    get_decoy_strategy,
+)
 from alphadia.workflow.peptidecentric.utils import (
     add_library_fragment_intensity,
-    feature_columns,
     log_precursor_df,
     use_timing_manager,
 )
-
-
-def _get_decoy_strategy(channel_wise_fdr: bool) -> str:
-    return "precursor_channel_wise" if channel_wise_fdr else "precursor"
-
-
-class PythonOptimizationHandler(OptimizationHandler):
-    """Optimization on the Python backend: each batch is scored and quantified in one pass, then FDR-filtered."""
-
-    EXTRACTION_HANDLER_CLASS = ClassicExtractionHandler
-
-    def _extract_batch(self) -> pd.DataFrame:
-        extraction_handler = self._create_extraction_handler()
-
-        candidates_df = extraction_handler.select_candidates(
-            self._dia_data,
-            self._optlock.batch_library,
-        )
-
-        precursor_quantified_w_features_df, fragments_df = (
-            extraction_handler.score_and_quantify_candidates(
-                candidates_df,
-                self._dia_data,
-                self._optlock.batch_library,
-            )
-        )
-
-        self._optlock.update_with_extraction(
-            precursor_quantified_w_features_df, fragments_df
-        )
-
-        return self._fdr_manager.fit_predict(
-            self._optlock.features_df,
-            decoy_strategy=_get_decoy_strategy(self._config["fdr"]["channel_wise_fdr"]),
-            competitive=self._config["fdr"]["competitive_scoring"],
-            df_fragments=self._optlock.fragments_df,
-            version=self._optimization_manager.classifier_version,
-        )
 
 
 class PythonPeptideCentricWorkflow(PeptideCentricWorkflow):
@@ -65,10 +31,19 @@ class PythonPeptideCentricWorkflow(PeptideCentricWorkflow):
     """
 
     OPTIMIZATION_HANDLER_CLASS = PythonOptimizationHandler
-    EXTRACTION_HANDLER_CLASS = ClassicExtractionHandler
+    SUPPORTS_MULTIPLEXING = True
 
     def _classifier_feature_columns(self) -> list[str]:
         return feature_columns
+
+    def _create_extraction_handler(self) -> PythonExtractionHandler:
+        return PythonExtractionHandler(
+            self.config,
+            self.optimization_manager,
+            self._fdr_manager,
+            self.reporter,
+            self._create_column_name_handler(),
+        )
 
     @use_timing_manager("extraction")
     def extraction(self) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -92,7 +67,7 @@ class PythonPeptideCentricWorkflow(PeptideCentricWorkflow):
 
         precursor_df = self._fdr_manager.fit_predict(
             precursor_quantified_w_features_df,
-            decoy_strategy=_get_decoy_strategy(self._config["fdr"]["channel_wise_fdr"]),
+            decoy_strategy=get_decoy_strategy(self._config),
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=fragments_df,
             version=self.optimization_manager.classifier_version,
@@ -134,11 +109,7 @@ class PythonPeptideCentricWorkflow(PeptideCentricWorkflow):
             self.calibration_manager,
             self._fdr_manager,
             self.reporter,
-            ColumnNameHandler(
-                self.calibration_manager,
-                dia_data_has_ms1=self.dia_data.has_ms1,
-                dia_data_has_mobility=self.dia_data.has_mobility,
-            ),
+            self._create_column_name_handler(),
             self.spectral_library,
         )
 

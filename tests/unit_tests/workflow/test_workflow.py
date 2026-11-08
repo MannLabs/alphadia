@@ -38,11 +38,11 @@ from alphadia.workflow.optimizers.targeted import (
     TargetedRTOptimizer,
 )
 from alphadia.workflow.peptidecentric.peptidecentric import _get_classifier_base
-from alphadia.workflow.peptidecentric.python_workflow import (
-    PythonOptimizationHandler,
-    PythonPeptideCentricWorkflow,
+from alphadia.workflow.peptidecentric.python.utils import feature_columns
+from alphadia.workflow.peptidecentric.rust.optimization_handler import (
+    RustOptimizationHandler,
 )
-from alphadia.workflow.peptidecentric.utils import feature_columns
+from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
 
 
 def test_base_manager():
@@ -445,7 +445,7 @@ def create_workflow_instance():
             )
         ]
     )
-    workflow = PythonPeptideCentricWorkflow(
+    workflow = RustPeptideCentricWorkflow(
         "test",
         config,
     )
@@ -491,7 +491,7 @@ def create_workflow_instance():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
-        workflow._optimization_handler = PythonOptimizationHandler(
+        workflow._optimization_handler = RustOptimizationHandler(
             workflow.config,
             workflow._optimization_manager,
             workflow._calibration_manager,
@@ -499,6 +499,7 @@ def create_workflow_instance():
             reporter=workflow.reporter,
             spectral_library=None,
             dia_data=workflow._dia_data,
+            create_extraction_handler=MagicMock(),
         )
 
     class MockOptlock:

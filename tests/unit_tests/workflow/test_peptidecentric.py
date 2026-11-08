@@ -7,10 +7,10 @@ import pandas as pd
 import pytest
 
 from alphadia.exceptions import NoOptimizationLockTargetError
-from alphadia.workflow.peptidecentric.python_workflow import (
-    PythonOptimizationHandler,
-    PythonPeptideCentricWorkflow,
+from alphadia.workflow.peptidecentric.rust.optimization_handler import (
+    RustOptimizationHandler,
 )
+from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
 
 
 @pytest.fixture
@@ -34,13 +34,14 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
             "correlation": [0.7, 0.5, 0.8, 0.6, 0.9, 0.95],
         }
     )
-    instance = PythonPeptideCentricWorkflow("test_instance", mock_config)
+    instance = RustPeptideCentricWorkflow("test_instance", mock_config)
     instance.reporter = MagicMock()
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
-        instance._optimization_handler = PythonOptimizationHandler(
+        instance._optimization_handler = RustOptimizationHandler(
             mock_config,
+            MagicMock(),
             MagicMock(),
             MagicMock(),
             MagicMock(),
@@ -84,7 +85,7 @@ def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
-        handler = PythonOptimizationHandler(
+        handler = RustOptimizationHandler(
             {"calibration": {"max_steps": 20}},
             SimpleNamespace(ms2_error=100.0),
             MagicMock(),
@@ -92,6 +93,7 @@ def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
             MagicMock(),
             MagicMock(),
             MagicMock(),
+            create_extraction_handler=MagicMock(),
         )
     handler._optlock.has_target_num_precursors = False
     handler._optlock.batches_remaining.return_value = False

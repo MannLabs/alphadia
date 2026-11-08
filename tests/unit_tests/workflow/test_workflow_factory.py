@@ -3,10 +3,11 @@
 import pytest
 
 from alphadia.constants.keys import ExtractionBackend
-from alphadia.workflow.peptidecentric.python_workflow import (
+from alphadia.exceptions import ConfigError
+from alphadia.workflow.peptidecentric.python.workflow import (
     PythonPeptideCentricWorkflow,
 )
-from alphadia.workflow.peptidecentric.rust_workflow import RustPeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
 from alphadia.workflow.peptidecentric.workflow_factory import get_workflow_class
 
 
@@ -34,5 +35,5 @@ def test_get_workflow_class_raises_for_unknown_backend():
     config = {"search": {"extraction_backend": "fortran"}}
 
     # when / then
-    with pytest.raises(ValueError, match="fortran"):
+    with pytest.raises(ConfigError, match="CONFIG_ERROR"):
         get_workflow_class(config)

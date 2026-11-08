@@ -11,7 +11,7 @@ from alphadia import search_step
 from alphadia.exceptions import ConfigError, GenericUserError
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
-from alphadia.workflow.peptidecentric.python_workflow import (
+from alphadia.workflow.peptidecentric.python.workflow import (
     PythonPeptideCentricWorkflow,
 )
 
@@ -555,3 +555,38 @@ def test_run_creates_workflow_of_configured_backend(mock_output_cls, tmp_path):
     # then
     workflow = mock_process_raw_file.call_args.args[0]
     assert isinstance(workflow, PythonPeptideCentricWorkflow)
+
+
+@pytest.mark.parametrize("backend", ["rust", "RUST"])
+def test_raises_if_multiplexing_with_backend_without_multiplexing(tmp_path, backend):
+    """Test that multiplexing is rejected up front for a backend that does not support it, in any case."""
+    with pytest.raises(ConfigError, match="CONFIG_ERROR"):
+        # when
+        SearchStep(
+            str(tmp_path / "output"),
+            config={
+                "search": {"extraction_backend": backend},
+                "multiplexing": {"enabled": True},
+            },
+        )
+
+
+def test_raises_if_extraction_backend_is_unknown(tmp_path):
+    """Test that an unknown extraction backend is rejected up front."""
+    with pytest.raises(ConfigError, match="CONFIG_ERROR"):
+        # when
+        SearchStep(
+            str(tmp_path / "output"),
+            config={"search": {"extraction_backend": "fortran"}},
+        )
+
+
+@pytest.mark.parametrize(
+    ("backend", "expected"), [("rust", True), ("RUST", True), ("python", False)]
+)
+def test_is_ng_activated_ignores_case(backend, expected):
+    # given
+    config = Config({"search": {"extraction_backend": backend}})
+
+    # when / then
+    assert SearchStep._is_ng_activated(config, []) is expected

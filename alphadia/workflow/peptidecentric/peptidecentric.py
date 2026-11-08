@@ -66,7 +66,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
     """
 
     OPTIMIZATION_HANDLER_CLASS: type[OptimizationHandler]
-    EXTRACTION_HANDLER_CLASS: type[ExtractionHandler]
+    SUPPORTS_MULTIPLEXING: bool = False
 
     def __init__(
         self,
@@ -110,7 +110,8 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
         )
 
         self.reporter.log_string(
-            f"Initializing workflow {self.instance_name}", verbosity="progress"
+            f"Initializing {type(self).__name__} {self.instance_name}",
+            verbosity="progress",
         )
         config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
@@ -140,18 +141,15 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
     def _classifier_feature_columns(self) -> list[str]:
         """Feature columns the FDR classifier is trained on."""
 
+    @abstractmethod
     def _create_extraction_handler(self) -> ExtractionHandler:
-        """Create an extraction handler for the current calibration state."""
-        return self.EXTRACTION_HANDLER_CLASS(
-            self.config,
-            self.optimization_manager,
-            self._fdr_manager,
-            self.reporter,
-            ColumnNameHandler(
-                self.calibration_manager,
-                dia_data_has_ms1=self.dia_data.has_ms1,
-                dia_data_has_mobility=self.dia_data.has_mobility,
-            ),
+        """Create an extraction handler of this backend for the current calibration state."""
+
+    def _create_column_name_handler(self) -> ColumnNameHandler:
+        return ColumnNameHandler(
+            self.calibration_manager,
+            dia_data_has_ms1=self.dia_data.has_ms1,
+            dia_data_has_mobility=self.dia_data.has_mobility,
         )
 
     def _save_managers(self):
@@ -179,6 +177,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
             self.reporter,
             self.spectral_library,
             self.dia_data,
+            self._create_extraction_handler,
             self._figure_path,
         )
 
@@ -204,7 +203,10 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
         """
 
     def requantify(self, psm_df: pd.DataFrame) -> pd.DataFrame:
-        """Requantify the precursors across multiplexing channels."""
+        """Requantify the precursors across multiplexing channels.
+
+        Only called for workflows with `SUPPORTS_MULTIPLEXING`.
+        """
         raise NotImplementedError(
             f"Multiplexing is not supported by {type(self).__name__}."
         )
@@ -221,15 +223,8 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
         requantification_handler = TransferLibraryRequantificationHandler(
             self.config,
             self.calibration_manager,
-            self.optimization_manager,
-            self._fdr_manager,
-            ColumnNameHandler(
-                self.calibration_manager,
-                dia_data_has_ms1=self.dia_data.has_ms1,
-                dia_data_has_mobility=self.dia_data.has_mobility,
-            ),
             self.reporter,
-            self.EXTRACTION_HANDLER_CLASS,
+            self._create_extraction_handler,
         )
 
         return requantification_handler.requantify(self.dia_data, psm_df)

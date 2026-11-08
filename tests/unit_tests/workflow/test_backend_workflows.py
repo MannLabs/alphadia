@@ -3,25 +3,27 @@
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pandas as pd
 import pytest
 from alphadia_search_rs import FeatureSet
 
 from alphadia.exceptions import GenericUserError
 from alphadia.raw_data.bruker import TimsTOFTranspose
-from alphadia.workflow.peptidecentric.extraction_handler import (
-    ClassicExtractionHandler,
-    NgExtractionHandler,
+from alphadia.workflow.peptidecentric.python.extraction_handler import (
+    PythonExtractionHandler,
 )
-from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
-from alphadia.workflow.peptidecentric.python_workflow import (
-    PythonOptimizationHandler,
+from alphadia.workflow.peptidecentric.python.utils import feature_columns
+from alphadia.workflow.peptidecentric.python.workflow import (
     PythonPeptideCentricWorkflow,
 )
-from alphadia.workflow.peptidecentric.rust_workflow import (
-    RustOptimizationHandler,
-    RustPeptideCentricWorkflow,
+from alphadia.workflow.peptidecentric.rust.extraction_handler import (
+    RustExtractionHandler,
 )
-from alphadia.workflow.peptidecentric.utils import feature_columns
+from alphadia.workflow.peptidecentric.rust.ng_mapper import get_feature_names
+from alphadia.workflow.peptidecentric.rust.optimization_handler import (
+    RustOptimizationHandler,
+)
+from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
 
 THREAD_COUNT = 3
 
@@ -34,9 +36,19 @@ def _create_workflow(workflow_class, tmp_path):
             "thread_count": THREAD_COUNT,
         },
         "output_directory": str(tmp_path),
+        "search": {
+            "top_k_fragments_selection": 12,
+            "exclude_shared_ions": True,
+            "quant_window": 3,
+            "quant_all": True,
+            "experimental_xic": False,
+        },
     }
     workflow = workflow_class("raw1", config)
     workflow.reporter = MagicMock()
+    workflow._optimization_manager = MagicMock()
+    workflow._calibration_manager = MagicMock()
+    workflow._dia_data = MagicMock(has_ms1=True, has_mobility=False)
     return workflow
 
 
@@ -61,25 +73,82 @@ def test_classifier_feature_columns_match_backend(
 
 
 @pytest.mark.parametrize(
-    ("workflow_class", "optimization_handler_class", "extraction_handler_class"),
+    ("workflow_class", "extraction_handler_class"),
     [
-        (
-            PythonPeptideCentricWorkflow,
-            PythonOptimizationHandler,
-            ClassicExtractionHandler,
-        ),
-        (RustPeptideCentricWorkflow, RustOptimizationHandler, NgExtractionHandler),
+        (PythonPeptideCentricWorkflow, PythonExtractionHandler),
+        (RustPeptideCentricWorkflow, RustExtractionHandler),
     ],
 )
-def test_workflow_uses_handlers_of_its_backend(
-    workflow_class, optimization_handler_class, extraction_handler_class
+def test_workflow_creates_extraction_handler_of_its_backend(
+    workflow_class, extraction_handler_class, tmp_path
 ):
-    # when / then
-    assert workflow_class.OPTIMIZATION_HANDLER_CLASS is optimization_handler_class
-    assert workflow_class.EXTRACTION_HANDLER_CLASS is extraction_handler_class
-    assert (
-        optimization_handler_class.EXTRACTION_HANDLER_CLASS is extraction_handler_class
+    # given
+    workflow = _create_workflow(workflow_class, tmp_path)
+
+    # when
+    extraction_handler = workflow._create_extraction_handler()
+
+    # then
+    assert type(extraction_handler) is extraction_handler_class
+
+
+@patch("alphadia.workflow.peptidecentric.optimization_handler.log_precursor_df")
+@patch("alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock")
+def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
+    """Test that a batch is passed to the optimization lock before FDR runs on everything collected so far."""
+    # given
+    candidates_df = pd.DataFrame({"precursor_idx": [1], "rank": [0]})
+    extraction_handler = MagicMock()
+    extraction_handler.select_candidates.return_value = candidates_df
+    extraction_handler.score_candidates.return_value = pd.DataFrame(
+        {"precursor_idx": [1], "rank": [0], "feature": [0.5]}
     )
+    fragments_df = pd.DataFrame({"precursor_idx": [1]})
+    extraction_handler.quantify_candidates.return_value = (
+        pd.DataFrame({"precursor_idx": [1], "rank": [0], "intensity": [10.0]}),
+        fragments_df,
+    )
+    precursor_fdr_df = pd.DataFrame({"precursor_idx": [1], "qval": [0.0]})
+    extraction_handler.perform_fdr_and_filter_candidates.return_value = (
+        None,
+        precursor_fdr_df,
+    )
+    optlock = mock_optlock_cls.return_value
+    optlock.features_df = pd.DataFrame({"precursor_idx": [1]})
+    optlock.fragments_df = fragments_df
+    calls = MagicMock()
+    calls.attach_mock(optlock.update_with_extraction, "update_with_extraction")
+    calls.attach_mock(
+        extraction_handler.perform_fdr_and_filter_candidates, "perform_fdr"
+    )
+    handler = RustOptimizationHandler(
+        {},
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        create_extraction_handler=lambda: extraction_handler,
+    )
+
+    # when
+    precursor_df = handler._process_batch()
+
+    # then
+    assert [c[0] for c in calls.mock_calls] == ["update_with_extraction", "perform_fdr"]
+    precursors_with_features_df = optlock.update_with_extraction.call_args.args[0]
+    assert list(precursors_with_features_df.columns) == [
+        "precursor_idx",
+        "rank",
+        "intensity",
+        "feature",
+    ]
+    assert extraction_handler.perform_fdr_and_filter_candidates.call_args.args[1] is (
+        candidates_df
+    )
+    optlock.update_with_fdr.assert_called_once_with(precursor_fdr_df)
+    pd.testing.assert_frame_equal(precursor_df, precursor_fdr_df)
 
 
 def test_python_workflow_keeps_dia_data(tmp_path):
@@ -94,8 +163,8 @@ def test_python_workflow_keeps_dia_data(tmp_path):
     assert prepared is dia_data
 
 
-@patch("alphadia.workflow.peptidecentric.rust_workflow.set_ng_thread_count")
-@patch("alphadia.workflow.peptidecentric.rust_workflow.dia_data_to_ng")
+@patch("alphadia.workflow.peptidecentric.rust.workflow.set_ng_thread_count")
+@patch("alphadia.workflow.peptidecentric.rust.workflow.dia_data_to_ng")
 def test_rust_workflow_converts_dia_data(
     mock_dia_data_to_ng, mock_set_ng_thread_count, tmp_path
 ):
