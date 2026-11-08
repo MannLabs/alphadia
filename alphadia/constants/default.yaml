@@ -345,6 +345,11 @@ fdr:
   # their final-round features to joint_features.parquet (kept with save_feature_matrix, else removed afterwards).
   # Without effect on single runs, the MBR step and multiplexed searches.
   joint_rescoring: true
+  # first search: cross-fits of the final-round classifier, each with its own folds and start weights, averaged on the
+  # logit scale. Only for runs outside the joint rescoring whose first fit accepts at most 50,000 targets at q 1 %
+  # (larger runs gain little and the fit time grows with the rows); each extra cross-fit costs one final-round fit.
+  # Without effect on the MBR step. 1 = a single cross-fit.
+  final_round_seeds: 2
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network

@@ -153,6 +153,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self._pooled_transfers
             else None,
             joint_rescoring_folder=self.path if self._joint_rescoring else None,
+            # the MBR step's classifier is not data-limited: it accepts almost every re-found target whatever the fit,
+            # and its transfers are scored by the pooled transfer model
+            final_round_seeds=1 if is_mbr_step else config_fdr["final_round_seeds"],
         )
 
         init_spectral_library(

@@ -973,3 +973,131 @@ def test_perform_fdr_on_psms_writes_the_joint_features_without_changing_the_resu
     assert len(lost) == 1
     assert lost[0] in (0, 1)
     assert lost[0] not in without["precursor_idx"].tolist()
+
+
+def _final_round_psms() -> pd.DataFrame:
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    df = pd.concat([target_df, decoy_df], ignore_index=True)
+    df[fdr.FINAL_ROUND_FEATURE] = df["feature"]
+    return df
+
+
+def _count_final_round_fits(df: pd.DataFrame, **kwargs) -> int:
+    _CountingClassifier.n_fits = 0
+    fdr.perform_fdr_on_psms(
+        _CountingClassifier(n_collapses=0),
+        ["feature", fdr.FINAL_ROUND_FEATURE],
+        df,
+        df["decoy"].to_numpy() == 1,
+        random_state=0,
+        **kwargs,
+    )
+    return _CountingClassifier.n_fits
+
+
+def test_one_final_round_seed_is_one_cross_fit_without_the_data_limit_check(
+    monkeypatch,
+):
+    # given: final-round PSMs, and a data-limit check that must not be needed
+    df = _final_round_psms()
+
+    def is_data_limited(*args):
+        raise AssertionError("one seed outside the joint rescoring needs no check")
+
+    monkeypatch.setattr(joint_features, "is_data_limited", is_data_limited)
+
+    # when / then: one seed fits one cross-fit and returns what the default returns
+    assert _count_final_round_fits(df, final_round_seeds=1) == fdr.CROSSFIT_FOLDS
+
+    def run(**kwargs):
+        return fdr.perform_fdr_on_psms(
+            _CollapsingClassifier(n_collapses=0),
+            ["feature", fdr.FINAL_ROUND_FEATURE],
+            df,
+            df["decoy"].to_numpy() == 1,
+            random_state=0,
+            **kwargs,
+        )
+
+    pd.testing.assert_frame_equal(run(final_round_seeds=1), run())
+
+
+def test_two_final_round_seeds_fit_a_second_cross_fit_for_a_data_limited_run_outside_the_joint_step():
+    # given: final-round PSMs of a run with few targets
+    df = _final_round_psms()
+
+    # when / then: a run outside the joint rescoring fits two cross-fits
+    assert _count_final_round_fits(df, final_round_seeds=2) == 2 * fdr.CROSSFIT_FOLDS
+
+
+def test_two_final_round_seeds_fit_one_cross_fit_for_a_run_in_the_joint_step(
+    tmp_path,
+):
+    # given: final-round PSMs of a data-limited run that takes part in the joint rescoring
+    df = _final_round_psms()
+
+    # when / then: the run fits one cross-fit and writes its joint features
+    assert (
+        _count_final_round_fits(
+            df, final_round_seeds=2, joint_rescoring_folder=str(tmp_path)
+        )
+        == fdr.CROSSFIT_FOLDS
+    )
+    assert joint_features.has_run_features(str(tmp_path))
+
+
+def test_two_final_round_seeds_fit_one_cross_fit_for_a_run_that_is_not_data_limited(
+    monkeypatch,
+):
+    # given: final-round PSMs of a run whose own fit accepts more targets than the data limit
+    df = _final_round_psms()
+    monkeypatch.setattr(joint_features, "DATA_LIMITED_MAX_TARGETS", 0)
+
+    # when / then: the run fits one cross-fit
+    assert _count_final_round_fits(df, final_round_seeds=2) == fdr.CROSSFIT_FOLDS
+
+
+def test_final_round_seed_ensemble_is_the_mean_logit_of_the_cross_fits(
+    monkeypatch, tmp_path
+):
+    # given: two cross-fits that give fixed probabilities, the second on folds of its own
+    df = _final_round_psms()
+    rng = np.random.default_rng(0)
+    probas = [rng.uniform(0.01, 0.99, len(df)) for _ in range(2)]
+    folds = []
+
+    def crossfit_predict(classifier, X, y, idxs_train, groups, crossfit, first=None):  # noqa: N803
+        folds.append(crossfit[0])
+        return probas[len(folds) - 1]
+
+    monkeypatch.setattr(fdr, "_crossfit_predict", crossfit_predict)
+    path = tmp_path / "fdr_features.parquet"
+
+    # when
+    fdr.perform_fdr_on_psms(
+        _CollapsingClassifier(n_collapses=0),
+        ["feature", fdr.FINAL_ROUND_FEATURE],
+        df,
+        df["decoy"].to_numpy() == 1,
+        random_state=0,
+        dump_path=str(path),
+        final_round_seeds=2,
+    )
+
+    # then: every row carries the sigmoid of the mean logit of the two probabilities
+    def logit(p):
+        return np.log(p) - np.log1p(-p)
+
+    expected = 1 / (1 + np.exp(-(logit(probas[0]) + logit(probas[1])) / 2))
+    np.testing.assert_allclose(pd.read_parquet(path)["proba"], expected)
+    # and the second cross-fit drew other folds
+    assert len(folds) == 2
+    assert not np.array_equal(folds[0], folds[1])
+
+
+def test_seed_random_state_is_derived_deterministically():
+    # given / when / then: a seeded run derives a fixed, different state per member; an unseeded one stays unseeded
+    assert fdr._seed_random_state(7, 1) == fdr._seed_random_state(7, 1)
+    assert fdr._seed_random_state(7, 1) != fdr._seed_random_state(7, 2)
+    assert fdr._seed_random_state(7, 1) != fdr._seed_random_state(8, 1)
+    assert fdr._seed_random_state(None, 1) is None

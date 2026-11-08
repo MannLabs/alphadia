@@ -19,7 +19,6 @@ import time
 
 import numpy as np
 import pandas as pd
-from scipy.special import expit
 
 from alphadia.fdr import fdr, joint_features, mbr_transfer
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
@@ -36,9 +35,6 @@ MAX_LOFO_RUNS = 8
 MAX_TRAINING_ROWS = 25_000_000
 # the best-peak group of a joint fit is the precursor within its run
 RUN_GROUP_STRIDE = 1 << 32
-# the clip of `fdr._aligned_proba`
-PROBA_CLIP_LOW = 1e-300
-PROBA_CLIP_HIGH = 1 - 1e-16
 
 
 def keep_qval(fdr_cutoff: float) -> float:
@@ -76,14 +72,7 @@ def training_rows(
 
 def ensemble_proba(run_proba: np.ndarray, joint_proba: np.ndarray) -> np.ndarray:
     """The sigmoid of the mean logit of the two probabilities."""
-    logits = [
-        np.log(p) - np.log1p(-p)
-        for p in (
-            np.clip(run_proba, PROBA_CLIP_LOW, PROBA_CLIP_HIGH),
-            np.clip(joint_proba, PROBA_CLIP_LOW, PROBA_CLIP_HIGH),
-        )
-    ]
-    return expit((logits[0] + logits[1]) / 2)
+    return fdr.mean_logit_proba([run_proba, joint_proba])
 
 
 def _new_classifier(
