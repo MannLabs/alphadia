@@ -18,15 +18,10 @@ class PythonOptimizationHandler(OptimizationHandler[PythonExtractionHandler]):
     def _extract_batch(
         self, extraction_handler: PythonExtractionHandler
     ) -> ExtractedBatch:
-        candidates_df = extraction_handler.select_candidates(
-            self._dia_data,
-            self._optlock.batch_library,
-        )
+        candidates_df = extraction_handler.select_candidates()
 
         precursors_df, fragments_df = extraction_handler.score_and_quantify_candidates(
-            candidates_df,
-            self._dia_data,
-            self._optlock.batch_library,
+            candidates_df
         )
 
         return ExtractedBatch(candidates_df, precursors_df, fragments_df)

@@ -9,7 +9,6 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
-from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.search.scoring.utils import (
     candidate_features_to_candidates,
@@ -32,23 +31,18 @@ class TransferLibraryRequantificationHandler:
         config: Config,
         calibration_manager: CalibrationManager,
         reporter: Pipeline,
-        create_extraction_handler: Callable[[], ExtractionHandler],
+        create_extraction_handler: Callable[[SpecLibFlat], ExtractionHandler],
     ):
         self._config = config
         self._calibration_manager = calibration_manager
         self._reporter = reporter
         self._create_extraction_handler = create_extraction_handler
 
-    def requantify(
-        self, dia_data: DiaData, psm_df: pd.DataFrame
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def requantify(self, psm_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Requantify confident precursor identifications for transfer learning.
 
         Parameters
         ----------
-
-        dia_data: DiaData
-            DIA data object
 
         psm_df: pd.DataFrame
             Dataframe with peptide identifications
@@ -94,7 +88,7 @@ class TransferLibraryRequantificationHandler:
             f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
         )
 
-        extraction_handler = self._create_extraction_handler()
+        extraction_handler = self._create_extraction_handler(candidate_speclib_flat)
 
         # we disregard the precursors, as we want to keep the original scoring from the top12 search
         # this works fine as there is no index pointing from the precursors to the fragments
@@ -102,8 +96,6 @@ class TransferLibraryRequantificationHandler:
         _, frag_df = extraction_handler.quantify_candidates(
             scored_candidates,
             None,
-            dia_data,
-            candidate_speclib_flat,
             # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
             top_k_fragments=9999,
         )
