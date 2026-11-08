@@ -38,11 +38,11 @@ from alphadia.workflow.optimizers.targeted import (
     TargetedRTOptimizer,
 )
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
-from alphadia.workflow.peptidecentric.peptidecentric import (
-    PeptideCentricWorkflow,
-    _get_classifier_base,
-)
+from alphadia.workflow.peptidecentric.peptidecentric import _get_classifier_base
 from alphadia.workflow.peptidecentric.python.utils import feature_columns
+from alphadia.workflow.peptidecentric.python.workflow import (
+    PythonPeptideCentricWorkflow,
+)
 
 
 def test_base_manager():
@@ -445,7 +445,7 @@ def create_workflow_instance():
             )
         ]
     )
-    workflow = PeptideCentricWorkflow(
+    workflow = PythonPeptideCentricWorkflow(
         "test",
         config,
     )
