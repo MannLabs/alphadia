@@ -1,11 +1,26 @@
 """Peptide-centric workflow on the Rust (alphadia-search-rs) extraction backend."""
 
+import time
+
 import pandas as pd
+from alphadia_search_rs import DIAData as DiaDataNG
 from alphadia_search_rs import FeatureSet
 
-from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
-from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
+from alphadia.exceptions import GenericUserError
+from alphadia.raw_data import DiaData
+from alphadia.raw_data.bruker import TimsTOFTranspose
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.rust.extraction_handler import (
+    RustExtractionHandler,
+)
+from alphadia.workflow.peptidecentric.rust.ng_mapper import (
+    dia_data_to_ng,
+    get_feature_names,
+    set_ng_thread_count,
+)
+from alphadia.workflow.peptidecentric.rust.optimization_handler import (
+    RustOptimizationHandler,
+)
 from alphadia.workflow.peptidecentric.utils import (
     add_library_fragment_intensity,
     log_precursor_df,
@@ -19,19 +34,48 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
     Candidates are scored and FDR-filtered first; only the confident ones are quantified.
     """
 
-    @use_timing_manager("extraction")
-    def extraction(self) -> tuple[pd.DataFrame, pd.DataFrame]:
-        extraction_handler = ExtractionHandler.create_handler(
+    OPTIMIZATION_HANDLER_CLASS = RustOptimizationHandler
+
+    def _classifier_feature_columns(self) -> list[str]:
+        # The FDR manager uses only the columns present, so calibration rounds use the core subset.
+        return get_feature_names(FeatureSet.Full)
+
+    def _create_extraction_handler(self) -> RustExtractionHandler:
+        return RustExtractionHandler(
             self.config,
             self.optimization_manager,
             self._fdr_manager,
             self.reporter,
-            ColumnNameHandler(
-                self.calibration_manager,
-                dia_data_has_ms1=self.dia_data.has_ms1,
-                dia_data_has_mobility=self.dia_data.has_mobility,
-            ),
+            self._create_column_name_handler(),
         )
+
+    def _prepare_dia_data(self, dia_data: DiaData) -> DiaDataNG:
+        if isinstance(dia_data, TimsTOFTranspose):
+            raise GenericUserError(
+                "NOT_SUPPORTED_BY_NG",
+                "Rust backend does not support TimsTOF data yet. Please use extraction_backend='python'.",
+            )
+
+        time_start = time.time()
+
+        # needs to be the first call to alphadia-search-rs
+        set_ng_thread_count(self.config["general"]["thread_count"])
+
+        dia_data_ng = dia_data_to_ng(dia_data)
+
+        # TODO: remove these asserts
+        assert dia_data.cycle.shape[1] == dia_data_ng.cycle.shape[1]
+        assert all(dia_data.rt_values == dia_data_ng.rt_values)
+
+        self.reporter.log_string(
+            f"Creating DIA data NG object took: {time.time() - time_start}"
+        )
+
+        return dia_data_ng
+
+    @use_timing_manager("extraction")
+    def extraction(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+        extraction_handler = self._create_extraction_handler()
 
         candidates_df = extraction_handler.select_candidates(
             self.dia_data,

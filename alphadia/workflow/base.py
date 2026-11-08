@@ -3,22 +3,17 @@ import os
 import time
 
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import DIAData as DiaDataNG
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
-from alphadia.exceptions import GenericUserError
 from alphadia.raw_data import DiaData
-from alphadia.raw_data.bruker import TimsTOFTranspose
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 from alphadia.workflow.managers.timing_manager import TimingManager
-from alphadia.workflow.peptidecentric.rust.ng_mapper import (
-    dia_data_to_ng,
-    set_ng_thread_count,
-)
 
 logger = logging.getLogger()
 
@@ -79,7 +74,7 @@ class WorkflowBase:
 
         self._config: Config = config
         self.reporter: reporting.Pipeline | None = None
-        self._dia_data: DiaData | None = None
+        self._dia_data: DiaData | DiaDataNG | None = None
         self._spectral_library: SpecLibFlat | None = None
         self._calibration_manager: CalibrationManager | None = None
         self._optimization_manager: OptimizationManager | None = None
@@ -122,26 +117,7 @@ class WorkflowBase:
             f"Creating DIA data object took: {time.time() - time_start}"
         )
 
-        if self._config["search"]["extraction_backend"] == "rust":
-            time_start = time.time()
-            if isinstance(self._dia_data, TimsTOFTranspose):
-                raise GenericUserError(
-                    "NOT_SUPPORTED_BY_NG",
-                    "Rust backend does not support TimsTOF data yet. Please use extraction_backend='python'.",
-                )
-            # needs to be the first call to alphadia-search-rs
-            set_ng_thread_count(self.config["general"]["thread_count"])
-
-            dia_data_ng = dia_data_to_ng(self._dia_data)
-
-            # TODO: remove these asserts
-            assert self.dia_data.cycle.shape[1] == dia_data_ng.cycle.shape[1]
-            assert all(self.dia_data.rt_values == dia_data_ng.rt_values)
-
-            self._dia_data = dia_data_ng
-            self.reporter.log_string(
-                f"Creating DIA data NG object took: {time.time() - time_start}"
-            )
+        self._dia_data = self._prepare_dia_data(self._dia_data)
 
         raw_file_manager.save()
 
@@ -165,6 +141,10 @@ class WorkflowBase:
             reporter=self.reporter,
         )
         self.reporter.log_event("section_stop", {})
+
+    def _prepare_dia_data(self, dia_data: DiaData) -> DiaData | DiaDataNG:
+        """Convert the loaded DIA data into the representation the extraction backend works on."""
+        return dia_data
 
     @property
     def path(self) -> str:
@@ -199,6 +179,6 @@ class WorkflowBase:
     @property
     def dia_data(
         self,
-    ) -> DiaData:
+    ) -> DiaData | DiaDataNG:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data

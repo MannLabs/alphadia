@@ -7,19 +7,9 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
-from alphadia.workflow.peptidecentric.python.utils import feature_columns
 from alphadia.workflow.peptidecentric.utils import (
     add_library_fragment_intensity,
-    get_classifier_feature_columns,
 )
-
-
-def test_get_classifier_feature_columns_for_python_backend():
-    # when
-    columns = get_classifier_feature_columns("python")
-
-    # then
-    assert columns == feature_columns
 
 
 def _flat_library():
