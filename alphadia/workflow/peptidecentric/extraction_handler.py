@@ -15,7 +15,13 @@ from alphadia_search_rs import (
 )
 
 from alphadia.constants.keys import CalibCols
-from alphadia.fdr import fdr, joint_rescoring, raw_fragment_features, riding
+from alphadia.fdr import (
+    candidate_dump,
+    fdr,
+    joint_rescoring,
+    raw_fragment_features,
+    riding,
+)
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.libtransform import mbr
 from alphadia.raw_data import DiaData
@@ -242,6 +248,7 @@ class ExtractionHandler(ABC):
         dia_data: "DiaData | DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
         apply_cutoff: bool = False,
+        candidate_dump_folder: str | None = None,
     ) -> pd.DataFrame:
         """Select candidates from DIA data based on spectral library and apply cutoff if requested.
 
@@ -253,6 +260,9 @@ class ExtractionHandler(ABC):
             Spectral library containing precursors and fragments
         apply_cutoff : bool
             Whether to apply score cutoff filtering
+        candidate_dump_folder : str, optional
+            With `apply_cutoff`, every candidate is written with the cutoff decision to the candidate file of
+            `candidate_dump` in this folder.
 
         Returns
         -------
@@ -268,7 +278,11 @@ class ExtractionHandler(ABC):
         # plt.hist(candidates_df["score"], bins=100)
 
         if apply_cutoff:
-            candidates_df = self._apply_score_cutoff(candidates_df)
+            candidates_df = self._apply_score_cutoff(
+                candidates_df,
+                rt_values=dia_data.rt_values,
+                candidate_dump_folder=candidate_dump_folder,
+            )
 
         return candidates_df
 
@@ -293,13 +307,23 @@ class ExtractionHandler(ABC):
             DataFrame with selected candidates
         """
 
-    def _apply_score_cutoff(self, candidates_df: pd.DataFrame) -> pd.DataFrame:
+    def _apply_score_cutoff(
+        self,
+        candidates_df: pd.DataFrame,
+        rt_values: np.ndarray | None = None,
+        candidate_dump_folder: str | None = None,
+    ) -> pd.DataFrame:
         """Apply score cutoff (taken from optimization_manager) to candidates dataframe.
 
         Parameters
         ----------
         candidates_df : pd.DataFrame
             DataFrame containing candidate matches
+        rt_values : np.ndarray, optional
+            RT of every spectrum of the DIA data, for the candidate file. Required with `candidate_dump_folder`.
+        candidate_dump_folder : str, optional
+            Every candidate is written with the cutoff decision to the candidate file of `candidate_dump` in this
+            folder.
 
         Returns
         -------
@@ -315,6 +339,20 @@ class ExtractionHandler(ABC):
         if SELECTION_DET_SHARE in candidates_df.columns:
             keep = (
                 keep | (candidates_df[SELECTION_DET_SHARE] > DET_SHARE_GATE).to_numpy()
+            )
+        if candidate_dump_folder is not None:
+            candidate_dump.write_candidates(
+                candidate_dump_folder,
+                candidates_df,
+                above_cutoff,
+                keep,
+                rt_values,
+                {
+                    candidate_dump.SCORE_CUTOFF_COLUMN: self._optimization_manager.score_cutoff,
+                    candidate_dump.DET_SHARE_GATE_COLUMN: DET_SHARE_GATE,
+                    candidate_dump.RT_TOLERANCE_COLUMN: self._optimization_manager.rt_error,
+                    candidate_dump.NUM_CANDIDATES_COLUMN: self._optimization_manager.num_candidates,
+                },
             )
         candidates_df = candidates_df[keep]
         num_after = len(candidates_df)
