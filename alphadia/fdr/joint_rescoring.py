@@ -30,8 +30,9 @@ logger = logging.getLogger()
 KEEP_QVAL = 0.05
 MIN_RUNS = 2
 MAX_LOFO_RUNS = 8
-# above this many rows of the other runs, whole competition groups are sampled: the training matrix, its quantile
-# transformed copy and the best-peak tensors stay at ~15 GB with ~60 features
+# above this many rows of the other runs, whole competition groups are sampled. The fit peaks at ~3x the float32
+# training matrix (the matrix, its quantile-transformed copy and the transform's per-thread temporaries): 8 M rows of
+# 48 features peaked at 6.4 GB above the identity tables, so 25 M rows of ~60 features need ~20 GB.
 MAX_TRAINING_ROWS = 25_000_000
 # the best-peak group of a joint fit is the precursor within its run
 RUN_GROUP_STRIDE = 1 << 32
@@ -229,7 +230,7 @@ def rescore(
         start = time.time()
         left_out = [int(i) for i in np.flatnonzero(groups == group)]
         train_runs = [int(i) for i in np.flatnonzero(groups != group)]
-        rows = training_rows(competitions, train_runs, rng)
+        rows = training_rows(competitions, train_runs, rng, MAX_TRAINING_ROWS)
         probas = _fit_predict_left_out(
             folders,
             ids,
