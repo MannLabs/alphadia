@@ -125,6 +125,8 @@ def _candidate_features() -> SimpleNamespace:
             "ms1_iso_cosine": np.array([0.99, 0.5, 0.0]),
             "ms1_contrast": np.array([1.0, 0.2, 0.0]),
             "ms1_ppm_signed": np.array([0.5, -2.0, 0.0]),
+            "ms1_m0_accurate_share": np.array([0.8, 0.2, 0.0]),
+            "ms1_m1_accurate_share": np.array([0.6, 0.0, 0.0]),
         }
     )
 
