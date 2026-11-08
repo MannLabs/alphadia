@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-from alphadia_search_rs import FeatureSet
+from alphadia_search_rs import FeatureSet, SearchTolerances
 
 from alphadia.workflow.peptidecentric.rust.extraction_handler import (
     RustExtractionHandler,
@@ -15,13 +15,25 @@ from alphadia.workflow.peptidecentric.rust.ng_mapper import (
 
 SPECLIB_TO_NG = "alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_ng"
 
+TOLERANCES = SearchTolerances(
+    rt_error=120.0,
+    ms1_error=30.0,
+    ms2_error=7.5,
+    mobility_error=0.1,
+    fwhm_rt=5.0,
+    fwhm_mobility=-1.0,
+    num_candidates=3,
+    score_cutoff=0.0,
+)
+CLASSIFIER_VERSION = 4
 
-def _create_handler(config, optimization_manager=None, fdr_manager=None):
+
+def _create_handler(config, fdr_manager=None):
     """Create a handler bound to mock DIA data and library, without converting a real library."""
     with patch(SPECLIB_TO_NG, return_value=MagicMock(name="speclib_ng")):
         return RustExtractionHandler(
             config,
-            optimization_manager or MagicMock(),
+            TOLERANCES,
             fdr_manager or MagicMock(),
             MagicMock(),
             MagicMock(),
@@ -42,7 +54,7 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_ng):
     # when
     handler = RustExtractionHandler(
         {},
-        MagicMock(),
+        TOLERANCES,
         MagicMock(),
         MagicMock(),
         column_name_handler,
@@ -69,7 +81,7 @@ def test_score_candidates_returns_the_scored_features(
 ):
     # given
     config = {"search": {"top_k_fragments_scoring": 12}}
-    handler = _create_handler(config, optimization_manager=MagicMock(ms2_error=7.5))
+    handler = _create_handler(config)
 
     # when
     features_df = handler.score_candidates(MagicMock(), feature_set)
@@ -123,7 +135,9 @@ def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candida
         handler, "quantify_candidates", return_value=(None, fragments_df)
     ) as mock_quantify:
         candidates_filtered, precursor_fdr_df = (
-            handler.perform_fdr_and_filter_candidates(features_df, candidates_df)
+            handler.perform_fdr_and_filter_candidates(
+                features_df, candidates_df, CLASSIFIER_VERSION
+            )
         )
 
     # then: only the competing candidates were quantified, and their fragments returned
@@ -150,13 +164,15 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
+        CLASSIFIER_VERSION,
         df_fragments=fragments_df,
     )
 
-    # then: the FDR step gets them directly and no provider
+    # then: the FDR step gets them directly and no provider, with the given classifier version
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["df_fragments"] is fragments_df
     assert kwargs["fragment_provider"] is None
+    assert kwargs["version"] == CLASSIFIER_VERSION
 
 
 @pytest.mark.parametrize(
@@ -177,6 +193,7 @@ def test_perform_fdr_and_filter_candidates_leaves_fwhm_rt_out_of_the_final_round
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
+        CLASSIFIER_VERSION,
         df_fragments=pd.DataFrame(),
         final_round=final_round,
     )
@@ -201,6 +218,7 @@ def test_perform_fdr_and_filter_candidates_passes_train_on_best_candidate(
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
+        CLASSIFIER_VERSION,
         df_fragments=pd.DataFrame(),
         train_on_best_candidate=train_on_best_candidate,
     )

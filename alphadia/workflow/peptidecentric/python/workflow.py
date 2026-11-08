@@ -42,7 +42,7 @@ class PythonPeptideCentricWorkflow(PeptideCentricWorkflow):
     ) -> PythonExtractionHandler:
         return PythonExtractionHandler(
             self.config,
-            self.optimization_manager,
+            self.optimization_manager.search_tolerances(),
             self._fdr_manager,
             self.reporter,
             self._create_column_name_handler(),

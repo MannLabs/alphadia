@@ -1,5 +1,7 @@
 import logging
 
+from alphadia_search_rs import SearchTolerances
+
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -117,3 +119,16 @@ class OptimizationManager(BaseManager):
             self.reporter.log_string(
                 f"Updating optimization_manager: {log}", verbosity="info"
             )
+
+    def search_tolerances(self) -> SearchTolerances:
+        """Snapshot of the current search tolerances, which later updates of this manager do not change."""
+        return SearchTolerances(
+            rt_error=self.rt_error,
+            ms1_error=self.ms1_error,
+            ms2_error=self.ms2_error,
+            mobility_error=self.mobility_error,
+            fwhm_rt=self.fwhm_rt,
+            fwhm_mobility=self.fwhm_mobility,
+            num_candidates=self.num_candidates,
+            score_cutoff=self.score_cutoff,
+        )

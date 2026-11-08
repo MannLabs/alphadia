@@ -9,6 +9,7 @@ from alphadia_search_rs import FeatureSet
 
 from alphadia.exceptions import GenericUserError
 from alphadia.raw_data.bruker import TimsTOFTranspose
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.python.extraction_handler import (
     PythonExtractionHandler,
 )
@@ -26,6 +27,17 @@ from alphadia.workflow.peptidecentric.rust.optimization_handler import (
 from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
 
 THREAD_COUNT = 3
+
+OPTIMIZATION_CONFIG = {
+    "search_initial": {
+        "ms1_tolerance": 4,
+        "ms2_tolerance": 7,
+        "rt_tolerance": 200,
+        "mobility_tolerance": 0.04,
+        "num_candidates": 1,
+    },
+    "optimization_manager": {"fwhm_rt": 5, "fwhm_mobility": 0.01, "score_cutoff": 50},
+}
 
 
 def _create_workflow(workflow_class, tmp_path):
@@ -46,7 +58,7 @@ def _create_workflow(workflow_class, tmp_path):
     }
     workflow = workflow_class("raw1", config)
     workflow.reporter = MagicMock()
-    workflow._optimization_manager = MagicMock()
+    workflow._optimization_manager = OptimizationManager(OPTIMIZATION_CONFIG)
     workflow._calibration_manager = MagicMock()
     workflow._dia_data = MagicMock(has_ms1=True, has_mobility=False)
     return workflow
@@ -94,6 +106,10 @@ def test_workflow_creates_extraction_handler_of_its_backend(
     assert type(extraction_handler) is extraction_handler_class
     assert extraction_handler._dia_data is workflow.dia_data
     assert extraction_handler._spectral_library is spectral_library
+    assert (
+        extraction_handler._tolerances
+        == workflow.optimization_manager.search_tolerances()
+    )
 
 
 @patch("alphadia.workflow.peptidecentric.optimization_handler.log_precursor_df")

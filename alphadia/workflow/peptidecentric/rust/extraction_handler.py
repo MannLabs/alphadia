@@ -10,6 +10,7 @@ from alphadia_search_rs import (
     PeakGroupSelection,
     QuantificationParameters,
     ScoringParameters,
+    SearchTolerances,
     SelectionParameters,
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
@@ -21,7 +22,6 @@ from alphadia.reporting.reporting import Pipeline
 from alphadia.search.scoring.scoring import CandidateScoring
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
-from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.rust.ng_mapper import (
@@ -40,7 +40,7 @@ class RustExtractionHandler(ExtractionHandler):
     def __init__(
         self,
         config: Config,
-        optimization_manager: OptimizationManager,
+        tolerances: SearchTolerances,
         fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
@@ -49,7 +49,7 @@ class RustExtractionHandler(ExtractionHandler):
     ):
         super().__init__(
             config,
-            optimization_manager,
+            tolerances,
             fdr_manager,
             reporter,
             column_name_handler,
@@ -75,13 +75,13 @@ class RustExtractionHandler(ExtractionHandler):
         selection_params = SelectionParameters()
         selection_params.update(
             {
-                "fwhm_rt": self._optimization_manager.fwhm_rt,
+                "fwhm_rt": self._tolerances.fwhm_rt,
                 # 'kernel_size': 20,  # 15?
                 "top_k_fragments": self._config["search"]["top_k_fragments_selection"],
                 "peak_length": self._config["search"]["quant_window"],
-                "mass_tolerance": self._optimization_manager.ms2_error,
-                "rt_tolerance": self._optimization_manager.rt_error,
-                "candidate_count": self._optimization_manager.num_candidates,
+                "mass_tolerance": self._tolerances.ms2_error,
+                "rt_tolerance": self._tolerances.rt_error,
+                "candidate_count": self._tolerances.num_candidates,
             }
         )
 
@@ -115,7 +115,7 @@ class RustExtractionHandler(ExtractionHandler):
         scoring_params.update(
             {
                 "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
-                "mass_tolerance": self._optimization_manager.ms2_error,
+                "mass_tolerance": self._tolerances.ms2_error,
                 "feature_set": feature_set,
             }
         )
@@ -206,6 +206,7 @@ class RustExtractionHandler(ExtractionHandler):
         self,
         features_df: pd.DataFrame,
         candidates_df: pd.DataFrame,
+        classifier_version: int,
         df_fragments: pd.DataFrame | None = None,
         final_round: bool = False,
         train_on_best_candidate: bool = False,
@@ -219,6 +220,9 @@ class RustExtractionHandler(ExtractionHandler):
 
         candidates_df : pd.DataFrame
             DataFrame with candidates
+
+        classifier_version : int
+            Version of the stored FDR classifier to start from, -1 for the latest.
 
         df_fragments : pd.DataFrame, optional
             Quantified fragments of all candidates. If not given, the fragments of the
@@ -258,7 +262,7 @@ class RustExtractionHandler(ExtractionHandler):
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=df_fragments,
             fragment_provider=quantified_fragments if df_fragments is None else None,
-            version=self._optimization_manager.classifier_version,
+            version=classifier_version,
             excluded_columns=FINAL_ROUND_EXCLUDED_FEATURES if final_round else (),
             train_on_best_candidate=train_on_best_candidate,
         )

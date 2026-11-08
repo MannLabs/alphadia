@@ -55,6 +55,7 @@ class RustOptimizationHandler(OptimizationHandler[RustExtractionHandler]):
         _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
             self._optlock.features_df,
             batch.candidates_df,
+            self._optimization_manager.classifier_version,
             df_fragments=self._optlock.fragments_df,
         )
         return precursor_df
