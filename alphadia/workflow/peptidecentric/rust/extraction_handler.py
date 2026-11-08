@@ -2,6 +2,7 @@
 
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import DIAData as DiaDataNG
 from alphadia_search_rs import (
     FeatureSet,
     PeakGroupQuantification,
@@ -11,11 +12,17 @@ from alphadia_search_rs import (
     ScoringParameters,
     SelectionParameters,
 )
+from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
+from alphadia.reporting.reporting import Pipeline
 from alphadia.search.scoring.scoring import CandidateScoring
+from alphadia.workflow.config import Config
+from alphadia.workflow.managers.fdr_manager import FDRManager
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.rust.ng_mapper import (
     FINAL_ROUND_EXCLUDED_FEATURES,
@@ -32,36 +39,37 @@ class RustExtractionHandler(ExtractionHandler):
 
     def __init__(
         self,
-        *args,
-        **kwargs,
-    ):
-        """Initialize NG extraction handler."""
-        super().__init__(*args, **kwargs)
-
-        self._speclib_ng: SpecLibFlatNG = None  # noqa: F821
-
-    def _lazy_init_speclib_ng(self, spectral_library: SpecLibFlat) -> None:
-        """Initialize the NG speclib if not already done."""
-        if self._speclib_ng is None:
-            self._speclib_ng = speclib_to_ng(
-                spectral_library,
-                rt_column=self._column_name_handler.get_rt_column(),
-                precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
-                fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
-            )
-
-    def _select_candidates(
-        self,
-        dia_data: "DiaDataNG",  # noqa: F821
+        config: Config,
+        optimization_manager: OptimizationManager,
+        fdr_manager: FDRManager,
+        reporter: Pipeline,
+        column_name_handler: ColumnNameHandler,
+        dia_data: DiaDataNG,
         spectral_library: SpecLibFlat,
-    ) -> pd.DataFrame:
-        """Select candidates using NG backend.
+    ):
+        super().__init__(
+            config,
+            optimization_manager,
+            fdr_manager,
+            reporter,
+            column_name_handler,
+            dia_data,
+            spectral_library,
+        )
+
+        # converted with the columns of the calibration state at construction
+        self._speclib_ng: SpecLibFlatNG = speclib_to_ng(
+            spectral_library,
+            rt_column=column_name_handler.get_rt_column(),
+            precursor_mz_column=column_name_handler.get_precursor_mz_column(),
+            fragment_mz_column=column_name_handler.get_fragment_mz_column(),
+        )
+
+    def _select_candidates(self) -> pd.DataFrame:
+        """Select candidates using the Rust backend.
 
         See superclass documentation for interface details.
         """
-
-        self._lazy_init_speclib_ng(spectral_library)
-
         self._log_parameters()
 
         selection_params = SelectionParameters()
@@ -78,18 +86,14 @@ class RustExtractionHandler(ExtractionHandler):
         )
 
         candidates = PeakGroupSelection(selection_params).search(
-            dia_data, self._speclib_ng
+            self._dia_data, self._speclib_ng
         )
 
-        cands = parse_candidates(candidates, spectral_library, dia_data)
-
-        return cands
+        return parse_candidates(candidates, self._spectral_library, self._dia_data)
 
     def score_candidates(
         self,
         candidates_df: pd.DataFrame,
-        dia_data: "DiaDataNG",  # noqa: F821
-        spectral_library: SpecLibFlat,
         feature_set: FeatureSet,
     ) -> pd.DataFrame:
         """Score candidates.
@@ -98,10 +102,6 @@ class RustExtractionHandler(ExtractionHandler):
         ----------
         candidates_df : pd.DataFrame
             DataFrame with selected candidates
-        dia_data : DiaDataNG
-            DIA data to extract from.
-        spectral_library : SpecLibFlat
-            Spectral library
         feature_set : FeatureSet
             `FeatureSet.Calibration` for the calibration rounds, `FeatureSet.Full` for the final round
         Returns
@@ -109,9 +109,7 @@ class RustExtractionHandler(ExtractionHandler):
         pd.DataFrame
             precursors dataframe with results from scoring (= features)
         """
-        self._lazy_init_speclib_ng(spectral_library)
-
-        candidates = candidates_to_ng(candidates_df, dia_data)
+        candidates = candidates_to_ng(candidates_df, self._dia_data)
 
         scoring_params = ScoringParameters()
         scoring_params.update(
@@ -123,26 +121,22 @@ class RustExtractionHandler(ExtractionHandler):
         )
 
         candidate_features = PeakGroupScoring(scoring_params).score(
-            dia_data, self._speclib_ng, candidates
+            self._dia_data, self._speclib_ng, candidates
         )
 
-        return to_features_df(candidate_features, spectral_library)
+        return to_features_df(candidate_features, self._spectral_library)
 
     def quantify_candidates(
         self,
         candidates_df: pd.DataFrame,
         precursor_fdr_df: pd.DataFrame | None,
-        dia_data: "DiaDataNG",  # noqa: F821
-        spectral_library: SpecLibFlat,
         top_k_fragments: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Quantify candidates using NG backend.
+        """Quantify candidates using the Rust backend.
 
         See superclass documentation for interface details.
         """
-        self._lazy_init_speclib_ng(spectral_library)
-
-        candidates_collection = candidates_to_ng(candidates_df, dia_data)
+        candidates_collection = candidates_to_ng(candidates_df, self._dia_data)
 
         # run quantification
         quant_params = QuantificationParameters()
@@ -151,7 +145,7 @@ class RustExtractionHandler(ExtractionHandler):
 
         peak_group_quantification = PeakGroupQuantification(quant_params)
         quantified_lib = peak_group_quantification.quantify(
-            dia_data, self._speclib_ng, candidates_collection
+            self._dia_data, self._speclib_ng, candidates_collection
         )
         precursor_df, fragments_df = parse_quantification(quantified_lib)
 
@@ -160,7 +154,7 @@ class RustExtractionHandler(ExtractionHandler):
             precursor_df, candidates_df
         )
 
-        precursor_df = self.add_columns_from_library(precursor_df, spectral_library)
+        precursor_df = self.add_columns_from_library(precursor_df)
 
         if precursor_fdr_df is not None:
             # fwhm_rt is a scoring feature (not produced by quantification), so it is
@@ -174,7 +168,7 @@ class RustExtractionHandler(ExtractionHandler):
         return precursor_df, fragments_df
 
     def add_columns_from_library(
-        self, features_or_precursor_df: pd.DataFrame, spectral_library: SpecLibFlat
+        self, features_or_precursor_df: pd.DataFrame
     ) -> pd.DataFrame:
         """Add relevant columns from spectral library to features or precursor dataframe.
 
@@ -182,8 +176,6 @@ class RustExtractionHandler(ExtractionHandler):
         ----------
         features_or_precursor_df : pd.DataFrame
             DataFrame with features or precursors to add columns to
-        spectral_library : SpecLibFlat
-            Spectral library
 
         Returns
         -------
@@ -192,7 +184,7 @@ class RustExtractionHandler(ExtractionHandler):
         """
         features_or_precursor_df = CandidateScoring.merge_precursor_data(
             features_or_precursor_df,
-            spectral_library.precursor_df,
+            self._spectral_library.precursor_df,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
@@ -214,8 +206,6 @@ class RustExtractionHandler(ExtractionHandler):
         self,
         features_df: pd.DataFrame,
         candidates_df: pd.DataFrame,
-        dia_data: "DiaDataNG",  # noqa: F821
-        spectral_library: SpecLibFlat,
         df_fragments: pd.DataFrame | None = None,
         final_round: bool = False,
         train_on_best_candidate: bool = False,
@@ -229,12 +219,6 @@ class RustExtractionHandler(ExtractionHandler):
 
         candidates_df : pd.DataFrame
             DataFrame with candidates
-
-        dia_data : DiaDataNG
-            DIA data, to quantify the fragments that fragment competition needs.
-
-        spectral_library : SpecLibFlat
-            Spectral library of the candidates
 
         df_fragments : pd.DataFrame, optional
             Quantified fragments of all candidates. If not given, the fragments of the
@@ -264,9 +248,7 @@ class RustExtractionHandler(ExtractionHandler):
             competing = candidates_df[
                 candidates_df["_candidate_idx"].isin(psm_df["_candidate_idx"])
             ].drop(columns="_candidate_idx")
-            _, fragments_df = self.quantify_candidates(
-                competing, None, dia_data, spectral_library
-            )
+            _, fragments_df = self.quantify_candidates(competing, None)
             return fragments_df
 
         # apply FDR to PSMs

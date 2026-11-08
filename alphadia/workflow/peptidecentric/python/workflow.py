@@ -1,6 +1,7 @@
 """Peptide-centric workflow on the Python (numba) extraction backend."""
 
 import pandas as pd
+from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
@@ -36,29 +37,27 @@ class PythonPeptideCentricWorkflow(PeptideCentricWorkflow):
     def _classifier_feature_columns(self) -> list[str]:
         return feature_columns
 
-    def _create_extraction_handler(self) -> PythonExtractionHandler:
+    def _create_extraction_handler(
+        self, spectral_library: SpecLibFlat
+    ) -> PythonExtractionHandler:
         return PythonExtractionHandler(
             self.config,
             self.optimization_manager,
             self._fdr_manager,
             self.reporter,
             self._create_column_name_handler(),
+            self.dia_data,
+            spectral_library,
         )
 
     @use_timing_manager("extraction")
     def extraction(self) -> tuple[pd.DataFrame, pd.DataFrame]:
-        extraction_handler = self._create_extraction_handler()
+        extraction_handler = self._create_extraction_handler(self.spectral_library)
 
-        candidates_df = extraction_handler.select_candidates(
-            self.dia_data,
-            self.spectral_library,
-            apply_cutoff=True,
-        )
+        candidates_df = extraction_handler.select_candidates(apply_cutoff=True)
 
         precursor_quantified_w_features_df, fragments_df = (
-            extraction_handler.score_and_quantify_candidates(
-                candidates_df, self.dia_data, self.spectral_library
-            )
+            extraction_handler.score_and_quantify_candidates(candidates_df)
         )
 
         self.reporter.log_string(

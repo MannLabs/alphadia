@@ -79,17 +79,21 @@ def test_classifier_feature_columns_match_backend(
         (RustPeptideCentricWorkflow, RustExtractionHandler),
     ],
 )
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_ng")
 def test_workflow_creates_extraction_handler_of_its_backend(
-    workflow_class, extraction_handler_class, tmp_path
+    _, workflow_class, extraction_handler_class, tmp_path
 ):
     # given
     workflow = _create_workflow(workflow_class, tmp_path)
+    spectral_library = MagicMock(name="spectral_library")
 
     # when
-    extraction_handler = workflow._create_extraction_handler()
+    extraction_handler = workflow._create_extraction_handler(spectral_library)
 
     # then
     assert type(extraction_handler) is extraction_handler_class
+    assert extraction_handler._dia_data is workflow.dia_data
+    assert extraction_handler._spectral_library is spectral_library
 
 
 @patch("alphadia.workflow.peptidecentric.optimization_handler.log_precursor_df")
@@ -121,6 +125,7 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
     calls.attach_mock(
         extraction_handler.perform_fdr_and_filter_candidates, "perform_fdr"
     )
+    create_extraction_handler = MagicMock(return_value=extraction_handler)
     handler = RustOptimizationHandler(
         {},
         MagicMock(),
@@ -129,13 +134,14 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
         MagicMock(),
         MagicMock(),
         MagicMock(),
-        create_extraction_handler=lambda: extraction_handler,
+        create_extraction_handler=create_extraction_handler,
     )
 
     # when
     precursor_df = handler._process_batch()
 
     # then
+    create_extraction_handler.assert_called_once_with(optlock.batch_library)
     assert [c[0] for c in calls.mock_calls] == ["update_with_extraction", "perform_fdr"]
     precursors_with_features_df = optlock.update_with_extraction.call_args.args[0]
     assert list(precursors_with_features_df.columns) == [

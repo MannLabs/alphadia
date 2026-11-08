@@ -64,7 +64,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         reporter: Pipeline,
         spectral_library: SpecLibFlat,
         dia_data: "DiaData | DiaDataNG",  # noqa: F821
-        create_extraction_handler: Callable[[], ExtractionHandlerT],
+        create_extraction_handler: Callable[[SpecLibFlat], ExtractionHandlerT],
         figure_path: str | None = None,
     ):
         self._config = config
@@ -385,7 +385,9 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             verbosity="progress",
         )
 
-        extraction_handler = self._create_extraction_handler()
+        extraction_handler = self._create_extraction_handler(
+            self._optlock.batch_library
+        )
 
         batch = self._extract_batch(extraction_handler)
         self._optlock.update_with_extraction(batch.precursors_df, batch.fragments_df)

@@ -1,4 +1,4 @@
-"""Unit tests for the NG extraction handler."""
+"""Unit tests for the Rust extraction handler."""
 
 from unittest.mock import MagicMock, patch
 
@@ -13,6 +13,52 @@ from alphadia.workflow.peptidecentric.rust.ng_mapper import (
     FINAL_ROUND_EXCLUDED_FEATURES,
 )
 
+SPECLIB_TO_NG = "alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_ng"
+
+
+def _create_handler(config, optimization_manager=None, fdr_manager=None):
+    """Create a handler bound to mock DIA data and library, without converting a real library."""
+    with patch(SPECLIB_TO_NG, return_value=MagicMock(name="speclib_ng")):
+        return RustExtractionHandler(
+            config,
+            optimization_manager or MagicMock(),
+            fdr_manager or MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(name="dia_data"),
+            MagicMock(name="spectral_library"),
+        )
+
+
+@patch(SPECLIB_TO_NG)
+def test_converts_the_library_once_at_construction(mock_speclib_to_ng):
+    # given
+    column_name_handler = MagicMock()
+    column_name_handler.get_rt_column.return_value = "rt_calibrated"
+    column_name_handler.get_precursor_mz_column.return_value = "mz_calibrated"
+    column_name_handler.get_fragment_mz_column.return_value = "mz_library"
+    spectral_library = MagicMock(name="spectral_library")
+
+    # when
+    handler = RustExtractionHandler(
+        {},
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        column_name_handler,
+        MagicMock(name="dia_data"),
+        spectral_library,
+    )
+
+    # then
+    mock_speclib_to_ng.assert_called_once_with(
+        spectral_library,
+        rt_column="rt_calibrated",
+        precursor_mz_column="mz_calibrated",
+        fragment_mz_column="mz_library",
+    )
+    assert handler._speclib_ng is mock_speclib_to_ng.return_value
+
 
 @pytest.mark.parametrize("feature_set", [FeatureSet.Calibration, FeatureSet.Full])
 @patch("alphadia.workflow.peptidecentric.rust.extraction_handler.to_features_df")
@@ -23,17 +69,10 @@ def test_score_candidates_returns_the_scored_features(
 ):
     # given
     config = {"search": {"top_k_fragments_scoring": 12}}
-    handler = RustExtractionHandler(
-        config, MagicMock(ms2_error=7.5), MagicMock(), MagicMock(), MagicMock()
-    )
-    handler._speclib_ng = MagicMock(name="speclib_ng")
-    dia_data = MagicMock(name="dia_data")
-    spectral_library = MagicMock(name="spectral_library")
+    handler = _create_handler(config, optimization_manager=MagicMock(ms2_error=7.5))
 
     # when
-    features_df = handler.score_candidates(
-        MagicMock(), dia_data, spectral_library, feature_set
-    )
+    features_df = handler.score_candidates(MagicMock(), feature_set)
 
     # then
     scoring_params = mock_scoring.call_args.args[0]
@@ -41,10 +80,10 @@ def test_score_candidates_returns_the_scored_features(
     assert scoring_params.feature_set == feature_set
     assert scoring_params.mass_tolerance == 7.5
     mock_scoring.return_value.score.assert_called_once_with(
-        dia_data, handler._speclib_ng, mock_candidates_to_ng.return_value
+        handler._dia_data, handler._speclib_ng, mock_candidates_to_ng.return_value
     )
     mock_to_features_df.assert_called_once_with(
-        mock_scoring.return_value.score.return_value, spectral_library
+        mock_scoring.return_value.score.return_value, handler._spectral_library
     )
     assert features_df is mock_to_features_df.return_value
 
@@ -53,12 +92,7 @@ def _fdr_handler(fit_predict):
     config = {"fdr": {"competitive_scoring": True, "fdr": 0.01}}
     fdr_manager = MagicMock(name="fdr_manager")
     fdr_manager.fit_predict.side_effect = fit_predict
-    return (
-        RustExtractionHandler(
-            config, MagicMock(), fdr_manager, MagicMock(), MagicMock()
-        ),
-        fdr_manager,
-    )
+    return _create_handler(config, fdr_manager=fdr_manager), fdr_manager
 
 
 def _fdr_inputs():
@@ -66,7 +100,7 @@ def _fdr_inputs():
     candidates_df = pd.DataFrame(
         {"precursor_idx": [1, 2, 3], "rank": [0, 0, 1], "score": [3.0, 2.0, 1.0]}
     )
-    return features_df, candidates_df, MagicMock(name="spectral_library")
+    return features_df, candidates_df
 
 
 def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candidates():
@@ -81,25 +115,22 @@ def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candida
         return features_df.assign(qval=[0.0, 0.5, 0.0])
 
     handler, _ = _fdr_handler(fit_predict)
-    features_df, candidates_df, spectral_library = _fdr_inputs()
+    features_df, candidates_df = _fdr_inputs()
     fragments_df = pd.DataFrame({"precursor_idx": [1, 3], "mz_observed": [1.0, 2.0]})
-    dia_data = MagicMock(name="dia_data")
 
     # when
     with patch.object(
         handler, "quantify_candidates", return_value=(None, fragments_df)
     ) as mock_quantify:
         candidates_filtered, precursor_fdr_df = (
-            handler.perform_fdr_and_filter_candidates(
-                features_df, candidates_df, dia_data, spectral_library
-            )
+            handler.perform_fdr_and_filter_candidates(features_df, candidates_df)
         )
 
     # then: only the competing candidates were quantified, and their fragments returned
     quantified = mock_quantify.call_args.args[0]
     assert quantified[["precursor_idx", "rank"]].values.tolist() == [[1, 0], [3, 1]]
     assert "_candidate_idx" not in quantified.columns
-    assert mock_quantify.call_args.args[2:] == (dia_data, spectral_library)
+    assert mock_quantify.call_args.args[1] is None
     assert received["fragments"] is fragments_df
     # and the candidates are filtered by the FDR result
     assert candidates_filtered["precursor_idx"].tolist() == [1, 3]
@@ -112,15 +143,13 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
         return features_df.assign(qval=0.0)
 
     handler, fdr_manager = _fdr_handler(fit_predict)
-    features_df, candidates_df, spectral_library = _fdr_inputs()
+    features_df, candidates_df = _fdr_inputs()
     fragments_df = pd.DataFrame({"precursor_idx": [1], "mz_observed": [1.0]})
 
     # when
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
-        MagicMock(),
-        spectral_library,
         df_fragments=fragments_df,
     )
 
@@ -142,14 +171,12 @@ def test_perform_fdr_and_filter_candidates_leaves_fwhm_rt_out_of_the_final_round
         return features_df.assign(qval=0.0)
 
     handler, fdr_manager = _fdr_handler(fit_predict)
-    features_df, candidates_df, spectral_library = _fdr_inputs()
+    features_df, candidates_df = _fdr_inputs()
 
     # when
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
-        MagicMock(),
-        spectral_library,
         df_fragments=pd.DataFrame(),
         final_round=final_round,
     )
@@ -168,14 +195,12 @@ def test_perform_fdr_and_filter_candidates_passes_train_on_best_candidate(
         return features_df.assign(qval=0.0)
 
     handler, fdr_manager = _fdr_handler(fit_predict)
-    features_df, candidates_df, spectral_library = _fdr_inputs()
+    features_df, candidates_df = _fdr_inputs()
 
     # when
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
-        MagicMock(),
-        spectral_library,
         df_fragments=pd.DataFrame(),
         train_on_best_candidate=train_on_best_candidate,
     )
