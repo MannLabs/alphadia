@@ -128,9 +128,22 @@ class PythonExtractionHandler(ExtractionHandler):
         spectral_library: SpecLibFlat,
         top_k_fragments: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Score and quantify candidates using CandidateScoring.
+        """Score and quantify candidates.
 
-        See superclass documentation for interface details.
+        Parameters
+        ----------
+        candidates_df : pd.DataFrame
+            DataFrame with selected candidates
+        dia_data : DiaData
+            DIA data to extract from.
+        spectral_library : SpecLibFlat
+            Spectral library containing precursors and fragments
+        top_k_fragments : int, optional
+            top k fragments to use for scoring (None means default from config)
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            features dataframe and fragments dataframe
         """
         self._scoring_config.update(
             {

@@ -219,20 +219,16 @@ class SearchStep:
 
     @staticmethod
     def _is_ng_activated(config: Config, config_updates: list[Config]) -> bool:
-        """Decide if the extraction backend is 'ng'.
+        """Decide if the extraction backend is 'rust'.
 
         If no updates are provided, the decision is based on the default config.
         If updates are provided, they are applied in order to be able to decide based on the final config.
         """
         if config_updates:
-            tmp_updated_config = deepcopy(config)
-            tmp_updated_config.update(config_updates)
+            config = deepcopy(config)
+            config.update(config_updates)
 
-            extraction_backend = tmp_updated_config["search"]["extraction_backend"]
-        else:
-            extraction_backend = config["search"]["extraction_backend"]
-
-        return extraction_backend == "rust"
+        return config["search"]["extraction_backend"] == ExtractionBackend.RUST
 
     def _get_random_number_generator(self) -> np.random.Generator | None:
         """Get numpy random number generator if random state is set."""
@@ -748,15 +744,24 @@ class SearchStep:
 
         TODO move this to a dedicated class.
         """
+        extraction_backend = self._config["search"]["extraction_backend"]
+        if extraction_backend not in WORKFLOW_CLASSES:
+            raise ConfigError(
+                "search.extraction_backend",
+                extraction_backend,
+                "final",
+                f"Supported backends are: {ExtractionBackend.get_values()}",
+            )
+
         if (
-            self._config["search"]["extraction_backend"] == "rust"
-            and self._config["multiplexing"]["enabled"]
+            self._config["multiplexing"]["enabled"]
+            and not WORKFLOW_CLASSES[extraction_backend].SUPPORTS_MULTIPLEXING
         ):
             raise ConfigError(
                 "multiplexing.enabled",
                 "True",
                 "final",
-                "Multiplexing is not yet supported with the 'ng' extraction backend.",
+                f"Multiplexing is not yet supported with the '{extraction_backend}' extraction backend.",
             )
 
         general_config = self._config[ConfigKeys.GENERAL]

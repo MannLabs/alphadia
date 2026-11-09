@@ -28,7 +28,7 @@ from alphadia.workflow.peptidecentric.rust.ng_mapper import (
 
 
 class RustExtractionHandler(ExtractionHandler):
-    """Extraction handler using AlphaNG backend for candidate selection and scoring."""
+    """Extraction handler using the Rust (alphadia-search-rs) backend."""
 
     def __init__(
         self,
@@ -92,9 +92,22 @@ class RustExtractionHandler(ExtractionHandler):
         spectral_library: SpecLibFlat,
         feature_set: FeatureSet,
     ) -> pd.DataFrame:
-        """Score candidates using NG backend.
+        """Score candidates.
 
-        See superclass documentation for interface details.
+        Parameters
+        ----------
+        candidates_df : pd.DataFrame
+            DataFrame with selected candidates
+        dia_data : DiaDataNG
+            DIA data to extract from.
+        spectral_library : SpecLibFlat
+            Spectral library
+        feature_set : FeatureSet
+            `FeatureSet.Calibration` for the calibration rounds, `FeatureSet.Full` for the final round
+        Returns
+        -------
+        pd.DataFrame
+            precursors dataframe with results from scoring (= features)
         """
         self._lazy_init_speclib_ng(spectral_library)
 
@@ -165,7 +178,17 @@ class RustExtractionHandler(ExtractionHandler):
     ) -> pd.DataFrame:
         """Add relevant columns from spectral library to features or precursor dataframe.
 
-        See superclass documentation for interface details.
+        Parameters
+        ----------
+        features_or_precursor_df : pd.DataFrame
+            DataFrame with features or precursors to add columns to
+        spectral_library : SpecLibFlat
+            Spectral library
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with added columns
         """
         features_or_precursor_df = CandidateScoring.merge_precursor_data(
             features_or_precursor_df,
@@ -199,7 +222,33 @@ class RustExtractionHandler(ExtractionHandler):
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
-        See superclass documentation for interface details.
+        Parameters
+        ----------
+        features_df : pd.DataFrame
+            DataFrame with features (scored candidates)
+
+        candidates_df : pd.DataFrame
+            DataFrame with candidates
+
+        dia_data : DiaDataNG
+            DIA data, to quantify the fragments that fragment competition needs.
+
+        spectral_library : SpecLibFlat
+            Spectral library of the candidates
+
+        df_fragments : pd.DataFrame, optional
+            Quantified fragments of all candidates. If not given, the fragments of the
+            candidates that enter fragment competition are quantified on demand.
+
+        final_round : bool, default=False
+            Whether this is the FDR of the final search, which leaves `FINAL_ROUND_EXCLUDED_FEATURES` out.
+        train_on_best_candidate : bool, optional
+            Train the classifier only on the most target-like candidate of each precursor.
+
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            Filtered candidates dataframe and post-FDR precursor dataframe
         """
 
         features_df["_candidate_idx"] = candidate_hash(

@@ -1,5 +1,7 @@
 """Handles the requantification of fragments for transfer library building."""
 
+from collections.abc import Callable
+
 import pandas as pd
 from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
@@ -17,9 +19,6 @@ from alphadia.workflow.managers.calibration_manager import (
     CalibrationGroups,
     CalibrationManager,
 )
-from alphadia.workflow.managers.fdr_manager import FDRManager
-from alphadia.workflow.managers.optimization_manager import OptimizationManager
-from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 
 
@@ -32,17 +31,13 @@ class TransferLibraryRequantificationHandler:
         self,
         config: Config,
         calibration_manager: CalibrationManager,
-        optimization_manager: OptimizationManager,
-        fdr_manager: FDRManager,
-        column_name_handler: ColumnNameHandler,
         reporter: Pipeline,
+        create_extraction_handler: Callable[[], ExtractionHandler],
     ):
         self._config = config
         self._calibration_manager = calibration_manager
-        self._fdr_manager = fdr_manager
-        self._optimization_manager = optimization_manager
-        self._column_name_handler = column_name_handler
         self._reporter = reporter
+        self._create_extraction_handler = create_extraction_handler
 
     def requantify(
         self, dia_data: DiaData, psm_df: pd.DataFrame
@@ -99,17 +94,7 @@ class TransferLibraryRequantificationHandler:
             f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
         )
 
-        extraction_handler = ExtractionHandler.create_handler(
-            self._config,
-            self._optimization_manager,
-            self._fdr_manager,
-            self._reporter,
-            ColumnNameHandler(
-                self._calibration_manager,
-                dia_data_has_ms1=dia_data.has_ms1,
-                dia_data_has_mobility=dia_data.has_mobility,
-            ),
-        )
+        extraction_handler = self._create_extraction_handler()
 
         # we disregard the precursors, as we want to keep the original scoring from the top12 search
         # this works fine as there is no index pointing from the precursors to the fragments

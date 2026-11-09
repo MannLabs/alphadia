@@ -1,7 +1,11 @@
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphadia_search_rs import FeatureSet
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.exceptions import NoOptimizationLockTargetError
@@ -32,10 +36,23 @@ from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandle
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
+ExtractionHandlerT = TypeVar("ExtractionHandlerT", bound=ExtractionHandler)
 
-class OptimizationHandler:
+
+@dataclass
+class ExtractedBatch:
+    """Extraction results for one batch of the optimization lock."""
+
+    candidates_df: pd.DataFrame
+    precursors_df: pd.DataFrame
+    fragments_df: pd.DataFrame
+
+
+class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
     """
     Handles the optimization of peptide-centric workflows.
+
+    Each extraction backend has its own subclass, which extracts the batches of the optimization lock and performs FDR on them.
     """
 
     def __init__(
@@ -47,6 +64,7 @@ class OptimizationHandler:
         reporter: Pipeline,
         spectral_library: SpecLibFlat,
         dia_data: "DiaData | DiaDataNG",  # noqa: F821
+        create_extraction_handler: Callable[[], ExtractionHandlerT],
         figure_path: str | None = None,
     ):
         self._config = config
@@ -58,6 +76,7 @@ class OptimizationHandler:
         self._spectral_library = spectral_library
         self._dia_data: DiaData | DiaDataNG = dia_data  # noqa: F821
         self._figure_path = figure_path
+        self._create_extraction_handler = create_extraction_handler
 
         self._optlock: OptimizationLock = OptimizationLock(
             self._spectral_library, self._config
@@ -366,99 +385,17 @@ class OptimizationHandler:
             verbosity="progress",
         )
 
-        extraction_handler = ExtractionHandler.create_handler(
-            self._config,
-            self._optimization_manager,
-            self._fdr_manager,
-            self._reporter,
-            ColumnNameHandler(
-                self._calibration_manager,
-                dia_data_has_ms1=self._dia_data.has_ms1,
-                dia_data_has_mobility=self._dia_data.has_mobility,
-            ),
-        )
+        extraction_handler = self._create_extraction_handler()
 
-        candidates_df = extraction_handler.select_candidates(
-            self._dia_data,
-            self._optlock.batch_library,
-        )
-
-        if self._config["search"]["extraction_backend"] == "python":
-            precursor_quantified_w_features_df, fragments_df = (
-                extraction_handler.score_and_quantify_candidates(
-                    candidates_df,
-                    self._dia_data,
-                    self._optlock.batch_library,
-                )
-            )
-
-            self._optlock.update_with_extraction(
-                precursor_quantified_w_features_df, fragments_df
-            )
-
-            decoy_strategy = (
-                "precursor_channel_wise"
-                if self._config["fdr"]["channel_wise_fdr"]
-                else "precursor"
-            )
-
-            precursor_df = self._fdr_manager.fit_predict(
-                self._optlock.features_df,
-                decoy_strategy=decoy_strategy,
-                competitive=self._config["fdr"]["competitive_scoring"],
-                df_fragments=self._optlock.fragments_df,
-                version=self._optimization_manager.classifier_version,
-            )
-        else:
-            precursor_w_features_df = extraction_handler.score_candidates(
-                candidates_df,
-                self._dia_data,
-                self._optlock.batch_library,
-                FeatureSet.Calibration,
-            )
-
-            precursor_quantified_df, fragments_df = (
-                extraction_handler.quantify_candidates(
-                    candidates_df,
-                    None,
-                    self._dia_data,
-                    self._optlock.batch_library,
-                )
-            )
-
-            # in order to keep the relation between precursor_quantified_df and fragments_df, we keep the former, but merge the features from scoring
-            precursor_quantified_w_features_df = precursor_quantified_df.merge(
-                precursor_w_features_df,
-                how="left",
-                on=["precursor_idx", "rank"],
-                suffixes=("", "__y"),
-                validate="one_to_one",
-            )
-            precursor_quantified_w_features_df.drop(
-                columns=[
-                    col
-                    for col in precursor_quantified_w_features_df.columns
-                    if col.endswith("__y")
-                ],
-                inplace=True,
-            )
-
-            self._optlock.update_with_extraction(
-                precursor_quantified_w_features_df, fragments_df
-            )
-
-            _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
-                self._optlock.features_df,
-                candidates_df,
-                self._dia_data,
-                self._optlock.batch_library,
-                df_fragments=self._optlock.fragments_df,
-            )
+        batch = self._extract_batch(extraction_handler)
+        self._optlock.update_with_extraction(batch.precursors_df, batch.fragments_df)
 
         self._reporter.log_string(
             f"=== Extracted {len(self._optlock.features_df)} precursors and {len(self._optlock.fragments_df)} fragments ===",
             verbosity="progress",
         )
+
+        precursor_df = self._perform_fdr(extraction_handler, batch)
 
         self._optlock.update_with_fdr(precursor_df)
 
@@ -469,6 +406,22 @@ class OptimizationHandler:
         log_precursor_df(self._reporter, precursor_df)
 
         return precursor_df
+
+    @abstractmethod
+    def _extract_batch(self, extraction_handler: ExtractionHandlerT) -> ExtractedBatch:
+        """Select, score and quantify the candidates of the current batch library."""
+
+    @abstractmethod
+    def _perform_fdr(
+        self, extraction_handler: ExtractionHandlerT, batch: ExtractedBatch
+    ) -> pd.DataFrame:
+        """Perform FDR on all precursors the optimization lock has collected so far.
+
+        Returns
+        -------
+        pd.DataFrame
+            Precursors with FDR results
+        """
 
     def _initiate_search_parameter_optimization(self):
         """Saves the classifier version just before search parameter optimization begins and updates the optimization lock to show that calibration has been performed."""

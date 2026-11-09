@@ -559,3 +559,35 @@ def test_run_creates_workflow_of_configured_backend(mock_output_cls, tmp_path):
     # then
     workflow = mock_process_raw_file.call_args.args[0]
     assert isinstance(workflow, PythonPeptideCentricWorkflow)
+
+
+def test_raises_if_multiplexing_with_backend_without_multiplexing(tmp_path):
+    """Test that multiplexing is rejected up front for a backend that does not support it."""
+    with pytest.raises(ConfigError, match="CONFIG_ERROR"):
+        # when
+        SearchStep(
+            str(tmp_path / "output"),
+            config={
+                "search": {"extraction_backend": "rust"},
+                "multiplexing": {"enabled": True},
+            },
+        )
+
+
+def test_raises_if_extraction_backend_is_unknown(tmp_path):
+    """Test that an unknown extraction backend is rejected up front."""
+    with pytest.raises(ConfigError, match="CONFIG_ERROR"):
+        # when
+        SearchStep(
+            str(tmp_path / "output"),
+            config={"search": {"extraction_backend": "fortran"}},
+        )
+
+
+@pytest.mark.parametrize(("backend", "expected"), [("rust", True), ("python", False)])
+def test_is_ng_activated(backend, expected):
+    # given
+    config = Config({"search": {"extraction_backend": backend}})
+
+    # when / then
+    assert SearchStep._is_ng_activated(config, []) is expected
