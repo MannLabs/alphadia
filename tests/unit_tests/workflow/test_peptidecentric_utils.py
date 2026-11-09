@@ -62,6 +62,9 @@ def test_get_classifier_feature_columns_keeps_only_the_chosen_detection_features
     ]
     assert "det_llr_hits" in get_feature_names()
     assert "det_llr_hits" not in columns
+    assert "det_faint_llr" in columns
+    assert {"det_faint_hits", "det_faint_miss"} <= set(get_feature_names())
+    assert not {"det_faint_hits", "det_faint_miss"} & set(columns)
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():
