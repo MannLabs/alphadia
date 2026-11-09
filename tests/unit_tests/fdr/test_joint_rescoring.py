@@ -186,6 +186,89 @@ def test_rescore_leaves_every_run_out_of_its_own_model(tmp_path, monkeypatch):
         assert train == {0, 1, 2} - left_out
 
 
+def test_rescore_fits_one_model_per_seed_and_left_out_run(tmp_path, monkeypatch):
+    # given: three runs with joint features
+    rng = np.random.default_rng(0)
+    folders = [str(tmp_path / f"run_{i}") for i in range(3)]
+    psm_df = pd.concat([_write_run(f, rng) for f in folders], ignore_index=True)
+
+    def calls_with(n_seeds):
+        calls = []
+
+        def fit_predict(
+            folders, ids, rows, left_out, columns, config_fdr, random_state
+        ):
+            calls.append((tuple(left_out), random_state))
+            return {i: ids[i]["proba"].to_numpy() for i in left_out}
+
+        monkeypatch.setattr(joint_rescoring, "_fit_predict_left_out", fit_predict)
+        joint_rescoring.rescore(psm_df, folders, CONFIG_FDR, GROUP_COLUMNS, 0, n_seeds)
+        return calls
+
+    # when
+    one = calls_with(1)
+    two = calls_with(2)
+
+    # then: one seed fits one model per run at the run's random state, two seeds a second one at a state of its own
+    assert one == [((0,), 0), ((1,), 1), ((2,), 2)]
+    assert [call for call in two if call in one] == one
+    assert [left_out for left_out, _ in two] == [(0,), (0,), (1,), (1,), (2,), (2,)]
+    extra = [state for _, state in two[1::2]]
+    assert extra == [fdr._seed_random_state(i, 1) for i in range(3)]
+
+
+def test_rescored_run_of_one_joint_model_ensembles_its_aligned_proba():
+    # given: a run and one joint model's probabilities
+    rng = np.random.default_rng(0)
+    ids = _run_rows(rng).assign(lost=False)
+    competition = joint_rescoring.competition_groups(ids, GROUP_COLUMNS)
+    joint = expit(-ids["signal"].to_numpy())
+    decoy = ids["decoy"].to_numpy() == 1
+
+    # when
+    best = joint_rescoring._rescored_run(ids, competition, [joint], GROUP_COLUMNS)
+
+    # then: as before several seeds, the run's probability ensembled with the aligned joint probability
+    expected = joint_rescoring.ensemble_proba(
+        ids["proba"],
+        fdr._aligned_proba(joint, decoy, competition, decoy_ecdf=False),
+    )
+    np.testing.assert_array_equal(
+        best["proba"].to_numpy(),
+        pd.Series(expected, index=ids["precursor_idx"])[best["precursor_idx"]],
+    )
+
+
+def test_rescored_run_of_two_joint_models_takes_the_mean_logit_of_their_aligned_probas():
+    # given: a run and two joint models' probabilities
+    rng = np.random.default_rng(0)
+    ids = _run_rows(rng).assign(lost=False)
+    competition = joint_rescoring.competition_groups(ids, GROUP_COLUMNS)
+    joint = [
+        expit(-ids["signal"].to_numpy() + rng.normal(0, 1, len(ids))) for _ in range(2)
+    ]
+    decoy = ids["decoy"].to_numpy() == 1
+
+    # when
+    best = joint_rescoring._rescored_run(ids, competition, joint, GROUP_COLUMNS)
+
+    # then: the joint probability is the sigmoid of the mean logit of the two aligned probabilities
+    def logit(p):
+        return np.log(p) - np.log1p(-p)
+
+    aligned = [
+        fdr._aligned_proba(p, decoy, competition, decoy_ecdf=False) for p in joint
+    ]
+    expected = expit(
+        (logit(ids["proba"].to_numpy()) + (logit(aligned[0]) + logit(aligned[1])) / 2)
+        / 2
+    )
+    np.testing.assert_allclose(
+        best["proba"].to_numpy(),
+        pd.Series(expected, index=ids["precursor_idx"])[best["precursor_idx"]],
+    )
+
+
 def test_rescore_accepts_the_real_precursors_and_keeps_runs_without_features(
     tmp_path,
 ):
@@ -293,7 +376,7 @@ def test_rescored_run_computes_q_values_within_length_strata():
 
     # when: the joint model ranks the rows as the run did
     best = joint_rescoring._rescored_run(
-        ids, competition, ids["proba"].to_numpy(), GROUP_COLUMNS
+        ids, competition, [ids["proba"].to_numpy()], GROUP_COLUMNS
     )
 
     # then: the long stratum is not charged the short stratum's decoy

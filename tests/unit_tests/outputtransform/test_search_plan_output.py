@@ -280,15 +280,20 @@ def test_rescore_jointly_restricts_the_run_outputs_and_removes_the_joint_files(
         )
     received = {}
 
-    def rescore(psm_df, folder_list, config_fdr, group_columns, random_state):
+    def rescore(psm_df, folder_list, config_fdr, group_columns, random_state, n_seeds):
         received["group_columns"] = group_columns
         received["random_state"] = random_state
+        received["n_seeds"] = n_seeds
         return psm_df[psm_df["precursor_idx"] == 1], folder_list
 
     monkeypatch.setattr(joint_rescoring, "rescore", rescore)
     config = {
         "general": {"save_figures": False, "random_state": -1},
-        "fdr": {"joint_rescoring": True, "competitive_scoring": True},
+        "fdr": {
+            "joint_rescoring": True,
+            "competitive_scoring": True,
+            "joint_rescoring_seeds": 2,
+        },
     }
 
     # when
@@ -299,6 +304,7 @@ def test_rescore_jointly_restricts_the_run_outputs_and_removes_the_joint_files(
     assert received == {
         "group_columns": ["elution_group_idx", "channel"],
         "random_state": None,
+        "n_seeds": 2,
     }
     for folder in folders:
         assert pd.read_parquet(os.path.join(folder, "psm.parquet"))[

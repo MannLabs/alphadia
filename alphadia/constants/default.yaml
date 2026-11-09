@@ -345,6 +345,12 @@ fdr:
   # their final-round features to joint_features.parquet (kept with save_feature_matrix, else removed afterwards).
   # Without effect on single runs, the MBR step and multiplexed searches.
   joint_rescoring: true
+  # models per run in the joint rescoring, each with its own seed: a run that takes part fits this many cross-fits of
+  # its final-round classifier (own folds, training split and start weights) and averages them on the logit scale, and
+  # is scored by this many leave-one-out models, averaged the same way before the ensemble with its own score. Each
+  # extra seed costs one final-round fit per run and one joint fit per left-out group, run one after the other.
+  # 1 = one of each.
+  joint_rescoring_seeds: 2
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network

@@ -68,6 +68,7 @@ class FDRManager(BaseManager):
         decoy_multiplicity: int = 1,
         transfer_features_path: str | None = None,
         joint_rescoring_folder: str | None = None,
+        joint_rescoring_seeds: int = 1,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -96,6 +97,8 @@ class FDRManager(BaseManager):
             File to write the final-round features of the MBR transfer rows to (see `fdr.perform_fdr_on_psms`).
         joint_rescoring_folder: str, optional
             Folder to write the final-round joint feature files to (see `fdr.perform_fdr_on_psms`).
+        joint_rescoring_seeds: int, optional
+            Final-round cross-fits averaged for a run that writes the joint feature files (see `fdr.perform_fdr_on_psms`).
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
@@ -117,6 +120,7 @@ class FDRManager(BaseManager):
         self._decoy_multiplicity = decoy_multiplicity
         self._transfer_features_path = transfer_features_path
         self._joint_rescoring_folder = joint_rescoring_folder
+        self._joint_rescoring_seeds = joint_rescoring_seeds
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -228,6 +232,7 @@ class FDRManager(BaseManager):
                 decoy_multiplicity=self._decoy_multiplicity,
                 transfer_features_path=self._transfer_features_path,
                 joint_rescoring_folder=self._joint_rescoring_folder,
+                joint_rescoring_seeds=self._joint_rescoring_seeds,
             )
 
         elif decoy_strategy == "precursor_channel_wise":

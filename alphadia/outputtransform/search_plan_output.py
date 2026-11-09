@@ -525,6 +525,7 @@ class SearchPlanOutput:
             random_state=None
             if random_state is None or random_state < 0
             else random_state,
+            n_seeds=config_fdr["joint_rescoring_seeds"],
         )
         for folder in rescored_folders:
             mbr_transfer.restrict_run_outputs(

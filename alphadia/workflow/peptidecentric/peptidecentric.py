@@ -153,6 +153,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self._pooled_transfers
             else None,
             joint_rescoring_folder=self.path if self._joint_rescoring else None,
+            joint_rescoring_seeds=config_fdr["joint_rescoring_seeds"],
         )
 
         init_spectral_library(

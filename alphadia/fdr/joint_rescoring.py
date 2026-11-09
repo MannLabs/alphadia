@@ -19,7 +19,6 @@ import time
 
 import numpy as np
 import pandas as pd
-from scipy.special import expit
 
 from alphadia.fdr import fdr, joint_features, mbr_transfer
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
@@ -36,9 +35,6 @@ MAX_LOFO_RUNS = 8
 MAX_TRAINING_ROWS = 25_000_000
 # the best-peak group of a joint fit is the precursor within its run
 RUN_GROUP_STRIDE = 1 << 32
-# the clip of `fdr._aligned_proba`
-PROBA_CLIP_LOW = 1e-300
-PROBA_CLIP_HIGH = 1 - 1e-16
 
 
 def keep_qval(fdr_cutoff: float) -> float:
@@ -76,14 +72,7 @@ def training_rows(
 
 def ensemble_proba(run_proba: np.ndarray, joint_proba: np.ndarray) -> np.ndarray:
     """The sigmoid of the mean logit of the two probabilities."""
-    logits = [
-        np.log(p) - np.log1p(-p)
-        for p in (
-            np.clip(run_proba, PROBA_CLIP_LOW, PROBA_CLIP_HIGH),
-            np.clip(joint_proba, PROBA_CLIP_LOW, PROBA_CLIP_HIGH),
-        )
-    ]
-    return expit((logits[0] + logits[1]) / 2)
+    return fdr.mean_logit_proba([run_proba, joint_proba])
 
 
 def _new_classifier(
@@ -149,13 +138,18 @@ def _fit_predict_left_out(  # noqa: PLR0913 # the runs, their tables and the cla
 def _rescored_run(
     ids: pd.DataFrame,
     competition: np.ndarray,
-    joint_proba: np.ndarray,
+    joint_probas: list[np.ndarray],
     group_columns: list[str],
 ) -> pd.DataFrame:
     """The best row of every competition group among the rows that kept their fragments, ranked by the ensemble of
-    the run's probability and the aligned `joint_proba`, with q-values within peptide length strata."""
+    the run's probability and the mean logit of the aligned `joint_probas` (one per joint model), with q-values within
+    peptide length strata."""
     decoy = ids["decoy"].to_numpy() == 1
-    aligned = fdr._aligned_proba(joint_proba, decoy, competition, decoy_ecdf=False)
+    aligned = [
+        fdr._aligned_proba(p, decoy, competition, decoy_ecdf=False)
+        for p in joint_probas
+    ]
+    aligned = aligned[0] if len(aligned) == 1 else fdr.mean_logit_proba(aligned)
     rows = ids.assign(proba=ensemble_proba(ids[joint_features.PROBA_COLUMN], aligned))
     rows = rows[~rows["lost"].to_numpy()]
     best = fdr.keep_best(rows, group_columns=group_columns)
@@ -196,10 +190,13 @@ def rescore(
     config_fdr: dict,
     group_columns: list[str],
     random_state: int | None = None,
+    n_seeds: int = 1,
 ) -> tuple[pd.DataFrame, list[str]]:
     """`psm_df` (the PSMs of all runs) with the PSMs of the runs that wrote joint features rescored and filtered at the
     configured FDR; the PSMs of other runs are kept as they are. Returns the rescored runs' folders as well.
 
+    Each left-out group of runs is scored by `n_seeds` models fitted one after the other, each on its own sample of
+    the training rows (when they are sampled) and from its own start weights.
     With fewer than MIN_RUNS such runs, their PSMs are filtered at their per-run q-value instead.
     """
     folders = [f for f in folder_list if joint_features.has_run_features(f)]
@@ -227,25 +224,34 @@ def rescore(
     groups = run_groups(len(folders))
     reported = []
     for group in np.unique(groups):
-        start = time.time()
         left_out = [int(i) for i in np.flatnonzero(groups == group)]
         train_runs = [int(i) for i in np.flatnonzero(groups != group)]
-        rows = training_rows(competitions, train_runs, rng, MAX_TRAINING_ROWS)
-        probas = _fit_predict_left_out(
-            folders,
-            ids,
-            rows,
-            left_out,
-            columns,
-            config_fdr,
-            None if random_state is None else random_state + int(group),
-        )
+        group_state = None if random_state is None else random_state + int(group)
+        probas = []
+        for seed in range(n_seeds):
+            start = time.time()
+            rows = training_rows(competitions, train_runs, rng, MAX_TRAINING_ROWS)
+            probas.append(
+                _fit_predict_left_out(
+                    folders,
+                    ids,
+                    rows,
+                    left_out,
+                    columns,
+                    config_fdr,
+                    group_state
+                    if seed == 0
+                    else fdr._seed_random_state(group_state, seed),
+                )
+            )
+            logger.info(
+                f"Joint rescoring: model {int(group) + 1} of {len(np.unique(groups))}, seed {seed + 1} of {n_seeds}, "
+                f"on {sum(len(r) for r in rows.values()):,} rows of {len(train_runs)} runs, {len(columns)} features, "
+                f"{time.time() - start:.0f} s"
+            )
         for i in left_out:
-            best = _rescored_run(ids[i], competitions[i], probas[i], group_columns)
+            best = _rescored_run(
+                ids[i], competitions[i], [p[i] for p in probas], group_columns
+            )
             reported.append(_report(psm_df[psm_df["run"] == runs[i]], best, fdr_cutoff))
-        logger.info(
-            f"Joint rescoring: model {int(group) + 1} of {len(np.unique(groups))} on "
-            f"{sum(len(r) for r in rows.values()):,} rows of {len(train_runs)} runs, {len(columns)} features, "
-            f"{time.time() - start:.0f} s"
-        )
     return pd.concat([others, *reported], ignore_index=True), folders

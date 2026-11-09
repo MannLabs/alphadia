@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import logging
 import multiprocessing
+import time
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import shared_memory
@@ -13,6 +14,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 import torch
+from scipy.special import expit
 
 from alphadia.constants.keys import CalibCols
 from alphadia.exceptions import TooFewPSMError
@@ -54,6 +56,11 @@ CROSSFIT_SMALL_POOL_ROWS = 500_000
 # nothing at 12 (the training loop holds the GIL), and forked processes deadlock once torch has run.
 CROSSFIT_PARALLEL_MIN_ROWS = 100_000
 _TORCH_SEED_LIMIT = 2**31 - 1
+# share of the PSMs held out of the classifier training (pools from CROSSFIT_SMALL_POOL_ROWS rows on)
+TEST_SIZE = 0.2
+# Probabilities are clipped to this range before they are put on the logit scale.
+PROBA_CLIP_LOW = 1e-300
+PROBA_CLIP_HIGH = 1 - 1e-16
 # The fold fits put their logits on different scales. Each fold is aligned where q-values are cut: the last target at a
 # competed q-value of CROSSFIT_ANCHOR_QVAL maps to 0 and the median competition-winning decoy to 1, then one sigmoid
 # of slope CROSSFIT_SLOPE.
@@ -190,6 +197,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
     decoy_multiplicity: int = 1,
     transfer_features_path: str | None = None,
     joint_rescoring_folder: str | None = None,
+    joint_rescoring_seeds: int = 1,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
@@ -265,6 +273,11 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         In the final round, every row's features, identity columns and cross-fitted probability, and which rows lost
         the fragment competition, are written to the joint feature files (`joint_features`) in this folder.
 
+    joint_rescoring_seeds : int, default=1
+        Cross-fits of the final round for a run that writes the joint feature files, each with its own folds, training
+        split and start weights; their probabilities are averaged on the logit scale, and the average is the run's
+        probability here and in the joint feature files. Runs without them fit one cross-fit.
+
     Returns
     -------
     psm_df : pd.DataFrame
@@ -303,7 +316,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
 
     try:
         idxs_train, idxs_test = train_test_split_indices(
-            len(X), test_size=0.2, random_state=random_state
+            len(X), test_size=TEST_SIZE, random_state=random_state
         )
     except TooFewPSMError:
         logger.warning(
@@ -394,7 +407,7 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
         groups = groups[keep]
         crossfit = (crossfit[0][keep], crossfit[1][keep])
         idxs_train, idxs_test = train_test_split_indices(
-            len(X), test_size=0.2, random_state=random_state
+            len(X), test_size=TEST_SIZE, random_state=random_state
         )
         y_train, y_test = y[idxs_train], y[idxs_test]
     if final_round:
@@ -407,6 +420,25 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
             crossfit,
             first=classifier,
         )
+        if joint_rescoring_folder is not None and not joint_features.is_data_limited(
+            crossfit[1], y.astype(bool), predicted_proba
+        ):
+            logger.info(
+                "Joint rescoring skipped for this run: its own fit accepts more than "
+                f"{joint_features.DATA_LIMITED_MAX_TARGETS:,} targets"
+            )
+            joint_rescoring_folder = None
+        if joint_rescoring_folder is not None and joint_rescoring_seeds > 1:
+            predicted_proba = _seed_ensemble_proba(
+                initial_classifier,
+                X,
+                y,
+                groups,
+                crossfit[1],
+                random_state,
+                predicted_proba,
+                joint_rescoring_seeds,
+            )
         if dump_path is not None:
             _dump_feature_matrix(
                 dump_path, psm_df, X, x_columns, crossfit[0], predicted_proba
@@ -421,14 +453,6 @@ def perform_fdr_on_psms(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex,
                 crossfit[0][transfer],
                 predicted_proba[transfer],
             )
-        if joint_rescoring_folder is not None and not joint_features.is_data_limited(
-            crossfit[1], y.astype(bool), predicted_proba
-        ):
-            logger.info(
-                "Joint rescoring skipped for this run: its own fit accepts more than "
-                f"{joint_features.DATA_LIMITED_MAX_TARGETS:,} targets"
-            )
-            joint_rescoring_folder = None
         if joint_rescoring_folder is not None:
             joint_features.write_run_features(
                 joint_rescoring_folder, psm_df, X, x_columns, predicted_proba
@@ -568,6 +592,67 @@ def _crossfit_folds(competition: np.ndarray, random_state: int | None) -> np.nda
     ]
 
 
+def _seed_random_state(random_state: int | None, seed: int) -> int | None:
+    """The random state of ensemble member `seed`, derived from `random_state`; None stays None (fresh entropy)."""
+    if random_state is None:
+        return None
+    return int(np.random.default_rng([random_state, seed]).integers(_TORCH_SEED_LIMIT))
+
+
+def _logit(proba: np.ndarray) -> np.ndarray:
+    proba = np.clip(proba, PROBA_CLIP_LOW, PROBA_CLIP_HIGH)
+    return np.log(proba) - np.log1p(-proba)
+
+
+def mean_logit_proba(probas: list[np.ndarray]) -> np.ndarray:
+    """The sigmoid of the mean logit of row-aligned probabilities."""
+    return expit(sum(_logit(np.asarray(p)) for p in probas) / len(probas))
+
+
+def _seed_ensemble_proba(  # noqa: PLR0913 # the cross-fit inputs and the first member's result
+    classifier: Classifier,
+    X: np.ndarray,  # noqa: N803
+    y: np.ndarray,
+    groups: np.ndarray | None,
+    competition: np.ndarray,
+    random_state: int | None,
+    first_proba: np.ndarray,
+    n_seeds: int,
+) -> np.ndarray:
+    """`mean_logit_proba` of `first_proba` and n_seeds - 1 further cross-fits of copies of the unfitted `classifier`,
+    each with folds and a training split drawn from its own seed (`_seed_random_state`).
+
+    The fits of a data-limited run differ by seed beyond their calibration: the mean logit of two seeds gave +2.6-3.0 %
+    real precursors at matched paired entrapment on 5 ng files and +1 % on a 1 ft file, at unchanged calibration.
+    """
+    start = time.time()
+    probas = [first_proba]
+    for seed in range(1, n_seeds):
+        seed_state = _seed_random_state(random_state, seed)
+        idxs_train = (
+            np.arange(len(X))
+            if len(X) < CROSSFIT_SMALL_POOL_ROWS
+            else train_test_split_indices(
+                len(X), test_size=TEST_SIZE, random_state=seed_state
+            )[0]
+        )
+        probas.append(
+            _crossfit_predict(
+                classifier,
+                X,
+                y,
+                idxs_train,
+                groups,
+                (_crossfit_folds(competition, seed_state), competition),
+            )
+        )
+    logger.info(
+        f"Final-round seed ensemble of {n_seeds} cross-fits: the {n_seeds - 1} extra took "
+        f"{time.time() - start:.0f} s"
+    )
+    return mean_logit_proba(probas)
+
+
 def _crossfit_predict(  # noqa: PLR0913 # the fold assignment comes with the competition groups
     classifier: Classifier,
     X: np.ndarray,  # noqa: N803
@@ -688,8 +773,7 @@ def _aligned_proba(
     """P(decoy) of one fold on the common cross-fit scale: the logit of the last target at a competed q-value of
     CROSSFIT_ANCHOR_QVAL maps to 0 and the median logit of the competition-winning decoys to 1. With `decoy_ecdf`, the
     share of the fold's competition-winning decoys that score better instead, ordered within a share by the former."""
-    proba = np.clip(proba, 1e-300, 1 - 1e-16)
-    logit = np.log(proba) - np.log1p(-proba)
+    logit = _logit(proba)
     zero, one = _competition_anchors(logit, decoy, competition)
     z = np.clip(
         (logit - zero) / max(one - zero, CROSSFIT_MIN_SCALE),

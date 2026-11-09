@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from scipy.special import expit
 from scipy.stats import norm
 
 from alphadia.constants.keys import FeatureTransform
@@ -973,3 +974,141 @@ def test_perform_fdr_on_psms_writes_the_joint_features_without_changing_the_resu
     assert len(lost) == 1
     assert lost[0] in (0, 1)
     assert lost[0] not in without["precursor_idx"].tolist()
+
+
+def _final_round_psms() -> pd.DataFrame:
+    target_df, decoy_df = _gen_target_decoy_dfs()
+    df = pd.concat([target_df, decoy_df], ignore_index=True)
+    df[fdr.FINAL_ROUND_FEATURE] = df["feature"]
+    return df
+
+
+def _count_final_round_fits(df: pd.DataFrame, **kwargs) -> int:
+    _CountingClassifier.n_fits = 0
+    fdr.perform_fdr_on_psms(
+        _CountingClassifier(n_collapses=0),
+        ["feature", fdr.FINAL_ROUND_FEATURE],
+        df,
+        df["decoy"].to_numpy() == 1,
+        random_state=0,
+        **kwargs,
+    )
+    return _CountingClassifier.n_fits
+
+
+def test_one_joint_rescoring_seed_gives_the_result_and_joint_features_of_the_default(
+    tmp_path,
+):
+    # given: final-round PSMs of a run in the joint rescoring
+    df = _final_round_psms()
+
+    def run(folder, **kwargs):
+        os.makedirs(folder)
+        return fdr.perform_fdr_on_psms(
+            _CollapsingClassifier(n_collapses=0),
+            ["feature", fdr.FINAL_ROUND_FEATURE],
+            df,
+            df["decoy"].to_numpy() == 1,
+            random_state=0,
+            joint_rescoring_folder=str(folder),
+            **kwargs,
+        )
+
+    # when
+    one_seed = run(tmp_path / "one_seed", joint_rescoring_seeds=1)
+    default = run(tmp_path / "default")
+
+    # then: the same PSMs and the same per-run probabilities in the joint feature files, from one cross-fit
+    pd.testing.assert_frame_equal(one_seed, default)
+    pd.testing.assert_frame_equal(
+        joint_features.read_ids(str(tmp_path / "one_seed")),
+        joint_features.read_ids(str(tmp_path / "default")),
+    )
+    assert (
+        _count_final_round_fits(
+            df, joint_rescoring_folder=str(tmp_path), joint_rescoring_seeds=1
+        )
+        == fdr.CROSSFIT_FOLDS
+    )
+
+
+def test_two_joint_rescoring_seeds_fit_a_second_cross_fit_only_for_a_run_in_the_joint_step(
+    tmp_path,
+):
+    # given: final-round PSMs of a data-limited run
+    df = _final_round_psms()
+
+    # when / then: in the joint rescoring the run fits two cross-fits, outside it one
+    assert (
+        _count_final_round_fits(
+            df, joint_rescoring_folder=str(tmp_path), joint_rescoring_seeds=2
+        )
+        == 2 * fdr.CROSSFIT_FOLDS
+    )
+    assert joint_features.has_run_features(str(tmp_path))
+    assert _count_final_round_fits(df, joint_rescoring_seeds=2) == fdr.CROSSFIT_FOLDS
+
+
+def test_two_joint_rescoring_seeds_fit_one_cross_fit_for_a_run_that_is_not_data_limited(
+    tmp_path, monkeypatch
+):
+    # given: final-round PSMs of a run whose own fit accepts more targets than the data limit
+    df = _final_round_psms()
+    monkeypatch.setattr(joint_features, "DATA_LIMITED_MAX_TARGETS", 0)
+
+    # when / then: the run leaves the joint rescoring and fits one cross-fit
+    assert (
+        _count_final_round_fits(
+            df, joint_rescoring_folder=str(tmp_path), joint_rescoring_seeds=2
+        )
+        == fdr.CROSSFIT_FOLDS
+    )
+    assert not joint_features.has_run_features(str(tmp_path))
+
+
+def test_joint_rescoring_seeds_are_combined_by_the_mean_logit_in_the_joint_features(
+    monkeypatch, tmp_path
+):
+    # given: two cross-fits that give fixed probabilities, the second on folds of its own
+    df = _final_round_psms()
+    rng = np.random.default_rng(0)
+    probas = [rng.uniform(0.01, 0.99, len(df)) for _ in range(2)]
+    folds = []
+
+    def crossfit_predict(classifier, X, y, idxs_train, groups, crossfit, first=None):  # noqa: N803
+        folds.append(crossfit[0])
+        return probas[len(folds) - 1]
+
+    monkeypatch.setattr(fdr, "_crossfit_predict", crossfit_predict)
+    monkeypatch.setattr(joint_features, "is_data_limited", lambda *args: True)
+
+    # when
+    fdr.perform_fdr_on_psms(
+        _CollapsingClassifier(n_collapses=0),
+        ["feature", fdr.FINAL_ROUND_FEATURE],
+        df,
+        df["decoy"].to_numpy() == 1,
+        random_state=0,
+        joint_rescoring_folder=str(tmp_path),
+        joint_rescoring_seeds=2,
+    )
+
+    # then: the joint feature files carry the sigmoid of the mean logit of the two probabilities
+    def logit(p):
+        return np.log(p) - np.log1p(-p)
+
+    expected = expit((logit(probas[0]) + logit(probas[1])) / 2)
+    np.testing.assert_allclose(
+        joint_features.read_ids(str(tmp_path))[joint_features.PROBA_COLUMN], expected
+    )
+    # and the second cross-fit drew other folds
+    assert len(folds) == 2
+    assert not np.array_equal(folds[0], folds[1])
+
+
+def test_seed_random_state_is_derived_deterministically():
+    # given / when / then: a seeded run derives a fixed, different state per member; an unseeded one stays unseeded
+    assert fdr._seed_random_state(7, 1) == fdr._seed_random_state(7, 1)
+    assert fdr._seed_random_state(7, 1) != fdr._seed_random_state(7, 2)
+    assert fdr._seed_random_state(7, 1) != fdr._seed_random_state(8, 1)
+    assert fdr._seed_random_state(None, 1) is None
