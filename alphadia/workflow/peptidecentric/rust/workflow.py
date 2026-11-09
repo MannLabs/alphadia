@@ -4,7 +4,7 @@ import time
 
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphadia_search_rs import DIAData as DiaDataNG
+from alphadia_search_rs import DIAData as DiaDataRust
 from alphadia_search_rs import FeatureSet
 
 from alphadia.exceptions import GenericUserError
@@ -14,10 +14,10 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 from alphadia.workflow.peptidecentric.rust.extraction_handler import (
     RustExtractionHandler,
 )
-from alphadia.workflow.peptidecentric.rust.ng_mapper import (
-    dia_data_to_ng,
+from alphadia.workflow.peptidecentric.rust.mapper import (
+    dia_data_to_rust,
     get_feature_names,
-    set_ng_thread_count,
+    set_thread_count,
 )
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
     RustOptimizationHandler,
@@ -54,29 +54,29 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
             spectral_library,
         )
 
-    def _prepare_dia_data(self, dia_data: DiaData) -> DiaDataNG:
+    def _prepare_dia_data(self, dia_data: DiaData) -> DiaDataRust:
         if isinstance(dia_data, TimsTOFTranspose):
             raise GenericUserError(
-                "NOT_SUPPORTED_BY_NG",
+                "NOT_SUPPORTED_BY_RUST",
                 "Rust backend does not support TimsTOF data yet. Please use extraction_backend='python'.",
             )
 
         time_start = time.time()
 
         # needs to be the first call to alphadia-search-rs
-        set_ng_thread_count(self.config["general"]["thread_count"])
+        set_thread_count(self.config["general"]["thread_count"])
 
-        dia_data_ng = dia_data_to_ng(dia_data)
+        dia_data_rust = dia_data_to_rust(dia_data)
 
         # TODO: remove these asserts
-        assert dia_data.cycle.shape[1] == dia_data_ng.cycle.shape[1]
-        assert all(dia_data.rt_values == dia_data_ng.rt_values)
+        assert dia_data.cycle.shape[1] == dia_data_rust.cycle.shape[1]
+        assert all(dia_data.rt_values == dia_data_rust.rt_values)
 
         self.reporter.log_string(
-            f"Creating DIA data NG object took: {time.time() - time_start}"
+            f"Converting DIA data for alphadia-search-rs took: {time.time() - time_start}"
         )
 
-        return dia_data_ng
+        return dia_data_rust
 
     @use_timing_manager("extraction")
     def extraction(self) -> tuple[pd.DataFrame, pd.DataFrame]:

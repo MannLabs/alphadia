@@ -168,12 +168,12 @@ class SearchStep:
             cli_config_update = Config(cli_config, name=USER_DEFINED_CLI_PARAM)
             config_updates.append(cli_config_update)
 
-        if not SearchStep._is_ng_activated(config, config_updates):
-            ng_default_config = SearchStep._load_default_config(
+        if not SearchStep._is_rust_backend(config, config_updates):
+            python_default_config = SearchStep._load_default_config(
                 file_name="default_python.yaml"
             )
-            ng_default_config.name = "default_python"
-            config_updates.insert(0, ng_default_config)
+            python_default_config.name = "default_python"
+            config_updates.insert(0, python_default_config)
 
         # the update done for multi-step search needs to be last in order to overwrite any user-defined output folder
         if extra_config:
@@ -213,7 +213,7 @@ class SearchStep:
         return config
 
     @staticmethod
-    def _is_ng_activated(config: Config, config_updates: list[Config]) -> bool:
+    def _is_rust_backend(config: Config, config_updates: list[Config]) -> bool:
         """Decide if the extraction backend is 'rust'.
 
         If no updates are provided, the decision is based on the default config.

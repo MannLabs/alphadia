@@ -2,7 +2,7 @@
 
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphadia_search_rs import DIAData as DiaDataNG
+from alphadia_search_rs import DIAData as DiaDataRust
 from alphadia_search_rs import (
     FeatureSet,
     PeakGroupQuantification,
@@ -13,7 +13,7 @@ from alphadia_search_rs import (
     SearchTolerances,
     SelectionParameters,
 )
-from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
+from alphadia_search_rs import SpecLibFlat as SpecLibFlatRust
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
@@ -24,12 +24,12 @@ from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
-from alphadia.workflow.peptidecentric.rust.ng_mapper import (
+from alphadia.workflow.peptidecentric.rust.mapper import (
     FINAL_ROUND_EXCLUDED_FEATURES,
-    candidates_to_ng,
+    candidates_to_rust,
     parse_candidates,
     parse_quantification,
-    speclib_to_ng,
+    speclib_to_rust,
     to_features_df,
 )
 
@@ -44,7 +44,7 @@ class RustExtractionHandler(ExtractionHandler):
         fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
-        dia_data: DiaDataNG,
+        dia_data: DiaDataRust,
         spectral_library: SpecLibFlat,
     ):
         super().__init__(
@@ -58,7 +58,7 @@ class RustExtractionHandler(ExtractionHandler):
         )
 
         # converted with the columns of the calibration state at construction
-        self._speclib_ng: SpecLibFlatNG = speclib_to_ng(
+        self._speclib_rust: SpecLibFlatRust = speclib_to_rust(
             spectral_library,
             rt_column=column_name_handler.get_rt_column(),
             precursor_mz_column=column_name_handler.get_precursor_mz_column(),
@@ -86,7 +86,7 @@ class RustExtractionHandler(ExtractionHandler):
         )
 
         candidates = PeakGroupSelection(selection_params).search(
-            self._dia_data, self._speclib_ng
+            self._dia_data, self._speclib_rust
         )
 
         return parse_candidates(candidates, self._spectral_library, self._dia_data)
@@ -109,7 +109,7 @@ class RustExtractionHandler(ExtractionHandler):
         pd.DataFrame
             precursors dataframe with results from scoring (= features)
         """
-        candidates = candidates_to_ng(candidates_df, self._dia_data)
+        candidates = candidates_to_rust(candidates_df, self._dia_data)
 
         scoring_params = ScoringParameters()
         scoring_params.update(
@@ -121,7 +121,7 @@ class RustExtractionHandler(ExtractionHandler):
         )
 
         candidate_features = PeakGroupScoring(scoring_params).score(
-            self._dia_data, self._speclib_ng, candidates
+            self._dia_data, self._speclib_rust, candidates
         )
 
         return to_features_df(candidate_features, self._spectral_library)
@@ -136,7 +136,7 @@ class RustExtractionHandler(ExtractionHandler):
 
         See superclass documentation for interface details.
         """
-        candidates_collection = candidates_to_ng(candidates_df, self._dia_data)
+        candidates_collection = candidates_to_rust(candidates_df, self._dia_data)
 
         # run quantification
         quant_params = QuantificationParameters()
@@ -145,7 +145,7 @@ class RustExtractionHandler(ExtractionHandler):
 
         peak_group_quantification = PeakGroupQuantification(quant_params)
         quantified_lib = peak_group_quantification.quantify(
-            self._dia_data, self._speclib_ng, candidates_collection
+            self._dia_data, self._speclib_rust, candidates_collection
         )
         precursor_df, fragments_df = parse_quantification(quantified_lib)
 

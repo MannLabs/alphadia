@@ -9,11 +9,13 @@ from alphadia_search_rs import FeatureSet, SearchTolerances
 from alphadia.workflow.peptidecentric.rust.extraction_handler import (
     RustExtractionHandler,
 )
-from alphadia.workflow.peptidecentric.rust.ng_mapper import (
+from alphadia.workflow.peptidecentric.rust.mapper import (
     FINAL_ROUND_EXCLUDED_FEATURES,
 )
 
-SPECLIB_TO_NG = "alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_ng"
+SPECLIB_TO_RUST = (
+    "alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_rust"
+)
 
 TOLERANCES = SearchTolerances(
     rt_error=120.0,
@@ -30,7 +32,7 @@ CLASSIFIER_VERSION = 4
 
 def _create_handler(config, fdr_manager=None):
     """Create a handler bound to mock DIA data and library, without converting a real library."""
-    with patch(SPECLIB_TO_NG, return_value=MagicMock(name="speclib_ng")):
+    with patch(SPECLIB_TO_RUST, return_value=MagicMock(name="speclib_rust")):
         return RustExtractionHandler(
             config,
             TOLERANCES,
@@ -42,8 +44,8 @@ def _create_handler(config, fdr_manager=None):
         )
 
 
-@patch(SPECLIB_TO_NG)
-def test_converts_the_library_once_at_construction(mock_speclib_to_ng):
+@patch(SPECLIB_TO_RUST)
+def test_converts_the_library_once_at_construction(mock_speclib_to_rust):
     # given
     column_name_handler = MagicMock()
     column_name_handler.get_rt_column.return_value = "rt_calibrated"
@@ -63,21 +65,21 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_ng):
     )
 
     # then
-    mock_speclib_to_ng.assert_called_once_with(
+    mock_speclib_to_rust.assert_called_once_with(
         spectral_library,
         rt_column="rt_calibrated",
         precursor_mz_column="mz_calibrated",
         fragment_mz_column="mz_library",
     )
-    assert handler._speclib_ng is mock_speclib_to_ng.return_value
+    assert handler._speclib_rust is mock_speclib_to_rust.return_value
 
 
 @pytest.mark.parametrize("feature_set", [FeatureSet.Calibration, FeatureSet.Full])
 @patch("alphadia.workflow.peptidecentric.rust.extraction_handler.to_features_df")
 @patch("alphadia.workflow.peptidecentric.rust.extraction_handler.PeakGroupScoring")
-@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.candidates_to_ng")
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.candidates_to_rust")
 def test_score_candidates_returns_the_scored_features(
-    mock_candidates_to_ng, mock_scoring, mock_to_features_df, feature_set
+    mock_candidates_to_rust, mock_scoring, mock_to_features_df, feature_set
 ):
     # given
     config = {"search": {"top_k_fragments_scoring": 12}}
@@ -92,7 +94,7 @@ def test_score_candidates_returns_the_scored_features(
     assert scoring_params.feature_set == feature_set
     assert scoring_params.mass_tolerance == 7.5
     mock_scoring.return_value.score.assert_called_once_with(
-        handler._dia_data, handler._speclib_ng, mock_candidates_to_ng.return_value
+        handler._dia_data, handler._speclib_rust, mock_candidates_to_rust.return_value
     )
     mock_to_features_df.assert_called_once_with(
         mock_scoring.return_value.score.return_value, handler._spectral_library
