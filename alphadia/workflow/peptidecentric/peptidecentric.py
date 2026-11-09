@@ -66,7 +66,7 @@ def _get_classifier_base(
 class PeptideCentricWorkflow(base.WorkflowBase, ABC):
     """Peptide-centric workflow for a single raw file.
 
-    Each extraction backend has its own subclass, chosen by `workflow_factory.get_workflow_class`.
+    Each extraction backend has its own subclass, chosen via `search_step.WORKFLOW_CLASSES`.
     """
 
     def __init__(

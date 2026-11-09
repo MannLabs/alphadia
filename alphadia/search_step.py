@@ -15,6 +15,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia import __version__ as alphadia_version
 from alphadia.constants.keys import (
     ConfigKeys,
+    ExtractionBackend,
     SearchStepFiles,
 )
 from alphadia.exceptions import (
@@ -53,10 +54,18 @@ from alphadia.workflow.config import (
     Config,
 )
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
-from alphadia.workflow.peptidecentric.workflow_factory import get_workflow_class
+from alphadia.workflow.peptidecentric.python.workflow import (
+    PythonPeptideCentricWorkflow,
+)
+from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
+
+WORKFLOW_CLASSES: dict[str, type[PeptideCentricWorkflow]] = {
+    ExtractionBackend.PYTHON: PythonPeptideCentricWorkflow,
+    ExtractionBackend.RUST: RustPeptideCentricWorkflow,
+}
 
 # On Windows with Python < 3.13, multiprocessing pools fail with "need at most 63 handles" for more than
 # 61 worker processes (cf. concurrent.futures.process._MAX_WINDOWS_WORKERS), fixed in CPython by gh-89240
@@ -555,6 +564,7 @@ class SearchStep:
         )
 
         reusable_quant_folders = self._get_reusable_quant_folders()
+        workflow_class = WORKFLOW_CLASSES[self.config["search"]["extraction_backend"]]
 
         workflow_folder_list = []
         raw_files_with_errors = []
@@ -579,7 +589,7 @@ class SearchStep:
                     workflow_folder_list.append(reused_folder)
                     continue
 
-                workflow = get_workflow_class(self.config)(
+                workflow = workflow_class(
                     raw_name,
                     self.config,
                     quant_path=self.config[ConfigKeys.QUANT_DIRECTORY],
