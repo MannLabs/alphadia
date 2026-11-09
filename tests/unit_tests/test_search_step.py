@@ -8,9 +8,13 @@ from alphabase.constants.modification import MOD_DF
 
 from alphadia import __version__ as alphadia_version
 from alphadia import search_step
+from alphadia.constants.keys import ExtractionBackend
 from alphadia.exceptions import ConfigError, GenericUserError
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
+from alphadia.workflow.peptidecentric.python.workflow import (
+    PythonPeptideCentricWorkflow,
+)
 
 QUANT_FILE_NAMES = ("psm.parquet", "frag.parquet")
 RAW_PATHS = ["/raw_files/raw1.raw"]
@@ -479,12 +483,10 @@ def test_expands_reuse_quant_from_paths(tmp_path, monkeypatch):
 
 
 @patch("alphadia.search_step.SearchPlanOutput")
-@patch("alphadia.search_step.PeptideCentricWorkflow")
-def test_run_creates_no_workflow_for_reused_folder(
-    mock_workflow_cls, mock_output_cls, tmp_path
-):
+def test_run_creates_no_workflow_for_reused_folder(mock_output_cls, tmp_path):
     """Test that a reused quant folder is passed on as-is and never gets a workflow (which would write to it)."""
     reused_folder = _create_quant_folder(tmp_path / "previous_run" / "quant", "raw1")
+    mock_workflow_cls = MagicMock()
     mock_workflow_cls.return_value.path = str(tmp_path / "output" / "quant" / "raw2")
     step = SearchStep(
         str(tmp_path / "output"),
@@ -499,7 +501,13 @@ def test_run_creates_no_workflow_for_reused_folder(
     )
     step.spectral_library = MagicMock()
 
-    with patch.object(step, "_process_raw_file"):
+    with (
+        patch.object(step, "_process_raw_file"),
+        patch.dict(
+            "alphadia.search_step.WORKFLOW_CLASSES",
+            {ExtractionBackend.RUST: mock_workflow_cls},
+        ),
+    ):
         # when
         step.run()
 
@@ -528,3 +536,26 @@ def test_raises_value_error_for_invalid_config(
     with pytest.raises(TypeError, match="'str' object is not a mapping"):
         # when
         SearchStep._init_config(config1, config2, config3, "/output")
+
+
+@patch("alphadia.search_step.SearchPlanOutput")
+def test_run_creates_workflow_of_configured_backend(mock_output_cls, tmp_path):
+    """Test that each raw file gets the workflow class of the configured extraction backend."""
+    # given
+    step = SearchStep(
+        str(tmp_path / "output"),
+        config={
+            "raw_paths": ["/raw_files/raw1.raw"],
+            "search": {"extraction_backend": "python"},
+            "general": {"save_mbr_library": False},
+        },
+    )
+    step.spectral_library = MagicMock()
+
+    # when
+    with patch.object(step, "_process_raw_file") as mock_process_raw_file:
+        step.run()
+
+    # then
+    workflow = mock_process_raw_file.call_args.args[0]
+    assert isinstance(workflow, PythonPeptideCentricWorkflow)

@@ -122,6 +122,13 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
+class ExtractionBackend(metaclass=ConstantsClass):
+    """String constants for the `search.extraction_backend` config value."""
+
+    PYTHON = "python"
+    RUST = "rust"
+
+
 class FeatureTransform(metaclass=ConstantsClass):
     """String constants for the feature transform applied before FDR classification."""
 
