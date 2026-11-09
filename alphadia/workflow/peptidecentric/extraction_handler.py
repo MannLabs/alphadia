@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphadia_search_rs import SearchTolerances
+from alphadia_search_rs import OptimizationContext
 
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
@@ -20,7 +20,7 @@ class ExtractionHandler(ABC):
     def __init__(
         self,
         config: Config,
-        tolerances: SearchTolerances,
+        optimization_context: OptimizationContext,
         fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
@@ -32,8 +32,8 @@ class ExtractionHandler(ABC):
         ----------
         config : Config
             Workflow configuration
-        tolerances : SearchTolerances
-            Search tolerances for this extraction
+        optimization_context : OptimizationContext
+            Search parameters of the current optimization state
         fdr_manager: FDRManager
             FDR manager
         reporter : Pipeline
@@ -46,7 +46,7 @@ class ExtractionHandler(ABC):
             Spectral library containing precursors and fragments
         """
         self._config: Config = config
-        self._tolerances: SearchTolerances = tolerances
+        self._optimization_context: OptimizationContext = optimization_context
         self._fdr_manager: FDRManager = fdr_manager
         self._reporter: Pipeline = reporter
 
@@ -91,7 +91,7 @@ class ExtractionHandler(ABC):
         """
 
     def _apply_score_cutoff(self, candidates_df: pd.DataFrame) -> pd.DataFrame:
-        """Apply the score cutoff of the search tolerances to the candidates dataframe.
+        """Apply the score cutoff of the optimization context to the candidates dataframe.
 
         Parameters
         ----------
@@ -106,12 +106,12 @@ class ExtractionHandler(ABC):
         # This is filter 1
         num_before = len(candidates_df)
         candidates_df = candidates_df[
-            candidates_df["score"] > self._tolerances.score_cutoff
+            candidates_df["score"] > self._optimization_context.score_cutoff
         ]
         num_after = len(candidates_df)
         num_removed = num_before - num_after
         self._reporter.log_string(
-            f"Removed {num_removed} precursors with score below cutoff {self._tolerances.score_cutoff}",
+            f"Removed {num_removed} precursors with score below cutoff {self._optimization_context.score_cutoff}",
         )
         return candidates_df
 
@@ -119,12 +119,12 @@ class ExtractionHandler(ABC):
         """Log current extraction parameters."""
         for log_line in [
             "=== Search parameters used ===",
-            f"{'rt_error':<15}: {self._tolerances.rt_error}",
-            f"{'mobility_error':<15}: {self._tolerances.mobility_error}",
-            f"{'num_candidates':<15}: {self._tolerances.num_candidates}",
-            f"{'ms1_error':<15}: {self._tolerances.ms1_error}",
-            f"{'ms2_error':<15}: {self._tolerances.ms2_error}",
-            f"{'fwhm_rt':<15}: {self._tolerances.fwhm_rt}",
+            f"{'rt_error':<15}: {self._optimization_context.rt_error}",
+            f"{'mobility_error':<15}: {self._optimization_context.mobility_error}",
+            f"{'num_candidates':<15}: {self._optimization_context.num_candidates}",
+            f"{'ms1_error':<15}: {self._optimization_context.ms1_error}",
+            f"{'ms2_error':<15}: {self._optimization_context.ms2_error}",
+            f"{'fwhm_rt':<15}: {self._optimization_context.fwhm_rt}",
             f"{'quant_window':<15}: {self._config['search']['quant_window']}",
             "==============================================",
         ]:

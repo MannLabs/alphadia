@@ -95,20 +95,20 @@ def test_classifier_feature_columns_match_backend(
 def test_workflow_creates_extraction_handler_of_its_backend(
     _, workflow_class, extraction_handler_class, tmp_path
 ):
-    # given
+    # Given: a workflow of a backend and a spectral library
     workflow = _create_workflow(workflow_class, tmp_path)
     spectral_library = MagicMock(name="spectral_library")
 
-    # when
+    # When: the workflow creates an extraction handler for the library
     extraction_handler = workflow._create_extraction_handler(spectral_library)
 
-    # then
+    # Then: the handler is of the backend and works on the DIA data, the library and the current optimization context
     assert type(extraction_handler) is extraction_handler_class
     assert extraction_handler._dia_data is workflow.dia_data
     assert extraction_handler._spectral_library is spectral_library
     assert (
-        extraction_handler._tolerances
-        == workflow.optimization_manager.search_tolerances()
+        extraction_handler._optimization_context
+        == workflow.optimization_manager.get_optimization_context()
     )
 
 

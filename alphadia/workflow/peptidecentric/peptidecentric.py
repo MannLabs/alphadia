@@ -145,7 +145,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
     def _create_extraction_handler(
         self, spectral_library: SpecLibFlat
     ) -> ExtractionHandler:
-        """Create an extraction handler of this backend for `spectral_library` and the current calibration state."""
+        """Create an extraction handler of this backend for the given spectral library and the current calibration state."""
 
     def _create_column_name_handler(self) -> ColumnNameHandler:
         return ColumnNameHandler(
