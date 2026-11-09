@@ -1,5 +1,7 @@
 """Unit tests for the OptimizationLock class."""
 
+from unittest.mock import MagicMock
+
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -220,3 +222,32 @@ def test_optlock_reindex():
         ]["precursor_idx"]
         == optlock.batch_library._precursor_df.iloc[50]["precursor_idx"] ** 2
     )  # The original start index of any precursor should be equal to the square of the its original ID
+
+
+def test_optlock_grow_searches_the_whole_larger_lock_again():
+    """Test that growing the lock drops the extracted features and covers all elution groups from the first one to
+    the end of the next batch, with the current calibration."""
+    # given
+    library = _create_test_library()
+    optlock = OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+    optlock.update_with_extraction(
+        pd.DataFrame({"elution_group_idx": np.arange(0, 1000)}),
+        pd.DataFrame({"elution_group_idx": np.arange(0, 10000)}),
+    )
+    calibration_manager = MagicMock()
+
+    # when
+    optlock.grow(calibration_manager)
+
+    # then
+    assert optlock.batch_idx == 1
+    expected_elution_groups = set(
+        optlock._elution_group_order[: optlock.batch_plan[1][1]]
+    )
+    assert (
+        set(optlock.batch_library._precursor_df["elution_group_idx"])
+        == expected_elution_groups
+    )
+    assert optlock._feature_dfs == []
+    assert optlock._fragment_dfs == []
+    assert calibration_manager.predict.call_count == 2

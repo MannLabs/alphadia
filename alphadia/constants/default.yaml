@@ -240,6 +240,9 @@ calibration:
     mobility_error: 1.2
   # converged when no tolerance changes by more than this share between rounds
   convergence_threshold: 0.1
+  # recalibrate as soon as the lock holds this many precursors at 1% FDR, and grow the lock with the calibrated
+  # tolerances until it reaches optimization_lock_target
+  min_calibration_precursors: 100
   # restore the best earlier round when a round on the same lock finds more than this share fewer identifications
   max_id_loss: 0.05
 

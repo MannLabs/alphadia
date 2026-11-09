@@ -201,6 +201,18 @@ class OptimizationLock:
         eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
         self.set_batch_dfs(eg_idxes)
 
+    def grow(self, calibration_manager) -> None:
+        """Add the next batch of the plan and search the whole lock again with the current calibration.
+
+        After an early recalibration the features of the earlier batches were extracted with other tolerances, so they
+        are dropped and the lock is extracted anew from its first elution group.
+        """
+        self.increase_batch_idx()
+        self._feature_dfs = []
+        self._fragment_dfs = []
+        self.set_batch_dfs(self._elution_group_order[: self.stop_idx])
+        self.update_with_calibration(calibration_manager)
+
     def reset_after_convergence(self, calibration_manager):
         """Resets the optimization lock after all optimizers in a given round of optimization have converged.
 

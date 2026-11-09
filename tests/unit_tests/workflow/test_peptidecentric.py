@@ -154,6 +154,7 @@ def _create_converging_handler(rates, rt_intervals, *, target_ms2=10.0):
             "tolerance_factor": {"rt_error": 1.5, "ms2_error": 1.2},
             "convergence_threshold": 0.1,
             "max_id_loss": 0.05,
+            "min_calibration_precursors": 10,
         },
     }
     optimization_manager = SimpleNamespace(ms2_error=30.0, rt_error=800.0)
@@ -252,9 +253,9 @@ def test_converge_does_not_compare_rounds_on_different_locks():
     assert optimization_manager.rt_error == pytest.approx(60.0)
 
 
-def test_converge_grows_the_lock_until_the_target():
-    """Test that the lock grows at the current tolerances until it holds the target number of precursors."""
-    # given: a lock below its target that reaches it with the second batch
+def test_converge_grows_the_lock_until_it_can_calibrate():
+    """Test that a lock with too few identifications to calibrate grows at the current tolerances."""
+    # given: 1 identification in the first batch, 20 after the lock has grown
     handler, optimization_manager = _create_converging_handler(
         rates=[0.001, 0.02, 0.02], rt_intervals=[40.0, 40.0]
     )
@@ -278,3 +279,60 @@ def test_converge_grows_the_lock_until_the_target():
     ]
     assert len(first_recalibration.args[0]) == 20
     assert optimization_manager.rt_error == pytest.approx(60.0)
+
+
+def test_converge_calibrates_early_and_grows_the_lock():
+    """Test that a lock below its target is recalibrated as soon as it holds enough identifications, and then grows
+    with the calibrated tolerances."""
+    # given: 15 identifications (enough to calibrate, below the target) and a lock that can grow
+    handler, optimization_manager = _create_converging_handler(
+        rates=[0.015, 0.03, 0.03], rt_intervals=[10.0, 60.0, 60.0]
+    )
+    handler._optlock.has_target_num_precursors = False
+    handler._optlock.batches_remaining.return_value = True
+
+    def reach_target(_):
+        handler._optlock.has_target_num_precursors = True
+
+    handler._optlock.grow.side_effect = reach_target
+
+    # when
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # then: the early round shrinks RT by half at most (800 -> 400), the lock grows, and RT converges at 90
+    handler._optlock.grow.assert_called_once()
+    assert optimization_manager.rt_error == pytest.approx(90.0)
+
+
+def test_converge_calibrates_new_batches_after_an_early_calibration():
+    """Test that a lock which falls below the calibration threshold after an early calibration grows with the
+    calibrated columns, so that the next extraction finds them (regression: KeyError 'rt_calibrated')."""
+    # given: 15 identifications (calibrate), then 5 (below the threshold of 10), then the target
+    handler, _ = _create_converging_handler(
+        rates=[0.015, 0.005, 0.03, 0.03], rt_intervals=[100.0] * 4
+    )
+    handler._optlock.has_target_num_precursors = False
+    handler._optlock.batches_remaining.return_value = True
+    calls = []
+
+    def update():
+        calls.append("update")
+        handler._optlock.has_target_num_precursors = True
+
+    handler._optlock.update.side_effect = update
+    handler._optlock.update_with_calibration.side_effect = lambda _: calls.append(
+        "calibrate"
+    )
+    handler._optlock.grow.side_effect = lambda _: calls.append("grow")
+
+    # when
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # then: the batch added below the threshold is calibrated before it is extracted
+    assert calls[:3] == ["grow", "update", "calibrate"]

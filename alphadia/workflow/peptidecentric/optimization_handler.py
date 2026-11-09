@@ -456,9 +456,10 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
     def _converge_search_parameters(self) -> None:
         """Recalibrate and set the search tolerances in one loop.
 
-        1) Grow the optimization lock until it holds `optimization_lock_target` precursors at 1% FDR.
+        1) Grow the optimization lock until it holds `min_calibration_precursors` precursors at 1% FDR.
         2) Recalibrate on the confident identifications and set every tolerance from their residuals
-           (see `_propose_tolerance`); search the lock again with the new calibration and tolerances.
+           (see `_propose_tolerance`); below `optimization_lock_target`, grow the lock and search it again from its
+           first elution group with the new calibration and tolerances, otherwise search the same lock again.
         3) Stop when no tolerance changes by more than `convergence_threshold`, or restore the best round when a round
            on the same lock finds more than `max_id_loss` fewer identifications.
         """
@@ -486,16 +487,21 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             )
             n_identified = len(precursor_df_filtered)
             at_target = self._optlock.has_target_num_precursors
+            can_grow = self._optlock.batches_remaining()
 
-            if not at_target:
-                if self._optlock.batches_remaining():
-                    log_string("Target number of precursors not reached yet.")
-                    self._optlock.update()
-                    if calibrated:
-                        # the new batch needs the calibrated columns of the earlier rounds
-                        self._optlock.update_with_calibration(self._calibration_manager)
-                    precursor_df = self._process_batch()
-                    continue
+            if (
+                not at_target
+                and can_grow
+                and n_identified < config["min_calibration_precursors"]
+            ):
+                log_string("Too few precursors to calibrate yet.")
+                self._optlock.update()
+                if calibrated:
+                    # the new batch needs the calibrated columns of the earlier rounds
+                    self._optlock.update_with_calibration(self._calibration_manager)
+                precursor_df = self._process_batch()
+                continue
+            if not at_target and not can_grow:
                 if self._optlock.total_elution_groups == 0:
                     raise NoOptimizationLockTargetError(
                         "The search extracted no candidate from the raw file."
@@ -562,6 +568,11 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 )
                 for name in names
             }
+            if not at_target:
+                # few identifications give a noisy interval: shrink by at most half per round until the target
+                proposal = {
+                    name: max(proposal[name], current[name] / 2) for name in names
+                }
             log_string(
                 f"Calibration round {step}: {n_identified} identifications "
                 f"on {self._optlock.total_elution_groups} elution groups; "
@@ -572,7 +583,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 verbosity="progress",
             )
 
-            if all(
+            if at_target and all(
                 abs(proposal[name] - current[name]) / max(current[name], 1e-9)
                 <= config["convergence_threshold"]
                 for name in names
@@ -581,8 +592,11 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 break
 
             self._optimization_manager.update(**proposal)
-            self._optlock.update()
-            self._optlock.update_with_calibration(self._calibration_manager)
+            if at_target:
+                self._optlock.update()
+                self._optlock.update_with_calibration(self._calibration_manager)
+            else:
+                self._optlock.grow(self._calibration_manager)
             precursor_df = self._process_batch()
 
         else:
