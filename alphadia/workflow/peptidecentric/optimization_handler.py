@@ -7,12 +7,17 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.constants.keys import CalibrationStrategy
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
-from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationEstimators,
+    CalibrationGroups,
+    CalibrationManager,
+)
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.optimizers.automatic import (
@@ -37,6 +42,33 @@ from alphadia.workflow.peptidecentric.recalibration_handler import Recalibration
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
 ExtractionHandlerT = TypeVar("ExtractionHandlerT", bound=ExtractionHandler)
+
+# fewer identifications than this give no usable calibration fit
+MIN_PRECURSORS_TO_RECALIBRATE = 6
+
+# tolerance name -> (calibration group, estimator, config key of the target tolerance in `search`)
+_TOLERANCES = {
+    "ms2_error": (
+        CalibrationGroups.FRAGMENT,
+        CalibrationEstimators.MZ,
+        "target_ms2_tolerance",
+    ),
+    "ms1_error": (
+        CalibrationGroups.PRECURSOR,
+        CalibrationEstimators.MZ,
+        "target_ms1_tolerance",
+    ),
+    "rt_error": (
+        CalibrationGroups.PRECURSOR,
+        CalibrationEstimators.RT,
+        "target_rt_tolerance",
+    ),
+    "mobility_error": (
+        CalibrationGroups.PRECURSOR,
+        CalibrationEstimators.MOBILITY,
+        "target_mobility_tolerance",
+    ),
+}
 
 
 @dataclass
@@ -248,6 +280,10 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             The optimization loop is repeated for each list of optimizers in ordered_optimizers.
 
         """
+        if self._config["calibration"]["strategy"] == CalibrationStrategy.CONVERGE:
+            self._converge_search_parameters()
+            return
+
         log_string = self._reporter.log_string
 
         ordered_optimizers = self._get_ordered_optimizers()
@@ -357,7 +393,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
                 precursor_df, self._optlock.fragments_df
             )
-            if precursor_df_filtered.shape[0] >= 6:
+            if precursor_df_filtered.shape[0] >= MIN_PRECURSORS_TO_RECALIBRATE:
                 recalibration_handler.recalibrate(
                     precursor_df_filtered, fragments_df_filtered
                 )
@@ -377,6 +413,198 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         log_string(
             "==============================================", verbosity="progress"
         )
+
+    def _active_tolerances(self) -> list[str]:
+        """Names of the tolerances the raw file has data for."""
+        names = ["ms2_error", "rt_error"]
+        if self._dia_data.has_ms1:
+            names.append("ms1_error")
+        if self._dia_data.has_mobility:
+            names.append("mobility_error")
+        return names
+
+    def _target_tolerance(self, name: str) -> float | None:
+        """The fixed tolerance of a targeted parameter, None if the parameter is set from the data."""
+        target = self._config["search"][_TOLERANCES[name][2]]
+        if target <= 0:
+            return None
+        if name == "rt_error" and target <= 1:
+            # an RT target up to 1 is a share of the gradient
+            return target * self._dia_data.rt_values.max()
+        return target
+
+    def _propose_tolerance(
+        self, name: str, precursor_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ) -> float:
+        """The tolerance that covers the calibrated residuals of the confident identifications.
+
+        Targeted parameters take their target. Otherwise the tolerance is `tolerance_factor` times the
+        `tolerance_quantile` interval of the residuals, so that it follows the spread of the true identifications
+        rather than the tail of chance matches inside the current window.
+        """
+        target = self._target_tolerance(name)
+        if target is not None:
+            return target
+        group, estimator_name, _ = _TOLERANCES[name]
+        config = self._config["calibration"]
+        df = fragments_df if group == CalibrationGroups.FRAGMENT else precursor_df
+        estimator = self._calibration_manager.get_estimator(group, estimator_name)
+        return config["tolerance_factor"][name] * estimator.ci(
+            df, config["tolerance_quantile"]
+        )
+
+    def _converge_search_parameters(self) -> None:
+        """Recalibrate and set the search tolerances in one loop.
+
+        1) Grow the optimization lock until it holds `optimization_lock_target` precursors at 1% FDR.
+        2) Recalibrate on the confident identifications and set every tolerance from their residuals
+           (see `_propose_tolerance`); search the lock again with the new calibration and tolerances.
+        3) Stop when no tolerance changes by more than `convergence_threshold`, or restore the best round when a round
+           on the same lock finds more than `max_id_loss` fewer identifications.
+        """
+        log_string = self._reporter.log_string
+        config = self._config["calibration"]
+        names = self._active_tolerances()
+
+        recalibration_handler = RecalibrationHandler(
+            self._config,
+            self._optimization_manager,
+            self._calibration_manager,
+            self._reporter,
+            self._figure_path,
+            self._dia_data.has_ms1,
+        )
+
+        log_string("Starting initial search for precursors.", verbosity="progress")
+        precursor_df = self._process_batch()
+        best = None
+        calibrated = False
+        restored = False
+        for step in range(config["max_steps"] + len(self._optlock.batch_plan)):
+            precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
+                precursor_df, self._optlock.fragments_df
+            )
+            n_identified = len(precursor_df_filtered)
+            at_target = self._optlock.has_target_num_precursors
+
+            if not at_target:
+                if self._optlock.batches_remaining():
+                    log_string("Target number of precursors not reached yet.")
+                    self._optlock.update()
+                    if calibrated:
+                        # the new batch needs the calibrated columns of the earlier rounds
+                        self._optlock.update_with_calibration(self._calibration_manager)
+                    precursor_df = self._process_batch()
+                    continue
+                if self._optlock.total_elution_groups == 0:
+                    raise NoOptimizationLockTargetError(
+                        "The search extracted no candidate from the raw file."
+                    )
+                log_string(
+                    "Insufficient number of precursors to continue optimization.",
+                    verbosity="warning",
+                )
+                if n_identified >= MIN_PRECURSORS_TO_RECALIBRATE:
+                    recalibration_handler.recalibrate(
+                        precursor_df_filtered, fragments_df_filtered
+                    )
+                    self._optimization_manager.update(
+                        **{
+                            name: self._propose_tolerance(
+                                name, precursor_df_filtered, fragments_df_filtered
+                            )
+                            for name in names
+                        }
+                    )
+                break
+
+            current = {
+                name: self._optimization_manager.__dict__[name] for name in names
+            }
+            # identifications only compare on the same lock: a smaller lock finds fewer at the same tolerances
+            lock_range = (self._optlock.start_idx, self._optlock.stop_idx)
+            if (
+                best is not None
+                and best["lock_range"] == lock_range
+                and n_identified < (1 - config["max_id_loss"]) * best["n_identified"]
+            ):
+                log_string(
+                    f"Identifications dropped from {best['n_identified']} to {n_identified}, "
+                    "restoring the best round.",
+                    verbosity="progress",
+                )
+                recalibration_handler.recalibrate(*best["identifications"])
+                self._optimization_manager.update(**best["parameters"])
+                restored = True
+                break
+            if (
+                best is None
+                or best["lock_range"] != lock_range
+                or n_identified >= best["n_identified"]
+            ):
+                best = {
+                    "lock_range": lock_range,
+                    "n_identified": n_identified,
+                    "parameters": {
+                        **current,
+                        "classifier_version": self._fdr_manager.current_version,
+                    },
+                    "identifications": (precursor_df_filtered, fragments_df_filtered),
+                }
+
+            recalibration_handler.recalibrate(
+                precursor_df_filtered, fragments_df_filtered
+            )
+            calibrated = True
+            proposal = {
+                name: self._propose_tolerance(
+                    name, precursor_df_filtered, fragments_df_filtered
+                )
+                for name in names
+            }
+            log_string(
+                f"Calibration round {step}: {n_identified} identifications "
+                f"on {self._optlock.total_elution_groups} elution groups; "
+                + ", ".join(
+                    f"{name} {current[name]:.2f} -> {proposal[name]:.2f}"
+                    for name in names
+                ),
+                verbosity="progress",
+            )
+
+            if all(
+                abs(proposal[name] - current[name]) / max(current[name], 1e-9)
+                <= config["convergence_threshold"]
+                for name in names
+            ):
+                log_string("Search parameters converged.", verbosity="progress")
+                break
+
+            self._optimization_manager.update(**proposal)
+            self._optlock.update()
+            self._optlock.update_with_calibration(self._calibration_manager)
+            precursor_df = self._process_batch()
+
+        else:
+            log_string(
+                f"Search parameters did not converge within {config['max_steps']} rounds, "
+                "using the last calibration.",
+                verbosity="warning",
+            )
+
+        if not restored:
+            self._optimization_manager.update(
+                classifier_version=self._fdr_manager.current_version
+            )
+        log_string(
+            "Search parameter optimization finished. Values taken forward for search are:",
+            verbosity="progress",
+        )
+        for name in names:
+            log_string(
+                f"{name:<15}: {self._optimization_manager.__dict__[name]:.4f}",
+                verbosity="progress",
+            )
 
     def _process_batch(self):
         """Extracts precursors and fragments from the spectral library, performs FDR correction and logs the precursor dataframe."""
