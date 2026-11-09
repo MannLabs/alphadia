@@ -34,11 +34,16 @@ MS1_CLASSIFIER_FEATURES = [
     "ms1_m1_accurate_share",
 ]
 # rust fragment detection features (hits at the apex scan against each channel's flank background): the final-round
-# classifier uses these; det_llr_hits (the hit terms of det_llr alone) is the fallback if the miss terms leak
+# classifier uses these; det_llr_hits (the hit terms of det_llr alone) is the fallback if the miss terms leak.
+# det_faint_llr scores the same hits and misses at the abundance the hit intensities imply, against the run's
+# detection curve: it separates faint real precursors from chance matches better than det_llr, whose free signal scale
+# makes missing strong fragments cheap. Its hit and miss parts (det_faint_hits, det_faint_miss) are left out: in replay
+# the miss part added false targets without real ones.
 DETECTION_PREFIX = "det_"
 DETECTION_CLASSIFIER_FEATURES = [
     "det_llr",
     "det_bg_surprise",
+    "det_faint_llr",
 ]
 
 
