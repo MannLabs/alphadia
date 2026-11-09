@@ -42,7 +42,7 @@ from alphadia.workflow.peptidecentric.peptidecentric import (
     PeptideCentricWorkflow,
     _get_classifier_base,
 )
-from alphadia.workflow.peptidecentric.utils import feature_columns
+from alphadia.workflow.peptidecentric.python.utils import feature_columns
 
 
 def test_base_manager():

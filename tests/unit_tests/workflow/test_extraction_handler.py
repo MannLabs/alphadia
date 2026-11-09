@@ -6,22 +6,24 @@ import pandas as pd
 import pytest
 from alphadia_search_rs import FeatureSet
 
-from alphadia.workflow.peptidecentric.extraction_handler import NgExtractionHandler
-from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+from alphadia.workflow.peptidecentric.rust.extraction_handler import (
+    RustExtractionHandler,
+)
+from alphadia.workflow.peptidecentric.rust.ng_mapper import (
     FINAL_ROUND_EXCLUDED_FEATURES,
 )
 
 
 @pytest.mark.parametrize("feature_set", [FeatureSet.Calibration, FeatureSet.Full])
-@patch("alphadia.workflow.peptidecentric.extraction_handler.to_features_df")
-@patch("alphadia.workflow.peptidecentric.extraction_handler.PeakGroupScoring")
-@patch("alphadia.workflow.peptidecentric.extraction_handler.candidates_to_ng")
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.to_features_df")
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.PeakGroupScoring")
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.candidates_to_ng")
 def test_score_candidates_returns_the_scored_features(
     mock_candidates_to_ng, mock_scoring, mock_to_features_df, feature_set
 ):
     # given
     config = {"search": {"top_k_fragments_scoring": 12}}
-    handler = NgExtractionHandler(
+    handler = RustExtractionHandler(
         config, MagicMock(ms2_error=7.5), MagicMock(), MagicMock(), MagicMock()
     )
     handler._speclib_ng = MagicMock(name="speclib_ng")
@@ -52,7 +54,9 @@ def _fdr_handler(fit_predict):
     fdr_manager = MagicMock(name="fdr_manager")
     fdr_manager.fit_predict.side_effect = fit_predict
     return (
-        NgExtractionHandler(config, MagicMock(), fdr_manager, MagicMock(), MagicMock()),
+        RustExtractionHandler(
+            config, MagicMock(), fdr_manager, MagicMock(), MagicMock()
+        ),
         fdr_manager,
     )
 

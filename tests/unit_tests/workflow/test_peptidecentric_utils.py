@@ -7,9 +7,9 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
+from alphadia.workflow.peptidecentric.python.utils import feature_columns
 from alphadia.workflow.peptidecentric.utils import (
     add_library_fragment_intensity,
-    feature_columns,
     get_classifier_feature_columns,
 )
 

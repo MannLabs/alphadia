@@ -16,10 +16,10 @@ from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.library_init import init_spectral_library
-from alphadia.workflow.peptidecentric.multiplexing_requantification_handler import (
+from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
+from alphadia.workflow.peptidecentric.python.multiplexing_requantification_handler import (
     MultiplexingRequantificationHandler,
 )
-from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.transfer_library_requantification_handler import (
     TransferLibraryRequantificationHandler,
 )

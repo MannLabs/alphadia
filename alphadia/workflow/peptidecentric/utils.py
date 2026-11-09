@@ -5,85 +5,13 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import FeatureSet
 
-from alphadia.constants.keys import CalibCols
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     ION_HASH_COLUMNS,
 )
 from alphadia.reporting.reporting import Pipeline
-from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
-
-feature_columns = [
-    "reference_intensity_correlation",
-    "mean_reference_scan_cosine",
-    "top3_reference_scan_cosine",
-    "mean_reference_frame_cosine",
-    "top3_reference_frame_cosine",
-    "mean_reference_template_scan_cosine",
-    "mean_reference_template_frame_cosine",
-    "mean_reference_template_frame_cosine_rank",
-    "mean_reference_template_scan_cosine_rank",
-    "mean_reference_frame_cosine_rank",
-    "mean_reference_scan_cosine_rank",
-    "reference_intensity_correlation_rank",
-    "top3_b_ion_correlation_rank",
-    "top3_y_ion_correlation_rank",
-    "top3_frame_correlation_rank",
-    "fragment_frame_correlation_rank",
-    "weighted_ms1_intensity_rank",
-    "isotope_intensity_correlation_rank",
-    "isotope_pattern_correlation_rank",
-    "mono_ms1_intensity_rank",
-    "weighted_mass_error_rank",
-    "base_width_mobility",
-    "base_width_rt",
-    CalibCols.RT_OBSERVED,
-    "delta_rt",
-    CalibCols.MOBILITY_OBSERVED,
-    "mono_ms1_intensity",
-    "top_ms1_intensity",
-    "sum_ms1_intensity",
-    "weighted_ms1_intensity",
-    "weighted_mass_deviation",
-    "weighted_mass_error",
-    CalibCols.MZ_LIBRARY,
-    CalibCols.MZ_OBSERVED,
-    "mono_ms1_height",
-    "top_ms1_height",
-    "sum_ms1_height",
-    "weighted_ms1_height",
-    "isotope_intensity_correlation",
-    "isotope_height_correlation",
-    "n_observations",
-    "intensity_correlation",
-    "height_correlation",
-    "intensity_fraction",
-    "height_fraction",
-    "intensity_fraction_weighted",
-    "height_fraction_weighted",
-    "mean_observation_score",
-    "sum_b_ion_intensity",
-    "sum_y_ion_intensity",
-    "diff_b_y_ion_intensity",
-    "fragment_scan_correlation",
-    "top3_scan_correlation",
-    "fragment_frame_correlation",
-    "top3_frame_correlation",
-    "template_scan_correlation",
-    "template_frame_correlation",
-    "top3_b_ion_correlation",
-    "top3_y_ion_correlation",
-    "n_b_ions",
-    "n_y_ions",
-    "f_masked",
-    "fwhm_rt",
-    "fwhm_mobility",
-    "top_3_ms2_mass_error",
-    "mean_ms2_mass_error",
-    "n_overlapping",
-    "mean_overlapping_intensity",
-    "mean_overlapping_mass_error",
-]
+from alphadia.workflow.peptidecentric.python.utils import feature_columns
+from alphadia.workflow.peptidecentric.rust.ng_mapper import get_feature_names
 
 
 def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
