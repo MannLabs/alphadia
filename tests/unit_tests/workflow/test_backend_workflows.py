@@ -179,7 +179,7 @@ def test_python_workflow_keeps_dia_data(tmp_path):
     dia_data = MagicMock(name="dia_data")
 
     # when
-    prepared = workflow._prepare_dia_data(dia_data)
+    prepared = workflow._convert_dia_data(dia_data)
 
     # then
     assert prepared is dia_data
@@ -200,7 +200,7 @@ def test_rust_workflow_converts_dia_data(
     )
 
     # when
-    prepared = workflow._prepare_dia_data(dia_data)
+    prepared = workflow._convert_dia_data(dia_data)
 
     # then
     mock_set_ng_thread_count.assert_called_once_with(THREAD_COUNT)
@@ -214,7 +214,7 @@ def test_rust_workflow_rejects_timstof_data(tmp_path):
 
     # when / then
     with pytest.raises(GenericUserError):
-        workflow._prepare_dia_data(MagicMock(spec=TimsTOFTranspose))
+        workflow._convert_dia_data(MagicMock(spec=TimsTOFTranspose))
 
 
 def test_rust_workflow_does_not_support_multiplexing(tmp_path):
