@@ -19,7 +19,7 @@ from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
 from alphadia.reporting.reporting import Pipeline
-from alphadia.search.scoring.scoring import CandidateScoring
+from alphadia.search.python.scoring.scoring import CandidateScoring
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler

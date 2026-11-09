@@ -5,50 +5,50 @@ The scoring package performs scoring of peak group candidates by calculating the
 
 .. autosummary::
 
-   alphadia.search.scoring.scoring
-   alphadia.search.scoring.config
-   alphadia.search.scoring.containers
-   alphadia.search.scoring.output
-   alphadia.search.scoring.scoring_utils
-   alphadia.search.scoring.utils
-   alphadia.search.scoring.features.features_utils
-   alphadia.search.scoring.features.fragment_features
-   alphadia.search.scoring.features.location_features
-   alphadia.search.scoring.features.precursor_features
-   alphadia.search.scoring.features.profile_features
-   alphadia.search.scoring.features.reference_features
+   alphadia.search.python.scoring.scoring
+   alphadia.search.python.scoring.config
+   alphadia.search.python.scoring.containers
+   alphadia.search.python.scoring.output
+   alphadia.search.python.scoring.scoring_utils
+   alphadia.search.python.scoring.utils
+   alphadia.search.python.scoring.features.features_utils
+   alphadia.search.python.scoring.features.fragment_features
+   alphadia.search.python.scoring.features.location_features
+   alphadia.search.python.scoring.features.precursor_features
+   alphadia.search.python.scoring.features.profile_features
+   alphadia.search.python.scoring.features.reference_features
 
-.. automodule:: alphadia.search.scoring.scoring
+.. automodule:: alphadia.search.python.scoring.scoring
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.config
+.. automodule:: alphadia.search.python.scoring.config
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.containers
+.. automodule:: alphadia.search.python.scoring.containers
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.output
+.. automodule:: alphadia.search.python.scoring.output
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.scoring_utils
+.. automodule:: alphadia.search.python.scoring.scoring_utils
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.utils
+.. automodule:: alphadia.search.python.scoring.utils
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.quadrupole
+.. automodule:: alphadia.search.python.scoring.quadrupole
    :members:
    :undoc-members:
    :show-inheritance:
@@ -57,32 +57,32 @@ The scoring package performs scoring of peak group candidates by calculating the
 Features
 --------
 
-.. automodule:: alphadia.search.scoring.features.features_utils
+.. automodule:: alphadia.search.python.scoring.features.features_utils
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.features.fragment_features
+.. automodule:: alphadia.search.python.scoring.features.fragment_features
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.features.location_features
+.. automodule:: alphadia.search.python.scoring.features.location_features
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.features.precursor_features
+.. automodule:: alphadia.search.python.scoring.features.precursor_features
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.features.profile_features
+.. automodule:: alphadia.search.python.scoring.features.profile_features
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.scoring.features.reference_features
+.. automodule:: alphadia.search.python.scoring.features.reference_features
    :members:
    :undoc-members:
    :show-inheritance:
