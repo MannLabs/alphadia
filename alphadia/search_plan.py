@@ -17,6 +17,7 @@ from alphadia.exceptions import CustomError
 from alphadia.reporting import reporting
 from alphadia.reporting.logging import print_environment, print_logo
 from alphadia.search_step import (
+    MBR_STEP_NAME,
     SearchStep,
     logger,
 )
@@ -24,7 +25,6 @@ from alphadia.search_step import (
 # TODO the names of the steps need to be adjusted
 TRANSFER_STEP_NAME = "transfer"
 LIBRARY_STEP_NAME = "library"
-MBR_STEP_NAME = "mbr"
 
 # TODO we need to make sure basic users settings are compatible with each step in multistep search
 # e.g. by printing warning messages on the biggest mistakes

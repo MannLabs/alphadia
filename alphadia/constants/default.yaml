@@ -48,6 +48,11 @@ general:
   # whether to save the output (mbr) library to the output directory
   save_mbr_library: True
 
+  # whether to derive the search space (precursor length/charge/m-z ranges, modifications, numbers of modified peptides,
+  # precursors and proteins) from the target precursors of a provided spectral library and write it to the log
+  # (block "Library search space", e.g. parsed by ProteoBench). If false, nothing is computed.
+  log_library_search_space: True
+
   # if set to a positive integer, it will be used as random state (for reproducibility)
   # if set to -1, a random state will be generated and printed to the log
   # if null, no specific setting of random states is performed
