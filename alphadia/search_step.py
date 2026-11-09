@@ -54,13 +54,18 @@ from alphadia.workflow.config import (
     Config,
 )
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
-from alphadia.workflow.peptidecentric.workflow_factory import (
-    get_extraction_backend,
-    get_workflow_class,
+from alphadia.workflow.peptidecentric.python.workflow import (
+    PythonPeptideCentricWorkflow,
 )
+from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
+
+WORKFLOW_CLASSES: dict[str, type[PeptideCentricWorkflow]] = {
+    ExtractionBackend.PYTHON: PythonPeptideCentricWorkflow,
+    ExtractionBackend.RUST: RustPeptideCentricWorkflow,
+}
 
 # On Windows with Python < 3.13, multiprocessing pools fail with "need at most 63 handles" for more than
 # 61 worker processes (cf. concurrent.futures.process._MAX_WINDOWS_WORKERS), fixed in CPython by gh-89240
@@ -223,7 +228,7 @@ class SearchStep:
             config = deepcopy(config)
             config.update(config_updates)
 
-        return get_extraction_backend(config) == ExtractionBackend.RUST
+        return config["search"]["extraction_backend"] == ExtractionBackend.RUST
 
     def _get_random_number_generator(self) -> np.random.Generator | None:
         """Get numpy random number generator if random state is set."""
@@ -555,6 +560,7 @@ class SearchStep:
         )
 
         reusable_quant_folders = self._get_reusable_quant_folders()
+        workflow_class = WORKFLOW_CLASSES[self.config["search"]["extraction_backend"]]
 
         workflow_folder_list = []
         raw_files_with_errors = []
@@ -579,7 +585,7 @@ class SearchStep:
                     workflow_folder_list.append(reused_folder)
                     continue
 
-                workflow = get_workflow_class(self.config)(
+                workflow = workflow_class(
                     raw_name,
                     self.config,
                     quant_path=self.config[ConfigKeys.QUANT_DIRECTORY],
@@ -738,16 +744,24 @@ class SearchStep:
 
         TODO move this to a dedicated class.
         """
-        workflow_class = get_workflow_class(self._config)
+        extraction_backend = self._config["search"]["extraction_backend"]
+        if extraction_backend not in WORKFLOW_CLASSES:
+            raise ConfigError(
+                "search.extraction_backend",
+                extraction_backend,
+                "final",
+                f"Supported backends are: {ExtractionBackend.get_values()}",
+            )
+
         if (
             self._config["multiplexing"]["enabled"]
-            and not workflow_class.SUPPORTS_MULTIPLEXING
+            and not WORKFLOW_CLASSES[extraction_backend].SUPPORTS_MULTIPLEXING
         ):
             raise ConfigError(
                 "multiplexing.enabled",
                 "True",
                 "final",
-                f"Multiplexing is not yet supported with the '{get_extraction_backend(self._config)}' extraction backend.",
+                f"Multiplexing is not yet supported with the '{extraction_backend}' extraction backend.",
             )
 
         general_config = self._config[ConfigKeys.GENERAL]

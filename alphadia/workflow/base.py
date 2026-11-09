@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from abc import ABC, abstractmethod
 
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import DIAData as DiaDataNG
@@ -27,7 +28,7 @@ def get_quant_path(config: Config, quant_path: str | None = None) -> str:
     )
 
 
-class WorkflowBase:
+class WorkflowBase(ABC):
     """Base class for all workflows. This class is responsible for creating the workflow folder.
     It also initializes the calibration_manager and fdr_manager for the workflow.
     """
@@ -117,7 +118,7 @@ class WorkflowBase:
             f"Creating DIA data object took: {time.time() - time_start}"
         )
 
-        self._dia_data = self._prepare_dia_data(self._dia_data)
+        self._dia_data = self._convert_dia_data(self._dia_data)
 
         raw_file_manager.save()
 
@@ -142,9 +143,9 @@ class WorkflowBase:
         )
         self.reporter.log_event("section_stop", {})
 
-    def _prepare_dia_data(self, dia_data: DiaData) -> DiaData | DiaDataNG:
+    @abstractmethod
+    def _convert_dia_data(self, dia_data: DiaData) -> DiaData | DiaDataNG:
         """Convert the loaded DIA data into the representation the extraction backend works on."""
-        return dia_data
 
     @property
     def path(self) -> str:

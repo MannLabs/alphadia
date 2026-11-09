@@ -3,6 +3,7 @@
 import pandas as pd
 
 from alphadia.fragcomp.utils import candidate_hash
+from alphadia.raw_data import DiaData
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 from alphadia.workflow.peptidecentric.python.extraction_handler import (
     PythonExtractionHandler,
@@ -35,6 +36,9 @@ class PythonPeptideCentricWorkflow(PeptideCentricWorkflow):
 
     def _classifier_feature_columns(self) -> list[str]:
         return feature_columns
+
+    def _convert_dia_data(self, dia_data: DiaData) -> DiaData:
+        return dia_data
 
     def _create_extraction_handler(self) -> PythonExtractionHandler:
         return PythonExtractionHandler(
