@@ -57,7 +57,6 @@ class RustExtractionHandler(ExtractionHandler):
             spectral_library,
         )
 
-        # converted with the columns of the calibration state at construction
         self._speclib_ng: SpecLibFlatNG = speclib_to_ng(
             spectral_library,
             rt_column=column_name_handler.get_rt_column(),
@@ -222,7 +221,7 @@ class RustExtractionHandler(ExtractionHandler):
             DataFrame with candidates
 
         classifier_version : int
-            Version of the stored FDR classifier to start from, -1 for the latest.
+            Version of the stored FDR classifier to start from. `FDRManager.fit_predict` defines the values.
 
         df_fragments : pd.DataFrame, optional
             Quantified fragments of all candidates. If not given, the fragments of the

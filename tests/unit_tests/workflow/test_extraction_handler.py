@@ -29,7 +29,7 @@ CLASSIFIER_VERSION = 4
 
 
 def _create_handler(config, fdr_manager=None):
-    """Create a handler bound to mock DIA data and library, without converting a real library."""
+    """Create a handler on mock DIA data and a mock spectral library, with the library conversion patched."""
     with patch(SPECLIB_TO_NG, return_value=MagicMock(name="speclib_ng")):
         return RustExtractionHandler(
             config,
@@ -44,14 +44,14 @@ def _create_handler(config, fdr_manager=None):
 
 @patch(SPECLIB_TO_NG)
 def test_converts_the_library_once_at_construction(mock_speclib_to_ng):
-    # given
+    # Given: a spectral library and the columns of the current calibration state
     column_name_handler = MagicMock()
     column_name_handler.get_rt_column.return_value = "rt_calibrated"
     column_name_handler.get_precursor_mz_column.return_value = "mz_calibrated"
     column_name_handler.get_fragment_mz_column.return_value = "mz_library"
     spectral_library = MagicMock(name="spectral_library")
 
-    # when
+    # When: the test creates the handler
     handler = RustExtractionHandler(
         {},
         TOLERANCES,
@@ -62,7 +62,7 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_ng):
         spectral_library,
     )
 
-    # then
+    # Then: the handler converts the library with these columns and keeps the result
     mock_speclib_to_ng.assert_called_once_with(
         spectral_library,
         rt_column="rt_calibrated",
@@ -79,14 +79,14 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_ng):
 def test_score_candidates_returns_the_scored_features(
     mock_candidates_to_ng, mock_scoring, mock_to_features_df, feature_set
 ):
-    # given
+    # Given: a handler with a configured top k fragments value
     config = {"search": {"top_k_fragments_scoring": 12}}
     handler = _create_handler(config)
 
-    # when
+    # When: the handler scores the candidates with the feature set
     features_df = handler.score_candidates(MagicMock(), feature_set)
 
-    # then
+    # Then: the scoring parameters use the config, the feature set and the tolerances
     scoring_params = mock_scoring.call_args.args[0]
     assert scoring_params.top_k_fragments == 12
     assert scoring_params.feature_set == feature_set
@@ -116,7 +116,7 @@ def _fdr_inputs():
 
 
 def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candidates():
-    # given: an FDR step that asks for the fragments of precursors 1 and 3 only
+    # Given: an FDR step that asks for the fragments of precursors 1 and 3 only
     received = {}
 
     def fit_predict(features_df, **kwargs):
@@ -130,7 +130,7 @@ def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candida
     features_df, candidates_df = _fdr_inputs()
     fragments_df = pd.DataFrame({"precursor_idx": [1, 3], "mz_observed": [1.0, 2.0]})
 
-    # when
+    # When: the handler performs FDR without given fragments
     with patch.object(
         handler, "quantify_candidates", return_value=(None, fragments_df)
     ) as mock_quantify:
@@ -140,19 +140,18 @@ def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candida
             )
         )
 
-    # then: only the competing candidates were quantified, and their fragments returned
+    # Then: the handler quantifies only the competing candidates, the FDR step gets their fragments and the FDR result filters the candidates
     quantified = mock_quantify.call_args.args[0]
     assert quantified[["precursor_idx", "rank"]].values.tolist() == [[1, 0], [3, 1]]
     assert "_candidate_idx" not in quantified.columns
     assert mock_quantify.call_args.args[1] is None
     assert received["fragments"] is fragments_df
-    # and the candidates are filtered by the FDR result
     assert candidates_filtered["precursor_idx"].tolist() == [1, 3]
     assert precursor_fdr_df["precursor_idx"].tolist() == [1, 3]
 
 
 def test_perform_fdr_and_filter_candidates_uses_given_fragments():
-    # given: fragments of all candidates, as the optimization rounds have them
+    # Given: fragments of all candidates, as the optimization rounds have them
     def fit_predict(features_df, **kwargs):
         return features_df.assign(qval=0.0)
 
@@ -160,7 +159,7 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
     features_df, candidates_df = _fdr_inputs()
     fragments_df = pd.DataFrame({"precursor_idx": [1], "mz_observed": [1.0]})
 
-    # when
+    # When: the handler performs FDR with these fragments
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
@@ -168,7 +167,7 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
         df_fragments=fragments_df,
     )
 
-    # then: the FDR step gets them directly and no provider, with the given classifier version
+    # Then: the FDR step gets them directly and no provider, with the given classifier version
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["df_fragments"] is fragments_df
     assert kwargs["fragment_provider"] is None
@@ -182,14 +181,14 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
 def test_perform_fdr_and_filter_candidates_leaves_fwhm_rt_out_of_the_final_round(
     final_round, excluded
 ):
-    # given
+    # Given: an FDR step that accepts all precursors
     def fit_predict(features_df, **kwargs):
         return features_df.assign(qval=0.0)
 
     handler, fdr_manager = _fdr_handler(fit_predict)
     features_df, candidates_df = _fdr_inputs()
 
-    # when
+    # When: the handler performs FDR in the final round or in a calibration round
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
@@ -198,7 +197,7 @@ def test_perform_fdr_and_filter_candidates_leaves_fwhm_rt_out_of_the_final_round
         final_round=final_round,
     )
 
-    # then
+    # Then: only the final round excludes the final round features
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["excluded_columns"] == excluded
 
@@ -207,14 +206,14 @@ def test_perform_fdr_and_filter_candidates_leaves_fwhm_rt_out_of_the_final_round
 def test_perform_fdr_and_filter_candidates_passes_train_on_best_candidate(
     train_on_best_candidate,
 ):
-    # given
+    # Given: an FDR step that accepts all precursors
     def fit_predict(features_df, **kwargs):
         return features_df.assign(qval=0.0)
 
     handler, fdr_manager = _fdr_handler(fit_predict)
     features_df, candidates_df = _fdr_inputs()
 
-    # when
+    # When: the handler performs FDR with the train on best candidate setting
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
@@ -223,6 +222,6 @@ def test_perform_fdr_and_filter_candidates_passes_train_on_best_candidate(
         train_on_best_candidate=train_on_best_candidate,
     )
 
-    # then
+    # Then: the FDR step gets the setting
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["train_on_best_candidate"] is train_on_best_candidate

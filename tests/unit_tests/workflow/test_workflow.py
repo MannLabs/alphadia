@@ -244,14 +244,14 @@ def test_optimization_manager():
 
 
 def test_optimization_manager_search_tolerances_is_a_snapshot():
-    # given
+    # Given: an optimization manager with the test configuration
     optimization_manager = OptimizationManager(TEST_OPTIMIZATION_CONFIG)
 
-    # when
+    # When: the test takes the search tolerances and then updates the manager
     tolerances = optimization_manager.search_tolerances()
     optimization_manager.update(ms2_error=3.0)
 
-    # then
+    # Then: the taken tolerances keep the old values, and new tolerances have the update
     assert tolerances == SearchTolerances(
         rt_error=200.0,
         ms1_error=4.0,
