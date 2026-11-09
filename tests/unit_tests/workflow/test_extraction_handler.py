@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-from alphadia_search_rs import FeatureSet, SearchTolerances
+from alphadia_search_rs import FeatureSet, OptimizationContext
 
 from alphadia.workflow.peptidecentric.rust.extraction_handler import (
     RustExtractionHandler,
@@ -15,7 +15,7 @@ from alphadia.workflow.peptidecentric.rust.ng_mapper import (
 
 SPECLIB_TO_NG = "alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_ng"
 
-TOLERANCES = SearchTolerances(
+OPTIMIZATION_CONTEXT = OptimizationContext(
     rt_error=120.0,
     ms1_error=30.0,
     ms2_error=7.5,
@@ -33,7 +33,7 @@ def _create_handler(config, fdr_manager=None):
     with patch(SPECLIB_TO_NG, return_value=MagicMock(name="speclib_ng")):
         return RustExtractionHandler(
             config,
-            TOLERANCES,
+            OPTIMIZATION_CONTEXT,
             fdr_manager or MagicMock(),
             MagicMock(),
             MagicMock(),
@@ -54,7 +54,7 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_ng):
     # When: the test creates the handler
     handler = RustExtractionHandler(
         {},
-        TOLERANCES,
+        OPTIMIZATION_CONTEXT,
         MagicMock(),
         MagicMock(),
         column_name_handler,
@@ -86,7 +86,7 @@ def test_score_candidates_returns_the_scored_features(
     # When: the handler scores the candidates with the feature set
     features_df = handler.score_candidates(MagicMock(), feature_set)
 
-    # Then: the scoring parameters use the config, the feature set and the tolerances
+    # Then: the scoring parameters use the config, the feature set and the optimization context
     scoring_params = mock_scoring.call_args.args[0]
     assert scoring_params.top_k_fragments == 12
     assert scoring_params.feature_set == feature_set

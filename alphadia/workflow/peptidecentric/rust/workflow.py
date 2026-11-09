@@ -46,7 +46,7 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
     ) -> RustExtractionHandler:
         return RustExtractionHandler(
             self.config,
-            self.optimization_manager.search_tolerances(),
+            self.optimization_manager.get_optimization_context(),
             self._fdr_manager,
             self.reporter,
             self._create_column_name_handler(),

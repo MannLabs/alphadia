@@ -2,7 +2,7 @@
 
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphadia_search_rs import SearchTolerances
+from alphadia_search_rs import OptimizationContext
 
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
@@ -53,7 +53,7 @@ class PythonExtractionHandler(ExtractionHandler):
     def __init__(
         self,
         config: Config,
-        tolerances: SearchTolerances,
+        optimization_context: OptimizationContext,
         fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
@@ -62,7 +62,7 @@ class PythonExtractionHandler(ExtractionHandler):
     ):
         super().__init__(
             config,
-            tolerances,
+            optimization_context,
             fdr_manager,
             reporter,
             column_name_handler,
@@ -101,11 +101,11 @@ class PythonExtractionHandler(ExtractionHandler):
 
         self._selection_config.update(
             {
-                "rt_tolerance": self._tolerances.rt_error,
-                "mobility_tolerance": self._tolerances.mobility_error,
-                "candidate_count": self._tolerances.num_candidates,
-                "precursor_mz_tolerance": self._tolerances.ms1_error,
-                "fragment_mz_tolerance": self._tolerances.ms2_error,
+                "rt_tolerance": self._optimization_context.rt_error,
+                "mobility_tolerance": self._optimization_context.mobility_error,
+                "candidate_count": self._optimization_context.num_candidates,
+                "precursor_mz_tolerance": self._optimization_context.ms1_error,
+                "fragment_mz_tolerance": self._optimization_context.ms2_error,
             }
         )
 
@@ -118,8 +118,8 @@ class PythonExtractionHandler(ExtractionHandler):
             mobility_column=self._column_name_handler.get_mobility_column(),
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
             fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
-            fwhm_rt=self._tolerances.fwhm_rt,
-            fwhm_mobility=self._tolerances.fwhm_mobility,
+            fwhm_rt=self._optimization_context.fwhm_rt,
+            fwhm_mobility=self._optimization_context.fwhm_mobility,
         )
         candidates_df = extraction(thread_count=self._config["general"]["thread_count"])
 
@@ -145,8 +145,8 @@ class PythonExtractionHandler(ExtractionHandler):
         """
         self._scoring_config.update(
             {
-                "precursor_mz_tolerance": self._tolerances.ms1_error,
-                "fragment_mz_tolerance": self._tolerances.ms2_error,
+                "precursor_mz_tolerance": self._optimization_context.ms1_error,
+                "fragment_mz_tolerance": self._optimization_context.ms2_error,
                 "top_k_fragments": top_k_fragments
                 if top_k_fragments is not None
                 else self._config["search"]["top_k_fragments_scoring"],
