@@ -8,6 +8,9 @@ import pytest
 
 from alphadia.constants.keys import CalibrationStrategy
 from alphadia.exceptions import NoOptimizationLockTargetError
+from alphadia.workflow.peptidecentric.recalibration_handler import (
+    RecalibrationHandler,
+)
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
     RustOptimizationHandler,
 )
@@ -336,3 +339,58 @@ def test_converge_calibrates_new_batches_after_an_early_calibration():
 
     # then: the batch added below the threshold is calibrated before it is extracted
     assert calls[:3] == ["grow", "update", "calibrate"]
+
+
+@pytest.mark.parametrize(
+    ("top_rank_only", "expected_num_candidates"), [(True, 1), (False, 3)]
+)
+def test_recalibrate_keeps_the_best_peak_group_only(
+    top_rank_only, expected_num_candidates
+):
+    """Test that recalibration keeps scoring the best peak group per precursor unless top_rank_only is disabled."""
+    # given
+    config = {
+        "calibration": {"top_rank_only": top_rank_only},
+        "search": {"target_num_candidates": 3, "optimized_peak_group_score": False},
+    }
+    optimization_manager = SimpleNamespace(num_candidates=1)
+    optimization_manager.update = lambda **kwargs: optimization_manager.__dict__.update(
+        kwargs
+    )
+    handler = RecalibrationHandler(
+        config, optimization_manager, MagicMock(), MagicMock(), None, False
+    )
+    precursor_df = pd.DataFrame(
+        {"score": [1.0, 2.0], "fwhm_rt": [3.0, 3.0], "fwhm_mobility": [0.0, 0.0]}
+    )
+
+    # when
+    handler.recalibrate(precursor_df, pd.DataFrame())
+
+    # then
+    assert optimization_manager.num_candidates == expected_num_candidates
+
+
+def test_search_parameter_optimization_hands_the_final_search_its_number_of_candidates(
+    mock_config,
+):
+    """Test that the final search scores target_num_candidates peak groups although calibration scored one."""
+    # given
+    config = {**mock_config, "search": {"target_num_candidates": 3}}
+    workflow = RustPeptideCentricWorkflow("test_instance", config)
+    workflow._optimization_manager = MagicMock()
+    workflow._calibration_manager = MagicMock()
+    workflow._fdr_manager = MagicMock()
+    workflow._spectral_library = MagicMock()
+    workflow._dia_data = MagicMock()
+    workflow.reporter = MagicMock()
+
+    # when
+    with (
+        patch.object(RustPeptideCentricWorkflow, "OPTIMIZATION_HANDLER_CLASS"),
+        patch.object(RustPeptideCentricWorkflow, "_save_managers"),
+    ):
+        workflow.search_parameter_optimization()
+
+    # then
+    workflow.optimization_manager.update.assert_called_once_with(num_candidates=3)

@@ -226,6 +226,10 @@ calibration:
   # the correlation threshold for fragments used to calibrate fragment mz (i.e. ms2)
   min_correlation: 0.7
 
+  # extract only the best peak group per precursor during calibration; search.target_num_candidates applies to the
+  # final search only
+  top_rank_only: true
+
   # "converge": recalibrate and set all tolerances in one loop from the residuals of the confident identifications.
   # "legacy": targeted and automatic optimizers, one parameter group after the other.
   strategy: converge

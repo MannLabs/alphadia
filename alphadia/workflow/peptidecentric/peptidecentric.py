@@ -185,6 +185,11 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
 
         optimization_handler.search_parameter_optimization()
 
+        # calibration scores the best peak group per precursor, the final search the configured number
+        self.optimization_manager.update(
+            num_candidates=self.config["search"]["target_num_candidates"]
+        )
+
         self._save_managers()
 
         self.calibration_manager.predict(
