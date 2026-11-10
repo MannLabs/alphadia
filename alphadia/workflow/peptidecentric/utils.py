@@ -15,6 +15,8 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     DETECTION_PREFIX,
     MS1_CLASSIFIER_FEATURES,
     MS1_PREFIX,
+    NEXT_ION_CLASSIFIER_FEATURES,
+    NEXT_ION_PREFIX,
     get_context_feature_names,
     get_feature_names,
 )
@@ -126,6 +128,9 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
         and (
             not name.startswith(DETECTION_PREFIX)
             or name in DETECTION_CLASSIFIER_FEATURES
+        )
+        and (
+            not name.startswith(NEXT_ION_PREFIX) or name in NEXT_ION_CLASSIFIER_FEATURES
         )
     ]
 

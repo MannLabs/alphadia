@@ -14,6 +14,7 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
+from alphadia.libtransform.next_ions import NEXT_ION_COLUMNS
 from alphadia.raw_data import DiaData
 from alphadia.workflow.peptidecentric.ng.ms1_calibration import Ms1Calibration
 
@@ -39,6 +40,13 @@ DETECTION_PREFIX = "det_"
 DETECTION_CLASSIFIER_FEATURES = [
     "det_llr",
     "det_bg_surprise",
+]
+# rust next-ion features (the library b/y ions ranked just below the scored top fragments, hit at the apex scan,
+# against the same ions shifted along the mass grid on that scan). The classifier uses the null-normalised count only:
+# in replay it carried the whole gain; next_ion_count is a library property a decoy copies from its target.
+NEXT_ION_PREFIX = "next_ion_"
+NEXT_ION_CLASSIFIER_FEATURES = [
+    "next_ion_hits_z",
 ]
 
 
@@ -134,6 +142,24 @@ def set_ms1_isotopes(
     )
 
 
+def set_next_ions(
+    speclib_ng: "SpecLibFlatNG",  # noqa: F821
+    precursor_df: pd.DataFrame,
+) -> None:
+    """Give the rust library the next ions of every precursor (libtransform.next_ions), if the library has them.
+
+    Libraries flattened without them (e.g. a requantification library) score the next-ion features as missing.
+    """
+    if not set(NEXT_ION_COLUMNS) <= set(precursor_df.columns):
+        return
+    speclib_ng.set_next_ions(
+        precursor_df["precursor_idx"].to_numpy().astype(np.uint64),
+        np.ascontiguousarray(
+            precursor_df[NEXT_ION_COLUMNS].to_numpy(), dtype=np.float32
+        ),
+    )
+
+
 def get_feature_names() -> list[str]:
     """Get feature names from NG CandidateFeatureCollection."""
     return [f for f in CandidateFeatureCollection.get_feature_names()]
@@ -175,6 +201,7 @@ def get_final_round_feature_names() -> list[str]:
         + MS1_CLASSIFIER_FEATURES
         + FRAGMENT_SHADOW_FEATURES
         + DETECTION_CLASSIFIER_FEATURES
+        + NEXT_ION_CLASSIFIER_FEATURES
     )
 
 

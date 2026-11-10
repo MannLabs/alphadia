@@ -1,5 +1,6 @@
 import logging
 
+import pandas as pd
 from alphabase.peptide import fragment
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -7,6 +8,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia import utils
 from alphadia.constants.keys import CalibCols
 from alphadia.libtransform.base import ProcessingStep
+from alphadia.libtransform.next_ions import NEXT_ION_COLUMNS, next_ion_mz
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
 
 logger = logging.getLogger()
@@ -45,9 +47,28 @@ class FlattenLibrary(ProcessingStep):
             min_fragment_intensity=self.min_fragment_intensity,
             keep_top_k_fragments=self.top_k_fragments,
         )
+        next_ions = next_ion_mz(
+            input.precursor_df,
+            input._fragment_mz_df,
+            input._fragment_intensity_df,
+            self.top_k_fragments,
+            self.min_fragment_intensity,
+        )
         output.parse_base_library(
             input,
             custom_df={"cardinality": input._fragment_cardinality_df},  # type: ignore[attr-defined]
+        )
+        # flattening keeps the base library's precursor rows in order, so the columns line up
+        output._precursor_df = pd.concat(
+            [
+                output._precursor_df.drop(columns=NEXT_ION_COLUMNS, errors="ignore"),
+                pd.DataFrame(
+                    next_ions,
+                    columns=NEXT_ION_COLUMNS,
+                    index=output._precursor_df.index,
+                ),
+            ],
+            axis=1,
         )
 
         return output

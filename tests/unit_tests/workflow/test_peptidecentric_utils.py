@@ -13,6 +13,8 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     FRAGMENT_SHADOW_FEATURES,
     MS1_CLASSIFIER_FEATURES,
     MS1_PREFIX,
+    NEXT_ION_CLASSIFIER_FEATURES,
+    NEXT_ION_PREFIX,
     get_context_feature_names,
     get_feature_names,
     get_final_round_feature_names,
@@ -39,7 +41,20 @@ def test_get_classifier_feature_columns_for_rust_backend():
             not name.startswith(DETECTION_PREFIX)
             or name in DETECTION_CLASSIFIER_FEATURES
         )
+        and (
+            not name.startswith(NEXT_ION_PREFIX) or name in NEXT_ION_CLASSIFIER_FEATURES
+        )
     ]
+
+
+def test_get_classifier_feature_columns_keeps_only_the_null_normalised_next_ion_count():
+    # when
+    columns = get_classifier_feature_columns("rust")
+
+    # then
+    assert [c for c in columns if c.startswith(NEXT_ION_PREFIX)] == ["next_ion_hits_z"]
+    assert {"next_ion_hits", "next_ion_count"} <= set(get_feature_names())
+    assert set(NEXT_ION_CLASSIFIER_FEATURES) <= set(get_final_round_feature_names())
 
 
 def test_fragment_shadow_features_enter_the_classifier_in_the_final_round_only():

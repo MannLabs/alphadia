@@ -41,6 +41,7 @@ from alphadia.workflow.peptidecentric.ng.ng_mapper import (
     parse_candidates,
     parse_quantification,
     set_ms1_isotopes,
+    set_next_ions,
     speclib_to_ng,
     to_features_df,
 )
@@ -752,6 +753,7 @@ class NgExtractionHandler(ExtractionHandler):
                 precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
                 fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
             )
+            set_next_ions(self._speclib_ng, spectral_library.precursor_df)
 
     def _select_candidates(
         self,
