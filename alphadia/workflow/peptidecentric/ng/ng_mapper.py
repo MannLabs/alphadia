@@ -40,6 +40,16 @@ DETECTION_CLASSIFIER_FEATURES = [
     "det_llr",
     "det_bg_surprise",
 ]
+# rust isotope co-isolation features: with narrow DIA windows part of a precursor's isotope envelope is isolated in the
+# next window, so a present peptide shows its fragments there too, at the share the envelope and the window edges
+# predict; a chance match in the precursor's own window does not. coiso_det_nb_own scores the neighbour-window channels
+# with det_llr's hit/miss model, coiso_expect (window geometry only) tells how much neighbour signal to expect. The
+# other co-isolation columns (channel count, the joint-scale variants) stay out: in replay they added nothing on top.
+COISOLATION_PREFIX = "coiso_"
+COISOLATION_CLASSIFIER_FEATURES = [
+    "coiso_expect",
+    "coiso_det_nb_own",
+]
 
 
 def set_ng_thread_count(thread_count: int) -> None:
@@ -175,6 +185,7 @@ def get_final_round_feature_names() -> list[str]:
         + MS1_CLASSIFIER_FEATURES
         + FRAGMENT_SHADOW_FEATURES
         + DETECTION_CLASSIFIER_FEATURES
+        + COISOLATION_CLASSIFIER_FEATURES
     )
 
 

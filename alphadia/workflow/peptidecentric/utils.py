@@ -11,6 +11,8 @@ from alphadia.outputtransform.quantification.quant_builder import (
 )
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    COISOLATION_CLASSIFIER_FEATURES,
+    COISOLATION_PREFIX,
     DETECTION_CLASSIFIER_FEATURES,
     DETECTION_PREFIX,
     MS1_CLASSIFIER_FEATURES,
@@ -126,6 +128,10 @@ def get_classifier_feature_columns(extraction_backend: str) -> list[str]:
         and (
             not name.startswith(DETECTION_PREFIX)
             or name in DETECTION_CLASSIFIER_FEATURES
+        )
+        and (
+            not name.startswith(COISOLATION_PREFIX)
+            or name in COISOLATION_CLASSIFIER_FEATURES
         )
     ]
 

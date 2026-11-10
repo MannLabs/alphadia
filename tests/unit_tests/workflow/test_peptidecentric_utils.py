@@ -8,6 +8,8 @@ from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    COISOLATION_CLASSIFIER_FEATURES,
+    COISOLATION_PREFIX,
     DETECTION_CLASSIFIER_FEATURES,
     DETECTION_PREFIX,
     FRAGMENT_SHADOW_FEATURES,
@@ -39,6 +41,10 @@ def test_get_classifier_feature_columns_for_rust_backend():
             not name.startswith(DETECTION_PREFIX)
             or name in DETECTION_CLASSIFIER_FEATURES
         )
+        and (
+            not name.startswith(COISOLATION_PREFIX)
+            or name in COISOLATION_CLASSIFIER_FEATURES
+        )
     ]
 
 
@@ -62,6 +68,21 @@ def test_get_classifier_feature_columns_keeps_only_the_chosen_detection_features
     ]
     assert "det_llr_hits" in get_feature_names()
     assert "det_llr_hits" not in columns
+
+
+def test_coisolation_features_enter_the_classifier_in_the_final_round_only():
+    # when
+    columns = get_classifier_feature_columns("rust")
+
+    # then
+    assert set(COISOLATION_CLASSIFIER_FEATURES) <= set(get_feature_names())
+    assert [c for c in columns if c.startswith(COISOLATION_PREFIX)] == [
+        c for c in get_feature_names() if c in COISOLATION_CLASSIFIER_FEATURES
+    ]
+    left_out = {"coiso_n_channels", "coiso_det_gain", "coiso_det_nb_prim"}
+    assert left_out <= set(get_feature_names())
+    assert not left_out & set(columns)
+    assert set(COISOLATION_CLASSIFIER_FEATURES) <= set(get_final_round_feature_names())
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():
