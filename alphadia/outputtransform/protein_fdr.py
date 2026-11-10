@@ -11,9 +11,11 @@ from alphadia.fdr.plotting import plot_fdr
 
 logger = logging.getLogger()
 
-# Only confident precursors score a protein group. Weak ones (the output keeps precursors up to fdr.fdr, e.g. 10 %)
-# are mostly false at low input, and their excess over the decoys gets summed into every group they hit.
-PROTEIN_FEATURE_QVAL = 0.01
+# Only precursors at or below this q-value contribute to the score of their protein group, and a group without any of
+# them gets NO_EVIDENCE_QVAL. Precursors above it but within fdr.fdr stay in the output if their group passes.
+# The cutoff is fixed instead of following fdr.fdr: it only has an effect when fdr.fdr is set higher (e.g. 10 %),
+# and the precursors this adds are then mostly false at low input.
+MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING = 0.01
 NO_EVIDENCE_QVAL = 1.0
 
 # count features (precursors, peptides, runs per group) reward the false targets that pile up in large groups.
@@ -28,7 +30,8 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     """Perform protein FDR on PSM dataframe"""
 
     confident = psm_df.loc[
-        psm_df["qval"] <= PROTEIN_FEATURE_QVAL, ["pg", "decoy", "proba"]
+        psm_df["qval"] <= MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING,
+        ["pg", "decoy", "proba"],
     ]
     proba = confident["proba"].clip(MIN_PROBA, MAX_PROBA)
     confident = confident.assign(logit=np.log(proba) - np.log1p(-proba))

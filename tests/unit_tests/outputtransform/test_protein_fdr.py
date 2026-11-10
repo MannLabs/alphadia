@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 
 from alphadia.outputtransform.protein_fdr import (
+    MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING,
     NO_EVIDENCE_QVAL,
-    PROTEIN_FEATURE_QVAL,
     perform_protein_fdr,
 )
 
@@ -90,7 +90,7 @@ def test_groups_without_a_confident_precursor_are_not_accepted():
         + _groups("W", N_FALSE_TARGET_GROUPS, 0, rng, True, qval=WEAK_QVAL)
         + _groups("D", N_DECOY_GROUPS, 1, rng, False)
     )
-    assert WEAK_QVAL > PROTEIN_FEATURE_QVAL
+    assert WEAK_QVAL > MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING
 
     # when
     scored = perform_protein_fdr(psm_df, figure_path=None)
