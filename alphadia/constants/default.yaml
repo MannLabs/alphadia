@@ -220,10 +220,6 @@ calibration:
   # the correlation threshold for fragments used to calibrate fragment mz (i.e. ms2)
   min_correlation: 0.7
 
-  # extract only the best peak group per precursor during calibration; search.target_num_candidates applies to the
-  # final search only
-  top_rank_only: true
-
 search_initial:
   # Number of peak groups identified in the convolution score to classify with target decoy competition
   num_candidates: 1

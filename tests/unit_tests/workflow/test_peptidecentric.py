@@ -356,16 +356,10 @@ def test_converge_calibrates_new_batches_after_an_early_calibration():
     assert calls[:3] == ["grow", "update", "calibrate"]
 
 
-@pytest.mark.parametrize(
-    ("top_rank_only", "expected_num_candidates"), [(True, 1), (False, 3)]
-)
-def test_recalibrate_keeps_the_best_peak_group_only(
-    top_rank_only, expected_num_candidates
-):
-    """Test that recalibration keeps scoring the best peak group per precursor unless top_rank_only is disabled."""
+def test_recalibrate_keeps_the_best_peak_group_only():
+    """Test that recalibration keeps scoring the best peak group per precursor."""
     # given
     config = {
-        "calibration": {"top_rank_only": top_rank_only},
         "search": {"target_num_candidates": 3, "optimized_peak_group_score": False},
     }
     optimization_manager = SimpleNamespace(num_candidates=1)
@@ -383,7 +377,7 @@ def test_recalibrate_keeps_the_best_peak_group_only(
     handler.recalibrate(precursor_df, pd.DataFrame())
 
     # then
-    assert optimization_manager.num_candidates == expected_num_candidates
+    assert optimization_manager.num_candidates == 1
 
 
 def test_search_parameter_optimization_hands_the_final_search_its_number_of_candidates(
