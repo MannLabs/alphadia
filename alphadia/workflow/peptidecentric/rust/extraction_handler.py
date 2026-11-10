@@ -254,13 +254,16 @@ class RustExtractionHandler(ExtractionHandler):
             _, fragments_df = self.quantify_candidates(competing, None)
             return fragments_df
 
-        library_precursors = self._spectral_library.precursor_df
-        if MbrCols.TRANSFER in library_precursors.columns:
-            features_df[MbrCols.TRANSFER] = (
-                features_df["precursor_idx"]
-                .map(library_precursors.set_index("precursor_idx")[MbrCols.TRANSFER])
-                .to_numpy()
-            )
+        library_precursors = self._spectral_library.precursor_df.set_index(
+            "precursor_idx"
+        )
+        for column in (MbrCols.TRANSFER, MbrCols.DECOY_WEIGHT):
+            if column in library_precursors.columns:
+                features_df[column] = (
+                    features_df["precursor_idx"]
+                    .map(library_precursors[column])
+                    .to_numpy()
+                )
 
         # apply FDR to PSMs
         precursor_fdr_df = self._fdr_manager.fit_predict(

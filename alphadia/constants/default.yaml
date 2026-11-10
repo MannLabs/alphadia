@@ -309,6 +309,9 @@ fdr:
   keep_decoys: false
   # whether to keep decoy PSMs in the MBR library
   keep_decoys_in_mbr_library: true
+  # with keep_decoys_in_mbr_library: decoys per MBR library target (1 to 3). Each extra decoy uses another residue map;
+  # the q-values count a decoy kept from the first search as one false target and every other decoy as 1 / k.
+  mbr_decoys_per_target: 1
   # decoy generation scheme for the search library and the MBR library: "diann" or "pseudo_reverse"
   # ignored if the provided library already contains decoys
   decoy_type: "diann"

@@ -238,9 +238,14 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         ["proba", "precursor_idx"], ascending=True, inplace=True
     )  # last sort to break ties
 
-    # MBR step: transfers and re-found rows get their own q-values (`get_q_values_by_stratum`)
+    # MBR step: transfers and re-found rows get their own q-values (`get_q_values_by_stratum`), and with extra decoys
+    # per target each decoy counts for its weight
     stratum_column = MbrCols.TRANSFER if MbrCols.TRANSFER in psm_df.columns else None
-    psm_df = get_q_values_by_stratum(psm_df, stratum_column)
+    weight_column = None
+    if MbrCols.DECOY_WEIGHT in psm_df.columns:
+        weight_column = MbrCols.DECOY_WEIGHT
+        psm_df[weight_column] = y * psm_df[weight_column].to_numpy()
+    psm_df = get_q_values_by_stratum(psm_df, stratum_column, weight_column)
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
@@ -262,7 +267,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             psm_df = compete_for_fragments(psm_df[competing], df_fragments, dia_cycle)
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
-    psm_df = get_q_values_by_stratum(psm_df, stratum_column)
+    psm_df = get_q_values_by_stratum(psm_df, stratum_column, weight_column)
 
     if figure_path is not None:
         plot_fdr(
@@ -337,19 +342,25 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
 
 
 def get_q_values_by_stratum(
-    psm_df: pd.DataFrame, stratum_column: str | None
+    psm_df: pd.DataFrame,
+    stratum_column: str | None,
+    decoy_weight_column: str | None = None,
 ) -> pd.DataFrame:
     """q-values of the column `proba` against `_decoy`, computed separately within each value of `stratum_column`
-    (pooled without it). The result is sorted by `proba`.
+    (pooled without it), `decoy_weight_column` as in `get_q_values`. The result is sorted by `proba`.
 
     In the MBR step the elution groups the first search identified in a run (re-found) are almost all true. Pooled
     with them, the transfers would run at several times the nominal FDR.
     """
     if stratum_column is None:
-        return get_q_values(psm_df, "proba", "_decoy")
+        return get_q_values(
+            psm_df, "proba", "_decoy", decoy_weight_column=decoy_weight_column
+        )
     psm_df = pd.concat(
         [
-            get_q_values(stratum_df, "proba", "_decoy")
+            get_q_values(
+                stratum_df, "proba", "_decoy", decoy_weight_column=decoy_weight_column
+            )
             for _, stratum_df in psm_df.groupby(stratum_column)
         ]
     )
@@ -363,6 +374,7 @@ def get_q_values(
     qval_column: str = "qval",
     extra_sort_columns: list[str] | None = None,
     decoy_offset: int = 0,
+    decoy_weight_column: str | None = None,
 ) -> pd.DataFrame:
     """Calculates q-values for a dataframe containing PSMs.
 
@@ -388,6 +400,9 @@ def get_q_values(
     decoy_offset : int, default=0
         Added to the running decoy count before dividing by the running target count.
 
+    decoy_weight_column : str, optional
+        The false targets each row counts for (0 for targets), instead of 1 for every decoy.
+
     Returns
     -------
     pd.DataFrame
@@ -404,7 +419,11 @@ def get_q_values(
         [score_column, decoy_column, *extra_sort_columns], ascending=sort_order
     )
     target_values = 1 - psm_df[decoy_column].to_numpy()
-    decoy_cumsum = np.cumsum(psm_df[decoy_column].to_numpy())
+    decoy_cumsum = np.cumsum(
+        psm_df[
+            decoy_column if decoy_weight_column is None else decoy_weight_column
+        ].to_numpy()
+    )
     target_cumsum = np.cumsum(target_values)
     fdr_values = (
         decoy_cumsum + decoy_offset

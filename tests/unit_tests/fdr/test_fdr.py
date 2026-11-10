@@ -548,3 +548,22 @@ def test_get_q_values_by_stratum():
     # then
     np.testing.assert_allclose(pooled["qval"].values, [0, 0, 0, 0.2, 0.2, 0.2])
     np.testing.assert_allclose(stratified["qval"].values, [0, 0, 0, 0.5, 0.5, 0.5])
+
+
+def test_get_q_values_decoy_weight_column():
+    """Test each decoy counts for its weight."""
+    # given
+    psm_df = pd.DataFrame(
+        {
+            "proba": [0.01, 0.02, 0.03, 0.04],
+            "_decoy": [0, 1, 0, 1],
+            "weight": [0.0, 0.5, 0.0, 1.0],
+            "precursor_idx": np.arange(4),
+        }
+    )
+
+    # when
+    result = fdr.get_q_values(psm_df, "proba", "_decoy", decoy_weight_column="weight")
+
+    # then
+    np.testing.assert_allclose(result["qval"].values, [0, 0.25, 0.25, 0.75])

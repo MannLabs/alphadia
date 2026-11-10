@@ -466,6 +466,7 @@ class SearchPlanOutput:
             fdr=0.01,
             keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
             decoy_type=self.config["fdr"]["decoy_type"],
+            decoys_per_target=self.config["fdr"]["mbr_decoys_per_target"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
         libbuilder.rt_by_run.to_parquet(

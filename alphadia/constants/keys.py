@@ -116,6 +116,9 @@ class MbrCols(metaclass=ConstantsClass):
 
     # 1 for the precursors of elution groups the first search did not identify in the run being searched
     TRANSFER = "mbr_transfer"
+    # with extra decoys per target: the false targets a decoy counts for, 1 for the decoy the first search admitted
+    # (it stands for one false library entry), 1 / k for the k decoys of every other group
+    DECOY_WEIGHT = "mbr_decoy_weight"
 
 
 class TableFormats(metaclass=ConstantsClass):

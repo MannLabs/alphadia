@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 
-from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.constants.keys import MbrCols
+from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.mbr import (
     IndexBuilder,
     MbrLibraryBuilder,
@@ -316,6 +316,27 @@ class TestMbrLibraryBuilder:
         np.testing.assert_array_equal(rt_by_run["elution_group_idx"].values, [0, 1])
         np.testing.assert_array_equal(rt_by_run["run"].values, ["run_a", "run_b"])
         np.testing.assert_array_equal(rt_by_run["rt_observed"].values, [10.0, 20.0])
+
+    def test_extra_decoys_and_weights(self, base_library, psm_df):
+        """Test three decoys per target: the kept first-search decoy counts 1, every other decoy 1/3."""
+        # when
+        result = MbrLibraryBuilder(fdr=0.01, keep_decoys=True, decoys_per_target=3)(
+            psm_df, base_library
+        )
+
+        # then: group 0 was admitted on both target and decoy rows, group 1 on its target
+        df = result.precursor_df
+        for group in (0, 1):
+            group_df = df[df["elution_group_idx"] == group]
+            assert (group_df["decoy"] == 1).sum() == 3
+            assert group_df.loc[group_df["decoy"] == 1, "sequence"].nunique() == 3
+        weights = df.groupby(["elution_group_idx", "decoy"])[
+            MbrCols.DECOY_WEIGHT
+        ].apply(sorted)
+        np.testing.assert_allclose(weights[(0, 1)], [1 / 3, 1 / 3, 1.0])
+        np.testing.assert_allclose(weights[(1, 1)], [1 / 3, 1 / 3, 1 / 3])
+        np.testing.assert_allclose(weights[(0, 0)], [0.0])
+        assert df["mod_seq_charge_hash"].is_unique
 
 
 def test_leave_one_out_rt():

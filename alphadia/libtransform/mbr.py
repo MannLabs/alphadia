@@ -8,9 +8,11 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import CalibCols, DecoyType, MbrCols
 from alphadia.libtransform.base import ProcessingStep
-from alphadia.libtransform.decoy import DecoyGenerator
+from alphadia.libtransform.decoy import DecoyGenerator, append_extra_decoys
 
 logger = logging.getLogger()
+
+_KEPT_DECOY_FLAG = "_mbr_kept_decoy"
 
 
 class IndexBuilder:
@@ -106,11 +108,13 @@ class MbrLibraryBuilder(ProcessingStep):
         fdr: float = 0.01,
         keep_decoys: bool = False,
         decoy_type: str = DecoyType.DIANN,
+        decoys_per_target: int = 1,
     ) -> None:
         super().__init__()
         self.fdr = fdr
         self.keep_decoys = keep_decoys
         self.decoy_type = decoy_type
+        self.decoys_per_target = decoys_per_target
         self.rt_by_run: pd.DataFrame | None = None
         self.pg_qval: pd.DataFrame | None = None
 
@@ -155,6 +159,32 @@ class MbrLibraryBuilder(ProcessingStep):
         mbr_speclib._precursor_df["rt"] = rt_values
         mbr_speclib._precursor_df["genes"] = pg_values
         mbr_speclib._precursor_df["proteins"] = pg_values
+
+    def _add_extra_decoys(self, mbr_speclib: SpecLibBase, psm_df: pd.DataFrame) -> None:
+        """Give every target `decoys_per_target` - 1 more decoys and weight the decoys in `MbrCols.DECOY_WEIGHT`.
+
+        A target competes with all its decoys, so under the null it wins one time in k + 1 and a decoy k times: each
+        winning decoy stands for 1 / k false target. The decoy of a group the first search admitted on that decoy
+        (the regenerated decoy is the same sequence) stands for one false library entry and counts 1.
+        """
+        precursor_df = mbr_speclib._precursor_df
+        kept_groups = psm_df.loc[psm_df["decoy"] == 1, "elution_group_idx"]
+        # the extra decoys are made from copies of the targets, so they inherit the targets' 0
+        precursor_df[_KEPT_DECOY_FLAG] = (
+            (precursor_df["decoy"] == 1)
+            & precursor_df["elution_group_idx"].isin(kept_groups)
+        ).astype(np.int8)
+        append_extra_decoys(mbr_speclib, self.decoy_type, self.decoys_per_target - 1)
+        precursor_df = mbr_speclib._precursor_df
+        is_kept = precursor_df.pop(_KEPT_DECOY_FLAG).to_numpy(bool)
+        precursor_df[MbrCols.DECOY_WEIGHT] = np.where(
+            is_kept,
+            1.0,
+            np.where(precursor_df["decoy"] == 1, 1 / self.decoys_per_target, 0.0),
+        )
+        logger.info(
+            f"MBR library: {self.decoys_per_target} decoys per target, {int(is_kept.sum()):,} kept first-search decoys"
+        )
 
     def forward(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> SpecLibBase:
         """Build MBR library from PSM results and base library.
@@ -222,6 +252,8 @@ class MbrLibraryBuilder(ProcessingStep):
         if self.keep_decoys:
             decoy_generator = DecoyGenerator(decoy_type=self.decoy_type)
             mbr_speclib = decoy_generator(mbr_speclib)
+            if self.decoys_per_target > 1:
+                self._add_extra_decoys(mbr_speclib, psm_df)
             # Decoys inherit target hashes from DecoyGenerator, rehash to get unique hashes
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
 
