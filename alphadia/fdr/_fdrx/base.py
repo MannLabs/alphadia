@@ -150,7 +150,10 @@ class TargetDecoyFDR:
                 r_target_decoy=r_target_decoy,
             )
             psm_df = compete_for_fragments(
-                psm_df[psm_df["qval"] < competition_heuristic], fragments_df, dia_cycle
+                psm_df[psm_df["qval"] < competition_heuristic],
+                fragments_df,
+                dia_cycle,
+                decoy_column=self._decoy_column,
             )
 
         psm_df = keep_best(psm_df, group_columns=self._competition_columns)
