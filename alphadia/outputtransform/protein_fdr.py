@@ -21,11 +21,10 @@ NO_EVIDENCE_QVAL = 1.0
 # count features (precursors, peptides, runs per group) reward the false targets that pile up in large groups.
 FEATURE_COLUMNS = ["mean_score", "best_score", "worst_score"]
 MAX_ITER = 1000
-# The features are taken on the logit of the precursor probability. The cross-fitted final-round probabilities of the
-# confident precursors spread over many decades (5 ng: targets 1e-7 to 1e-2, median 1e-4; decoys around 1e-2), so on
-# the probability scale every confident target sits at 0, the group means follow the worst precursor and the model
-# weights the best precursor negatively; on the logit scale the best precursor carries the ranking (paired entrapment,
-# real groups at matched FDP: 200 ng +10 %, 5 ng +4-7 %, 1 ft unchanged).
+# The features are taken on the logit of the precursor probability. The final-round probabilities of the confident
+# precursors spread over many decades, so on the probability scale every confident target sits at about 0, the group
+# means follow the worst precursor and the model weights the best precursor negatively; on the logit scale the best
+# precursor carries the ranking.
 MIN_PROBA = 1e-300
 MAX_PROBA = 1 - 1e-16
 
