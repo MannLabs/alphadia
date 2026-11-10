@@ -10,7 +10,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.reporting.reporting import Pipeline
-from alphadia.search.scoring.utils import (
+from alphadia.search.python.scoring.utils import (
     candidate_features_to_candidates,
 )
 from alphadia.workflow.config import Config

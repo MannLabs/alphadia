@@ -5,33 +5,33 @@ The selection package handles candidate selection for peak groups using various 
 
 .. autosummary::
 
-   alphadia.search.selection.selection
-   alphadia.search.selection.config_df
-   alphadia.search.selection.fft
-   alphadia.search.selection.kernel
-   alphadia.search.selection.utils
+   alphadia.search.python.selection.selection
+   alphadia.search.python.selection.config_df
+   alphadia.search.python.selection.fft
+   alphadia.search.python.selection.kernel
+   alphadia.search.python.selection.utils
 
-.. automodule:: alphadia.search.selection.selection
+.. automodule:: alphadia.search.python.selection.selection
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.selection.config_df
+.. automodule:: alphadia.search.python.selection.config_df
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.selection.fft
+.. automodule:: alphadia.search.python.selection.fft
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.selection.kernel
+.. automodule:: alphadia.search.python.selection.kernel
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.search.selection.utils
+.. automodule:: alphadia.search.python.selection.utils
    :members:
    :undoc-members:
    :show-inheritance:

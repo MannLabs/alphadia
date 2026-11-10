@@ -6,10 +6,10 @@ from alphadia_search_rs import OptimizationContext
 
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
-from alphadia.search.scoring.config import CandidateScoringConfig
-from alphadia.search.scoring.scoring import CandidateScoring
-from alphadia.search.selection.config_df import CandidateSelectionConfig
-from alphadia.search.selection.selection import CandidateSelection
+from alphadia.search.python.scoring.config import CandidateScoringConfig
+from alphadia.search.python.scoring.scoring import CandidateScoring
+from alphadia.search.python.selection.config_df import CandidateSelectionConfig
+from alphadia.search.python.selection.selection import CandidateSelection
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler

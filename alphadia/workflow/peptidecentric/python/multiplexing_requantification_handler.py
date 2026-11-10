@@ -5,9 +5,9 @@ from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
-from alphadia.search.scoring.config import CandidateScoringConfig
-from alphadia.search.scoring.scoring import CandidateScoring
-from alphadia.search.scoring.utils import (
+from alphadia.search.python.scoring.config import CandidateScoringConfig
+from alphadia.search.python.scoring.scoring import CandidateScoring
+from alphadia.search.python.scoring.utils import (
     candidate_features_to_candidates,
     multiplex_candidates,
 )
