@@ -7,18 +7,18 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
+from alphadia.constants.keys import MbrCols
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_indices
 from alphadia.fragcomp.fragcomp import compete_for_fragments
 
 if TYPE_CHECKING:
-    import pandas as pd
-
     from alphadia.fdr.classifiers import Classifier
 
 max_dia_cycle_shape = 2
@@ -238,17 +238,20 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         ["proba", "precursor_idx"], ascending=True, inplace=True
     )  # last sort to break ties
 
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+    # MBR step: transfers and re-found rows get their own q-values (`get_q_values_by_stratum`)
+    stratum_column = MbrCols.TRANSFER if MbrCols.TRANSFER in psm_df.columns else None
+    psm_df = get_q_values_by_stratum(psm_df, stratum_column)
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
         # if there are no PSMs with a FDR < 10% use all PSMs
-        start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
-        if start_idx == 0:
-            start_idx = len(psm_df)
+        # within strata the q-values are not monotone in the sorted order, so the rows are picked by mask
+        competing = (psm_df["qval"] < fdr_heuristic).to_numpy()
+        if not competing.any():
+            competing[:] = True
 
         if df_fragments is None and fragment_provider is not None:
-            df_fragments = fragment_provider(psm_df.iloc[:start_idx])
+            df_fragments = fragment_provider(psm_df[competing])
 
         # make sure fragments are not reused
         if df_fragments is not None:
@@ -256,12 +259,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
                 raise ValueError(
                     "dia_cycle must be provided if df_fragments is provided"
                 )
-            psm_df = compete_for_fragments(
-                psm_df.iloc[:start_idx], df_fragments, dia_cycle
-            )
+            psm_df = compete_for_fragments(psm_df[competing], df_fragments, dia_cycle)
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+    psm_df = get_q_values_by_stratum(psm_df, stratum_column)
 
     if figure_path is not None:
         plot_fdr(
@@ -333,6 +334,26 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     fdr_values_flipped = np.flip(fdr_values)
     q_values_flipped = np.minimum.accumulate(fdr_values_flipped)
     return np.flip(q_values_flipped)
+
+
+def get_q_values_by_stratum(
+    psm_df: pd.DataFrame, stratum_column: str | None
+) -> pd.DataFrame:
+    """q-values of the column `proba` against `_decoy`, computed separately within each value of `stratum_column`
+    (pooled without it). The result is sorted by `proba`.
+
+    In the MBR step the elution groups the first search identified in a run (re-found) are almost all true. Pooled
+    with them, the transfers would run at several times the nominal FDR.
+    """
+    if stratum_column is None:
+        return get_q_values(psm_df, "proba", "_decoy")
+    psm_df = pd.concat(
+        [
+            get_q_values(stratum_df, "proba", "_decoy")
+            for _, stratum_df in psm_df.groupby(stratum_column)
+        ]
+    )
+    return psm_df.sort_values(["proba", "precursor_idx"], ascending=True)
 
 
 def get_q_values(

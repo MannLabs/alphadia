@@ -449,6 +449,10 @@ class SearchPlanOutput:
             decoy_type=self.config["fdr"]["decoy_type"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
+        libbuilder.rt_by_run.to_parquet(
+            os.path.join(self.output_folder, SearchPlanFiles.MBR_RT_BY_RUN_FILE_NAME),
+            index=False,
+        )
 
         precursor_number = len(mbr_spec_lib.precursor_df)
         protein_number = mbr_spec_lib.precursor_df["proteins"].nunique()

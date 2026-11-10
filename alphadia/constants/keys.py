@@ -103,8 +103,17 @@ class SearchPlanFiles(metaclass=ConstantsClass):
     QUANT_MATRIX_SUFFIX = ".matrix"
 
     MBR_LIBRARY_FILE_NAME = "speclib.mbr.hdf"
+    # next to the MBR library: the elution groups each run identified, with their RTs (`MbrLibraryBuilder.rt_by_run`)
+    MBR_RT_BY_RUN_FILE_NAME = "speclib.mbr.rt_by_run.parquet"
     TRANSFER_LIBRARY_FILE_NAME = "speclib.transfer.hdf"
     TRANSFER_MODEL_FOLDER_NAME = "peptdeep.transfer"
+
+
+class MbrCols(metaclass=ConstantsClass):
+    """Precursor columns the MBR step adds to its spectral library."""
+
+    # 1 for the precursors of elution groups the first search did not identify in the run being searched
+    TRANSFER = "mbr_transfer"
 
 
 class TableFormats(metaclass=ConstantsClass):

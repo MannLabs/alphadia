@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 import torch
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
@@ -16,6 +17,7 @@ from alphadia import __version__ as alphadia_version
 from alphadia.constants.keys import (
     ConfigKeys,
     ExtractionBackend,
+    SearchPlanFiles,
     SearchStepFiles,
 )
 from alphadia.exceptions import (
@@ -39,6 +41,7 @@ from alphadia.libtransform.harmonize import (
     RTNormalization,
 )
 from alphadia.libtransform.loader import DynamicLoader
+from alphadia.libtransform.mbr import leave_one_out_rt
 from alphadia.libtransform.multiplex import MultiplexLibrary
 from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
@@ -429,6 +432,18 @@ class SearchStep:
                 f"to library_multiplexing.multiplex_mapping and recreate the library. "
             )
 
+    def _load_mbr_rt_by_run(self) -> pd.DataFrame | None:
+        """Load the per-run RT table written next to an MBR library, if this step searches one."""
+        if self.library_path is None:
+            return None
+        rt_by_run_path = os.path.join(
+            os.path.dirname(self.library_path), SearchPlanFiles.MBR_RT_BY_RUN_FILE_NAME
+        )
+        if not os.path.exists(rt_by_run_path):
+            return None
+        logger.info(f"Using leave-one-out library RT from {rt_by_run_path}")
+        return pd.read_parquet(rt_by_run_path)
+
     def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
         # iterate over raw files and yield raw data and spectral library
@@ -565,6 +580,8 @@ class SearchStep:
         workflow_folder_list = []
         raw_files_with_errors = []
 
+        rt_by_run = self._load_mbr_rt_by_run()
+
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
             random_state = (
@@ -591,6 +608,9 @@ class SearchStep:
                     quant_path=self.config[ConfigKeys.QUANT_DIRECTORY],
                     random_state=random_state,
                 )
+
+                if rt_by_run is not None:
+                    speclib = leave_one_out_rt(speclib, rt_by_run, raw_name)
 
                 self._process_raw_file(workflow, dia_path, speclib)
 

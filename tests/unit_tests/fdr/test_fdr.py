@@ -527,3 +527,24 @@ def test_perform_fdr_trains_on_the_best_candidate_if_asked(train_on_best_candida
     else:
         assert len(fitted_precursors) == len(idxs_train)
     assert set(result["precursor_idx"]) == set(psm_df["precursor_idx"])
+
+
+def test_get_q_values_by_stratum():
+    """Test the q-values are computed within each stratum, not pooled."""
+    # given: the re-found stratum is decoy-free, the transfer stratum has one decoy on top
+    psm_df = pd.DataFrame(
+        {
+            "proba": [0.01, 0.02, 0.03, 0.04, 0.05, 0.06],
+            "_decoy": [0, 0, 0, 1, 0, 0],
+            "precursor_idx": np.arange(6),
+            "stratum": [0, 0, 0, 1, 1, 1],
+        }
+    )
+
+    # when
+    pooled = fdr.get_q_values_by_stratum(psm_df.copy(), None)
+    stratified = fdr.get_q_values_by_stratum(psm_df.copy(), "stratum")
+
+    # then
+    np.testing.assert_allclose(pooled["qval"].values, [0, 0, 0, 0.2, 0.2, 0.2])
+    np.testing.assert_allclose(stratified["qval"].values, [0, 0, 0, 0.5, 0.5, 0.5])
