@@ -23,14 +23,12 @@ AlphaDIA starts with the following default search parameters:
 The optimization process follows these steps:
 1. Search is performed batch-wise, starting with the first 8000 precursors
 2. Batch size increases exponentially (16,000, 32,000, 64,000, ...) until 200 precursors are identified at 1% FDR
-3. For targeted optimization, the search space is updated to the 95% percentile of identified precursors
-4. For automatic optimization, the search space is set to the 99% percentile
+3. The library is recalibrated on the identified precursors and every tolerance is set in one step:
+   - targeted parameters take their target value
+   - automatic parameters are set to a fixed multiple of the 99% interval of the calibrated residuals
+4. The same precursors are searched again with the new calibration and tolerances
 
-The optimization uses different figures of merit:
-- MS1 error: Correlation of observed and predicted isotope intensity profile
-- MS2, RT, and ion mobility: Precursor proportion of the library detected at 1% FDR
-
-Optimization stops when the property of interest stabilizes and the optimal value based on the figure of merit is reached.
+Optimization stops when no tolerance changes by more than 10% between rounds. If a round finds more than 5% fewer precursors than the best earlier round on the same subset of the library, the calibration and tolerances of the best round are restored.
 
 <img src="../_static/images/methods_optimization.png" width="100%" height="auto">
 

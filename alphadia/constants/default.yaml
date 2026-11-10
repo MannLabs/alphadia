@@ -211,25 +211,14 @@ calibration:
   # minimum number of precursors to be found before search parameter optimization begins
   optimization_lock_target: 1000
 
-  # the maximum number of steps that a given optimizer is permitted to take
+  # the maximum number of calibration rounds once the optimization lock holds its target
   max_steps: 20
-
-  # the minimum number of steps that a given optimizer must take before it can be said to have converged
-  min_steps: 5
-
-  # the maximum number of times an automatic optimizer can be skipped before it is considered to have converged
-  max_skips: 1
 
   # the maximum number of fragments with correlation scores exceeding correlation_threshold to use for calibrating fragment mz (i.e. ms2)
   max_fragments: 5000
 
   # the correlation threshold for fragments used to calibrate fragment mz (i.e. ms2)
   min_correlation: 0.7
-
-  # "converge": recalibrate and set all tolerances in one loop from the residuals of the confident identifications.
-  # "legacy": targeted and automatic optimizers, one parameter group after the other.
-  # The constants of "converge" are in `alphadia.constants.settings.ConvergeCalibration`.
-  strategy: converge
 
 search_initial:
   # Number of peak groups identified in the convolution score to classify with target decoy competition
@@ -357,71 +346,6 @@ search_output:
   # The ion selection uses its own thresholds, the defaults of alphadia_search_rs.IntensityDriftCorrection
   # (correlation >= 0.8, observed in >= 3 runs, >= 500 usable ions per run), not search_output.min_correlation.
   intensity_drift_correction: True
-
-# Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
-optimization:
-  # The order in which to perform optimization. Should be a list of lists of parameter names
-  # Example:
-    # order_of_optimization:
-    #   - - "rt_error"
-    #   - - "ms2_error"
-    #   - - "ms1_error"
-    #   - - "mobility_error"
-  # The above means that first rt_error is optimized, then ms2_error, then ms1_error, and finally mobility_error. (Other examples are shown in Python list format rather than YAML format to save space.)
-  # Example: [['ms1_error', 'ms2_error', 'rt_error', 'mobility_error']] means that all parameters are optimized simultaneously.
-  # Example: [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]] means that the parameters are optimized sequentially in the order given.
-  # Example: [["rt_error"], ["ms1_error", "ms2_error"]] means that first rt_error is optimized, then ms1_error and ms2_error are optimized simultaneously, and mobility_error is not optimized at all.
-  # If order_of_optimization is null, first all targeted optimizers run simultaneously, then any remaining automatic optimizers run sequentially in the order [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]]
-  order_of_optimization: null
-
-  # Parameters for the update rule for each parameter:
-  #   - targeted_update_percentile_range: the percentile interval to use (as a decimal) for targeted optimization
-  #   - targeted_update_factor: the factor by which to multiply the result from the percentile interval for targeted optimization
-  #   - automatic_update_percentile_range: the percentile interval to use (as a decimal) for automatic optimization
-  #   - automatic_update_factor: the factor by which to multiply the result from the percentile interval for automatic optimization
-  #   - try_narrower_values: if True, the optimization will try narrower parameters until a substantial (as determined by maximal_decrease) decrease in the feature used for optimization is observed.
-  #   - maximal_decrease: the maximal decrease of the parameter value before stopping optimization (only relevant if try_narrower_values is True).
-  #     For example, a value of 0.2 indicates up to 20% decrease from the previous parameter is permissible.
-  #   - favour_narrower_optimum: if True, the optimization will not take the value that maximizes the feature used for optimization, but instead the smallest value compatible with the maximum_decrease_from_maximum value.
-  #     This setting can be useful for optimizing parameters for which many parameter values have similar feature values and therefore favouring narrower parameters helps to overcome noise.
-  #   - maximum_decrease_from_maximum: the maximum proportional decrease from the maximum value of the parameter that the designated optimum should have (only relevant if favour_narrower_optimum is True).
-  #     For example, a value of 0.1 indicates that the optimum should be no more than 10% less than the maximum value.
-  ms2_error:
-      targeted_update_percentile_range: 0.95
-      targeted_update_factor: 1.0
-      automatic_update_percentile_range: 0.99
-      automatic_update_factor: 1.1
-      try_narrower_values: True
-      maximal_decrease: 0.5
-      favour_narrower_optimum: False
-      maximum_decrease_from_maximum: 0.1
-  ms1_error:
-      targeted_update_percentile_range: 0.95
-      targeted_update_factor: 1.0
-      automatic_update_percentile_range: 0.99
-      automatic_update_factor: 1.1
-      try_narrower_values: False
-      maximal_decrease: 0.2
-      favour_narrower_optimum: False
-      maximum_decrease_from_maximum: 0.1
-  mobility_error:
-      targeted_update_percentile_range: 0.95
-      targeted_update_factor: 1.0
-      automatic_update_percentile_range: 0.99
-      automatic_update_factor: 1.1
-      try_narrower_values: False
-      maximal_decrease: 0.2
-      favour_narrower_optimum: False
-      maximum_decrease_from_maximum: 0.1
-  rt_error:
-      targeted_update_percentile_range: 0.95
-      targeted_update_factor: 1.0
-      automatic_update_percentile_range: 0.999
-      automatic_update_factor: 1.5
-      try_narrower_values: True
-      maximal_decrease: 0.1
-      favour_narrower_optimum: False
-      maximum_decrease_from_maximum: 0.5
 
 # configuration for the optimization manager
 # initial parameters, will be optimized

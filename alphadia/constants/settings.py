@@ -9,7 +9,7 @@ MAX_FRAGMENT_MZ_TOLERANCE = 200
 
 
 class ConvergeCalibration:
-    """Constants of the `converge` calibration strategy (see `OptimizationHandler._converge_search_parameters`)."""
+    """Constants of the calibration loop (see `OptimizationHandler.search_parameter_optimization`)."""
 
     # fewer identifications than this give no usable calibration fit
     MIN_PRECURSORS_TO_RECALIBRATE = 6
