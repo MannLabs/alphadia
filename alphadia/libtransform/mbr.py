@@ -112,6 +112,7 @@ class MbrLibraryBuilder(ProcessingStep):
         self.keep_decoys = keep_decoys
         self.decoy_type = decoy_type
         self.rt_by_run: pd.DataFrame | None = None
+        self.pg_qval: pd.DataFrame | None = None
 
     def validate(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
@@ -194,6 +195,7 @@ class MbrLibraryBuilder(ProcessingStep):
         # diagnostic runs raise above 1 %. Protein groups that only passed at that looser level would enter the MBR
         # library, where the MBR step cannot reject them any more.
         psm_df = psm_df[(psm_df["qval"] <= self.fdr) & (psm_df["pg_qval"] <= self.fdr)]
+        self.pg_qval = psm_df.groupby("pg", as_index=False)["pg_qval"].max()
 
         self.rt_by_run = (
             psm_df[psm_df["decoy"] == 0]
