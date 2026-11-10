@@ -217,15 +217,15 @@ def test_updates_with_user_config_object_python_backend(mock_load_default_config
             "general": {"reuse_quant_from": []},
         }
     )
-    default_config_ng = Config(
+    default_config_python = Config(
         {
-            "key1": "NEW_NG_DEFAULT1",
-            "key2": "NEW_NG_DEFAULT2",
+            "key1": "NEW_PYTHON_DEFAULT1",
+            "key2": "NEW_PYTHON_DEFAULT2",
         }
     )
     mock_load_default_config.side_effect = [
         deepcopy(default_config),
-        deepcopy(default_config_ng),
+        deepcopy(default_config_python),
     ]
 
     user_config = Config(
@@ -236,8 +236,8 @@ def test_updates_with_user_config_object_python_backend(mock_load_default_config
     result = SearchStep._init_config(user_config, None, None, "/output")
 
     assert result == {
-        "key1": "NEW_NG_DEFAULT1",  # taken from ng default
-        "key2": "some_user_value",  # overwritten by user although ng default exists
+        "key1": "NEW_PYTHON_DEFAULT1",  # taken from python default
+        "key2": "some_user_value",  # overwritten by user although python default exists
         "key3": "value3",
         "output_directory": "/output",
         "search": {"extraction_backend": "python"},
@@ -585,9 +585,9 @@ def test_raises_if_extraction_backend_is_unknown(tmp_path):
 
 
 @pytest.mark.parametrize(("backend", "expected"), [("rust", True), ("python", False)])
-def test_is_ng_activated(backend, expected):
+def test_is_rust_backend(backend, expected):
     # given
     config = Config({"search": {"extraction_backend": backend}})
 
     # when / then
-    assert SearchStep._is_ng_activated(config, []) is expected
+    assert SearchStep._is_rust_backend(config, []) is expected

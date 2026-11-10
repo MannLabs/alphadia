@@ -177,9 +177,9 @@ class PythonExtractionHandler(ExtractionHandler):
         precursor_fdr_df: pd.DataFrame | None,
         top_k_fragments: int | None = None,
     ) -> tuple[pd.DataFrame | None, pd.DataFrame]:
-        """Quantify candidates using classic backend.
+        """Quantify candidates using the Python backend.
 
-        Note: because quantification and scoring are intertwined in the classic backend,
+        Note: because quantification and scoring are intertwined in the Python backend,
         this method performs both scoring and quantification, but only returns the fragments dataframe.
 
         """

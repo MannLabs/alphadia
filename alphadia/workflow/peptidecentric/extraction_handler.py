@@ -24,7 +24,7 @@ class ExtractionHandler(ABC):
         fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
-        dia_data: "DiaData | DiaDataNG",  # noqa: F821
+        dia_data: "DiaData | DiaDataRust",  # noqa: F821
         spectral_library: SpecLibFlat,
     ):
         """
@@ -40,7 +40,7 @@ class ExtractionHandler(ABC):
             Reporter for logging
         column_name_handler : ColumnNameHandler
             Column name handler for data access
-        dia_data : DiaData | DiaDataNG
+        dia_data : DiaData | DiaDataRust
             DIA data to extract from, in the format of the backend
         spectral_library : SpecLibFlat
             Spectral library containing precursors and fragments
@@ -146,10 +146,10 @@ class ExtractionHandler(ABC):
         precursor_fdr_df : pd.DataFrame | None
             DataFrame with post-FDR precursor results. If given, FDR-related columns will be merged into the precursor results.
         top_k_fragments : int, optional
-            top k fragments to use for quantification (only for classic backend, None means default from config)
+            top k fragments to use for quantification (only for the Python backend, None means default from config)
         Returns
         -------
         tuple[pd.DataFrame | None, pd.DataFrame]
-            precursor dataframe incl. quantification (only NG, None otherwise) and fragments dataframe
+            precursor dataframe incl. quantification (only Rust backend, None otherwise) and fragments dataframe
 
         """

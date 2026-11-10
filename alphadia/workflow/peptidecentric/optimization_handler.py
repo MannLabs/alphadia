@@ -63,7 +63,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         fdr_manager: FDRManager,
         reporter: Pipeline,
         spectral_library: SpecLibFlat,
-        dia_data: "DiaData | DiaDataNG",  # noqa: F821
+        dia_data: "DiaData | DiaDataRust",  # noqa: F821
         create_extraction_handler: Callable[[SpecLibFlat], ExtractionHandlerT],
         figure_path: str | None = None,
     ):
@@ -74,7 +74,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
         self._reporter = reporter
         self._spectral_library = spectral_library
-        self._dia_data: DiaData | DiaDataNG = dia_data  # noqa: F821
+        self._dia_data: DiaData | DiaDataRust = dia_data  # noqa: F821
         self._figure_path = figure_path
         self._create_extraction_handler = create_extraction_handler
 
