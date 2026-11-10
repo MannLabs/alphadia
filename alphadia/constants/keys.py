@@ -145,15 +145,6 @@ class SearchTolerance(metaclass=ConstantsClass):
     MOBILITY_ERROR = "mobility_error"
 
 
-class CalibrationStrategy(metaclass=ConstantsClass):
-    """String constants for the `calibration.strategy` config value."""
-
-    # one loop that recalibrates and sets every tolerance from the residuals of the confident identifications
-    CONVERGE = "converge"
-    # targeted and automatic optimizers, one parameter group after the other
-    LEGACY = "legacy"
-
-
 class DecoyType(metaclass=ConstantsClass):
     """String constants for decoy generation schemes."""
 

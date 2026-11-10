@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from alphadia.constants.keys import CalibrationStrategy, SearchTolerance
+from alphadia.constants.keys import SearchTolerance
 from alphadia.constants.settings import ConvergeCalibration
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.peptidecentric.recalibration_handler import (
@@ -86,27 +86,36 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
 
 def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
     """Make a handler whose optimization lock runs out of batches before the target."""
-    optimizer = MagicMock(has_converged=False, parameter_name=SearchTolerance.MS2_ERROR)
+    optimization_manager = SimpleNamespace(ms2_error=100.0, rt_error=800.0)
+    optimization_manager.update = lambda **kwargs: optimization_manager.__dict__.update(
+        kwargs
+    )
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
         handler = RustOptimizationHandler(
-            {"calibration": {"max_steps": 20, "strategy": CalibrationStrategy.LEGACY}},
-            SimpleNamespace(ms2_error=100.0),
+            {
+                "search": {
+                    "target_ms2_tolerance": 0.0,
+                    "target_rt_tolerance": 0.0,
+                },
+                "calibration": {"max_steps": 20},
+            },
+            optimization_manager,
             MagicMock(),
             MagicMock(),
             MagicMock(),
             MagicMock(),
-            MagicMock(),
+            MagicMock(has_ms1=False, has_mobility=False),
             create_extraction_handler=MagicMock(),
         )
     handler._optlock.has_target_num_precursors = False
     handler._optlock.batches_remaining.return_value = False
     handler._optlock.total_elution_groups = total_elution_groups
-    handler._get_ordered_optimizers = MagicMock(return_value=[[optimizer]])
+    handler._optlock.batch_plan = [(0, 1000)]
     handler._process_batch = MagicMock(return_value=pd.DataFrame())
     handler._filter_dfs = MagicMock(return_value=(pd.DataFrame(), pd.DataFrame()))
-    return handler, optimizer
+    return handler, optimization_manager
 
 
 def test_search_parameter_optimization_raises_without_candidates():
@@ -125,20 +134,22 @@ def test_search_parameter_optimization_raises_without_candidates():
 
 
 def test_search_parameter_optimization_recovers_with_insufficient_precursors():
-    """Test that a raw file with candidates but too few precursors takes the recovery path."""
+    """Test that a raw file with candidates but too few precursors to calibrate keeps the initial tolerances."""
     # given
-    handler, optimizer = _create_handler_that_exhausts_the_batch_plan(
+    handler, optimization_manager = _create_handler_that_exhausts_the_batch_plan(
         total_elution_groups=2000
     )
 
     # when
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
-    ):
+    ) as recalibration_handler:
         handler.search_parameter_optimization()
 
     # then
-    optimizer.proceed_with_insufficient_precursors.assert_called_once()
+    recalibration_handler.return_value.recalibrate.assert_not_called()
+    assert optimization_manager.ms2_error == 100.0
+    assert optimization_manager.rt_error == 800.0
 
 
 def _create_converging_handler(rates, rt_intervals, *, target_ms2=10.0):
@@ -152,7 +163,6 @@ def _create_converging_handler(rates, rt_intervals, *, target_ms2=10.0):
             "target_mobility_tolerance": 0.0,
         },
         "calibration": {
-            "strategy": CalibrationStrategy.CONVERGE,
             "max_steps": 10,
         },
     }

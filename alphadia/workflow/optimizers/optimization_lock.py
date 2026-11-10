@@ -22,7 +22,6 @@ class OptimizationLock:
         """
         self._library = library
 
-        self.previously_calibrated = False
         self.has_target_num_precursors = False
 
         self._elution_group_order = library._precursor_df["elution_group_idx"].unique()
@@ -60,7 +59,7 @@ class OptimizationLock:
         if self.has_target_num_precursors:
             return 0
         elif self.batch_idx >= len(self.batch_plan):
-            raise NoOptimizationLockTargetError()  # This should never be triggered since introduction of the BaseOptimizer.proceed_with_insufficient_precursors method and associated code, and could be removed.
+            raise NoOptimizationLockTargetError()
         else:
             return self.batch_plan[self.batch_idx][0]
 
@@ -211,21 +210,6 @@ class OptimizationLock:
         self._feature_dfs = []
         self._fragment_dfs = []
         self.set_batch_dfs(self._elution_group_order[: self.stop_idx])
-        self.update_with_calibration(calibration_manager)
-
-    def reset_after_convergence(self, calibration_manager):
-        """Resets the optimization lock after all optimizers in a given round of optimization have converged.
-
-        Parameter
-        ---------
-        calibration_manager: CalibrationManager
-            The calibration manager object from the PeptideCentricWorkflow object.
-
-        """
-        self.has_target_num_precursors = True
-        self._feature_dfs = []
-        self._fragment_dfs = []
-        self.set_batch_dfs()
         self.update_with_calibration(calibration_manager)
 
     def set_batch_dfs(self, eg_idxes: None | np.ndarray = None):
