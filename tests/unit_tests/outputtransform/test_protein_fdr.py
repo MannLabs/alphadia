@@ -13,7 +13,7 @@ N_TRUE_TARGET_GROUPS = 1800
 N_FALSE_TARGET_GROUPS = 200
 N_DECOY_GROUPS = 200
 FDR_THRESHOLD = 0.05
-RANDOM_STATE = 7
+RANDOM_STATE = 7  # i know tests with random states are kind of bad, but this should test it nicely nonetheless
 # plasma: a few hundred target groups against a few dozen decoy groups
 N_SMALL_TRUE_TARGET_GROUPS = 400
 N_SMALL_DECOY_GROUPS = 25
