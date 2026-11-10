@@ -6,3 +6,8 @@ recursive-exclude tests *
 
 global-exclude */__pycache__/*
 global-exclude *.pyc *.nbi *.nbc
+# stale local builds of the Rust extension, wheels compile their own
+global-exclude *.so *.pyd
+
+graft rust
+prune rust/target
