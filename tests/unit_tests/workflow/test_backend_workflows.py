@@ -95,20 +95,20 @@ def test_classifier_feature_columns_match_backend(
 def test_workflow_creates_extraction_handler_of_its_backend(
     _, workflow_class, extraction_handler_class, tmp_path
 ):
-    # given
+    # Given: a workflow of a backend and a spectral library
     workflow = _create_workflow(workflow_class, tmp_path)
     spectral_library = MagicMock(name="spectral_library")
 
-    # when
+    # When: the workflow creates an extraction handler for the library
     extraction_handler = workflow._create_extraction_handler(spectral_library)
 
-    # then
+    # Then: the handler is of the backend and works on the DIA data, the library and the current optimization context
     assert type(extraction_handler) is extraction_handler_class
     assert extraction_handler._dia_data is workflow.dia_data
     assert extraction_handler._spectral_library is spectral_library
     assert (
-        extraction_handler._tolerances
-        == workflow.optimization_manager.search_tolerances()
+        extraction_handler._optimization_context
+        == workflow.optimization_manager.get_optimization_context()
     )
 
 
@@ -179,7 +179,7 @@ def test_python_workflow_keeps_dia_data(tmp_path):
     dia_data = MagicMock(name="dia_data")
 
     # when
-    prepared = workflow._prepare_dia_data(dia_data)
+    prepared = workflow._convert_dia_data(dia_data)
 
     # then
     assert prepared is dia_data
@@ -200,7 +200,7 @@ def test_rust_workflow_converts_dia_data(
     )
 
     # when
-    prepared = workflow._prepare_dia_data(dia_data)
+    prepared = workflow._convert_dia_data(dia_data)
 
     # then
     mock_set_thread_count.assert_called_once_with(THREAD_COUNT)
@@ -214,7 +214,7 @@ def test_rust_workflow_rejects_timstof_data(tmp_path):
 
     # when / then
     with pytest.raises(GenericUserError):
-        workflow._prepare_dia_data(MagicMock(spec=TimsTOFTranspose))
+        workflow._convert_dia_data(MagicMock(spec=TimsTOFTranspose))
 
 
 def test_rust_workflow_does_not_support_multiplexing(tmp_path):
