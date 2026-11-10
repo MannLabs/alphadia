@@ -190,8 +190,9 @@ def log_protein_fdr_summary(psm_df: pd.DataFrame) -> None:
     )
     logger.info("Unique protein groups in output")
     logger.info(f"  1% protein FDR: {pg_count:,}")
-    # the accepted decoy groups are the whole evidence behind the reported protein FDR; with a few
-    # dozen of them (plasma) the estimate is coarse, and the log is the only place to see that
+    # the accepted decoy groups are the whole evidence behind the reported protein FDR. At 1 % that
+    # is one per hundred target groups, so on a small proteome (plasma) the estimate rests on a few
+    # decoys, and the log is the only place to see that
     logger.info(
         f"  accepted decoy groups: {decoy_pg_count:,} "
         f"({decoy_pg_count / max(pg_count, 1):.2%} of target groups)"
