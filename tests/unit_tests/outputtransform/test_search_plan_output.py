@@ -59,7 +59,8 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
         "transfer_learning": {"enabled": False},
         "search": {"channel_filter": "0"},
         "fdr": {
-            "fdr": 0.01,
+            # the protein q-values charge one extra decoy, so with the 26 mock proteins no group passes 1 %
+            "fdr": 0.05,
             "inference_strategy": InferenceStrategy.HEURISTIC,
             "group_level": "proteins",
             "keep_decoys": False,
