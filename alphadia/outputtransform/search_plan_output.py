@@ -105,7 +105,13 @@ class SearchPlanOutput:
 
         """
         logger.progress("Processing search outputs")
-        psm_df = self._build_precursor_table(folder_list)
+        # the MBR library takes the first search's accepted decoys, whether the outputs keep decoys or not
+        psm_df_with_decoys = self._build_precursor_table(folder_list)
+        psm_df = (
+            psm_df_with_decoys
+            if self.config["fdr"]["keep_decoys"]
+            else psm_df_with_decoys[psm_df_with_decoys["decoy"] == 0]
+        )
 
         # every output is written as soon as it is built, so a later failure does not
         # discard the outputs already on disk
@@ -121,7 +127,7 @@ class SearchPlanOutput:
                 raise ValueError(
                     "Passing base spectral library is required for MBR library building."
                 )
-            mbr_spec_lib = self._build_mbr_library(base_spec_lib, psm_df)
+            mbr_spec_lib = self._build_mbr_library(base_spec_lib, psm_df_with_decoys)
             if mbr_spec_lib is not None:
                 self._write_library(mbr_spec_lib, SearchPlanFiles.MBR_LIBRARY_FILE_NAME)
 
@@ -313,7 +319,7 @@ class SearchPlanOutput:
         -------
 
         psm_df: pd.DataFrame
-            Precursor table
+            Precursor table, decoys included
         """
         logger.progress("=== Performing protein grouping and FDR ===")
 
@@ -356,9 +362,6 @@ class SearchPlanOutput:
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
         log_protein_fdr_summary(psm_df)
-
-        if not self.config["fdr"]["keep_decoys"]:
-            psm_df = psm_df[psm_df["decoy"] == 0]
 
         return psm_df
 
