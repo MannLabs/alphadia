@@ -8,7 +8,10 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import CalibrationStrategy
-from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
+from alphadia.constants.settings import (
+    MAX_FRAGMENT_MZ_TOLERANCE,
+    ConvergeCalibration,
+)
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
@@ -42,9 +45,6 @@ from alphadia.workflow.peptidecentric.recalibration_handler import Recalibration
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
 ExtractionHandlerT = TypeVar("ExtractionHandlerT", bound=ExtractionHandler)
-
-# fewer identifications than this give no usable calibration fit
-MIN_PRECURSORS_TO_RECALIBRATE = 6
 
 # tolerance name -> (calibration group, estimator, config key of the target tolerance in `search`)
 _TOLERANCES = {
@@ -393,7 +393,10 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
                 precursor_df, self._optlock.fragments_df
             )
-            if precursor_df_filtered.shape[0] >= MIN_PRECURSORS_TO_RECALIBRATE:
+            if (
+                precursor_df_filtered.shape[0]
+                >= ConvergeCalibration.MIN_PRECURSORS_TO_RECALIBRATE
+            ):
                 recalibration_handler.recalibrate(
                     precursor_df_filtered, fragments_df_filtered
                 )
@@ -438,30 +441,29 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
     ) -> float:
         """The tolerance that covers the calibrated residuals of the confident identifications.
 
-        Targeted parameters take their target. Otherwise the tolerance is `tolerance_factor` times the
-        `tolerance_quantile` interval of the residuals, so that it follows the spread of the true identifications
+        Targeted parameters take their target. Otherwise the tolerance is `TOLERANCE_FACTOR` times the
+        `TOLERANCE_QUANTILE` interval of the residuals, so that it follows the spread of the true identifications
         rather than the tail of chance matches inside the current window.
         """
         target = self._target_tolerance(name)
         if target is not None:
             return target
         group, estimator_name, _ = _TOLERANCES[name]
-        config = self._config["calibration"]
         df = fragments_df if group == CalibrationGroups.FRAGMENT else precursor_df
         estimator = self._calibration_manager.get_estimator(group, estimator_name)
-        return config["tolerance_factor"][name] * estimator.ci(
-            df, config["tolerance_quantile"]
+        return ConvergeCalibration.TOLERANCE_FACTOR[name] * estimator.ci(
+            df, ConvergeCalibration.TOLERANCE_QUANTILE
         )
 
     def _converge_search_parameters(self) -> None:
         """Recalibrate and set the search tolerances in one loop.
 
-        1) Grow the optimization lock until it holds `min_calibration_precursors` precursors at 1% FDR.
+        1) Grow the optimization lock until it holds `MIN_CALIBRATION_PRECURSORS` precursors at 1% FDR.
         2) Recalibrate on the confident identifications and set every tolerance from their residuals
            (see `_propose_tolerance`); below `optimization_lock_target`, grow the lock and search it again from its
            first elution group with the new calibration and tolerances, otherwise search the same lock again.
-        3) Stop when no tolerance changes by more than `convergence_threshold`, or restore the best round when a round
-           on the same lock finds more than `max_id_loss` fewer identifications.
+        3) Stop when no tolerance changes by more than `CONVERGENCE_THRESHOLD`, or restore the best round when a round
+           on the same lock finds more than `MAX_ID_LOSS` fewer identifications.
         """
         log_string = self._reporter.log_string
         config = self._config["calibration"]
@@ -492,7 +494,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             if (
                 not at_target
                 and can_grow
-                and n_identified < config["min_calibration_precursors"]
+                and n_identified < ConvergeCalibration.MIN_CALIBRATION_PRECURSORS
             ):
                 log_string("Too few precursors to calibrate yet.")
                 self._optlock.update()
@@ -510,7 +512,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     "Insufficient number of precursors to continue optimization.",
                     verbosity="warning",
                 )
-                if n_identified >= MIN_PRECURSORS_TO_RECALIBRATE:
+                if n_identified >= ConvergeCalibration.MIN_PRECURSORS_TO_RECALIBRATE:
                     recalibration_handler.recalibrate(
                         precursor_df_filtered, fragments_df_filtered
                     )
@@ -532,7 +534,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             if (
                 best is not None
                 and best["lock_range"] == lock_range
-                and n_identified < (1 - config["max_id_loss"]) * best["n_identified"]
+                and n_identified
+                < (1 - ConvergeCalibration.MAX_ID_LOSS) * best["n_identified"]
             ):
                 log_string(
                     f"Identifications dropped from {best['n_identified']} to {n_identified}, "
@@ -569,9 +572,13 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 for name in names
             }
             if not at_target:
-                # few identifications give a noisy interval: shrink by at most half per round until the target
+                # few identifications give a noisy interval: limit the shrinking per round until the target
                 proposal = {
-                    name: max(proposal[name], current[name] / 2) for name in names
+                    name: max(
+                        proposal[name],
+                        current[name] / ConvergeCalibration.MAX_SHRINK_BELOW_TARGET,
+                    )
+                    for name in names
                 }
             log_string(
                 f"Calibration round {step}: {n_identified} identifications "
@@ -585,7 +592,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
             if at_target and all(
                 abs(proposal[name] - current[name]) / max(current[name], 1e-9)
-                <= config["convergence_threshold"]
+                <= ConvergeCalibration.CONVERGENCE_THRESHOLD
                 for name in names
             ):
                 log_string("Search parameters converged.", verbosity="progress")
