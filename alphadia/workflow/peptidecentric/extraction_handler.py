@@ -682,12 +682,13 @@ class NgExtractionHandler(ExtractionHandler):
         self._score_ms1 = True
 
     def _scoring_parameters(
-        self, ms1_tolerance_ppm: float | None
+        self, ms1_tolerance_ppm: float | None, *, spatial_ubiquity: bool = False
     ) -> "ScoringParameters":
         scoring_params = ScoringParameters()
         params = {
             "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
             "mass_tolerance": self._optimization_manager.ms2_error,
+            "spatial_ubiquity": spatial_ubiquity,
         }
         if ms1_tolerance_ppm is not None:
             params["ms1_mass_tolerance"] = ms1_tolerance_ppm
@@ -807,8 +808,11 @@ class NgExtractionHandler(ExtractionHandler):
 
         candidates = candidates_to_ng(candidates_df, dia_data)
 
+        # the spatial ubiquity needs a run-wide centroid index, so like MS1 it is scored in the final extraction only
         candidate_features = PeakGroupScoring(
-            self._scoring_parameters(self._ms1_tolerance_ppm)
+            self._scoring_parameters(
+                self._ms1_tolerance_ppm, spatial_ubiquity=self._score_ms1
+            )
         ).score(dia_data, self._speclib_ng, candidates)
 
         features_df = to_features_df(

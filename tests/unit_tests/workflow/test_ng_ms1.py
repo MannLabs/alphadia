@@ -222,4 +222,7 @@ def test_score_candidates_calibrates_ms1_once_on_target_candidates(
     # and the extraction uses the fallback tolerance, with the MS1 features kept
     tolerances = [c.args[0].ms1_mass_tolerance for c in mock_scoring.call_args_list]
     assert tolerances == [15.0, 10.0, 10.0]
+    # and the spatial ubiquity is scored in the extraction, not in the pre-pass
+    spatial = [c.args[0].spatial_ubiquity for c in mock_scoring.call_args_list]
+    assert spatial == [False, True, True]
     assert mock_to_features_df.call_args.kwargs["ms1_scored"] is True

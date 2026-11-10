@@ -34,11 +34,14 @@ MS1_CLASSIFIER_FEATURES = [
     "ms1_m1_accurate_share",
 ]
 # rust fragment detection features (hits at the apex scan against each channel's flank background): the final-round
-# classifier uses these; det_llr_hits (the hit terms of det_llr alone) is the fallback if the miss terms leak
+# classifier uses these; det_llr_hits (the hit terms of det_llr alone) is the fallback if the miss terms leak.
+# det_llr_spatial adds to each channel's background how many far isolation windows show the fragment m/z at the apex
+# (a hit on a common ion is expected anyway); det_hit_ubiquity_mean, that ubiquity itself, is reported only.
 DETECTION_PREFIX = "det_"
 DETECTION_CLASSIFIER_FEATURES = [
     "det_llr",
     "det_bg_surprise",
+    "det_llr_spatial",
 ]
 
 

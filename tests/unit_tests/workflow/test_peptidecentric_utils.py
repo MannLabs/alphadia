@@ -62,6 +62,9 @@ def test_get_classifier_feature_columns_keeps_only_the_chosen_detection_features
     ]
     assert "det_llr_hits" in get_feature_names()
     assert "det_llr_hits" not in columns
+    assert "det_llr_spatial" in columns
+    assert "det_hit_ubiquity_mean" in get_feature_names()
+    assert "det_hit_ubiquity_mean" not in columns
 
 
 def test_get_classifier_feature_columns_leaves_out_the_idf_features():
