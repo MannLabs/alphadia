@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from alphadia_search_rs import OptimizationContext
 
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
@@ -240,6 +241,28 @@ def test_optimization_manager():
     assert optimization_manager.fwhm_mobility == 0.01
 
     assert optimization_manager.is_loaded_from_file is False
+
+
+def test_optimization_manager_optimization_context_is_a_snapshot():
+    # Given: an optimization manager with the test configuration
+    optimization_manager = OptimizationManager(TEST_OPTIMIZATION_CONFIG)
+
+    # When: the test takes the optimization context and then updates the manager
+    optimization_context = optimization_manager.get_optimization_context()
+    optimization_manager.update(ms2_error=3.0)
+
+    # Then: the taken context keeps the old values, and a new context has the update
+    assert optimization_context == OptimizationContext(
+        rt_error=200.0,
+        ms1_error=4.0,
+        ms2_error=7.0,
+        mobility_error=0.04,
+        fwhm_rt=5.0,
+        fwhm_mobility=0.01,
+        num_candidates=1,
+        score_cutoff=50.0,
+    )
+    assert optimization_manager.get_optimization_context().ms2_error == 3.0
 
 
 def test_optimization_manager_rt_proportion():

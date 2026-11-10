@@ -2,61 +2,63 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import OptimizationContext
 
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
-from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
 class ExtractionHandler(ABC):
-    """Base class for managing precursor and fragment extraction operations."""
+    """Base class for managing precursor and fragment extraction operations.
+
+    A handler extracts from one DIA data object and one spectral library, both fixed at construction.
+    """
 
     def __init__(
         self,
         config: Config,
-        optimization_manager: OptimizationManager,
+        optimization_context: OptimizationContext,
         fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
+        dia_data: "DiaData | DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
     ):
         """
         Parameters
         ----------
         config : Config
             Workflow configuration
-        optimization_manager : OptimizationManager
-            Optimization manager with current parameters
+        optimization_context : OptimizationContext
+            Search parameters of the current optimization state
         fdr_manager: FDRManager
             FDR manager
         reporter : Pipeline
             Reporter for logging
         column_name_handler : ColumnNameHandler
             Column name handler for data access
+        dia_data : DiaData | DiaDataNG
+            DIA data to extract from, in the format of the backend
+        spectral_library : SpecLibFlat
+            Spectral library containing precursors and fragments
         """
         self._config: Config = config
-        self._optimization_manager: OptimizationManager = optimization_manager
+        self._optimization_context: OptimizationContext = optimization_context
         self._fdr_manager: FDRManager = fdr_manager
         self._reporter: Pipeline = reporter
 
         self._column_name_handler: ColumnNameHandler = column_name_handler
+        self._dia_data = dia_data
+        self._spectral_library: SpecLibFlat = spectral_library
 
-    def select_candidates(
-        self,
-        dia_data: "DiaData | DiaDataNG",  # noqa: F821
-        spectral_library: SpecLibFlat,
-        apply_cutoff: bool = False,
-    ) -> pd.DataFrame:
-        """Select candidates from DIA data based on spectral library and apply cutoff if requested.
+    def select_candidates(self, apply_cutoff: bool = False) -> pd.DataFrame:
+        """Select candidates from the DIA data based on the spectral library and apply cutoff if requested.
 
         Parameters
         ----------
-        dia_data : DiaData | DiaDataNG
-            DIA data to extract from. Can be classic or NG format depending on backend.
-        spectral_library : SpecLibFlat
-            Spectral library containing precursors and fragments
         apply_cutoff : bool
             Whether to apply score cutoff filtering
 
@@ -66,10 +68,10 @@ class ExtractionHandler(ABC):
             Candidates dataframe
         """
         self._reporter.log_string(
-            f"Extracting batch of {len(spectral_library.precursor_df)} precursors",
+            f"Extracting batch of {len(self._spectral_library.precursor_df)} precursors",
             verbosity="progress",
         )
-        candidates_df = self._select_candidates(dia_data, spectral_library)
+        candidates_df = self._select_candidates()
 
         # plt.hist(candidates_df["score"], bins=100)
 
@@ -79,19 +81,8 @@ class ExtractionHandler(ABC):
         return candidates_df
 
     @abstractmethod
-    def _select_candidates(
-        self,
-        dia_data: "DiaData | DiaDataNG",  # noqa: F821
-        spectral_library: SpecLibFlat,
-    ) -> pd.DataFrame:
-        """Select candidates from DIA data based on spectral library.
-
-        Parameters
-        ----------
-        dia_data : DiaData | DiaDataNG
-            DIA data to extract from. Can be classic or NG format depending on backend.
-        spectral_library : SpecLibFlat
-            Spectral library containing precursors and fragments
+    def _select_candidates(self) -> pd.DataFrame:
+        """Select candidates from the DIA data based on the spectral library.
 
         Returns
         -------
@@ -100,7 +91,7 @@ class ExtractionHandler(ABC):
         """
 
     def _apply_score_cutoff(self, candidates_df: pd.DataFrame) -> pd.DataFrame:
-        """Apply score cutoff (taken from optimization_manager) to candidates dataframe.
+        """Apply the score cutoff of the optimization context to the candidates dataframe.
 
         Parameters
         ----------
@@ -115,12 +106,12 @@ class ExtractionHandler(ABC):
         # This is filter 1
         num_before = len(candidates_df)
         candidates_df = candidates_df[
-            candidates_df["score"] > self._optimization_manager.score_cutoff
+            candidates_df["score"] > self._optimization_context.score_cutoff
         ]
         num_after = len(candidates_df)
         num_removed = num_before - num_after
         self._reporter.log_string(
-            f"Removed {num_removed} precursors with score below cutoff {self._optimization_manager.score_cutoff}",
+            f"Removed {num_removed} precursors with score below cutoff {self._optimization_context.score_cutoff}",
         )
         return candidates_df
 
@@ -128,12 +119,12 @@ class ExtractionHandler(ABC):
         """Log current extraction parameters."""
         for log_line in [
             "=== Search parameters used ===",
-            f"{'rt_error':<15}: {self._optimization_manager.rt_error}",
-            f"{'mobility_error':<15}: {self._optimization_manager.mobility_error}",
-            f"{'num_candidates':<15}: {self._optimization_manager.num_candidates}",
-            f"{'ms1_error':<15}: {self._optimization_manager.ms1_error}",
-            f"{'ms2_error':<15}: {self._optimization_manager.ms2_error}",
-            f"{'fwhm_rt':<15}: {self._optimization_manager.fwhm_rt}",
+            f"{'rt_error':<15}: {self._optimization_context.rt_error}",
+            f"{'mobility_error':<15}: {self._optimization_context.mobility_error}",
+            f"{'num_candidates':<15}: {self._optimization_context.num_candidates}",
+            f"{'ms1_error':<15}: {self._optimization_context.ms1_error}",
+            f"{'ms2_error':<15}: {self._optimization_context.ms2_error}",
+            f"{'fwhm_rt':<15}: {self._optimization_context.fwhm_rt}",
             f"{'quant_window':<15}: {self._config['search']['quant_window']}",
             "==============================================",
         ]:
@@ -144,8 +135,6 @@ class ExtractionHandler(ABC):
         self,
         candidates_filtered: pd.DataFrame,
         precursor_fdr_df: pd.DataFrame | None,
-        dia_data: "DiaDataNG",  # noqa: F821
-        spectral_library: SpecLibFlat,
         top_k_fragments: int | None = None,
     ) -> tuple[pd.DataFrame | None, pd.DataFrame]:
         """Quantify candidates.
@@ -156,10 +145,6 @@ class ExtractionHandler(ABC):
             DataFrame with filtered candidates
         precursor_fdr_df : pd.DataFrame | None
             DataFrame with post-FDR precursor results. If given, FDR-related columns will be merged into the precursor results.
-        dia_data : DiaDataNG
-            DIA data to extract from.
-        spectral_library : SpecLibFlat
-            Spectral library
         top_k_fragments : int, optional
             top k fragments to use for quantification (only for classic backend, None means default from config)
         Returns

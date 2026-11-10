@@ -142,8 +142,10 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
         """Feature columns the FDR classifier is trained on."""
 
     @abstractmethod
-    def _create_extraction_handler(self) -> ExtractionHandler:
-        """Create an extraction handler of this backend for the current calibration state."""
+    def _create_extraction_handler(
+        self, spectral_library: SpecLibFlat
+    ) -> ExtractionHandler:
+        """Create an extraction handler of this backend for the given spectral library and the current calibration state."""
 
     def _create_column_name_handler(self) -> ColumnNameHandler:
         return ColumnNameHandler(
@@ -227,4 +229,4 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
             self._create_extraction_handler,
         )
 
-        return requantification_handler.requantify(self.dia_data, psm_df)
+        return requantification_handler.requantify(psm_df)
