@@ -8,6 +8,7 @@ from alphabase.constants.modification import MOD_DF
 
 from alphadia import __version__ as alphadia_version
 from alphadia import search_step
+from alphadia.constants.keys import ExtractionBackend
 from alphadia.exceptions import ConfigError, GenericUserError
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
@@ -482,13 +483,10 @@ def test_expands_reuse_quant_from_paths(tmp_path, monkeypatch):
 
 
 @patch("alphadia.search_step.SearchPlanOutput")
-@patch("alphadia.search_step.get_workflow_class")
-def test_run_creates_no_workflow_for_reused_folder(
-    mock_get_workflow_class, mock_output_cls, tmp_path
-):
+def test_run_creates_no_workflow_for_reused_folder(mock_output_cls, tmp_path):
     """Test that a reused quant folder is passed on as-is and never gets a workflow (which would write to it)."""
     reused_folder = _create_quant_folder(tmp_path / "previous_run" / "quant", "raw1")
-    mock_workflow_cls = mock_get_workflow_class.return_value
+    mock_workflow_cls = MagicMock()
     mock_workflow_cls.return_value.path = str(tmp_path / "output" / "quant" / "raw2")
     step = SearchStep(
         str(tmp_path / "output"),
@@ -503,7 +501,13 @@ def test_run_creates_no_workflow_for_reused_folder(
     )
     step.spectral_library = MagicMock()
 
-    with patch.object(step, "_process_raw_file"):
+    with (
+        patch.object(step, "_process_raw_file"),
+        patch.dict(
+            "alphadia.search_step.WORKFLOW_CLASSES",
+            {ExtractionBackend.RUST: mock_workflow_cls},
+        ),
+    ):
         # when
         step.run()
 
@@ -557,15 +561,14 @@ def test_run_creates_workflow_of_configured_backend(mock_output_cls, tmp_path):
     assert isinstance(workflow, PythonPeptideCentricWorkflow)
 
 
-@pytest.mark.parametrize("backend", ["rust", "RUST"])
-def test_raises_if_multiplexing_with_backend_without_multiplexing(tmp_path, backend):
-    """Test that multiplexing is rejected up front for a backend that does not support it, in any case."""
+def test_raises_if_multiplexing_with_backend_without_multiplexing(tmp_path):
+    """Test that multiplexing is rejected up front for a backend that does not support it."""
     with pytest.raises(ConfigError, match="CONFIG_ERROR"):
         # when
         SearchStep(
             str(tmp_path / "output"),
             config={
-                "search": {"extraction_backend": backend},
+                "search": {"extraction_backend": "rust"},
                 "multiplexing": {"enabled": True},
             },
         )
@@ -581,10 +584,8 @@ def test_raises_if_extraction_backend_is_unknown(tmp_path):
         )
 
 
-@pytest.mark.parametrize(
-    ("backend", "expected"), [("rust", True), ("RUST", True), ("python", False)]
-)
-def test_is_rust_backend_ignores_case(backend, expected):
+@pytest.mark.parametrize(("backend", "expected"), [("rust", True), ("python", False)])
+def test_is_rust_backend(backend, expected):
     # given
     config = Config({"search": {"extraction_backend": backend}})
 
