@@ -16,15 +16,10 @@ logger = logging.getLogger()
 PROTEIN_FEATURE_QVAL = 0.01
 NO_EVIDENCE_QVAL = 1.0
 
-# A linear model on the precursor scores of a group, fit on all groups: plasma brings only ~30 decoy groups, on which
-# an MLP fit on a split varies from useful to worse than random between seeds and then accepts no group at all, and
 # count features (precursors, peptides, runs per group) reward the false targets that pile up in large groups.
 FEATURE_COLUMNS = ["mean_score", "best_score", "worst_score"]
 MAX_ITER = 1000
-# The features are taken on the logit of the precursor probability. The final-round probabilities of the confident
-# precursors spread over many decades, so on the probability scale every confident target sits at about 0, the group
-# means follow the worst precursor and the model weights the best precursor negatively; on the logit scale the best
-# precursor carries the ranking.
+# The features are taken on the logit of the precursor probability.
 MIN_PROBA = 1e-300
 MAX_PROBA = 1 - 1e-16
 
