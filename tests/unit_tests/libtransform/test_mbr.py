@@ -6,7 +6,12 @@ import pytest
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 
 from alphadia.libtransform.decoy import DecoyGenerator
-from alphadia.libtransform.mbr import IndexBuilder, MbrLibraryBuilder
+from alphadia.constants.keys import MbrCols
+from alphadia.libtransform.mbr import (
+    IndexBuilder,
+    MbrLibraryBuilder,
+    leave_one_out_rt,
+)
 
 
 class TestIndexBuilder:
@@ -161,7 +166,10 @@ class TestMbrLibraryBuilder:
                 "elution_group_idx": [0, 0, 1, 2],
                 "decoy": [0, 1, 0, 0],
                 "qval": [0.001, 0.005, 0.002, 0.5],
+                "pg_qval": [0.001, 0.001, 0.001, 0.001],
+                "run": ["run_a", "run_a", "run_b", "run_b"],
                 "rt_observed": [10.0, 11.0, 20.0, 30.0],
+                "rt_calibrated": [10.5, 11.5, 20.5, 30.5],
                 "pg": ["PG_A", "PG_A", "PG_B", "PG_C"],
                 "mod_seq_charge_hash": [
                     lib_hashes[0],
@@ -247,7 +255,10 @@ class TestMbrLibraryBuilder:
                 "elution_group_idx": [0, 1],
                 "decoy": [0, 1],
                 "qval": [0.001, 0.005],
+                "pg_qval": [0.001, 0.001],
+                "run": ["run_a", "run_a"],
                 "rt_observed": [10.0, 20.0],
+                "rt_calibrated": [10.5, 20.5],
                 "pg": ["PG_A", "PG_B"],
                 "mod_seq_charge_hash": [lib_hashes[0], -1],
             }
@@ -280,3 +291,59 @@ class TestMbrLibraryBuilder:
         np.testing.assert_array_equal(df_exclude["decoy"].values, [0])
         assert df_exclude["rt"].values[0] == 10.0
         assert df_exclude["genes"].values[0] == "PG_A"
+
+    def test_protein_groups_above_fdr_are_excluded(self, base_library, psm_df):
+        """Test a group whose protein group only passed above the MBR library FDR stays out."""
+        # given
+        psm_df.loc[psm_df["elution_group_idx"] == 1, "pg_qval"] = 0.05
+
+        # when
+        result = MbrLibraryBuilder(fdr=0.01, keep_decoys=False)(psm_df, base_library)
+
+        # then
+        np.testing.assert_array_equal(
+            result.precursor_df["elution_group_idx"].values, [0]
+        )
+
+    def test_rt_by_run_holds_identified_target_groups(self, base_library, psm_df):
+        """Test the per-run RT table lists each run's confident target groups."""
+        # when
+        builder = MbrLibraryBuilder(fdr=0.01, keep_decoys=True)
+        builder(psm_df, base_library)
+
+        # then
+        rt_by_run = builder.rt_by_run.sort_values("elution_group_idx")
+        np.testing.assert_array_equal(rt_by_run["elution_group_idx"].values, [0, 1])
+        np.testing.assert_array_equal(rt_by_run["run"].values, ["run_a", "run_b"])
+        np.testing.assert_array_equal(rt_by_run["rt_observed"].values, [10.0, 20.0])
+
+
+def test_leave_one_out_rt():
+    """Test the library RT comes from the other runs and groups not identified in the run are transfers."""
+    # given
+    speclib = SpecLibBase()
+    speclib._precursor_df = pd.DataFrame(
+        {"elution_group_idx": [0, 1, 2], "rt_library": [1.0, 2.0, 3.0]}
+    )
+    rt_by_run = pd.DataFrame(
+        {
+            "elution_group_idx": [0, 0, 1],
+            "run": ["run_a", "run_b", "run_a"],
+            "rt_observed": [10.0, 12.0, 20.0],
+            "rt_calibrated": [9.0, 11.0, 19.0],
+        }
+    )
+
+    # when
+    result = leave_one_out_rt(speclib, rt_by_run, "run_a")
+
+    # then: group 0 from run_b, group 1 only in run_a keeps run_a's calibrated RT, group 2 keeps the library RT
+    np.testing.assert_array_equal(
+        result.precursor_df["rt_library"].values, [12.0, 19.0, 3.0]
+    )
+    np.testing.assert_array_equal(
+        result.precursor_df[MbrCols.TRANSFER].values, [0, 0, 1]
+    )
+    np.testing.assert_array_equal(
+        speclib.precursor_df["rt_library"].values, [1.0, 2.0, 3.0]
+    )
