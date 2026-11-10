@@ -38,7 +38,6 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
     OPTIMIZATION_HANDLER_CLASS = RustOptimizationHandler
 
     def _classifier_feature_columns(self) -> list[str]:
-        # The FDR manager uses only the columns present, so calibration rounds use the core subset.
         return get_feature_names(FeatureSet.Full)
 
     def _create_extraction_handler(
@@ -46,7 +45,7 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
     ) -> RustExtractionHandler:
         return RustExtractionHandler(
             self.config,
-            self.optimization_manager.search_tolerances(),
+            self.optimization_manager.get_optimization_context(),
             self._fdr_manager,
             self.reporter,
             self._create_column_name_handler(),
@@ -54,7 +53,7 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
             spectral_library,
         )
 
-    def _prepare_dia_data(self, dia_data: DiaData) -> DiaDataNG:
+    def _convert_dia_data(self, dia_data: DiaData) -> DiaDataNG:
         if isinstance(dia_data, TimsTOFTranspose):
             raise GenericUserError(
                 "NOT_SUPPORTED_BY_NG",

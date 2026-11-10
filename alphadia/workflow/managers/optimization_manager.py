@@ -1,6 +1,6 @@
 import logging
 
-from alphadia_search_rs import SearchTolerances
+from alphadia_search_rs import OptimizationContext
 
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
@@ -120,9 +120,9 @@ class OptimizationManager(BaseManager):
                 f"Updating optimization_manager: {log}", verbosity="info"
             )
 
-    def search_tolerances(self) -> SearchTolerances:
-        """Snapshot of the current search tolerances, which later updates of this manager do not change."""
-        return SearchTolerances(
+    def get_optimization_context(self) -> OptimizationContext:
+        """Snapshot of the current optimization context, which later updates of this manager do not change."""
+        return OptimizationContext(
             rt_error=self.rt_error,
             ms1_error=self.ms1_error,
             ms2_error=self.ms2_error,
