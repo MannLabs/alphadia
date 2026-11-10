@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from alphadia.constants.keys import CalibrationStrategy
+from alphadia.constants.settings import ConvergeCalibration
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
     RustOptimizationHandler,
@@ -150,10 +151,6 @@ def _create_converging_handler(rates, rt_intervals, *, target_ms2=10.0):
         "calibration": {
             "strategy": CalibrationStrategy.CONVERGE,
             "max_steps": 10,
-            "tolerance_quantile": 0.99,
-            "tolerance_factor": {"rt_error": 1.5, "ms2_error": 1.2},
-            "convergence_threshold": 0.1,
-            "max_id_loss": 0.05,
         },
     }
     optimization_manager = SimpleNamespace(ms2_error=30.0, rt_error=800.0)
@@ -189,9 +186,12 @@ def _create_converging_handler(rates, rt_intervals, *, target_ms2=10.0):
     return handler, optimization_manager
 
 
+RT_FACTOR = ConvergeCalibration.TOLERANCE_FACTOR["rt_error"]
+
+
 def test_converge_stops_when_tolerances_settle():
     """Test that the loop stops once no tolerance changes by more than the convergence threshold."""
-    # given: RT residual intervals of 100, 70 and 68 s, i.e. proposals of 150, 105 and 102 s
+    # given: RT residual intervals of 100, 70 and 68 s
     handler, optimization_manager = _create_converging_handler(
         rates=[0.02, 0.04, 0.041], rt_intervals=[100.0, 70.0, 68.0]
     )
@@ -204,7 +204,7 @@ def test_converge_stops_when_tolerances_settle():
 
     # then: the third proposal changes by less than 10 % and keeps the second
     assert handler._process_batch.call_count == 3
-    assert optimization_manager.rt_error == pytest.approx(105.0)
+    assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 70.0)
     assert optimization_manager.ms2_error == 10.0
 
 
@@ -222,7 +222,7 @@ def test_converge_restores_best_round_on_id_loss():
         handler.search_parameter_optimization()
 
     # then: the tolerance of the second round, recalibrated on its 40 identifications
-    assert optimization_manager.rt_error == pytest.approx(150.0)
+    assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 100.0)
     last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
     assert len(last_call.args[0]) == 40
 
@@ -249,7 +249,7 @@ def test_converge_does_not_compare_rounds_on_different_locks():
         handler.search_parameter_optimization()
 
     # then: no restore, the loop converges at the tightened tolerance
-    assert optimization_manager.rt_error == pytest.approx(60.0)
+    assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 40.0)
 
 
 def test_converge_grows_the_lock_until_the_target():
@@ -277,4 +277,4 @@ def test_converge_grows_the_lock_until_the_target():
         0
     ]
     assert len(first_recalibration.args[0]) == 20
-    assert optimization_manager.rt_error == pytest.approx(60.0)
+    assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 40.0)
