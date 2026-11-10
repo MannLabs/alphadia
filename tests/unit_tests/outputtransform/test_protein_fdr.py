@@ -9,7 +9,7 @@ N_TRUE_TARGET_GROUPS = 1800
 N_FALSE_TARGET_GROUPS = 200
 N_DECOY_GROUPS = 200
 FDR_THRESHOLD = 0.05
-RANDOM_STATE = 7
+RANDOM_STATE = 7 # i know tests with random states are kind of bad, but this should test it nicely nonetheless
 
 
 def _groups(
