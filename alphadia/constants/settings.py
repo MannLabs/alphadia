@@ -1,5 +1,7 @@
 """Internal constants."""
 
+from alphadia.constants.keys import SearchTolerance
+
 FIGURES_FOLDER_NAME = "figures"
 
 NUM_FEATURES = 46
@@ -16,10 +18,10 @@ class ConvergeCalibration:
     # ... times this factor (automatic parameters only; targeted parameters take their target).
     # RT gets a wider margin: on Astral, factors 3-6 gave about 0.8 % more precursors than 1.5.
     TOLERANCE_FACTOR = {
-        "ms2_error": 1.2,
-        "ms1_error": 1.2,
-        "rt_error": 3.0,
-        "mobility_error": 1.2,
+        SearchTolerance.MS2_ERROR: 1.2,
+        SearchTolerance.MS1_ERROR: 1.2,
+        SearchTolerance.RT_ERROR: 3.0,
+        SearchTolerance.MOBILITY_ERROR: 1.2,
     }
     # converged when no tolerance changes by more than this share between rounds
     CONVERGENCE_THRESHOLD = 0.1

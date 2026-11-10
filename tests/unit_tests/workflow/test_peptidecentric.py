@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from alphadia.constants.keys import CalibrationStrategy
+from alphadia.constants.keys import CalibrationStrategy, SearchTolerance
 from alphadia.constants.settings import ConvergeCalibration
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
@@ -83,7 +83,7 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
 
 def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
     """Make a handler whose optimization lock runs out of batches before the target."""
-    optimizer = MagicMock(has_converged=False, parameter_name="ms2_error")
+    optimizer = MagicMock(has_converged=False, parameter_name=SearchTolerance.MS2_ERROR)
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
@@ -186,7 +186,7 @@ def _create_converging_handler(rates, rt_intervals, *, target_ms2=10.0):
     return handler, optimization_manager
 
 
-RT_FACTOR = ConvergeCalibration.TOLERANCE_FACTOR["rt_error"]
+RT_FACTOR = ConvergeCalibration.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
 
 
 def test_converge_stops_when_tolerances_settle():

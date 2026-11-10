@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import CalibrationStrategy
+from alphadia.constants.keys import CalibrationStrategy, SearchTolerance
 from alphadia.constants.settings import (
     MAX_FRAGMENT_MZ_TOLERANCE,
     ConvergeCalibration,
@@ -48,22 +48,22 @@ ExtractionHandlerT = TypeVar("ExtractionHandlerT", bound=ExtractionHandler)
 
 # tolerance name -> (calibration group, estimator, config key of the target tolerance in `search`)
 _TOLERANCES = {
-    "ms2_error": (
+    SearchTolerance.MS2_ERROR: (
         CalibrationGroups.FRAGMENT,
         CalibrationEstimators.MZ,
         "target_ms2_tolerance",
     ),
-    "ms1_error": (
+    SearchTolerance.MS1_ERROR: (
         CalibrationGroups.PRECURSOR,
         CalibrationEstimators.MZ,
         "target_ms1_tolerance",
     ),
-    "rt_error": (
+    SearchTolerance.RT_ERROR: (
         CalibrationGroups.PRECURSOR,
         CalibrationEstimators.RT,
         "target_rt_tolerance",
     ),
-    "mobility_error": (
+    SearchTolerance.MOBILITY_ERROR: (
         CalibrationGroups.PRECURSOR,
         CalibrationEstimators.MOBILITY,
         "target_mobility_tolerance",
@@ -251,10 +251,10 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             )
         else:
             opt_mapping = {
-                "ms2_error": ms2_optimizer,
-                "rt_error": rt_optimizer,
-                "ms1_error": ms1_optimizer,
-                "mobility_error": mobility_optimizer,
+                SearchTolerance.MS2_ERROR: ms2_optimizer,
+                SearchTolerance.RT_ERROR: rt_optimizer,
+                SearchTolerance.MS1_ERROR: ms1_optimizer,
+                SearchTolerance.MOBILITY_ERROR: mobility_optimizer,
             }
             ordered_optimizers = []
             for optimizers_in_ordering in self._config["optimization"][
@@ -419,11 +419,11 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
     def _active_tolerances(self) -> list[str]:
         """Names of the tolerances the raw file has data for."""
-        names = ["ms2_error", "rt_error"]
+        names = [SearchTolerance.MS2_ERROR, SearchTolerance.RT_ERROR]
         if self._dia_data.has_ms1:
-            names.append("ms1_error")
+            names.append(SearchTolerance.MS1_ERROR)
         if self._dia_data.has_mobility:
-            names.append("mobility_error")
+            names.append(SearchTolerance.MOBILITY_ERROR)
         return names
 
     def _target_tolerance(self, name: str) -> float | None:
@@ -431,7 +431,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         target = self._config["search"][_TOLERANCES[name][2]]
         if target <= 0:
             return None
-        if name == "rt_error" and target <= 1:
+        if name == SearchTolerance.RT_ERROR and target <= 1:
             # an RT target up to 1 is a share of the gradient
             return target * self._dia_data.rt_values.max()
         return target
