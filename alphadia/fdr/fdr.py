@@ -386,7 +386,7 @@ def get_q_values(
     decoy_cumsum = np.cumsum(psm_df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
     fdr_values = (
-        (decoy_cumsum + decoy_offset) / target_cumsum
-    )  # TODO: RuntimeWarning: divide by zero encountered in divide
+        decoy_cumsum + decoy_offset
+    ) / target_cumsum  # TODO: RuntimeWarning: divide by zero encountered in divide
     psm_df[qval_column] = _fdr_to_q_values(fdr_values)
     return psm_df

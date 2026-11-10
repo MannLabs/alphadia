@@ -86,5 +86,3 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     )
     scored["pg_qval"] = scored["pg_qval"].fillna(NO_EVIDENCE_QVAL)
     return scored
-
-
