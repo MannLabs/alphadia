@@ -244,7 +244,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     weight_column = None
     if MbrCols.DECOY_WEIGHT in psm_df.columns:
         weight_column = MbrCols.DECOY_WEIGHT
-        psm_df[weight_column] = y * psm_df[weight_column].to_numpy()
+        # `psm_df` is sorted by proba by now, so the decoy labels come from its own column, not from `y`
+        psm_df[weight_column] = (
+            psm_df["_decoy"].to_numpy() * psm_df[weight_column].to_numpy()
+        )
     psm_df = get_q_values_by_stratum(psm_df, stratum_column, weight_column)
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
