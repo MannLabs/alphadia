@@ -340,18 +340,25 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name, empty without fragments
         """
-        filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
-            feature_dfs_dict["intensity"],
-            feature_dfs_dict["correlation"],
-            top_n=self.config["search_output"]["min_k_fragments"],
-            min_correlation=self.config["search_output"]["min_correlation"],
-            group_column=QuantificationLevelKey.PRECURSOR,
+        filtered_intensity_df, filtered_correlation_df = (
+            self.quant_builder.filter_frag_df(
+                feature_dfs_dict["intensity"],
+                feature_dfs_dict["correlation"],
+                top_n=self.config["search_output"]["min_k_fragments"],
+                min_correlation=self.config["search_output"]["min_correlation"],
+                group_column=QuantificationLevelKey.PRECURSOR,
+            )
         )
         if len(filtered_intensity_df) == 0:
             return {}
 
         precursor_df = self.quant_builder.varmodel_precursor_table(
-            filtered_intensity_df
+            filtered_intensity_df,
+            missing_fragments=self.config["search_output"][
+                "varmodel_missing_fragments"
+            ],
+            correlation_df=filtered_correlation_df,
+            quality_exponent=self.config["search_output"]["varmodel_quality_exponent"],
         )
 
         level_dfs = {}

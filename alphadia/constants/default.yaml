@@ -345,6 +345,13 @@ search_output:
   normalization_method: varmodel_directlfq
   # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True
+  # varmodel_directlfq: how missing fragments of a quantified run enter the fit. "drop" leaves them out; "censored"
+  # treats them as below a per-run detection limit fitted on the data, which removes the upward bias of precursors
+  # near the limit (ratio compression at low abundance).
+  varmodel_missing_fragments: censored
+  # varmodel_directlfq: > 0 multiplies each fragment value's variance by exp(gamma * (1 - sqrt(C))), C its XIC
+  # correlation in that run, so an interfered value counts less in that run only; 0 turns it off
+  varmodel_quality_exponent: 1.5
 
   # Remove each run's retention-time dependent intensity drift before label-free quantification.
   # The correction curve of each run is centred on zero, so it only flattens how the intensity changes along the gradient.

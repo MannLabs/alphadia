@@ -12,6 +12,9 @@ from alphadia_search_rs import VarModelQuantification
 from quantselect.output import run_quantselect
 
 from alphadia.constants.keys import QuantificationLevelKey
+from alphadia.outputtransform.quantification.censored_varmodel import (
+    censored_quantities,
+)
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.workflow.config import Config
 
@@ -30,6 +33,12 @@ FRAGMENT_METADATA_COLUMNS = [
 ]
 
 PRECURSOR_IDX_MASK = 0xFFFFFFFF
+
+VARMODEL_MISSING_DROP = "drop"
+VARMODEL_MISSING_CENSORED = "censored"
+# the numpy fit (censoring, quality weights) estimates its noise curve from fragments seen in several runs; with fewer
+# runs there are no ratios to protect and the backend fit is used
+MIN_RUNS_FOR_NUMPY_FIT = 2
 
 # fragment columns consumed by `_ion_hash`, in the order of its signature
 ION_HASH_COLUMNS = [PRECURSOR_IDX_COLUMN, "number", "type", "charge", "loss_type"]
@@ -265,16 +274,30 @@ class QuantBuilder:
         )
         return protein_df
 
-    def varmodel_precursor_table(self, intensity_df: pd.DataFrame) -> pd.DataFrame:
+    def varmodel_precursor_table(
+        self,
+        intensity_df: pd.DataFrame,
+        missing_fragments: str = VARMODEL_MISSING_DROP,
+        correlation_df: pd.DataFrame | None = None,
+        quality_exponent: float = 0.0,
+    ) -> pd.DataFrame:
         """Estimate the precursor quantities with the variance-model fit.
 
         Every precursor becomes one ion. The model is documented in
-        `alphadia_search_rs.VarModelQuantification`.
+        `alphadia_search_rs.VarModelQuantification`; with `missing_fragments` "censored", missing fragments of a
+        quantified run enter as censored observations (`censored_varmodel`).
 
         Parameters
         ----------
         intensity_df: pd.DataFrame
             Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash, intensity_library
+        missing_fragments: str
+            "drop" (missing fragments are left out) or "censored"
+        correlation_df: pd.DataFrame | None
+            XIC correlations aligned row by row with intensity_df; needed when quality_exponent > 0
+        quality_exponent: float
+            > 0 multiplies each fragment value's variance by exp(quality_exponent * (1 - sqrt(correlation))) in the
+            numpy fit (`censored_varmodel`), for "drop" and "censored" alike
 
         Returns
         -------
@@ -298,17 +321,39 @@ class QuantBuilder:
         )
         intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
 
-        result = VarModelQuantification().fit(
-            np.ascontiguousarray(intensity.T),
-            intensity_library,
-            fragment_precursor_index.astype(np.uintp),
-            len(precursor_hashes),
-        )
-        logger.info(
-            f"Variance-model fit: residual scale {result['residual_scale']:.3f} log2, "
-            f"loss scale {result['loss_scale']:.2f}, "
-            f"offset shrinkage {result['offset_shrinkage']:.2f}"
-        )
+        if len(run_columns) >= MIN_RUNS_FOR_NUMPY_FIT and (
+            missing_fragments == VARMODEL_MISSING_CENSORED or quality_exponent > 0
+        ):
+            with_library = intensity_library > 0
+            correlation = (
+                None
+                if correlation_df is None
+                else correlation_df[run_columns].to_numpy(dtype=np.float64)[
+                    with_library
+                ]
+            )
+            quantity = censored_quantities(
+                intensity[with_library].astype(np.float64),
+                intensity_library[with_library].astype(np.float64),
+                fragment_precursor_index[with_library],
+                len(precursor_hashes),
+                censored=missing_fragments == VARMODEL_MISSING_CENSORED,
+                correlation=correlation,
+                quality_exponent=quality_exponent,
+            )
+        else:
+            result = VarModelQuantification().fit(
+                np.ascontiguousarray(intensity.T),
+                intensity_library,
+                fragment_precursor_index.astype(np.uintp),
+                len(precursor_hashes),
+            )
+            logger.info(
+                f"Variance-model fit: residual scale {result['residual_scale']:.3f} log2, "
+                f"loss scale {result['loss_scale']:.2f}, "
+                f"offset shrinkage {result['offset_shrinkage']:.2f}"
+            )
+            quantity = result["quantity"].T
 
         # the sorted groupby rows line up with the sorted precursor_hashes of the fit
         precursor_df = (
@@ -319,7 +364,7 @@ class QuantBuilder:
             .reset_index()
         )
         precursor_df.insert(0, ION_COLUMN, precursor_hashes)
-        precursor_df[run_columns] = np.nan_to_num(np.power(2.0, result["quantity"].T))
+        precursor_df[run_columns] = np.nan_to_num(np.power(2.0, quantity))
         return precursor_df
 
     def _prepare_ion_table(
