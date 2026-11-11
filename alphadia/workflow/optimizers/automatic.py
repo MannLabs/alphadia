@@ -21,6 +21,13 @@ from alphadia.workflow.optimizers.features import (
 )
 from alphadia.workflow.optimizers.optimization_lock import OptimizationLock
 
+UPDATE_METHOD_PERCENTILE = "percentile"
+UPDATE_METHOD_MAD = "mad"
+UPDATE_METHODS = (UPDATE_METHOD_PERCENTILE, UPDATE_METHOD_MAD)
+# median absolute deviation to standard deviation of a normal distribution
+MAD_TO_SD = 1.4826
+DEFAULT_MAD_FACTOR = 6.0
+
 
 class AutomaticOptimizer(BaseOptimizer, ABC):
     @property
@@ -66,6 +73,18 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         self.update_percentile_range = self._config["optimization"][
             self.parameter_name
         ]["automatic_update_percentile_range"]
+        # optional keys: a parameter block without them keeps the percentile update
+        self._update_method = self._config["optimization"][self.parameter_name].get(
+            "automatic_update_method", UPDATE_METHOD_PERCENTILE
+        )
+        if self._update_method not in UPDATE_METHODS:
+            raise ValueError(
+                f"Unknown automatic_update_method for {self.parameter_name}: {self._update_method}. "
+                f"Use one of {UPDATE_METHODS}."
+            )
+        self._update_mad_factor = self._config["optimization"][self.parameter_name].get(
+            "automatic_update_mad_factor", DEFAULT_MAD_FACTOR
+        )
 
         self._try_narrower_values = self._config["optimization"][self.parameter_name][
             "try_narrower_values"
@@ -190,6 +209,8 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
                 (determined by the self.update_percentile_range attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
             3) multiply this value by self.update_factor.
         This is implemented by the ci method for the estimator.
+        With automatic_update_method "mad", the proposal is instead automatic_update_mad_factor times the robust standard
+        deviation of the residual deviations (1.4826 x their median absolute deviation).
 
         Parameters
         ----------
@@ -203,12 +224,18 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             The proposed new value for the search parameter.
 
         """
-        return (
-            self.update_factor
-            * self._calibration_manager.get_estimator(  # TODO save only estimators?
+        estimator = (
+            self._calibration_manager.get_estimator(  # TODO save only estimators?
                 self._estimator_group_name, self._estimator_name
-            ).ci(df, self.update_percentile_range)
+            )
         )
+        if self._update_method == UPDATE_METHOD_MAD:
+            if not estimator.is_fitted:
+                return 0
+            residual = estimator.calc_deviation(df)[:, 2]
+            robust_sd = MAD_TO_SD * np.median(np.abs(residual - np.median(residual)))
+            return self._update_mad_factor * robust_sd
+        return self.update_factor * estimator.ci(df, self.update_percentile_range)
 
     def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """This method updates the history dataframe with relevant values.

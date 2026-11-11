@@ -44,6 +44,7 @@ class WorkflowBase(ABC):
         instance_name: str,
         config: Config,
         quant_path: str = None,
+        initial_tolerances: dict[str, float] | None = None,
     ) -> None:
         """
         Parameters
@@ -57,6 +58,9 @@ class WorkflowBase(ABC):
 
         quant_path: str
             path to directory holding quant folders, relevant for distributed searches
+
+        initial_tolerances: dict[str, float], optional
+            Initial tolerances that replace wider ones from `search_initial`, see `OptimizationManager`.
 
         """
         self.instance_name: str = instance_name
@@ -74,6 +78,7 @@ class WorkflowBase(ABC):
         )
 
         self._config: Config = config
+        self._initial_tolerances = initial_tolerances
         self.reporter: reporting.Pipeline | None = None
         self._dia_data: DiaData | DiaDataRust | None = None
         self._spectral_library: SpecLibFlat | None = None
@@ -138,6 +143,7 @@ class WorkflowBase(ABC):
             gradient_length=self.dia_data.rt_values.max(),
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
+            initial_tolerances=self._initial_tolerances,
             figure_path=self._figure_path,
             reporter=self.reporter,
         )

@@ -518,6 +518,67 @@ def test_run_creates_no_workflow_for_reused_folder(mock_output_cls, tmp_path):
     )
 
 
+def test_get_warm_start_tolerances_returns_none_without_processed_raw_files():
+    """Test that the first raw file starts from the configured tolerances."""
+    assert search_step._get_warm_start_tolerances([], 1.5) is None
+
+
+def test_get_warm_start_tolerances_scales_the_median():
+    """Test that the warm start tolerances are the median of the optimized ones times the factor."""
+    # given
+    optimized_tolerances = [
+        {"ms1_error": 4.0, "ms2_error": 8.0, "mobility_error": 0.02},
+        {"ms1_error": 6.0, "ms2_error": 7.0, "mobility_error": 0.04},
+        {"ms1_error": 5.0, "ms2_error": 10.0, "mobility_error": 0.03},
+    ]
+
+    # when
+    tolerances = search_step._get_warm_start_tolerances(optimized_tolerances, 1.5)
+
+    # then
+    assert tolerances == pytest.approx(
+        {"ms1_error": 7.5, "ms2_error": 12.0, "mobility_error": 0.045}
+    )
+
+
+@patch("alphadia.search_step.SearchPlanOutput")
+def test_run_warm_starts_from_the_previous_raw_files(mock_output_cls, tmp_path):
+    """Test that with calibration.warm_start each raw file starts from the tolerances of the previous ones."""
+    # given
+    mock_workflow_cls = MagicMock()
+    mock_workflow_cls.return_value.optimization_manager = MagicMock(
+        ms1_error=4.0, ms2_error=8.0, mobility_error=0.02
+    )
+    step = SearchStep(
+        str(tmp_path / "output"),
+        config={
+            "raw_paths": ["/raw_files/raw1.raw", "/raw_files/raw2.raw"],
+            "general": {"save_mbr_library": False},
+            "calibration": {"warm_start": True, "warm_start_factor": 1.5},
+        },
+    )
+    step.spectral_library = MagicMock()
+
+    # when
+    with (
+        patch.object(step, "_process_raw_file"),
+        patch.dict(
+            "alphadia.search_step.WORKFLOW_CLASSES",
+            {ExtractionBackend.RUST: mock_workflow_cls},
+        ),
+    ):
+        step.run()
+
+    # then
+    initial_tolerances = [
+        c.kwargs["initial_tolerances"] for c in mock_workflow_cls.call_args_list
+    ]
+    assert initial_tolerances[0] is None
+    assert initial_tolerances[1] == pytest.approx(
+        {"ms1_error": 6.0, "ms2_error": 12.0, "mobility_error": 0.03}
+    )
+
+
 @pytest.mark.parametrize(
     ("config1", "config2", "config3"),
     [

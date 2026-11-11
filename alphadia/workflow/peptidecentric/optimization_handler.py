@@ -38,6 +38,9 @@ from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
 ExtractionHandlerT = TypeVar("ExtractionHandlerT", bound=ExtractionHandler)
 
+# fewest precursors at 1% FDR that a recalibration needs
+MIN_PRECURSORS_TO_RECALIBRATE = 6
+
 
 @dataclass
 class ExtractedBatch:
@@ -324,6 +327,13 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     )
 
                     self._optlock.update()
+                    if self._optlock.pruned_in_last_update:
+                        num_pruned = self._optlock.num_pruned_elution_groups
+                        log_string(
+                            f"Pruned the optimization lock: removed {num_pruned:,} of {self._optlock.stop_idx:,} "
+                            f"elution groups ({100 * num_pruned / self._optlock.stop_idx:.1f}%).",
+                            verbosity="progress",
+                        )
                     recalibration_handler.recalibrate(
                         precursor_df_filtered, fragments_df_filtered
                     )
@@ -344,6 +354,12 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     verbosity="warning",
                 )
 
+        if (
+            not insufficient_precursors_to_optimize
+            and self._config["calibration"]["final_refit"]
+        ):
+            self._refit_with_final_tolerances(recalibration_handler)
+
         log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
             verbosity="progress",
@@ -357,7 +373,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
                 precursor_df, self._optlock.fragments_df
             )
-            if precursor_df_filtered.shape[0] >= 6:
+            if precursor_df_filtered.shape[0] >= MIN_PRECURSORS_TO_RECALIBRATE:
                 recalibration_handler.recalibrate(
                     precursor_df_filtered, fragments_df_filtered
                 )
@@ -376,6 +392,33 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 )
         log_string(
             "==============================================", verbosity="progress"
+        )
+
+    def _refit_with_final_tolerances(
+        self, recalibration_handler: RecalibrationHandler
+    ) -> None:
+        """Search the lock once more with the final tolerances and take its calibration, score cutoff, peak widths and classifier forward.
+
+        Without this, these come from the optimum step of the optimizer history (classifier, score cutoff, peak
+        widths) and from the last step (calibration), which depend on which noisy step won.
+        """
+        self._reporter.log_string(
+            "Final calibration step with the optimized tolerances.",
+            verbosity="progress",
+        )
+        precursor_df = self._process_batch()
+        precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
+            precursor_df, self._optlock.fragments_df
+        )
+        if precursor_df_filtered.shape[0] < MIN_PRECURSORS_TO_RECALIBRATE:
+            self._reporter.log_string(
+                f"Final calibration step skipped: {precursor_df_filtered.shape[0]} precursors at 1% FDR.",
+                verbosity="warning",
+            )
+            return
+        recalibration_handler.recalibrate(precursor_df_filtered, fragments_df_filtered)
+        self._optimization_manager.update(
+            classifier_version=self._fdr_manager.current_version
         )
 
     def _process_batch(self):
@@ -424,6 +467,18 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         pd.DataFrame
             Precursors with FDR results
         """
+
+    def _get_max_qval(self) -> float | None:
+        """Highest q-value that the FDR of an optimization step keeps, None for `fdr.fdr`.
+
+        Pruning the lock needs the q-values above the FDR threshold.
+        """
+        config_calibration = self._config["calibration"]
+        return (
+            config_calibration["prune_lock_qval"]
+            if config_calibration["prune_lock"]
+            else None
+        )
 
     def _initiate_search_parameter_optimization(self):
         """Saves the classifier version just before search parameter optimization begins and updates the optimization lock to show that calibration has been performed."""

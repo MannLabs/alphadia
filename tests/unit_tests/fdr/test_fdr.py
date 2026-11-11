@@ -527,3 +527,45 @@ def test_perform_fdr_trains_on_the_best_candidate_if_asked(train_on_best_candida
     else:
         assert len(fitted_precursors) == len(idxs_train)
     assert set(result["precursor_idx"]) == set(psm_df["precursor_idx"])
+
+
+def test_stratified_subsample_keeps_the_share_of_decoys():
+    """Test that the subsample has at most max_samples rows with the same share of decoys."""
+    # given
+    idxs = np.arange(1000)
+    y = (idxs % 4 == 0).astype(float)
+
+    # when
+    subset = fdr._stratified_subsample(idxs, y, 100, random_state=0)
+
+    # then
+    assert len(subset) == 100
+    assert np.sum(y[subset]) == 25
+    assert np.all(np.diff(subset) > 0)
+
+
+def test_stratified_subsample_keeps_all_rows_below_max_samples():
+    """Test that a training set smaller than max_samples is used as is."""
+    idxs = np.arange(50)
+    assert np.array_equal(fdr._stratified_subsample(idxs, np.zeros(50), 100, 0), idxs)
+
+
+def test_perform_fdr_fits_on_at_most_max_train_samples():
+    """Test that the classifier is fit on max_train_samples rows and every PSM is still scored."""
+    # given
+    psm_df = _gen_psm_df()
+    classifier = _FitRecordingClassifier()
+
+    # when
+    result = fdr.perform_fdr(
+        classifier,
+        ["feature"],
+        psm_df,
+        psm_df["decoy"].to_numpy() == 1,
+        max_train_samples=100,
+        random_state=0,
+    )
+
+    # then
+    assert len(classifier.fitted_x) == 100
+    assert set(result["precursor_idx"]) == set(psm_df["precursor_idx"])
