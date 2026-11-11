@@ -87,19 +87,23 @@ def test_classifier_feature_columns_match_backend(
 
 
 def test_rust_classifier_feature_columns_follow_the_interference_flags(tmp_path):
-    # given: a rust workflow with the window share switched on
+    # given: a rust workflow with the window share switched on, and a backend that scores both interference groups
     workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
     workflow.config["search"]["window_signal_share_features"] = True
+    interference = [c for cols in INTERFERENCE_FEATURE_GROUPS.values() for c in cols]
 
     # when
-    columns = workflow._classifier_feature_columns()
+    with patch(
+        "alphadia.workflow.peptidecentric.rust.mapper.get_feature_names",
+        return_value=["correlation_mean", *interference],
+    ):
+        columns = workflow._classifier_feature_columns()
 
     # then: the window share enters the classifier, the fitted spread does not
-    assert columns == get_classifier_feature_columns(["window_signal_share_features"])
-    assert set(INTERFERENCE_FEATURE_GROUPS["window_signal_share_features"]) <= set(
-        columns
-    )
-    assert not set(INTERFERENCE_FEATURE_GROUPS["fitted_spread_features"]) & set(columns)
+    assert columns == [
+        "correlation_mean",
+        *INTERFERENCE_FEATURE_GROUPS["window_signal_share_features"],
+    ]
 
 
 @pytest.mark.parametrize(
