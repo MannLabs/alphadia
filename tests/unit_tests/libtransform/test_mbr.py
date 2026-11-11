@@ -323,6 +323,7 @@ class TestGetRunIdentifications:
                 "pg_qval": [0.001, 0.001, 0.05, 0.001],
                 "rt_observed": [10.0, 11.0, 20.0, 30.0],
                 "rt_calibrated": [10.5, 11.5, 20.5, 30.5],
+                "pg": ["PG_A", "PG_A", "PG_B", "PG_C"],
                 "proba": [0.1, 0.2, 0.3, 0.4],
             }
         )
@@ -337,11 +338,15 @@ class TestGetRunIdentifications:
             "mod_seq_charge_hash",
             "rt_observed",
             "rt_calibrated",
+            "pg",
+            "pg_qval",
         ]
         assert result["run"].tolist() == ["run_a"]
         assert result["mod_seq_charge_hash"].tolist() == [100]
         assert result["rt_observed"].tolist() == [10.0]
         assert result["rt_calibrated"].tolist() == [10.5]
+        assert result["pg"].tolist() == ["PG_A"]
+        assert result["pg_qval"].tolist() == [0.001]
 
     def test_without_calibrated_rt_column(self):
         # given

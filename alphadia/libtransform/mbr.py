@@ -122,7 +122,6 @@ class MbrLibraryBuilder(ProcessingStep):
         self.fdr = fdr
         self.keep_decoys = keep_decoys
         self.decoy_type = decoy_type
-        self.pg_qval: pd.DataFrame | None = None
 
     def validate(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
@@ -202,7 +201,6 @@ class MbrLibraryBuilder(ProcessingStep):
 
         """
         psm_df = _passing_fdr(psm_df, self.fdr)
-        self.pg_qval = psm_df.groupby("pg", as_index=False)["pg_qval"].max()
 
         if self.keep_decoys:
             elution_groups = psm_df["elution_group_idx"].unique()
@@ -237,7 +235,7 @@ class MbrLibraryBuilder(ProcessingStep):
 
 def get_run_identifications(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
     """Return the target precursors each run identified at `fdr`, the same PSMs `MbrLibraryBuilder` with this `fdr`
-    builds its library from, with their observed and calibrated RT.
+    builds its library from, with their observed and calibrated RT and their protein group with its q-value.
 
     `CalibCols.RT_CALIBRATED` is NaN for runs whose PSMs do not have it.
     """
@@ -251,6 +249,8 @@ def get_run_identifications(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
                 "mod_seq_charge_hash",
                 CalibCols.RT_OBSERVED,
                 CalibCols.RT_CALIBRATED,
+                "pg",
+                "pg_qval",
             ]
         )
         .reset_index(drop=True)

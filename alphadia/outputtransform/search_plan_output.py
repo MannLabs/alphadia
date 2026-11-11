@@ -350,18 +350,14 @@ class SearchPlanOutput:
             self.config["fdr"]["group_level"],
         )
 
-        library_path = self.config.get(ConfigKeys.LIBRARY_PATH)
-        library_pg_qval_path = (
-            None
-            if library_path is None
-            else os.path.join(
-                os.path.dirname(library_path), SearchPlanFiles.MBR_PG_QVAL_FILE_NAME
-            )
+        run_identifications_path = self.config.get(
+            ConfigKeys.MBR_RUN_IDENTIFICATIONS_PATH
         )
-        if library_pg_qval_path is not None and os.path.exists(library_pg_qval_path):
-            logger.info(f"Taking the protein q-values from {library_pg_qval_path}")
+        if run_identifications_path is not None:
+            logger.info(f"Taking the protein q-values from {run_identifications_path}")
             psm_df = transfer_library_pg_qval(
-                psm_df, pd.read_parquet(library_pg_qval_path)
+                psm_df,
+                pd.read_parquet(run_identifications_path, columns=["pg", "pg_qval"]),
             )
         else:
             logger.info("Performing protein FDR")
@@ -478,10 +474,6 @@ class SearchPlanOutput:
             decoy_type=self.config["fdr"]["decoy_type"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
-        libbuilder.pg_qval.to_parquet(
-            os.path.join(self.output_folder, SearchPlanFiles.MBR_PG_QVAL_FILE_NAME),
-            index=False,
-        )
 
         precursor_number = len(mbr_spec_lib.precursor_df)
         protein_number = mbr_spec_lib.precursor_df["proteins"].nunique()

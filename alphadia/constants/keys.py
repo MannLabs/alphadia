@@ -106,8 +106,6 @@ class SearchPlanFiles(metaclass=ConstantsClass):
     MBR_LIBRARY_FILE_NAME = "speclib.mbr.hdf"
     # the precursors the MBR library was built from, per run (`get_run_identifications`)
     MBR_RUN_IDENTIFICATIONS_FILE_NAME = "speclib.mbr.run_identifications.parquet"
-    # next to the MBR library: the q-value of each protein group it holds (`MbrLibraryBuilder.pg_qval`)
-    MBR_PG_QVAL_FILE_NAME = "speclib.mbr.pg_qval.parquet"
     TRANSFER_LIBRARY_FILE_NAME = "speclib.transfer.hdf"
     TRANSFER_MODEL_FOLDER_NAME = "peptdeep.transfer"
 
