@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import torch
 
-from alphadia.constants.keys import FeatureTransform
+from alphadia.constants.keys import FeatureTransform, MbrCols
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 from alphadia.fdr.utils import train_test_split_indices
@@ -567,3 +567,42 @@ def test_get_q_values_decoy_weight_column():
 
     # then
     np.testing.assert_allclose(result["qval"].values, [0, 0.25, 0.25, 0.75])
+
+
+class _FeatureClassifier(_CollapsingClassifier):
+    """Give the first feature as the decoy probability."""
+
+    def __init__(self):
+        super().__init__(n_collapses=0)
+
+    def predict_proba(self, x):
+        return np.stack([1 - x[:, 0], x[:, 0]], axis=1)
+
+
+def test_perform_fdr_keeps_decoy_weights_on_their_rows():
+    """Test the MBR decoy weights stay on the decoy rows once the PSMs are sorted by probability."""
+    # given: targets and decoys interleaved in probability, decoys weighted 1/3
+    rng = np.random.default_rng(0)
+    psm_df = _gen_psm_df()
+    psm_df["feature"] = rng.random(len(psm_df))
+    psm_df[MbrCols.DECOY_WEIGHT] = psm_df["decoy"] / 3
+
+    # when
+    result = fdr.perform_fdr(
+        _FeatureClassifier(), ["feature"], psm_df, psm_df["decoy"].to_numpy() == 1
+    )
+
+    # then
+    np.testing.assert_allclose(
+        result[MbrCols.DECOY_WEIGHT].to_numpy(), result["decoy"].to_numpy() / 3
+    )
+    expected = fdr.get_q_values(
+        result.drop(columns="qval"),
+        "proba",
+        "_decoy",
+        decoy_weight_column=MbrCols.DECOY_WEIGHT,
+    )
+    np.testing.assert_allclose(
+        result.sort_values(["proba", "precursor_idx"])["qval"].to_numpy(),
+        expected.sort_values(["proba", "precursor_idx"])["qval"].to_numpy(),
+    )
