@@ -15,7 +15,7 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatRust
 
-from alphadia.constants.keys import CalibCols, MbrCols
+from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
 from alphadia.reporting.reporting import Pipeline
@@ -253,14 +253,6 @@ class RustExtractionHandler(ExtractionHandler):
             ].drop(columns="_candidate_idx")
             _, fragments_df = self.quantify_candidates(competing, None)
             return fragments_df
-
-        library_precursors = self._spectral_library.precursor_df
-        if MbrCols.TRANSFER in library_precursors.columns:
-            features_df[MbrCols.TRANSFER] = (
-                features_df["precursor_idx"]
-                .map(library_precursors.set_index("precursor_idx")[MbrCols.TRANSFER])
-                .to_numpy()
-            )
 
         # apply FDR to PSMs
         precursor_fdr_df = self._fdr_manager.fit_predict(

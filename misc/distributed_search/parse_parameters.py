@@ -16,6 +16,10 @@ import numpy as np
 import pandas as pd
 import yaml
 
+# as written by alphadia's MBR library building step (`SearchPlanFiles`)
+MBR_LIBRARY_FILE_NAME = "speclib.mbr.hdf"
+MBR_RUN_IDENTIFICATIONS_FILE_NAME = "speclib.mbr.run_identifications.parquet"
+
 
 # Add keys to config if they don't exist
 def safe_add_key(config, parent_key, key, value):
@@ -100,6 +104,21 @@ for i in range(0, max_tasks):
 
     # set library path in config (convert to absolute path to avoid working directory issues)
     safe_add_key(current_config, None, "library_path", os.path.abspath(lib_source))
+
+    # the MBR library building step writes the run identifications next to the MBR library; searching the MBR
+    # library needs them to adapt it to each run
+    run_identifications_path = os.path.join(
+        os.path.dirname(lib_source), MBR_RUN_IDENTIFICATIONS_FILE_NAME
+    )
+    if os.path.basename(lib_source) == MBR_LIBRARY_FILE_NAME and os.path.exists(
+        run_identifications_path
+    ):
+        safe_add_key(
+            current_config,
+            None,
+            "mbr_run_identifications_path",
+            os.path.abspath(run_identifications_path),
+        )
 
     # set chunk folder as output_directory in the config
     safe_add_key(current_config, None, "output_directory", "./")

@@ -529,7 +529,7 @@ def test_perform_fdr_trains_on_the_best_candidate_if_asked(train_on_best_candida
     assert set(result["precursor_idx"]) == set(psm_df["precursor_idx"])
 
 
-def test_get_q_values_by_stratum():
+def test_get_stratified_q_values():
     """Test the q-values are computed within each stratum, not pooled."""
     # given: the re-found stratum is decoy-free, the transfer stratum has one decoy on top
     psm_df = pd.DataFrame(
@@ -542,9 +542,92 @@ def test_get_q_values_by_stratum():
     )
 
     # when
-    pooled = fdr.get_q_values_by_stratum(psm_df.copy(), None)
-    stratified = fdr.get_q_values_by_stratum(psm_df.copy(), "stratum")
+    pooled = fdr.get_stratified_q_values(psm_df.copy(), None)
+    stratified = fdr.get_stratified_q_values(psm_df.copy(), "stratum")
 
     # then
     np.testing.assert_allclose(pooled["qval"].values, [0, 0, 0, 0.2, 0.2, 0.2])
     np.testing.assert_allclose(stratified["qval"].values, [0, 0, 0, 0.5, 0.5, 0.5])
+
+
+def test_get_stratified_q_values_keeps_rows_without_stratum():
+    """Test rows with a NaN stratum get q-values among themselves instead of being dropped."""
+    # given
+    psm_df = pd.DataFrame(
+        {
+            "proba": [0.01, 0.02, 0.03, 0.04],
+            "_decoy": [0, 0, 0, 1],
+            "precursor_idx": np.arange(4),
+            "stratum": [0, 0, np.nan, np.nan],
+        }
+    )
+
+    # when
+    result = fdr.get_stratified_q_values(psm_df, "stratum")
+
+    # then
+    np.testing.assert_array_equal(result["precursor_idx"].values, [0, 1, 2, 3])
+    np.testing.assert_allclose(result["qval"].values, [0, 0, 0, 1])
+
+
+def test_perform_fdr_computes_q_values_within_the_given_strata():
+    """Test the q-values are computed within the strata of `stratum_column` if given, else over all PSMs."""
+    # given: the targets of stratum 1 score best, while the decoys are spread over both strata
+    psm_df = _gen_psm_df()
+    psm_df["stratum"] = np.where(
+        psm_df["decoy"] == 1,
+        np.arange(len(psm_df)) % 2,
+        (psm_df["feature"] < 0.5).astype(int),
+    )
+
+    def run_perform_fdr(stratum_column: str | None) -> pd.DataFrame:
+        return fdr.perform_fdr(
+            _FitRecordingClassifier(),
+            ["feature"],
+            psm_df,
+            psm_df["decoy"].to_numpy() == 1,
+            stratum_column=stratum_column,
+            random_state=0,
+        ).sort_values("precursor_idx")
+
+    # when
+    pooled = run_perform_fdr(None)
+    stratified = run_perform_fdr("stratum")
+
+    # then
+    np.testing.assert_array_equal(
+        stratified["qval"].values,
+        fdr.get_stratified_q_values(stratified.drop(columns="qval"), "stratum")
+        .sort_values("precursor_idx")["qval"]
+        .values,
+    )
+    np.testing.assert_array_equal(
+        pooled["qval"].values,
+        fdr.get_q_values(pooled.drop(columns="qval"))
+        .sort_values("precursor_idx")["qval"]
+        .values,
+    )
+    assert not np.array_equal(pooled["qval"].values, stratified["qval"].values)
+
+
+@patch("alphadia.fdr.fdr.plot_fdr")
+def test_perform_fdr_plots_sorted_q_values_with_strata(mock_plot_fdr):
+    """Test the FDR plot gets q-values in ascending order although the strata interleave them."""
+    # given
+    psm_df = _gen_psm_df()
+    psm_df["stratum"] = np.arange(len(psm_df)) % 2
+
+    # when
+    fdr.perform_fdr(
+        _FitRecordingClassifier(),
+        ["feature"],
+        psm_df,
+        psm_df["decoy"].to_numpy() == 1,
+        stratum_column="stratum",
+        figure_path="/figures",
+        random_state=0,
+    )
+
+    # then
+    qval = mock_plot_fdr.call_args.args[4]
+    assert (np.diff(qval) >= 0).all()

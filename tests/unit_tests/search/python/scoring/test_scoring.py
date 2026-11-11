@@ -6,7 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from alphadia.search.python.scoring.scoring import CandidateScoring
+from alphadia.constants.keys import MbrCols
+from alphadia.search.python.scoring.scoring import (
+    DEFAULT_PRECURSOR_COLUMNS,
+    CandidateScoring,
+)
 
 
 class TestCandidateScoringCollectCandidates:
@@ -219,3 +223,34 @@ class TestCandidateScoringCollectCandidates:
         expected_df = expected_df[result_df.columns]
 
         pd.testing.assert_frame_equal(result_df, expected_df, check_dtype=False)
+
+
+@pytest.mark.parametrize("library_has_column", [True, False])
+def test_merge_precursor_data_carries_the_identified_in_run_column_of_the_library(
+    library_has_column,
+):
+    # given
+    precursors_flat_df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2],
+            **{column: [0, 0] for column in DEFAULT_PRECURSOR_COLUMNS},
+        }
+    )
+    if library_has_column:
+        precursors_flat_df[MbrCols.IDENTIFIED_IN_RUN] = [1, 0]
+    features_df = pd.DataFrame({"precursor_idx": [2, 1]})
+
+    # when
+    result = CandidateScoring.merge_precursor_data(
+        features_df,
+        precursors_flat_df,
+        rt_column="rt_library",
+        mobility_column="mobility_library",
+        precursor_mz_column="mz_library",
+    )
+
+    # then
+    if library_has_column:
+        assert result[MbrCols.IDENTIFIED_IN_RUN].tolist() == [0, 1]
+    else:
+        assert MbrCols.IDENTIFIED_IN_RUN not in result.columns

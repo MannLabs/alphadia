@@ -368,6 +368,30 @@ def test_fdr_manager_fit_predict_leaves_out_excluded_columns():
     assert column_hash(FDR_TEST_FEATURES) not in fdr_manager.classifier_store
 
 
+@pytest.mark.parametrize("decoy_strategy", ["precursor", "precursor_channel_wise"])
+@patch("alphadia.workflow.managers.fdr_manager.fdr.perform_fdr")
+def test_fdr_manager_fit_predict_passes_the_stratum_column(
+    mock_perform_fdr, decoy_strategy
+):
+    # given
+    mock_perform_fdr.return_value = pd.DataFrame()
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config={"search": {"compete_for_fragments": False}},
+        stratum_column="stratum",
+    )
+    features_df = fdr_testdata(FDR_TEST_FEATURES).assign(channel=0)
+
+    # when
+    fdr_manager.fit_predict(
+        features_df, decoy_strategy=decoy_strategy, competitive=False
+    )
+
+    # then
+    assert mock_perform_fdr.call_args.kwargs["stratum_column"] == "stratum"
+
+
 def test_fdr_manager_fit_predict():
     fdr_manager = FDRManager(
         feature_columns=FDR_TEST_FEATURES,
