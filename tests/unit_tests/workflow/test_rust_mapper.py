@@ -12,7 +12,6 @@ import alphadia
 from alphadia.workflow.peptidecentric.rust.mapper import (
     INTERFERENCE_FEATURE_GROUPS,
     get_classifier_feature_columns,
-    get_feature_names,
     get_interference_feature_groups,
     to_features_df,
 )
@@ -51,71 +50,75 @@ def test_to_features_df_sets_the_library_mz_as_observed_mz():
     assert features_df["mz_library"].tolist() == [502.0, 501.0]
 
 
-def test_interference_columns_are_full_features_after_the_existing_ones():
-    # given / when
-    full = get_feature_names(FeatureSet.Full)
-    calibration = get_feature_names(FeatureSet.Calibration)
+# A full feature set with the interference block at its end, so that the tests do not depend on whether the installed
+# alphadia-search-rs release already scores the interference features.
+CORE_COLUMNS = [
+    "correlation_mean",
+    "intensity_correlation",
+    "mean_overlapping_mass_error",
+]
+FULL_WITH_INTERFERENCE = CORE_COLUMNS + INTERFERENCE_COLUMNS
 
-    # then the 7 columns are the last ones of the full set and absent from the calibration set
-    assert full[-len(INTERFERENCE_COLUMNS) :] == INTERFERENCE_COLUMNS
-    assert not set(INTERFERENCE_COLUMNS) & set(calibration)
+
+@pytest.fixture
+def full_feature_names():
+    with patch(
+        "alphadia.workflow.peptidecentric.rust.mapper.get_feature_names",
+        return_value=list(FULL_WITH_INTERFERENCE),
+    ) as mock:
+        yield mock
 
 
-def test_get_classifier_feature_columns_without_flags_is_the_baseline():
-    # given the feature names of the branch without interference features
-    baseline_full = [
-        name
-        for name in get_feature_names(FeatureSet.Full)
-        if name not in INTERFERENCE_COLUMNS
-    ]
+def test_get_classifier_feature_columns_without_flags_is_the_baseline(
+    full_feature_names,
+):
+    # given a full feature set with the interference block
 
     # when
     columns = get_classifier_feature_columns()
 
-    # then
-    assert columns == baseline_full
+    # then the interference columns are left out
+    assert columns == CORE_COLUMNS
+    full_feature_names.assert_called_once_with(FeatureSet.Full)
+
+
+def test_get_classifier_feature_columns_without_the_block_in_rust():
+    # given a backend release without the interference block
     with patch(
         "alphadia.workflow.peptidecentric.rust.mapper.get_feature_names",
-        return_value=list(baseline_full),
+        return_value=list(CORE_COLUMNS),
     ):
-        # a backend without the interference block gives the same columns
-        assert get_classifier_feature_columns() == baseline_full
-        assert (
-            get_classifier_feature_columns(
-                ["fitted_spread_features", "window_signal_share_features"]
-            )
-            == baseline_full
+        # when the flags are on
+        columns = get_classifier_feature_columns(
+            ["fitted_spread_features", "window_signal_share_features"]
         )
 
+    # then the columns are unchanged
+    assert columns == CORE_COLUMNS
 
-def test_get_classifier_feature_columns_with_both_flags_adds_the_7_columns():
-    # given
-    baseline = get_classifier_feature_columns()
 
-    # when
+def test_get_classifier_feature_columns_with_both_flags_adds_the_7_columns(
+    full_feature_names,
+):
+    # given / when
     columns = get_classifier_feature_columns(
         ["fitted_spread_features", "window_signal_share_features"]
     )
 
     # then
-    assert columns == get_feature_names(FeatureSet.Full)
-    assert columns[: len(baseline)] == baseline
-    assert columns[len(baseline) :] == INTERFERENCE_COLUMNS
+    assert columns == FULL_WITH_INTERFERENCE
     assert len(INTERFERENCE_COLUMNS) == 7
 
 
 @pytest.mark.parametrize("group", list(INTERFERENCE_FEATURE_GROUPS))
-def test_get_classifier_feature_columns_adds_only_the_enabled_group(group):
-    # given
-    baseline = get_classifier_feature_columns()
-
-    # when
+def test_get_classifier_feature_columns_adds_only_the_enabled_group(
+    group, full_feature_names
+):
+    # given / when
     columns = get_classifier_feature_columns([group])
 
     # then
-    assert [c for c in columns if c not in baseline] == list(
-        INTERFERENCE_FEATURE_GROUPS[group]
-    )
+    assert columns == CORE_COLUMNS + list(INTERFERENCE_FEATURE_GROUPS[group])
 
 
 def test_get_classifier_feature_columns_rejects_an_unknown_group():
