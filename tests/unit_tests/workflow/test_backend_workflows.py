@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 import pytest
-from alphadia_search_rs import FeatureSet
 
 from alphadia.exceptions import GenericUserError
 from alphadia.raw_data.bruker import TimsTOFTranspose
@@ -20,7 +19,10 @@ from alphadia.workflow.peptidecentric.python.workflow import (
 from alphadia.workflow.peptidecentric.rust.extraction_handler import (
     RustExtractionHandler,
 )
-from alphadia.workflow.peptidecentric.rust.mapper import get_feature_names
+from alphadia.workflow.peptidecentric.rust.mapper import (
+    INTERFERENCE_FEATURE_GROUPS,
+    get_classifier_feature_columns,
+)
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
     RustOptimizationHandler,
 )
@@ -68,7 +70,7 @@ def _create_workflow(workflow_class, tmp_path):
     ("workflow_class", "expected_columns"),
     [
         (PythonPeptideCentricWorkflow, feature_columns),
-        (RustPeptideCentricWorkflow, get_feature_names(FeatureSet.Full)),
+        (RustPeptideCentricWorkflow, get_classifier_feature_columns()),
     ],
 )
 def test_classifier_feature_columns_match_backend(
@@ -82,6 +84,26 @@ def test_classifier_feature_columns_match_backend(
 
     # then
     assert columns == expected_columns
+
+
+def test_rust_classifier_feature_columns_follow_the_interference_flags(tmp_path):
+    # given: a rust workflow with the window share switched on, and a backend that scores both interference groups
+    workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
+    workflow.config["search"]["window_signal_share_features"] = True
+    interference = [c for cols in INTERFERENCE_FEATURE_GROUPS.values() for c in cols]
+
+    # when
+    with patch(
+        "alphadia.workflow.peptidecentric.rust.mapper.get_feature_names",
+        return_value=["correlation_mean", *interference],
+    ):
+        columns = workflow._classifier_feature_columns()
+
+    # then: the window share enters the classifier, the fitted spread does not
+    assert columns == [
+        "correlation_mean",
+        *INTERFERENCE_FEATURE_GROUPS["window_signal_share_features"],
+    ]
 
 
 @pytest.mark.parametrize(
