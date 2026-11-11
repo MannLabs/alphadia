@@ -38,6 +38,7 @@ def config():
             "file_format": "parquet",
             "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
+            "intensity_drift_correction": True,
         },
     }
 
