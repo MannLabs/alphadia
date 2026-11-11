@@ -58,6 +58,11 @@ _SLOT_CHUNK = 5_000_000
 # (e2e/dev/analysis/FDR/first_pass_gap/FINDINGS.md).
 SELECTION_DET_SHARE = "selection_det_share"
 DET_SHARE_GATE = 0.65
+# Of the rows the detection-share gate admits below the raw-score cutoff, those with little hit/miss detection evidence
+# (det_llr) after scoring carry almost no real IDs but make up 12-15 % of the final round at 5 ng; dropping them before
+# the final fit gave ~+1 % real IDs at matched paired FDP in a replay (FINDINGS.md, admission and riding variants).
+GATE_MIN_DET_LLR = 4.0
+DET_LLR = "det_llr"
 
 # The rust path never calibrates the precursor m/z (ms1_error stays at its start value), so before the MS1 features are
 # scored, a pre-pass extracts the MS1 of the best-scoring target candidates at a wide tolerance and fits the MS1
@@ -325,6 +330,46 @@ class ExtractionHandler(ABC):
             " detection share only)",
         )
         return candidates_df
+
+    def drop_weak_gate_rows(
+        self, features_df: pd.DataFrame, candidates_df: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Drop scored candidates that are below the raw-score cutoff (admitted by the detection-share gate) and have
+        det_llr of at most GATE_MIN_DET_LLR, from both the features and the candidates.
+
+        Parameters
+        ----------
+        features_df : pd.DataFrame
+            Scored candidates, with `precursor_idx`, `rank` and `det_llr`
+        candidates_df : pd.DataFrame
+            Candidates with their selection `score`
+
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            The kept features and candidates
+        """
+        if DET_LLR not in features_df.columns:
+            return features_df, candidates_df
+        key = ["precursor_idx", "rank"]
+        score = features_df[key].merge(
+            candidates_df[key + ["score"]], on=key, how="left"
+        )["score"]
+        weak = (score.to_numpy() <= self._optimization_manager.score_cutoff) & (
+            features_df[DET_LLR].to_numpy() <= GATE_MIN_DET_LLR
+        )
+        dropped = features_df.loc[weak, key]
+        features_df = features_df[~weak].reset_index(drop=True)
+        is_dropped = (
+            candidates_df[key]
+            .merge(dropped.assign(_drop=True), on=key, how="left")["_drop"]
+            .fillna(False)
+        )
+        candidates_df = candidates_df[~is_dropped.to_numpy(bool)].reset_index(drop=True)
+        self._reporter.log_string(
+            f"Removed {int(weak.sum())} gate-admitted candidates with {DET_LLR} at most {GATE_MIN_DET_LLR}"
+        )
+        return features_df, candidates_df
 
     def _log_parameters(self) -> None:
         """Log current extraction parameters."""

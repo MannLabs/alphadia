@@ -277,3 +277,37 @@ def test_score_cutoff_alone_without_the_detection_share():
 
     # then
     assert kept["precursor_idx"].tolist() == [0]
+
+
+def test_drop_weak_gate_rows_drops_only_gate_rows_with_low_detection_llr():
+    # given
+    handler = NgExtractionHandler(
+        {"search": {}},
+        MagicMock(score_cutoff=10.0),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+    )
+    candidates_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2, 3],
+            "rank": [0, 0, 0, 1],
+            "score": [12.0, 8.0, 8.0, 12.0],
+        }
+    )
+    features_df = pd.DataFrame(
+        {
+            "precursor_idx": [3, 2, 1, 0],
+            "rank": [1, 0, 0, 0],
+            extraction_handler.DET_LLR: [1.0, 2.0, 6.0, 1.0],
+        }
+    )
+
+    # when
+    features_kept, candidates_kept = handler.drop_weak_gate_rows(
+        features_df, candidates_df
+    )
+
+    # then
+    assert features_kept["precursor_idx"].tolist() == [3, 1, 0]
+    assert candidates_kept["precursor_idx"].tolist() == [0, 1, 3]

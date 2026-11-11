@@ -285,6 +285,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_w_features_df = extraction_handler.score_candidates(
                 candidates_df, self.dia_data, self.spectral_library
             )
+            precursor_w_features_df, candidates_df = (
+                extraction_handler.drop_weak_gate_rows(
+                    precursor_w_features_df, candidates_df
+                )
+            )
 
             candidates_fdr_df, precursor_fdr_df = (
                 extraction_handler.perform_fdr_and_filter_candidates(
