@@ -226,6 +226,34 @@ calibration:
   # the correlation threshold for fragments used to calibrate fragment mz (i.e. ms2)
   min_correlation: 0.7
 
+  # prune the optimization lock the first time it reaches optimization_lock_target, so that the optimization steps extract fewer elution groups.
+  # An elution group stays when one of its candidates has a q-value below prune_lock_qval, or when it belongs to a random background
+  # of prune_lock_background_factor times as many other elution groups. With pruning, candidates below max(0.1, prune_lock_qval) FDR enter
+  # fragment competition during the optimization (instead of below 0.1), so that they keep their q-values.
+  # Set batch_size above the number of elution groups to search the whole library in the first round and prune it.
+  prune_lock: False
+  prune_lock_qval: 0.2
+  prune_lock_background_factor: 10
+  # optimization steps searched on the full lock before pruning it. 0 prunes when the target is first reached, at the
+  # initial tolerances, which favours the initial tolerance in the optimizer; 2 prunes after the first narrowed tolerance
+  # (step 1 searches the initial tolerance after the first calibration, step 2 the first proposed one).
+  prune_lock_after_steps: 0
+
+  # after the optimization, search the lock once more with the final tolerances and take the score cutoff, peak
+  # widths, calibration and classifier of that step forward instead of those of the optimum step of the history
+  # (which differ between steps and add run-to-run variation); costs one step on the lock
+  final_refit: False
+
+  # fit the classifier of the optimization rounds on a random subset of at most this many training rows (same share of decoys);
+  # all rows are still scored. null uses all rows. The final search always uses all rows.
+  classifier_max_train_samples: null
+
+  # start the optimization of each raw file from the tolerances optimized on the previous raw files of the search step:
+  # the median of their ms1, ms2 and mobility tolerances times warm_start_factor, but never wider than search_initial.
+  # The retention time tolerance is not warm started, since it applies to the uncalibrated library retention times until the first calibration.
+  warm_start: False
+  warm_start_factor: 1.5
+
 search_initial:
   # Number of peak groups identified in the convolution score to classify with target decoy competition
   num_candidates: 1
@@ -241,6 +269,10 @@ search_initial:
 
   # initial retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
   rt_tolerance: 0.5
+
+  # upper bound in seconds of the initial retention time tolerance, e.g. 200 with rt_tolerance 0.3 starts at
+  # min(200 s, 0.3 x gradient length): long gradients start narrower, short ones keep the proportion. null: no bound
+  max_rt_tolerance: null
 
 
 # perform non-isobaric multiplexing of any input library
@@ -374,6 +406,11 @@ optimization:
   #   - targeted_update_factor: the factor by which to multiply the result from the percentile interval for targeted optimization
   #   - automatic_update_percentile_range: the percentile interval to use (as a decimal) for automatic optimization
   #   - automatic_update_factor: the factor by which to multiply the result from the percentile interval for automatic optimization
+  #   - automatic_update_method: how the automatic optimization proposes the next value: "percentile" (automatic_update_factor
+  #     x the automatic_update_percentile_range interval of the calibration residuals) or "mad" (automatic_update_mad_factor
+  #     x the robust standard deviation of the residuals, 1.4826 x their median absolute deviation, which does not depend
+  #     on the current tolerance or on a few extreme residuals)
+  #   - automatic_update_mad_factor: the number of robust standard deviations proposed with automatic_update_method "mad"
   #   - try_narrower_values: if True, the optimization will try narrower parameters until a substantial (as determined by maximal_decrease) decrease in the feature used for optimization is observed.
   #   - maximal_decrease: the maximal decrease of the parameter value before stopping optimization (only relevant if try_narrower_values is True).
   #     For example, a value of 0.2 indicates up to 20% decrease from the previous parameter is permissible.
@@ -386,6 +423,8 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
+      automatic_update_method: percentile
+      automatic_update_mad_factor: 6.0
       try_narrower_values: True
       maximal_decrease: 0.5
       favour_narrower_optimum: False
@@ -395,6 +434,8 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
+      automatic_update_method: percentile
+      automatic_update_mad_factor: 6.0
       try_narrower_values: False
       maximal_decrease: 0.2
       favour_narrower_optimum: False
@@ -404,6 +445,8 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
+      automatic_update_method: percentile
+      automatic_update_mad_factor: 6.0
       try_narrower_values: False
       maximal_decrease: 0.2
       favour_narrower_optimum: False
@@ -413,6 +456,8 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.999
       automatic_update_factor: 1.5
+      automatic_update_method: percentile
+      automatic_update_mad_factor: 6.0
       try_narrower_values: True
       maximal_decrease: 0.1
       favour_narrower_optimum: False

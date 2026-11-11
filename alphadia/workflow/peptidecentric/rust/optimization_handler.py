@@ -57,5 +57,9 @@ class RustOptimizationHandler(OptimizationHandler[RustExtractionHandler]):
             batch.candidates_df,
             self._optimization_manager.classifier_version,
             df_fragments=self._optlock.fragments_df,
+            max_qval=self._get_max_qval(),
+            max_train_samples=self._config["calibration"][
+                "classifier_max_train_samples"
+            ],
         )
         return precursor_df

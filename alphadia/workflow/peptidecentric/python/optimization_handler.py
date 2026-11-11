@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from alphadia.fdr.fdr import FDR_HEURISTIC
 from alphadia.workflow.peptidecentric.optimization_handler import (
     ExtractedBatch,
     OptimizationHandler,
@@ -29,10 +30,17 @@ class PythonOptimizationHandler(OptimizationHandler[PythonExtractionHandler]):
     def _perform_fdr(
         self, extraction_handler: PythonExtractionHandler, batch: ExtractedBatch
     ) -> pd.DataFrame:
+        max_qval = self._get_max_qval()
         return self._fdr_manager.fit_predict(
             self._optlock.features_df,
             decoy_strategy=get_decoy_strategy(self._config),
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=self._optlock.fragments_df,
             version=self._optimization_manager.classifier_version,
+            fdr_heuristic=FDR_HEURISTIC
+            if max_qval is None
+            else max(FDR_HEURISTIC, max_qval),
+            max_train_samples=self._config["calibration"][
+                "classifier_max_train_samples"
+            ],
         )

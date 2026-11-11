@@ -265,6 +265,29 @@ def test_optimization_manager_optimization_context_is_a_snapshot():
     assert optimization_manager.get_optimization_context().ms2_error == 3.0
 
 
+def test_optimization_manager_starts_from_narrower_initial_tolerances():
+    """Test that initial tolerances replace the configured ones only where they are narrower."""
+    # when
+    optimization_manager = OptimizationManager(
+        TEST_OPTIMIZATION_CONFIG,
+        initial_tolerances={"ms1_error": 6.0, "ms2_error": 5.0, "mobility_error": 0.02},
+    )
+
+    # then
+    assert optimization_manager.ms1_error == 4
+    assert optimization_manager.ms2_error == 5.0
+    assert optimization_manager.mobility_error == 0.02
+    assert optimization_manager.rt_error == 200
+
+
+def test_optimization_manager_raises_for_unknown_initial_tolerance():
+    """Test that only the warm start tolerances can be given as initial tolerances."""
+    with pytest.raises(ValueError, match="rt_error"):
+        OptimizationManager(
+            TEST_OPTIMIZATION_CONFIG, initial_tolerances={"rt_error": 50.0}
+        )
+
+
 def test_optimization_manager_rt_proportion():
     TEST_OPTIMIZATION_CONFIG_PROPORTION = deepcopy(TEST_OPTIMIZATION_CONFIG)
     TEST_OPTIMIZATION_CONFIG_PROPORTION["search_initial"]["rt_tolerance"] = 0.5
@@ -277,6 +300,25 @@ def test_optimization_manager_rt_proportion():
     optimization_manager.rt_error = 600
 
     assert optimization_manager.is_loaded_from_file is False
+
+
+@pytest.mark.parametrize(
+    ("gradient_length", "expected_rt_error"), [(2745.0, 200.0), (376.0, 0.3 * 376.0)]
+)
+def test_optimization_manager_bounds_initial_rt_tolerance(
+    gradient_length, expected_rt_error
+):
+    """Test that the initial retention time tolerance is the proportion of the gradient, at most max_rt_tolerance."""
+    # given
+    config = deepcopy(TEST_OPTIMIZATION_CONFIG)
+    config["search_initial"]["rt_tolerance"] = 0.3
+    config["search_initial"]["max_rt_tolerance"] = 200
+
+    # when
+    optimization_manager = OptimizationManager(config, gradient_length)
+
+    # then
+    assert optimization_manager.rt_error == pytest.approx(expected_rt_error)
 
 
 def test_optimization_manager_save_load():
@@ -1089,3 +1131,61 @@ def test_optimizer_skipping():
     rt_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert rt_optimizer.has_converged is True
+
+
+def _create_rt_optimizer(update_method: str):
+    """Make an automatic RT optimizer on calibrated test data (residual standard deviation 0.5 s)."""
+    workflow = create_workflow_instance()
+    workflow.config["optimization"]["rt_error"]["automatic_update_method"] = (
+        update_method
+    )
+    workflow.calibration_manager.fit(calibration_testdata(), "precursor", plot=False)
+    return AutomaticRTOptimizer(
+        100,
+        workflow.config,
+        workflow.optimization_manager,
+        workflow.calibration_manager,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
+        workflow.reporter,
+    )
+
+
+def test_automatic_optimizer_mad_proposal_is_a_multiple_of_the_robust_sd():
+    """Test that the mad update proposes automatic_update_mad_factor robust standard deviations of the residuals."""
+    # given
+    rt_optimizer = _create_rt_optimizer("mad")
+
+    # when
+    proposal = rt_optimizer._propose_new_parameter(calibration_testdata())
+
+    # then
+    assert proposal == pytest.approx(6.0 * 0.5, rel=0.1)
+
+
+def test_automatic_optimizer_mad_proposal_ignores_extreme_residuals():
+    """Test that a few extreme residuals barely move the mad proposal but widen the percentile proposal."""
+    # given
+    df = calibration_testdata()
+    df_with_outliers = df.copy()
+    df_with_outliers.loc[:4, "rt_observed"] += 40.0
+    mad_optimizer = _create_rt_optimizer("mad")
+    percentile_optimizer = _create_rt_optimizer("percentile")
+
+    # when
+    mad_change = mad_optimizer._propose_new_parameter(
+        df_with_outliers
+    ) / mad_optimizer._propose_new_parameter(df)
+    percentile_change = percentile_optimizer._propose_new_parameter(
+        df_with_outliers
+    ) / percentile_optimizer._propose_new_parameter(df)
+
+    # then
+    assert mad_change == pytest.approx(1.0, abs=0.02)
+    assert percentile_change > 2
+
+
+def test_automatic_optimizer_raises_for_unknown_update_method():
+    """Test that an unknown automatic_update_method is rejected."""
+    with pytest.raises(ValueError, match="automatic_update_method"):
+        _create_rt_optimizer("median")

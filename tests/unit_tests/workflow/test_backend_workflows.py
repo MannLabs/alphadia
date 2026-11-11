@@ -143,7 +143,7 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
     )
     create_extraction_handler = MagicMock(return_value=extraction_handler)
     handler = RustOptimizationHandler(
-        {},
+        {"calibration": {"prune_lock": False, "classifier_max_train_samples": None}},
         MagicMock(),
         MagicMock(),
         MagicMock(),

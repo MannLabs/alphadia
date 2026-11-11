@@ -227,3 +227,59 @@ def test_perform_fdr_and_filter_candidates_passes_train_on_best_candidate(
     # Then: the FDR step gets the setting
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["train_on_best_candidate"] is train_on_best_candidate
+
+
+@pytest.mark.parametrize(
+    ("max_qval", "expected_precursors"), [(None, [1]), (0.1, [1, 2])]
+)
+def test_perform_fdr_and_filter_candidates_removes_precursors_above_max_qval(
+    max_qval, expected_precursors
+):
+    # Given: an FDR step that gives the precursors increasing q-values
+    def fit_predict(features_df, **kwargs):
+        return features_df.assign(qval=[0.005, 0.05, 0.5])
+
+    handler, _ = _fdr_handler(fit_predict)
+    features_df, candidates_df = _fdr_inputs()
+
+    # When: the handler performs FDR with or without a maximal q-value
+    candidates_filtered, precursor_fdr_df = handler.perform_fdr_and_filter_candidates(
+        features_df,
+        candidates_df,
+        CLASSIFIER_VERSION,
+        df_fragments=pd.DataFrame(),
+        max_qval=max_qval,
+    )
+
+    # Then: the precursors are filtered at the maximal q-value, or at fdr.fdr without it
+    assert precursor_fdr_df["precursor_idx"].tolist() == expected_precursors
+    assert candidates_filtered["precursor_idx"].tolist() == expected_precursors
+
+
+@pytest.mark.parametrize(
+    ("max_qval", "expected_fdr_heuristic"), [(None, 0.1), (0.05, 0.1), (0.2, 0.2)]
+)
+def test_perform_fdr_and_filter_candidates_keeps_the_qvals_up_to_max_qval_in_fragment_competition(
+    max_qval, expected_fdr_heuristic
+):
+    # Given: an FDR step that accepts all precursors
+    def fit_predict(features_df, **kwargs):
+        return features_df.assign(qval=0.0)
+
+    handler, fdr_manager = _fdr_handler(fit_predict)
+    features_df, candidates_df = _fdr_inputs()
+
+    # When: the handler performs FDR with or without a maximal q-value
+    handler.perform_fdr_and_filter_candidates(
+        features_df,
+        candidates_df,
+        CLASSIFIER_VERSION,
+        df_fragments=pd.DataFrame(),
+        max_qval=max_qval,
+    )
+
+    # Then: a maximal q-value above the fragment competition heuristic raises it
+    assert (
+        fdr_manager.fit_predict.call_args.kwargs["fdr_heuristic"]
+        == expected_fdr_heuristic
+    )

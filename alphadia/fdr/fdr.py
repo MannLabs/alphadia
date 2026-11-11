@@ -25,6 +25,9 @@ max_dia_cycle_shape = 2
 
 logger = logging.getLogger()
 
+# PSMs below this FDR enter fragment competition, the others are dropped
+FDR_HEURISTIC = 0.1
+
 # Below this standard deviation the probability is almost constant. The classifier then
 # cannot separate targets from decoys, and the FDR filter keeps all PSMs.
 _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
@@ -60,6 +63,23 @@ def _best_candidate_positions(
     return np.sort(order[is_first_of_group])
 
 
+def _stratified_subsample(
+    idxs: np.ndarray, y: np.ndarray, max_samples: int, random_state: int | None
+) -> np.ndarray:
+    """Sorted random subset of `idxs` of at most `max_samples` rows that keeps the share of decoys (`y` of the rows)."""
+    if len(idxs) <= max_samples:
+        return idxs
+    rng = np.random.default_rng(random_state)
+    fraction = max_samples / len(idxs)
+    subsets = [
+        rng.choice(
+            idxs[y == label], int(round(fraction * np.sum(y == label))), replace=False
+        )
+        for label in (0, 1)
+    ]
+    return np.sort(np.concatenate(subsets))
+
+
 def _is_collapsed(proba: np.ndarray) -> bool:
     """Whether the probabilities are near-constant, or too many PSMs share the best probability."""
     return (
@@ -82,7 +102,8 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     dia_cycle: np.ndarray | None = None,
     train_on_best_candidate: bool = False,
-    fdr_heuristic: float = 0.1,
+    fdr_heuristic: float = FDR_HEURISTIC,
+    max_train_samples: int | None = None,
     random_state: int | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
@@ -128,8 +149,13 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         Train the classifier only on the most target-like candidate of each precursor, as picked by a logistic
         regression on all training rows. All rows are still scored.
 
-    fdr_heuristic : float, default=0.1
-        The FDR heuristic to use for the initial selection of PSMs before fragment competition
+    fdr_heuristic : float, default=FDR_HEURISTIC
+        The FDR heuristic to use for the initial selection of PSMs before fragment competition.
+        PSMs above it are dropped when fragments compete.
+
+    max_train_samples : int, optional
+        Fit the classifier on a random subset of at most this many training rows, with the same share of decoys.
+        All rows are still scored. By default, all training rows are used.
 
     random_state : int, optional
         The random state for train-test split reproducibility.
@@ -196,6 +222,12 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         logger.info(
             f"training on the best candidate of each precursor: {len(idxs_fit):,} of {len(idxs_train):,} rows"
         )
+    if max_train_samples is not None and len(idxs_fit) > max_train_samples:
+        n_fit = len(idxs_fit)
+        idxs_fit = _stratified_subsample(
+            idxs_fit, y[idxs_fit], max_train_samples, random_state
+        )
+        logger.info(f"training on a random subset: {len(idxs_fit):,} of {n_fit:,} rows")
     classifier.fit(X[idxs_fit], y[idxs_fit])
 
     psm_df["_decoy"] = y

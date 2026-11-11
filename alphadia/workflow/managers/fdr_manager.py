@@ -112,6 +112,8 @@ class FDRManager(BaseManager):
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
         excluded_columns: Collection[str] = (),
         train_on_best_candidate: bool = False,
+        fdr_heuristic: float = fdr.FDR_HEURISTIC,
+        max_train_samples: int | None = None,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -136,6 +138,12 @@ class FDRManager(BaseManager):
             Feature columns the classifier does not use in this call, although `features_df` carries them.
         train_on_best_candidate: bool
             Train the classifier only on the most target-like candidate of each precursor. Only used with
+            decoy_strategy "precursor".
+        fdr_heuristic: float
+            PSMs below this FDR enter fragment competition, the others are dropped. Only used with
+            decoy_strategy "precursor".
+        max_train_samples: int, optional
+            Fit the classifier on a random subset of at most this many training rows. Only used with
             decoy_strategy "precursor".
 
         Notes
@@ -193,6 +201,8 @@ class FDRManager(BaseManager):
                 else None,
                 dia_cycle=self._dia_cycle,
                 train_on_best_candidate=train_on_best_candidate,
+                fdr_heuristic=fdr_heuristic,
+                max_train_samples=max_train_samples,
                 figure_path=self.figure_path,
                 random_state=random_state,
             )

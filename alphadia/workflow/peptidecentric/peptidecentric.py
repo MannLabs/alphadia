@@ -74,11 +74,13 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
         config: Config,
         quant_path: str = None,
         random_state: int | None = None,
+        initial_tolerances: dict[str, float] | None = None,
     ) -> None:
         super().__init__(
             instance_name,
             config,
             quant_path,
+            initial_tolerances=initial_tolerances,
         )
         self._fdr_manager: FDRManager | None = None
 

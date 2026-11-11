@@ -29,8 +29,22 @@ class OptimizationLock:
         rng = np.random.default_rng(seed=772)
         rng.shuffle(self._elution_group_order)
 
-        self._precursor_target_count = config["calibration"]["optimization_lock_target"]
-        self._batch_size = config["calibration"]["batch_size"]
+        config_calibration = config["calibration"]
+        self._precursor_target_count = config_calibration["optimization_lock_target"]
+        self._batch_size = config_calibration["batch_size"]
+
+        self._prune_lock = config_calibration["prune_lock"]
+        self._prune_lock_qval = config_calibration["prune_lock_qval"]
+        self._prune_lock_background_factor = config_calibration[
+            "prune_lock_background_factor"
+        ]
+        self._prune_lock_after_steps = config_calibration["prune_lock_after_steps"]
+        # optimization steps searched on the full lock so far, and whether the last update pruned the lock
+        self._num_full_lock_steps = 0
+        self.pruned_in_last_update = False
+        # positions in self._elution_group_order
+        self._is_pruned = np.zeros(len(self._elution_group_order), dtype=bool)
+        self._elution_groups_below_prune_qval = np.array([], dtype=int)
 
         self.batch_idx = 0
         self.batch_plan = self._get_batch_plan(
@@ -39,10 +53,8 @@ class OptimizationLock:
             # TODO remove unused fixed_start_idx functionality
         )
 
-        eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
-
         self.batch_library: SpecLibFlat | None = None
-        self.set_batch_dfs(eg_idxes)
+        self.set_batch_dfs()
 
         self._feature_dfs = []
         self._fragment_dfs = []
@@ -67,6 +79,11 @@ class OptimizationLock:
     @property
     def stop_idx(self) -> int:
         return self.batch_plan[self.batch_idx][1]
+
+    @property
+    def num_pruned_elution_groups(self) -> int:
+        """Number of elution groups of the lock that pruning removed from extraction."""
+        return int(self._is_pruned[: self.stop_idx].sum())
 
     @staticmethod
     def _get_batch_plan(
@@ -127,7 +144,12 @@ class OptimizationLock:
         self._feature_dfs += [feature_df]
         self._fragment_dfs += [fragment_df]
 
-        self.total_elution_groups = self.features_df["elution_group_idx"].nunique()
+        # Pruned elution groups still belong to the lock: they count as extracted without a
+        # precursor, so the share of detected elution groups does not jump after pruning.
+        self.total_elution_groups = (
+            self.features_df["elution_group_idx"].nunique()
+            + self.num_pruned_elution_groups
+        )
 
     def update_with_fdr(self, precursor_df: pd.DataFrame):
         """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization.
@@ -144,6 +166,10 @@ class OptimizationLock:
         self.has_target_num_precursors = (
             self._precursor_at_fdr_count >= self._precursor_target_count
         )
+        if self._prune_lock:
+            self._elution_groups_below_prune_qval = precursor_df.loc[
+                precursor_df["qval"] < self._prune_lock_qval, "elution_group_idx"
+            ].unique()
 
     def update_with_calibration(self, calibration_manager):
         """Updates the batch library with the current calibrated values using the calibration manager.
@@ -188,18 +214,47 @@ class OptimizationLock:
 
     def update(self):
         """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
-        If the target has been reached, the feature and fragment dataframes are reset
+        If the target has been reached, the feature and fragment dataframes are reset.
+        With `calibration.prune_lock`, the lock is pruned once, after `calibration.prune_lock_after_steps` optimization
+        steps were searched on the full lock (0: the first time the target is reached).
         """
+        self.pruned_in_last_update = False
         if self.has_target_num_precursors:
             self.decrease_batch_idx()
             self._feature_dfs = []
             self._fragment_dfs = []
+            if self._prune_lock and not self._is_pruned.any():
+                if self.previously_calibrated:
+                    self._num_full_lock_steps += 1
+                if self._num_full_lock_steps >= self._prune_lock_after_steps:
+                    self._prune()
 
         else:
             self.increase_batch_idx()
 
-        eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
-        self.set_batch_dfs(eg_idxes)
+        self.set_batch_dfs()
+
+    def _prune(self):
+        """Removes the elution groups of the lock that the optimization will most likely not identify.
+
+        An elution group stays when one of its candidates had a q-value below `calibration.prune_lock_qval`
+        in the last FDR round, or when it belongs to the random background of `calibration.prune_lock_background_factor`
+        times as many other elution groups, which keeps easy targets and decoys for the classifier.
+        The lock order is random, so the background is the first other elution groups of the lock.
+        Targets and decoys share the elution group, so each kept target keeps its decoy.
+        The lock is pruned once, early in the optimization: pruning after a too narrow tolerance would remove elution
+        groups that a wider tolerance identifies. Pruning at the initial tolerance favours it in the optimizer, since the
+        kept elution groups are the ones that scored well at that tolerance; `calibration.prune_lock_after_steps`
+        moves the pruning to after the first narrowed tolerance.
+        """
+        lock = slice(self.start_idx, self.stop_idx)
+        passed = np.isin(
+            self._elution_group_order[lock], self._elution_groups_below_prune_qval
+        )
+        num_background = int(self._prune_lock_background_factor * passed.sum())
+        is_background = ~passed & (np.cumsum(~passed) <= num_background)
+        self._is_pruned[lock] = ~(passed | is_background)
+        self.pruned_in_last_update = True
 
     def reset_after_convergence(self, calibration_manager):
         """Resets the optimization lock after all optimizers in a given round of optimization have converged.
@@ -223,10 +278,12 @@ class OptimizationLock:
         Parameters
         ----------
         eg_idxes: None | np.ndarray
-            The elution group indexes to use for the next round of optimization. If None, the eg_idxes for the current self.start_idx and self.stop_idx are used.
+            The elution group indexes to use for the next round of optimization. If None, the eg_idxes for the current self.start_idx and self.stop_idx
+            are used, without the pruned ones.
         """
         if eg_idxes is None:
-            eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
+            lock = slice(self.start_idx, self.stop_idx)
+            eg_idxes = self._elution_group_order[lock][~self._is_pruned[lock]]
         self.batch_library = SpecLibFlat()
         # TODO using batch_library.precursor_df (no underscore) here will trigger the setter method, which will additionally call refine_precursor_df()
         self.batch_library._precursor_df, (self.batch_library._fragment_df,) = (
