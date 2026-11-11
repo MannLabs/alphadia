@@ -52,6 +52,21 @@ def column_hash(columns):
     return xxhash.xxh64_hexdigest("".join(columns).encode())
 
 
+def _classifier_training(config: Config) -> dict | None:
+    """Training settings of every classifier fit: fdr.lr_schedule and fdr.weight_averaging.
+
+    They apply to the calibration fits and the final fit alike. None (classifier settings left as they are) if the
+    config does not carry both keys.
+    """
+    fdr_config = config.get("fdr", {})
+    if "lr_schedule" not in fdr_config or "weight_averaging" not in fdr_config:
+        return None
+    return {
+        "lr_schedule": fdr_config["lr_schedule"],
+        "weight_averaging": fdr_config["weight_averaging"],
+    }
+
+
 class FDRManager(BaseManager):
     def __init__(
         self,
@@ -94,6 +109,7 @@ class FDRManager(BaseManager):
         self.load_classifier_store()
 
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
+        self._classifier_training = _classifier_training(config)
 
         self._dia_cycle = dia_cycle
 
@@ -168,6 +184,8 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"competitive: {competitive}")
 
         classifier = self.get_classifier(available_columns, version)
+        if self._classifier_training and hasattr(classifier, "configure_training"):
+            classifier.configure_training(**self._classifier_training)
         random_state = (
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
         )
