@@ -75,9 +75,7 @@ def test_a_run_without_missing_fragments_does_not_spoil_the_other_runs():
     intensity[weak, 1:] = np.exp2(abundance[0] + np.log2(0.5 / N_FRAGMENTS))
 
     # when
-    quantities = censored_quantities(
-        intensity, library, precursor_index, N_PRECURSORS
-    )
+    quantities = censored_quantities(intensity, library, precursor_index, N_PRECURSORS)
 
     # then
     assert np.isfinite(quantities[0, 1:]).all()
