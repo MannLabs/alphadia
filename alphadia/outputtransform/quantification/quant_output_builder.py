@@ -14,6 +14,7 @@ from alphadia.outputtransform.quantification.fragment_accumulator import (
 )
 from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
+    correct_precursor_intensity_drift,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
@@ -119,7 +120,11 @@ class QuantOutputBuilder:
             logger.warning("No fragment data found, skipping quantification")
             return {}, self.psm_df
 
-        if self.config["search_output"]["intensity_drift_correction"]:
+        # the variance-model path corrects its precursor table instead, along RT and mass
+        if (
+            self.config["search_output"]["intensity_drift_correction"]
+            and not self._is_varmodel()
+        ):
             feature_dfs_dict["intensity"] = correct_intensity_drift(
                 feature_dfs_dict["intensity"],
                 feature_dfs_dict["correlation"],
@@ -373,6 +378,10 @@ class QuantOutputBuilder:
             correlation_df=filtered_correlation_df,
             quality_exponent=self.config["search_output"]["varmodel_quality_exponent"],
         )
+        if self.config["search_output"]["intensity_drift_correction"]:
+            precursor_df = correct_precursor_intensity_drift(
+                precursor_df, self._psm_no_decoys_df
+            )
 
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
