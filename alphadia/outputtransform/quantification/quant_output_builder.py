@@ -21,7 +21,6 @@ from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     LFQOutputConfig,
     QuantBuilder,
-    top_k_by_quantified_correlation,
 )
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
@@ -352,14 +351,6 @@ class QuantOutputBuilder:
         )
         if len(filtered_intensity_df) == 0:
             return {}
-
-        top_k = self.config["search_output"]["varmodel_top_k_fragments"]
-        if top_k > 0:
-            keep = top_k_by_quantified_correlation(
-                filtered_intensity_df, filtered_correlation_df, top_k
-            )
-            filtered_intensity_df = filtered_intensity_df[keep]
-            filtered_correlation_df = filtered_correlation_df[keep]
 
         precursor_df = self.quant_builder.varmodel_precursor_table(
             filtered_intensity_df,

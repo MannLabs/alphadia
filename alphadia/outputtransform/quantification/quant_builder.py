@@ -163,27 +163,6 @@ def prepare_df(
     return df[[PRECURSOR_IDX_COLUMN, ION_COLUMN] + columns]
 
 
-def top_k_by_quantified_correlation(
-    intensity_df: pd.DataFrame, correlation_df: pd.DataFrame, k: int
-) -> np.ndarray:
-    """Mask of the k fragments per precursor with the best mean XIC correlation over the runs that quantified them.
-
-    A poorly correlated fragment is mostly background or interference; in the variance model it still pulls the
-    run quantity towards its background level, which compresses ratios at low abundance.
-    """
-    run_columns = get_run_columns(intensity_df)
-    present = intensity_df[run_columns].to_numpy() > 0
-    correlation = np.where(present, correlation_df[run_columns].to_numpy(), np.nan)
-    with np.errstate(invalid="ignore"):
-        mean = np.nanmean(correlation, axis=1)
-    rank = (
-        pd.Series(mean, index=intensity_df.index)
-        .groupby(intensity_df[QuantificationLevelKey.PRECURSOR].to_numpy())
-        .rank(ascending=False, method="first")
-    )
-    return (rank <= k).to_numpy()
-
-
 class QuantBuilder:
     """Build quantification results through filtering and label-free quantification.
 

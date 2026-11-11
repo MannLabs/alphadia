@@ -8,7 +8,6 @@ from alphadia.outputtransform.quantification.censored_varmodel import (
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     QuantBuilder,
-    top_k_by_quantified_correlation,
 )
 
 N_PRECURSORS = 3000
@@ -114,38 +113,6 @@ def test_precursor_table_censored_option_quantifies_every_precursor():
 
     assert len(precursor_df) == N_PRECURSORS
     assert (precursor_df[runs].to_numpy() > 0).all()
-
-
-def test_top_k_keeps_the_best_correlated_fragments_of_each_precursor():
-    precursor = np.array([1, 1, 1, 2, 2])
-    intensity_df = pd.DataFrame(
-        {
-            "run1": [1.0, 1.0, 1.0, 1.0, 1.0],
-            "run2": [1.0, 0.0, 1.0, 1.0, 1.0],
-            "mod_seq_charge_hash": precursor,
-        }
-    )
-    # fragment 1's high correlation in run2 does not count: it was not quantified there
-    correlation_df = pd.DataFrame(
-        {
-            "run1": [0.9, 0.2, 0.5, 0.1, 0.8],
-            "run2": [0.9, 0.99, 0.5, 0.1, 0.8],
-            "mod_seq_charge_hash": precursor,
-        }
-    )
-
-    mask = top_k_by_quantified_correlation(intensity_df, correlation_df, 2)
-    assert top_k_by_quantified_correlation(
-        intensity_df, correlation_df, 1
-    ).tolist() == [
-        True,
-        False,
-        False,
-        False,
-        True,
-    ]
-
-    assert mask.tolist() == [True, False, True, True, True]
 
 
 def test_quality_exponent_downweights_interfered_values():
