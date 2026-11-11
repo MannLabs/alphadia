@@ -198,14 +198,14 @@ The match-between-runs (MBR) output library containing all precursors which were
 - Only created when `general.save_mbr_library: true` in the configuration
 
 ## `speclib.mbr.run_identifications.parquet`
-The target precursors each run identified at 1 % precursor and protein group FDR, the identifications the MBR library is built from. Written together with `speclib.mbr.hdf`.
+The precursors each run identified at 1 % precursor and protein group FDR, targets and decoys, the identifications the MBR library is built from. Written together with `speclib.mbr.hdf`.
 
-Format: one row per identified precursor per run, with the columns `run`, `elution_group_idx`, `mod_seq_charge_hash`, `rt_observed`, `rt_calibrated`, `pg` and `pg_qval`.
+Format: one row per identified precursor per run, with the columns `run`, `elution_group_idx`, `mod_seq_charge_hash`, `decoy`, `rt_observed`, `rt_calibrated`, `pg` and `pg_qval`.
 
-The MBR step of a multistep search uses it (config `mbr_run_identifications_path`) to adapt the MBR library to each run:
-- In the elution groups a run identified, each precursor takes its library RT from the other runs, so that a first-pass identification is not searched again at its own apex. Where no other run identified the elution group, the calibrated RT of the first pass is used.
+The MBR step of a multistep search uses it (config `mbr_run_identifications_path`) to adapt the MBR library to each run. A run identified an elution group if its target or its decoy passed there:
+- In the elution groups a run identified, each precursor takes its library RT from the other runs, so that a first-pass identification is not searched again at its own apex: its own observed RT where available, else that of its elution group, target and decoy rows pooled. Where no other run identified the elution group, the calibrated RT of the first pass is used.
 - The q-values are computed separately for the elution groups the run identified in the first pass and for the others.
-- Instead of a protein FDR of its own, each target protein group with a precursor at q-value 1 % or below takes its `pg_qval` from the first pass; all other groups get q-value 1.
+- Instead of a protein FDR of its own, each target protein group with a precursor at q-value 1 % or below takes its `pg_qval` from the first pass, from the target rows; all other groups get q-value 1.
 
 ## `speclib.transfer.hdf`
 The transfer learning library containing training data for sample-specific model refinement.

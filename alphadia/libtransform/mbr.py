@@ -234,19 +234,19 @@ class MbrLibraryBuilder(ProcessingStep):
 
 
 def get_run_identifications(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
-    """Return the target precursors each run identified at `fdr`, the same PSMs `MbrLibraryBuilder` with this `fdr`
-    builds its library from, with their observed and calibrated RT and their protein group with its q-value.
+    """Return the precursors each run identified at `fdr`, targets and decoys, the same PSMs `MbrLibraryBuilder` with
+    this `fdr` builds its library from, with their observed and calibrated RT and their protein group with its q-value.
 
     `CalibCols.RT_CALIBRATED` is NaN for runs whose PSMs do not have it.
     """
-    identified_df = _passing_fdr(psm_df, fdr)
     run_identifications_df = (
-        identified_df[identified_df["decoy"] == 0]
+        _passing_fdr(psm_df, fdr)
         .reindex(
             columns=[
                 "run",
                 "elution_group_idx",
                 "mod_seq_charge_hash",
+                "decoy",
                 CalibCols.RT_OBSERVED,
                 CalibCols.RT_CALIBRATED,
                 "pg",
@@ -321,6 +321,11 @@ class PerRunMbrLibrary:
     precursor takes its library RT from the other runs: its own median observed RT where available, else the median
     of its elution group. Where no other run identified the elution group, the calibrated RT the run had in that
     search is used, and without that the elution group is not searched in the run.
+
+    A run identified an elution group if its target or its decoy passed there, and the elution group medians pool
+    both. A decoy kept in the MBR library then mirrors a false target: in the run where it passed, it is not searched
+    at its own apex, and its target, without observations of its own, takes the decoy's RT from the other runs, as
+    the fresh decoy of a false target takes the target's.
     """
 
     def __init__(self, run_identifications_df: pd.DataFrame) -> None:

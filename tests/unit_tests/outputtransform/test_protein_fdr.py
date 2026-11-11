@@ -129,15 +129,19 @@ def test_transfer_library_pg_qval():
             "qval": [0.001, 0.5, 0.5, 0.001, 0.001],
         }
     )
-    # one row per run identification, so a group can appear more than once
+    # one row per run identification, so a group can appear more than once; the decoy group carries C's name
     run_identifications_df = pd.DataFrame(
-        {"pg": ["A", "A", "B"], "pg_qval": [0.002, 0.002, 0.003]}
+        {
+            "pg": ["A", "A", "B", "C"],
+            "pg_qval": [0.002, 0.002, 0.003, 0.001],
+            "decoy": [0, 0, 0, 1],
+        }
     )
 
     # when
     result = transfer_library_pg_qval(psm_df, run_identifications_df)
 
-    # then: A has a confident target, B only a weak one, C is not in the library, the A decoy is a decoy
+    # then: A has a confident target, B only a weak one, C only as a decoy in the library, the A decoy is a decoy
     np.testing.assert_array_equal(
         result["pg_qval"].values,
         [0.002, 0.002, NO_EVIDENCE_QVAL, NO_EVIDENCE_QVAL, NO_EVIDENCE_QVAL],

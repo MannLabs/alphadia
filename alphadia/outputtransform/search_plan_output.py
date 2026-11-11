@@ -108,7 +108,8 @@ class SearchPlanOutput:
 
         """
         logger.progress("Processing search outputs")
-        # the MBR library takes the first search's accepted decoys, whether the outputs keep decoys or not
+        # the MBR library and the run identifications take the first search's accepted decoys, whether the outputs
+        # keep decoys or not
         psm_df_with_decoys = self._build_precursor_table(folder_list)
         psm_df = (
             psm_df_with_decoys
@@ -134,7 +135,7 @@ class SearchPlanOutput:
             if mbr_spec_lib is not None:
                 self._write_library(mbr_spec_lib, SearchPlanFiles.MBR_LIBRARY_FILE_NAME)
                 self._write_run_identifications(
-                    get_run_identifications(psm_df, MBR_LIBRARY_FDR)
+                    get_run_identifications(psm_df_with_decoys, MBR_LIBRARY_FDR)
                 )
 
         if self.config["transfer_library"]["enabled"]:
@@ -363,7 +364,9 @@ class SearchPlanOutput:
             logger.info(f"Taking the protein q-values from {run_identifications_path}")
             psm_df = transfer_library_pg_qval(
                 psm_df,
-                pd.read_parquet(run_identifications_path, columns=["pg", "pg_qval"]),
+                pd.read_parquet(
+                    run_identifications_path, columns=["pg", "pg_qval", "decoy"]
+                ),
             )
         else:
             logger.info("Performing protein FDR")
