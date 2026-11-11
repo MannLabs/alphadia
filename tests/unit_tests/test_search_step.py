@@ -3,12 +3,14 @@ from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
+import pandas as pd
 import pytest
 from alphabase.constants.modification import MOD_DF
+from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import __version__ as alphadia_version
 from alphadia import search_step
-from alphadia.constants.keys import ExtractionBackend
+from alphadia.constants.keys import ExtractionBackend, MbrCols
 from alphadia.exceptions import ConfigError, GenericUserError
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
@@ -591,3 +593,75 @@ def test_is_rust_backend(backend, expected):
 
     # when / then
     assert SearchStep._is_rust_backend(config, []) is expected
+
+
+def _create_mbr_step(tmp_path, run_identifications_path: str | None) -> SearchStep:
+    library_folder = tmp_path / "library"
+    library_folder.mkdir()
+    # a table next to the library must not be picked up without the config key
+    pd.DataFrame(
+        {
+            "run": ["raw1"],
+            "elution_group_idx": [0],
+            "mod_seq_charge_hash": [100],
+            "rt_observed": [10.0],
+            "rt_calibrated": [10.5],
+        }
+    ).to_parquet(library_folder / "speclib.mbr.run_identifications.parquet")
+    step = SearchStep(
+        str(tmp_path / "output"),
+        config={
+            "raw_paths": ["/raw_files/raw1.raw"],
+            "general": {"save_mbr_library": False},
+            "mbr_run_identifications_path": run_identifications_path,
+        },
+    )
+    step.spectral_library = SpecLibFlat()
+    step.spectral_library._precursor_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1],
+            "elution_group_idx": [0, 1],
+            "mod_seq_charge_hash": [100, 200],
+            "decoy": [0, 0],
+            "rt_library": [1.0, 2.0],
+        }
+    )
+    return step
+
+
+@patch("alphadia.search_step.SearchPlanOutput")
+def test_run_adapts_the_library_to_each_run_with_run_identifications(
+    mock_output_cls, tmp_path
+):
+    """Test the configured run identifications adapt the library each raw file is searched with."""
+    # given
+    step = _create_mbr_step(
+        tmp_path,
+        str(tmp_path / "library" / "speclib.mbr.run_identifications.parquet"),
+    )
+
+    # when
+    with patch.object(step, "_process_raw_file") as mock_process_raw_file:
+        step.run()
+
+    # then: raw1 identified elution group 0 only, which no other run identified
+    speclib = mock_process_raw_file.call_args.args[2]
+    assert speclib.precursor_df["rt_library"].tolist() == [10.5, 2.0]
+    assert speclib.precursor_df[MbrCols.IDENTIFIED_IN_RUN].tolist() == [1, 0]
+
+
+@patch("alphadia.search_step.SearchPlanOutput")
+def test_run_searches_the_library_as_is_without_run_identifications(
+    mock_output_cls, tmp_path
+):
+    """Test the library is not adapted without the config key, although a run identifications table sits next to it."""
+    # given
+    step = _create_mbr_step(tmp_path, None)
+    step.library_path = str(tmp_path / "library" / "speclib.mbr.hdf")
+
+    # when
+    with patch.object(step, "_process_raw_file") as mock_process_raw_file:
+        step.run()
+
+    # then
+    assert mock_process_raw_file.call_args.args[2] is step.spectral_library

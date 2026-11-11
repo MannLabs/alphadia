@@ -62,6 +62,7 @@ class FDRManager(BaseManager):
         path: None | str = None,
         load_from_file: bool = True,
         random_state: int | None = None,
+        stratum_column: str | None = None,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -82,6 +83,9 @@ class FDRManager(BaseManager):
             If True, the manager will be loaded from file if it exists.
         random_state: int, optional
             Random state for reproducibility.
+        stratum_column: str, optional
+            Column of the features whose values split the PSMs into strata with separate q-values, for the decoy
+            strategies "precursor" and "precursor_channel_wise". If None, the q-values are computed over all PSMs.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
@@ -96,6 +100,7 @@ class FDRManager(BaseManager):
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
+        self._stratum_column = stratum_column
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -195,6 +200,7 @@ class FDRManager(BaseManager):
                 train_on_best_candidate=train_on_best_candidate,
                 figure_path=self.figure_path,
                 random_state=random_state,
+                stratum_column=self._stratum_column,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -219,6 +225,7 @@ class FDRManager(BaseManager):
                         dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
                         random_state=random_state,
+                        stratum_column=self._stratum_column,
                     )
                 )
             psm_df = pd.concat(psm_df_list)

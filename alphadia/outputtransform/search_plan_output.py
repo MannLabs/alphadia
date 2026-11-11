@@ -14,7 +14,7 @@ from alphadia.constants.keys import (
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
-from alphadia.libtransform.mbr import MbrLibraryBuilder
+from alphadia.libtransform.mbr import MbrLibraryBuilder, get_run_identifications
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
     build_run_stat_df,
@@ -44,6 +44,9 @@ from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
+
+# precursor and protein group FDR of the identifications the MBR library is built from, independent of fdr.fdr
+MBR_LIBRARY_FDR = 0.01
 
 
 class SearchPlanOutput:
@@ -124,6 +127,9 @@ class SearchPlanOutput:
             mbr_spec_lib = self._build_mbr_library(base_spec_lib, psm_df)
             if mbr_spec_lib is not None:
                 self._write_library(mbr_spec_lib, SearchPlanFiles.MBR_LIBRARY_FILE_NAME)
+                self._write_run_identifications(
+                    get_run_identifications(psm_df, MBR_LIBRARY_FDR)
+                )
 
         if self.config["transfer_library"]["enabled"]:
             self._write_library(
@@ -173,6 +179,13 @@ class SearchPlanOutput:
         library_path = os.path.join(self.output_folder, file_name)
         logger.info(f"Writing spectral library to {library_path}")
         spec_lib.save_hdf(library_path)
+
+    def _write_run_identifications(self, run_identifications_df: pd.DataFrame) -> None:
+        run_identifications_path = os.path.join(
+            self.output_folder, SearchPlanFiles.MBR_RUN_IDENTIFICATIONS_FILE_NAME
+        )
+        logger.info(f"Writing run identifications to {run_identifications_path}")
+        run_identifications_df.to_parquet(run_identifications_path, index=False)
 
     def _write_model(self, tune_mgr: FinetuneManager) -> None:
         tune_mgr.save_models(
@@ -460,15 +473,11 @@ class SearchPlanOutput:
             return None
 
         libbuilder = MbrLibraryBuilder(
-            fdr=0.01,
+            fdr=MBR_LIBRARY_FDR,
             keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
             decoy_type=self.config["fdr"]["decoy_type"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
-        libbuilder.rt_by_run.to_parquet(
-            os.path.join(self.output_folder, SearchPlanFiles.MBR_RT_BY_RUN_FILE_NAME),
-            index=False,
-        )
         libbuilder.pg_qval.to_parquet(
             os.path.join(self.output_folder, SearchPlanFiles.MBR_PG_QVAL_FILE_NAME),
             index=False,

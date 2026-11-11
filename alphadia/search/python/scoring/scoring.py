@@ -7,7 +7,7 @@ import pandas as pd
 from alpharaw.utils.pjit import pjit
 from alpharaw.utils.pjit import set_threads as set_pjit_threads
 
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import CalibCols, MbrCols
 from alphadia.raw_data import DiaData
 from alphadia.search.python.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.python.scoring.config import CandidateScoringConfig
@@ -505,6 +505,8 @@ class CandidateScoring:
         precursor_df_columns = precursor_df_columns + _get_isotope_column_names(
             precursors_flat_df.columns
         )
+        if MbrCols.IDENTIFIED_IN_RUN in precursors_flat_df.columns:
+            precursor_df_columns.append(MbrCols.IDENTIFIED_IN_RUN)
 
         for col in [rt_column, mobility_column, precursor_mz_column]:
             if col not in precursor_df_columns:

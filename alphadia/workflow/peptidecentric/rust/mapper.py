@@ -14,7 +14,7 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatRust
 
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import CalibCols, MbrCols
 from alphadia.raw_data import DiaData
 
 
@@ -178,17 +178,19 @@ def to_features_df(
 
     features_df = pd.DataFrame(features_dict)
 
+    library_columns = [
+        "precursor_idx",
+        "decoy",
+        "elution_group_idx",
+        "channel",
+        "proteins",
+        CalibCols.MZ_LIBRARY,
+    ]
+    if MbrCols.IDENTIFIED_IN_RUN in spectral_library.precursor_df.columns:
+        library_columns.append(MbrCols.IDENTIFIED_IN_RUN)
+
     features_df = features_df.merge(
-        spectral_library.precursor_df[
-            [
-                "precursor_idx",
-                "decoy",
-                "elution_group_idx",
-                "channel",
-                "proteins",
-                CalibCols.MZ_LIBRARY,
-            ]
-        ],
+        spectral_library.precursor_df[library_columns],
         on="precursor_idx",
         how="left",
     )
