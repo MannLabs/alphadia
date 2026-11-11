@@ -65,6 +65,25 @@ def test_without_censoring_the_port_reproduces_the_backend_fit():
     np.testing.assert_allclose(port[both], backend[both], atol=0.02)
 
 
+def test_a_run_without_missing_fragments_does_not_spoil_the_other_runs():
+    # Given a run where every well-measured fragment is observed (its dropout curve never censors) and one weak
+    # precursor with missing fragments in that run only
+    intensity, library, precursor_index, abundance = simulate(0.0, DETECTION_LIMIT)
+    intensity[:, 0] = np.where(intensity[:, 0] > 0, intensity[:, 0], 1.0)
+    weak = precursor_index == 0
+    intensity[weak, 0] = np.r_[2.0**DETECTION_LIMIT, np.zeros(N_FRAGMENTS - 1)]
+    intensity[weak, 1:] = np.exp2(abundance[0] + np.log2(0.5 / N_FRAGMENTS))
+
+    # when
+    quantities = censored_quantities(
+        intensity, library, precursor_index, N_PRECURSORS
+    )
+
+    # then
+    assert np.isfinite(quantities[0, 1:]).all()
+    assert np.abs(quantities[0, 1:] - abundance[0]).max() < 2.0
+
+
 def test_censoring_removes_the_compression_near_the_detection_limit():
     # Given precursors whose fragments in the low condition straddle the detection limit
     log2_ratio = -2.0

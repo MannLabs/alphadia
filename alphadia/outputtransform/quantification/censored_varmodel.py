@@ -178,13 +178,18 @@ def censored_pseudo_observations(
     """Value (y units) and weight of each missing cell's EM pseudo-observation under the censored component."""
     mu = q[:, None, :] + o[:, :, None] + p.log_share[:, :, None]
     s = dropout.width[None, None, :]
-    z = (dropout.limit[None, None, :] - mu) / s
-    log_cdf = log_ndtr(z)
-    mills = np.exp(-0.5 * z**2 - LOG_SQRT_2PI - log_cdf)
-    cdf = np.exp(log_cdf)
-    pi = dropout.plateau[None, None, :]
-    responsibility = (1 - pi) * cdf / (pi + (1 - pi) * cdf)
-    return mu - s * mills - p.log_share[:, :, None], responsibility / s**2
+    with np.errstate(invalid="ignore", over="ignore"):
+        z = (dropout.limit[None, None, :] - mu) / s
+        log_cdf = log_ndtr(z)
+        mills = np.exp(-0.5 * z**2 - LOG_SQRT_2PI - log_cdf)
+        cdf = np.exp(log_cdf)
+        pi = dropout.plateau[None, None, :]
+        responsibility = (1 - pi) * cdf / (pi + (1 - pi) * cdf)
+    # a run whose curve never censors (limit -inf, plateau 0) gives 0/0 here; its missing cells carry no
+    # information, and a NaN would spread through the fragment offsets into the other runs
+    weight = np.nan_to_num(responsibility / s**2)
+    value = np.where(weight > 0, mu - s * mills - p.log_share[:, :, None], 0.0)
+    return value, weight
 
 
 def fit(
