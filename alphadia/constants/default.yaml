@@ -6,6 +6,10 @@ version: null
 workflow_name: null
 output_directory: null
 library_path: null  # the expected type is steered by general.input_library_type
+# Set by the multistep search for the MBR step: the precursors each run identified in the search that built the
+# MBR library (`speclib.mbr.run_identifications.parquet`). Each run then searches the MBR library with RTs from
+# the other runs, and gets separate q-values for elution groups it identified there and for the others.
+mbr_run_identifications_path: null
 raw_paths: []
 fasta_paths: []
 quant_directory: null

@@ -17,7 +17,6 @@ from alphadia import __version__ as alphadia_version
 from alphadia.constants.keys import (
     ConfigKeys,
     ExtractionBackend,
-    SearchPlanFiles,
     SearchStepFiles,
 )
 from alphadia.exceptions import (
@@ -41,7 +40,7 @@ from alphadia.libtransform.harmonize import (
     RTNormalization,
 )
 from alphadia.libtransform.loader import DynamicLoader
-from alphadia.libtransform.mbr import leave_one_out_rt
+from alphadia.libtransform.mbr import PerRunMbrLibrary
 from alphadia.libtransform.multiplex import MultiplexLibrary
 from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
@@ -432,17 +431,15 @@ class SearchStep:
                 f"to library_multiplexing.multiplex_mapping and recreate the library. "
             )
 
-    def _load_mbr_rt_by_run(self) -> pd.DataFrame | None:
-        """Load the per-run RT table written next to an MBR library, if this step searches one."""
-        if self.library_path is None:
+    def _init_per_run_mbr_library(self) -> PerRunMbrLibrary | None:
+        """Initialize the per-run adaptation of the MBR library if run identifications are configured."""
+        run_identifications_path = self.config[ConfigKeys.MBR_RUN_IDENTIFICATIONS_PATH]
+        if run_identifications_path is None:
             return None
-        rt_by_run_path = os.path.join(
-            os.path.dirname(self.library_path), SearchPlanFiles.MBR_RT_BY_RUN_FILE_NAME
+        logger.info(
+            f"Adapting the MBR library to each run with the run identifications from {run_identifications_path}"
         )
-        if not os.path.exists(rt_by_run_path):
-            return None
-        logger.info(f"Using leave-one-out library RT from {rt_by_run_path}")
-        return pd.read_parquet(rt_by_run_path)
+        return PerRunMbrLibrary(pd.read_parquet(run_identifications_path))
 
     def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
@@ -580,7 +577,7 @@ class SearchStep:
         workflow_folder_list = []
         raw_files_with_errors = []
 
-        rt_by_run = self._load_mbr_rt_by_run()
+        per_run_mbr_library = self._init_per_run_mbr_library()
 
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
@@ -609,8 +606,8 @@ class SearchStep:
                     random_state=random_state,
                 )
 
-                if rt_by_run is not None:
-                    speclib = leave_one_out_rt(speclib, rt_by_run, raw_name)
+                if per_run_mbr_library is not None:
+                    speclib = per_run_mbr_library.for_run(speclib, raw_name)
 
                 self._process_raw_file(workflow, dia_path, speclib)
 

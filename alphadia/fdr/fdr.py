@@ -12,7 +12,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from alphadia.constants.keys import MbrCols
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_indices
@@ -84,6 +83,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     train_on_best_candidate: bool = False,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    stratum_column: str | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of target and decoy PSMs.
 
@@ -133,6 +133,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     random_state : int, optional
         The random state for train-test split reproducibility.
+
+    stratum_column : str, optional
+        Column of `psm_df` whose values split the PSMs into strata with separate q-values
+        (`get_stratified_q_values`). If None, the q-values are computed over all PSMs.
 
     Returns
     -------
@@ -238,9 +242,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         ["proba", "precursor_idx"], ascending=True, inplace=True
     )  # last sort to break ties
 
-    # MBR step: transfers and re-found rows get their own q-values (`get_q_values_by_stratum`)
-    stratum_column = MbrCols.TRANSFER if MbrCols.TRANSFER in psm_df.columns else None
-    psm_df = get_q_values_by_stratum(psm_df, stratum_column)
+    psm_df = get_stratified_q_values(psm_df, stratum_column)
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
@@ -262,7 +264,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             psm_df = compete_for_fragments(psm_df[competing], df_fragments, dia_cycle)
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
-    psm_df = get_q_values_by_stratum(psm_df, stratum_column)
+    psm_df = get_stratified_q_values(psm_df, stratum_column)
 
     if figure_path is not None:
         plot_fdr(
@@ -270,7 +272,8 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             y_test,
             predicted_proba[idxs_train],
             predicted_proba[idxs_test],
-            psm_df["qval"],
+            # sorted, as the q-values of different strata interleave in the order of `proba`
+            np.sort(psm_df["qval"].to_numpy()),
             figure_path=figure_path,
         )
 
@@ -336,21 +339,22 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     return np.flip(q_values_flipped)
 
 
-def get_q_values_by_stratum(
+def get_stratified_q_values(
     psm_df: pd.DataFrame, stratum_column: str | None
 ) -> pd.DataFrame:
-    """q-values of the column `proba` against `_decoy`, computed separately within each value of `stratum_column`
-    (pooled without it). The result is sorted by `proba`.
+    """Calculate the q-values of the score `proba` against the label `_decoy` within each stratum.
 
-    In the MBR step the elution groups the first search identified in a run (re-found) are almost all true. Pooled
-    with them, the transfers would run at several times the nominal FDR.
+    The strata are the values of `stratum_column`, rows with NaN forming a stratum of their own. If `stratum_column`
+    is None, the q-values are computed over all PSMs.
+
+    The result is sorted by `proba` and `precursor_idx`, so with strata, the q-values are not monotone in its order.
     """
     if stratum_column is None:
         return get_q_values(psm_df, "proba", "_decoy")
     psm_df = pd.concat(
         [
             get_q_values(stratum_df, "proba", "_decoy")
-            for _, stratum_df in psm_df.groupby(stratum_column)
+            for _, stratum_df in psm_df.groupby(stratum_column, dropna=False)
         ]
     )
     return psm_df.sort_values(["proba", "precursor_idx"], ascending=True)

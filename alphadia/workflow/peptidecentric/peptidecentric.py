@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import FeatureTransform
+from alphadia.constants.keys import ConfigKeys, FeatureTransform, MbrCols
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -127,6 +127,11 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
             config=self.config,
             figure_path=self._figure_path,
             random_state=self._random_state_fdr_manager,
+            # Elution groups a run identified in the search that built the MBR library are re-found almost always
+            # correctly. Pooled with them, the matches from other runs would pass at several times the nominal FDR.
+            stratum_column=MbrCols.IDENTIFIED_IN_RUN
+            if self.config[ConfigKeys.MBR_RUN_IDENTIFICATIONS_PATH] is not None
+            else None,
         )
 
         init_spectral_library(

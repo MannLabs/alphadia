@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 from alphadia_search_rs import FeatureSet
 
+from alphadia.constants.keys import MbrCols
 from alphadia.exceptions import GenericUserError
 from alphadia.raw_data.bruker import TimsTOFTranspose
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
@@ -40,7 +41,7 @@ OPTIMIZATION_CONFIG = {
 }
 
 
-def _create_workflow(workflow_class, tmp_path):
+def _create_workflow(workflow_class, tmp_path, extra_config: dict | None = None):
     config = {
         "general": {
             "save_figures": False,
@@ -55,7 +56,7 @@ def _create_workflow(workflow_class, tmp_path):
             "quant_all": True,
             "experimental_xic": False,
         },
-    }
+    } | (extra_config or {})
     workflow = workflow_class("raw1", config)
     workflow.reporter = MagicMock()
     workflow._optimization_manager = OptimizationManager(OPTIMIZATION_CONFIG)
@@ -224,3 +225,51 @@ def test_rust_workflow_does_not_support_multiplexing(tmp_path):
     # when / then
     with pytest.raises(NotImplementedError):
         workflow.requantify(MagicMock())
+
+
+@pytest.mark.parametrize(
+    ("run_identifications_path", "expected_stratum_column"),
+    [
+        (None, None),
+        (
+            "/library/speclib.mbr.run_identifications.parquet",
+            MbrCols.IDENTIFIED_IN_RUN,
+        ),
+    ],
+)
+@patch("alphadia.workflow.peptidecentric.peptidecentric.init_spectral_library")
+@patch("alphadia.workflow.peptidecentric.peptidecentric._get_classifier_base")
+@patch("alphadia.workflow.peptidecentric.peptidecentric.FDRManager")
+@patch("alphadia.workflow.base.WorkflowBase.load")
+def test_load_stratifies_the_fdr_only_with_run_identifications(
+    mock_base_load,
+    mock_fdr_manager_cls,
+    mock_get_classifier_base,
+    mock_init_spectral_library,
+    run_identifications_path,
+    expected_stratum_column,
+    tmp_path,
+):
+    # given
+    workflow = _create_workflow(
+        PythonPeptideCentricWorkflow,
+        tmp_path,
+        {
+            "mbr_run_identifications_path": run_identifications_path,
+            "fdr": {
+                "enable_nn_hyperparameter_tuning": False,
+                "feature_transform": None,
+            },
+        },
+    )
+    workflow.config["search"]["channel_filter"] = "0"
+    workflow._spectral_library = MagicMock()
+
+    # when
+    workflow.load("/raw_files/raw1.raw", MagicMock())
+
+    # then
+    assert (
+        mock_fdr_manager_cls.call_args.kwargs["stratum_column"]
+        == expected_stratum_column
+    )
