@@ -225,7 +225,8 @@ def test_converge_stops_when_tolerances_settle():
 
 
 def test_converge_restores_best_round_on_id_loss():
-    """Test that a round losing identifications ends the loop with the tolerances of the best round."""
+    """Test that a round losing identifications ends the loop with the tolerances of the best round and the latest
+    calibration."""
     # given: the third round loses 25 % of the identifications of the second
     handler, optimization_manager = _create_converging_handler(
         rates=[0.02, 0.04, 0.03], rt_intervals=[100.0, 40.0, 40.0]
@@ -237,23 +238,23 @@ def test_converge_restores_best_round_on_id_loss():
     ) as recalibration_handler:
         handler.search_parameter_optimization()
 
-    # then: the tolerance of the second round, recalibrated on its 40 identifications
+    # then: the tolerance of the second round; the last calibration was fitted on its 40 identifications
     assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 100.0)
     last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
     assert len(last_call.args[0]) == 40
 
 
-def test_converge_does_not_compare_rounds_on_different_locks():
-    """Test that fewer identifications on another lock do not restore an earlier round."""
-    # given: the lock shrinks to 500 elution groups after the second round and finds fewer identifications
+def test_id_loss_is_measured_per_elution_group():
+    """Test that fewer identifications on a smaller lock do not count as a loss when the rate holds."""
+    # given: the lock shrinks to 500 elution groups after the second round and finds 30 instead of 40
     handler, optimization_manager = _create_converging_handler(
         rates=[], rt_intervals=[100.0, 40.0, 40.0]
     )
     rounds = iter([(0.02, 1000), (0.04, 1000), (0.03, 500)])
 
     def next_round():
-        rate, stop_idx = next(rounds)
-        handler._optlock.stop_idx = stop_idx
+        rate, n_elution_groups = next(rounds)
+        handler._optlock.total_elution_groups = n_elution_groups
         return rate
 
     handler._process_batch = MagicMock(side_effect=next_round)
@@ -266,6 +267,24 @@ def test_converge_does_not_compare_rounds_on_different_locks():
 
     # then: no restore, the loop converges at the tightened tolerance
     assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 40.0)
+
+
+def test_last_round_is_checked_before_the_loop_ends():
+    """Test that a round searched with the last calibration still counts as a loss and does not reach the search."""
+    # given: two calibrations allowed, and the round searched with the second one loses half the identifications
+    handler, optimization_manager = _create_converging_handler(
+        rates=[0.02, 0.04, 0.02], rt_intervals=[100.0, 40.0]
+    )
+    handler._config["calibration"]["max_steps"] = 2
+
+    # when
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # then: the tolerance of the best round, not the one of the last calibration
+    assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 100.0)
 
 
 def test_unfitted_estimator_keeps_the_current_tolerance():

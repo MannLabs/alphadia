@@ -11,8 +11,6 @@ MAX_FRAGMENT_MZ_TOLERANCE = 200
 class CalibrationLoop:
     """Constants of the calibration loop and its phases (see `OptimizationHandler.search_parameter_optimization`)."""
 
-    # fewer identifications than this give no usable calibration fit
-    MIN_PRECURSORS_TO_RECALIBRATE = 6
     # warm-up: recalibrate as soon as the lock holds this many precursors at 1% FDR, and grow the lock with the
     # calibrated tolerances until it reaches calibration.optimization_lock_target
     WARM_UP_MIN_PRECURSORS = 100
@@ -30,5 +28,5 @@ class CalibrationLoop:
     }
     # converge: converged when no tolerance changes by more than this share between rounds
     CONVERGENCE_THRESHOLD = 0.1
-    # converge: restore the best earlier round when a round on the same lock finds more than this share fewer identifications
+    # stop when a round identifies this share fewer precursors per elution group than the best calibrated round
     MAX_ID_LOSS = 0.05
