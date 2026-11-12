@@ -30,7 +30,7 @@ Tolerances are set as follows:
 - targeted parameters take their target value
 - automatic parameters are set to a fixed multiple of the 99% interval of the calibrated residuals
 
-Optimization stops when no tolerance changes by more than 10% between converge rounds. If a converge round finds more than 5% fewer precursors than the best earlier round on the same subset of the library, the calibration and tolerances of the best round are restored.
+Every round searched with a calibration is scored by its precursors at 1% FDR per searched elution group, which compares across lock sizes. Optimization stops when no tolerance changes by more than 10% between converge rounds, when a round scores more than 5% below the best round, after the maximum number of calibrations, or when the library has no batches left before the target. In every case, the main search uses the tolerances and classifier of the best-scoring round together with the latest calibration. If no round was calibrated, the initial tolerances are kept.
 
 <img src="../_static/images/methods_optimization.png" width="100%" height="auto">
 
