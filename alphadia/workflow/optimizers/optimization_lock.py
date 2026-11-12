@@ -191,7 +191,7 @@ class OptimizationLock:
         Parameters
         ----------
         calibration_manager: CalibrationManager | None
-            Calibrates the new batch like the earlier ones, None while nothing has been calibrated yet.
+            Calibrates the new batch like the earlier batches. None when no calibration exists yet.
         """
         self.increase_batch_idx()
         self.set_batch_dfs(self._elution_group_order[self.start_idx : self.stop_idx])
@@ -199,7 +199,9 @@ class OptimizationLock:
             self.update_with_calibration(calibration_manager)
 
     def resize(self, calibration_manager) -> None:
-        """Shrink the lock to the smallest batch of the plan expected to hold the target and search it all again.
+        """Resize the lock to the smallest batch of the plan that is expected to hold the target.
+
+        The next search covers the whole lock again.
 
         Parameters
         ----------
@@ -213,10 +215,15 @@ class OptimizationLock:
         self.update_with_calibration(calibration_manager)
 
     def grow(self, calibration_manager) -> None:
-        """Add the next batch of the plan and search the whole lock again with the current calibration.
+        """Add the next batch of the plan. The next search covers the whole lock again with the current calibration.
 
-        After a warm-up recalibration the features of the earlier batches were extracted with other tolerances, so they
-        are dropped and the lock is extracted anew from its first elution group.
+        A warm-up calibration changes the tolerances. The features of the earlier batches used the old tolerances, so
+        the lock drops them and extracts again from its first elution group.
+
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager
+            Calibrates the grown lock.
         """
         self.increase_batch_idx()
         self._feature_dfs = []

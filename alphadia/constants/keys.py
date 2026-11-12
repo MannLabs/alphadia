@@ -148,11 +148,11 @@ class SearchTolerance(metaclass=ConstantsClass):
 class CalibrationPhase(metaclass=ConstantsClass):
     """Phases of the calibration loop, see `OptimizationHandler.search_parameter_optimization`."""
 
-    # too few precursors to calibrate: extend the lock by the next batch
+    # Too few identifications to calibrate. Extend the lock by the next batch.
     EXPAND = "expand"
-    # calibrate with limited shrinking and grow the lock until it holds its target
+    # Calibrate with a limit on the shrink of the tolerances. Grow the lock until it holds its target.
     WARM_UP = "warm-up"
-    # calibrate on the full lock until the tolerances settle
+    # Calibrate on a lock that holds its target until the tolerances converge.
     CONVERGE = "converge"
 
 

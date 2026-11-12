@@ -130,9 +130,9 @@ def test_search_parameter_optimization_raises_without_candidates():
         handler.search_parameter_optimization()
 
 
-def test_search_parameter_optimization_keeps_the_initial_tolerances_without_a_calibrated_round():
-    """Test that a raw file with candidates but too few precursors to calibrate keeps the initial tolerances."""
-    # given
+def test_search_parameter_optimization_keeps_the_initial_tolerances_without_a_checkpoint():
+    """Test that a raw file with candidates but too few identifications to calibrate keeps the initial tolerances."""
+    # Given: a raw file with candidates and an optimization lock without batches left before the target
     handler, optimization_manager = _create_handler_that_exhausts_the_batch_plan(
         total_elution_groups=2000
     )
@@ -206,7 +206,7 @@ RT_TOLERANCE_FACTOR = CalibrationLoop.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
 
 @pytest.fixture(autouse=True)
 def warm_up_min_precursors(monkeypatch):
-    # keeps the identification counts of the calibration loop tests small
+    # Keeps the identification counts of the calibration loop tests small.
     monkeypatch.setattr(CalibrationLoop, "WARM_UP_MIN_PRECURSORS", 10)
 
 
@@ -230,10 +230,10 @@ def test_calibration_stops_when_tolerances_settle():
     assert optimization_manager.ms2_error == 10.0
 
 
-def test_calibration_restores_the_best_round_on_id_loss():
-    """Test that a round losing identifications ends the loop with the tolerances of the best round and the latest
-    calibration."""
-    # given: the third round loses 25 % of the identifications of the second
+def test_calibration_restores_the_best_checkpoint_on_identification_loss():
+    """Test that a round that loses identifications ends the loop with the tolerances of the best checkpoint and the
+    latest calibration."""
+    # Given: the third round loses 25% of the identifications of the second round
     handler, optimization_manager = _create_calibration_loop_handler(
         identifications_per_round=[20, 40, 30],
         rt_residual_intervals=[100.0, 40.0, 40.0],
@@ -245,15 +245,15 @@ def test_calibration_restores_the_best_round_on_id_loss():
     ) as recalibration_handler:
         handler.search_parameter_optimization()
 
-    # then: the tolerance of the second round; the last calibration was fitted on its 40 identifications
+    # Then: the handler restores the tolerance of the second round and the last calibration used its 40 identifications
     assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 100.0)
     last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
     assert len(last_call.args[0]) == 40
 
 
-def test_id_loss_is_measured_per_elution_group():
-    """Test that fewer identifications on a smaller lock do not count as a loss when the rate holds."""
-    # given: the lock shrinks to 500 elution groups after the second round and finds 30 instead of 40
+def test_identification_loss_is_measured_per_elution_group():
+    """Test that fewer identifications on a smaller lock do not count as a loss when the identification rate holds."""
+    # Given: the lock shrinks to 500 elution groups after the second round and finds 30 instead of 40 identifications
     handler, optimization_manager = _create_calibration_loop_handler(
         identifications_per_round=[], rt_residual_intervals=[100.0, 40.0, 40.0]
     )
@@ -277,44 +277,45 @@ def test_id_loss_is_measured_per_elution_group():
 
 
 def test_last_round_is_checked_before_the_loop_ends():
-    """Test that a round searched with the last calibration still counts as a loss and does not reach the search."""
-    # given: two calibrations allowed, and the round searched with the second one loses half the identifications
+    """Test that the loop checks the round that searched with the last calibration for an identification loss."""
+    # Given: two calibrations allowed, and the round that searched with the second calibration loses half the
+    # identifications
     handler, optimization_manager = _create_calibration_loop_handler(
-        ids_per_round=[20, 40, 20], rt_residual_intervals=[100.0, 40.0]
+        identifications_per_round=[20, 40, 20], rt_residual_intervals=[100.0, 40.0]
     )
     handler._config["calibration"]["max_steps"] = 2
 
-    # when
+    # When: the handler runs the calibration loop
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
         handler.search_parameter_optimization()
 
-    # then: the tolerance of the best round, not the one of the last calibration
+    # Then: the handler takes the tolerance of the best checkpoint and not the tolerance of the last calibration
     assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 100.0)
 
 
 def test_unfitted_estimator_keeps_the_current_tolerance():
-    """Test that a tolerance whose estimator could not be fitted keeps its value instead of becoming 0."""
-    # given: the RT estimator fails to fit in every round
+    """Test that a tolerance whose estimator could not be fitted keeps its value and does not become 0."""
+    # Given: the RT estimator fails to fit in every round
     handler, optimization_manager = _create_calibration_loop_handler(
-        ids_per_round=[20, 20], rt_residual_intervals=[None, None]
+        identifications_per_round=[20, 20], rt_residual_intervals=[None, None]
     )
 
-    # when
+    # When: the handler runs the calibration loop
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
         handler.search_parameter_optimization()
 
-    # then: RT keeps its initial tolerance, the targeted ms2 tolerance is still set
+    # Then: RT keeps its initial tolerance and the handler still sets the targeted MS2 tolerance
     assert optimization_manager.rt_error == 800.0
     assert optimization_manager.ms2_error == 10.0
 
 
 def test_expand_extends_the_lock_until_it_can_calibrate():
-    """Test that a lock with too few identifications to calibrate is extended at the current tolerances."""
-    # given: 1 identification in the first batch, 20 after the lock has grown
+    """Test that the handler extends a lock with too few identifications to calibrate at the current tolerances."""
+    # Given: 1 identification in the first batch and 20 after the lock extends
     handler, optimization_manager = _create_calibration_loop_handler(
         identifications_per_round=[1, 20, 20], rt_residual_intervals=[40.0, 40.0]
     )
@@ -332,7 +333,7 @@ def test_expand_extends_the_lock_until_it_can_calibrate():
     ) as recalibration_handler:
         handler.search_parameter_optimization()
 
-    # then: the first round only extends the lock, calibration starts on the second
+    # Then: the first round only extends the lock and the calibration starts on the second round
     first_recalibration = recalibration_handler.return_value.recalibrate.call_args_list[
         0
     ]
@@ -341,11 +342,11 @@ def test_expand_extends_the_lock_until_it_can_calibrate():
 
 
 def test_warm_up_calibrates_and_grows_the_lock():
-    """Test that a lock below its target is recalibrated as soon as it holds enough identifications, and then grows
-    with the calibrated tolerances."""
-    # given: 15 identifications (enough to calibrate, below the target) and a lock that can grow
+    """Test that the handler calibrates a lock below its target as soon as it holds enough identifications. The lock
+    then grows with the calibrated tolerances."""
+    # Given: 15 identifications (enough to calibrate, below the target) and a lock that can grow
     handler, optimization_manager = _create_calibration_loop_handler(
-        ids_per_round=[15, 30, 30], rt_residual_intervals=[10.0, 60.0, 60.0]
+        identifications_per_round=[15, 30, 30], rt_residual_intervals=[10.0, 60.0, 60.0]
     )
     handler._optlock.has_target_num_precursors = False
     handler._optlock.batches_remaining.return_value = True
@@ -355,23 +356,23 @@ def test_warm_up_calibrates_and_grows_the_lock():
 
     handler._optlock.grow.side_effect = reach_target
 
-    # when
+    # When: the handler runs the calibration loop
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
         handler.search_parameter_optimization()
 
-    # then: the warm-up round shrinks RT by half at most (800 -> 400), the lock grows, and RT converges
+    # Then: the warm-up round shrinks RT by at most half (800 -> 400), the lock grows and RT converges
     handler._optlock.grow.assert_called_once()
     assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 60.0)
 
 
 def test_expand_after_warm_up_extends_with_the_calibration():
-    """Test that a lock which falls back to expand after a warm-up round extends with the calibrated columns, so
-    that the next extraction finds them (regression: KeyError 'rt_calibrated')."""
-    # given: 15 identifications (warm-up), then 5 (expand, below the threshold of 10), then the target
+    """Test that a lock that goes back to expand after a warm-up round extends with the calibrated columns. The next
+    extraction needs these columns (regression: KeyError 'rt_calibrated')."""
+    # Given: 15 identifications (warm-up), then 5 (expand, below the threshold of 10), then the target
     handler, _ = _create_calibration_loop_handler(
-        ids_per_round=[15, 5, 30, 30], rt_residual_intervals=[100.0] * 4
+        identifications_per_round=[15, 5, 30, 30], rt_residual_intervals=[100.0] * 4
     )
     handler._optlock.has_target_num_precursors = False
     handler._optlock.batches_remaining.return_value = True
@@ -384,11 +385,11 @@ def test_expand_after_warm_up_extends_with_the_calibration():
     handler._optlock.extend.side_effect = extend
     handler._optlock.grow.side_effect = lambda _: calls.append(("grow",))
 
-    # when
+    # When: the handler runs the calibration loop
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
         handler.search_parameter_optimization()
 
-    # then: the batch added in expand gets the calibration of the warm-up round
+    # Then: the batch that expand adds gets the calibration of the warm-up round
     assert calls[:2] == [("grow",), ("extend", handler._calibration_manager)]
