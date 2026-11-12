@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import SearchTolerance
+from alphadia.constants.keys import CalibrationPhase, SearchTolerance
 from alphadia.constants.settings import (
     MAX_FRAGMENT_MZ_TOLERANCE,
-    ConvergeCalibration,
+    CalibrationLoop,
 )
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.raw_data import DiaData
@@ -139,19 +139,44 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         group, estimator_name, _ = _TOLERANCES[name]
         df = fragments_df if group == CalibrationGroups.FRAGMENT else precursor_df
         estimator = self._calibration_manager.get_estimator(group, estimator_name)
-        return ConvergeCalibration.TOLERANCE_FACTOR[name] * estimator.ci(
-            df, ConvergeCalibration.TOLERANCE_QUANTILE
+        return CalibrationLoop.TOLERANCE_FACTOR[name] * estimator.ci(
+            df, CalibrationLoop.TOLERANCE_QUANTILE
         )
+
+    def _get_phase(self, n_identified: int) -> str:
+        """The calibration phase of the current round, see `search_parameter_optimization`."""
+        if self._optlock.has_target_num_precursors:
+            return CalibrationPhase.CONVERGE
+        if n_identified < CalibrationLoop.WARM_UP_MIN_PRECURSORS:
+            return CalibrationPhase.EXPAND
+        return CalibrationPhase.WARM_UP
+
+    def _propose_tolerances(
+        self, names: list[str], precursor_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ) -> dict[str, float]:
+        return {
+            name: self._propose_tolerance(name, precursor_df, fragments_df)
+            for name in names
+        }
 
     def search_parameter_optimization(self) -> None:
         """Recalibrate and set the search tolerances in one loop.
 
-        1) Grow the optimization lock until it holds `MIN_CALIBRATION_PRECURSORS` precursors at 1% FDR.
-        2) Recalibrate on the confident identifications and set every tolerance from their residuals
-           (see `_propose_tolerance`); below `optimization_lock_target`, grow the lock and search it again from its
-           first elution group with the new calibration and tolerances, otherwise search the same lock again.
-        3) Stop when no tolerance changes by more than `CONVERGENCE_THRESHOLD`, or restore the best round when a round
-           on the same lock finds more than `MAX_ID_LOSS` fewer identifications.
+        Each round searches the optimization lock and runs one of three phases, chosen by the number of precursors the
+        lock holds at 1% FDR:
+
+        - Expand (fewer than `WARM_UP_MIN_PRECURSORS`): too few to calibrate. The lock is extended by the next batch of
+          the plan, the earlier batches are kept.
+        - Warm-up (fewer than `optimization_lock_target`): recalibrate and set every tolerance from the residuals
+          (see `_propose_tolerance`), shrinking each by at most `WARM_UP_MAX_SHRINK`. The lock grows to the next batch
+          and is searched again from its first elution group.
+        - Converge (at least `optimization_lock_target`): recalibrate and set every tolerance from the residuals. The
+          lock is resized to the smallest batch expected to hold the target and searched again. The loop stops when no
+          tolerance changes by more than `CONVERGENCE_THRESHOLD`, or restores the best round when a round on the same
+          lock finds more than `MAX_ID_LOSS` fewer identifications.
+
+        When the plan has no batches left before the lock holds its target, the tolerances are set from the
+        identifications found so far.
         """
         log_string = self._reporter.log_string
         config = self._config["calibration"]
@@ -176,22 +201,11 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 precursor_df, self._optlock.fragments_df
             )
             n_identified = len(precursor_df_filtered)
-            at_target = self._optlock.has_target_num_precursors
-            can_grow = self._optlock.batches_remaining()
 
             if (
-                not at_target
-                and can_grow
-                and n_identified < ConvergeCalibration.MIN_CALIBRATION_PRECURSORS
+                not self._optlock.has_target_num_precursors
+                and not self._optlock.batches_remaining()
             ):
-                log_string("Too few precursors to calibrate yet.")
-                self._optlock.update()
-                if calibrated:
-                    # the new batch needs the calibrated columns of the earlier rounds
-                    self._optlock.update_with_calibration(self._calibration_manager)
-                precursor_df = self._process_batch()
-                continue
-            if not at_target and not can_grow:
                 if self._optlock.total_elution_groups == 0:
                     raise NoOptimizationLockTargetError(
                         "The search extracted no candidate from the raw file."
@@ -200,76 +214,87 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     "Insufficient number of precursors to continue optimization.",
                     verbosity="warning",
                 )
-                if n_identified >= ConvergeCalibration.MIN_PRECURSORS_TO_RECALIBRATE:
+                if n_identified >= CalibrationLoop.MIN_PRECURSORS_TO_RECALIBRATE:
                     recalibration_handler.recalibrate(
                         precursor_df_filtered, fragments_df_filtered
                     )
                     self._optimization_manager.update(
-                        **{
-                            name: self._propose_tolerance(
-                                name, precursor_df_filtered, fragments_df_filtered
-                            )
-                            for name in names
-                        }
+                        **self._propose_tolerances(
+                            names, precursor_df_filtered, fragments_df_filtered
+                        )
                     )
                 break
+
+            phase = self._get_phase(n_identified)
+
+            if phase == CalibrationPhase.EXPAND:
+                log_string(
+                    f"Calibration round {step} [{phase}]: {n_identified} identifications "
+                    f"on {self._optlock.total_elution_groups} elution groups, too few to calibrate."
+                )
+                # after a calibration the new batch needs the calibrated columns of the earlier rounds
+                self._optlock.extend(self._calibration_manager if calibrated else None)
+                precursor_df = self._process_batch()
+                continue
 
             current = {
                 name: self._optimization_manager.__dict__[name] for name in names
             }
-            # identifications only compare on the same lock: a smaller lock finds fewer at the same tolerances
-            lock_range = (self._optlock.start_idx, self._optlock.stop_idx)
-            if (
-                best is not None
-                and best["lock_range"] == lock_range
-                and n_identified
-                < (1 - ConvergeCalibration.MAX_ID_LOSS) * best["n_identified"]
-            ):
-                log_string(
-                    f"Identifications dropped from {best['n_identified']} to {n_identified}, "
-                    "restoring the best round.",
-                    verbosity="progress",
-                )
-                recalibration_handler.recalibrate(*best["identifications"])
-                self._optimization_manager.update(**best["parameters"])
-                restored = True
-                break
-            if (
-                best is None
-                or best["lock_range"] != lock_range
-                or n_identified >= best["n_identified"]
-            ):
-                best = {
-                    "lock_range": lock_range,
-                    "n_identified": n_identified,
-                    "parameters": {
-                        **current,
-                        "classifier_version": self._fdr_manager.current_version,
-                    },
-                    "identifications": (precursor_df_filtered, fragments_df_filtered),
-                }
+
+            if phase == CalibrationPhase.CONVERGE:
+                # identifications only compare on the same lock: a smaller lock finds fewer at the same tolerances
+                lock_range = (self._optlock.start_idx, self._optlock.stop_idx)
+                if (
+                    best is not None
+                    and best["lock_range"] == lock_range
+                    and n_identified
+                    < (1 - CalibrationLoop.MAX_ID_LOSS) * best["n_identified"]
+                ):
+                    log_string(
+                        f"Identifications dropped from {best['n_identified']} to {n_identified}, "
+                        "restoring the best round.",
+                        verbosity="progress",
+                    )
+                    recalibration_handler.recalibrate(*best["identifications"])
+                    self._optimization_manager.update(**best["parameters"])
+                    restored = True
+                    break
+                if (
+                    best is None
+                    or best["lock_range"] != lock_range
+                    or n_identified >= best["n_identified"]
+                ):
+                    best = {
+                        "lock_range": lock_range,
+                        "n_identified": n_identified,
+                        "parameters": {
+                            **current,
+                            "classifier_version": self._fdr_manager.current_version,
+                        },
+                        "identifications": (
+                            precursor_df_filtered,
+                            fragments_df_filtered,
+                        ),
+                    }
 
             recalibration_handler.recalibrate(
                 precursor_df_filtered, fragments_df_filtered
             )
             calibrated = True
-            proposal = {
-                name: self._propose_tolerance(
-                    name, precursor_df_filtered, fragments_df_filtered
-                )
-                for name in names
-            }
-            if not at_target:
-                # few identifications give a noisy interval: limit the shrinking per round until the target
+            proposal = self._propose_tolerances(
+                names, precursor_df_filtered, fragments_df_filtered
+            )
+            if phase == CalibrationPhase.WARM_UP:
+                # few identifications give a noisy interval
                 proposal = {
                     name: max(
                         proposal[name],
-                        current[name] / ConvergeCalibration.MAX_SHRINK_BELOW_TARGET,
+                        current[name] / CalibrationLoop.WARM_UP_MAX_SHRINK,
                     )
                     for name in names
                 }
             log_string(
-                f"Calibration round {step}: {n_identified} identifications "
+                f"Calibration round {step} [{phase}]: {n_identified} identifications "
                 f"on {self._optlock.total_elution_groups} elution groups; "
                 + ", ".join(
                     f"{name} {current[name]:.2f} -> {proposal[name]:.2f}"
@@ -278,18 +303,17 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 verbosity="progress",
             )
 
-            if at_target and all(
+            if phase == CalibrationPhase.CONVERGE and all(
                 abs(proposal[name] - current[name]) / max(current[name], 1e-9)
-                <= ConvergeCalibration.CONVERGENCE_THRESHOLD
+                <= CalibrationLoop.CONVERGENCE_THRESHOLD
                 for name in names
             ):
                 log_string("Search parameters converged.", verbosity="progress")
                 break
 
             self._optimization_manager.update(**proposal)
-            if at_target:
-                self._optlock.update()
-                self._optlock.update_with_calibration(self._calibration_manager)
+            if phase == CalibrationPhase.CONVERGE:
+                self._optlock.resize(self._calibration_manager)
             else:
                 self._optlock.grow(self._calibration_manager)
             precursor_df = self._process_batch()

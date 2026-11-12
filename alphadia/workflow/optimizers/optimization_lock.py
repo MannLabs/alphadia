@@ -185,25 +185,37 @@ class OptimizationLock:
         # get index of smallest value >= 0
         self.batch_idx = np.where(batch_plan_diff >= 0)[0][0]
 
-    def update(self):
-        """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
-        If the target has been reached, the feature and fragment dataframes are reset
+    def extend(self, calibration_manager=None) -> None:
+        """Add the next batch of the plan to the lock and keep the batches extracted so far.
+
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager | None
+            Calibrates the new batch like the earlier ones, None while nothing has been calibrated yet.
         """
-        if self.has_target_num_precursors:
-            self.decrease_batch_idx()
-            self._feature_dfs = []
-            self._fragment_dfs = []
+        self.increase_batch_idx()
+        self.set_batch_dfs(self._elution_group_order[self.start_idx : self.stop_idx])
+        if calibration_manager is not None:
+            self.update_with_calibration(calibration_manager)
 
-        else:
-            self.increase_batch_idx()
+    def resize(self, calibration_manager) -> None:
+        """Shrink the lock to the smallest batch of the plan expected to hold the target and search it all again.
 
-        eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
-        self.set_batch_dfs(eg_idxes)
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager
+            Calibrates the resized lock.
+        """
+        self.decrease_batch_idx()
+        self._feature_dfs = []
+        self._fragment_dfs = []
+        self.set_batch_dfs(self._elution_group_order[: self.stop_idx])
+        self.update_with_calibration(calibration_manager)
 
     def grow(self, calibration_manager) -> None:
         """Add the next batch of the plan and search the whole lock again with the current calibration.
 
-        After an early recalibration the features of the earlier batches were extracted with other tolerances, so they
+        After a warm-up recalibration the features of the earlier batches were extracted with other tolerances, so they
         are dropped and the lock is extracted anew from its first elution group.
         """
         self.increase_batch_idx()

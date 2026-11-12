@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from alphadia.constants.keys import SearchTolerance
-from alphadia.constants.settings import ConvergeCalibration
+from alphadia.constants.settings import CalibrationLoop
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.peptidecentric.recalibration_handler import (
     RecalibrationHandler,
@@ -199,13 +199,13 @@ def _create_converging_handler(rates, rt_intervals, *, target_ms2=10.0):
     return handler, optimization_manager
 
 
-RT_FACTOR = ConvergeCalibration.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
+RT_FACTOR = CalibrationLoop.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
 
 
 @pytest.fixture(autouse=True)
-def min_calibration_precursors(monkeypatch):
-    # keeps the identification counts of the converge tests small
-    monkeypatch.setattr(ConvergeCalibration, "MIN_CALIBRATION_PRECURSORS", 10)
+def warm_up_min_precursors(monkeypatch):
+    # keeps the identification counts of the calibration loop tests small
+    monkeypatch.setattr(CalibrationLoop, "WARM_UP_MIN_PRECURSORS", 10)
 
 
 def test_converge_stops_when_tolerances_settle():
@@ -271,8 +271,8 @@ def test_converge_does_not_compare_rounds_on_different_locks():
     assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 40.0)
 
 
-def test_converge_grows_the_lock_until_it_can_calibrate():
-    """Test that a lock with too few identifications to calibrate grows at the current tolerances."""
+def test_expand_extends_the_lock_until_it_can_calibrate():
+    """Test that a lock with too few identifications to calibrate is extended at the current tolerances."""
     # given: 1 identification in the first batch, 20 after the lock has grown
     handler, optimization_manager = _create_converging_handler(
         rates=[0.001, 0.02, 0.02], rt_intervals=[40.0, 40.0]
@@ -280,10 +280,10 @@ def test_converge_grows_the_lock_until_it_can_calibrate():
     handler._optlock.has_target_num_precursors = False
     handler._optlock.batches_remaining.return_value = True
 
-    def reach_target():
+    def reach_target(_):
         handler._optlock.has_target_num_precursors = True
 
-    handler._optlock.update.side_effect = reach_target
+    handler._optlock.extend.side_effect = reach_target
 
     # when
     with patch(
@@ -291,7 +291,7 @@ def test_converge_grows_the_lock_until_it_can_calibrate():
     ) as recalibration_handler:
         handler.search_parameter_optimization()
 
-    # then: the first round only grows the lock, calibration starts on the second
+    # then: the first round only extends the lock, calibration starts on the second
     first_recalibration = recalibration_handler.return_value.recalibrate.call_args_list[
         0
     ]
@@ -299,7 +299,7 @@ def test_converge_grows_the_lock_until_it_can_calibrate():
     assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 40.0)
 
 
-def test_converge_calibrates_early_and_grows_the_lock():
+def test_warm_up_calibrates_and_grows_the_lock():
     """Test that a lock below its target is recalibrated as soon as it holds enough identifications, and then grows
     with the calibrated tolerances."""
     # given: 15 identifications (enough to calibrate, below the target) and a lock that can grow
@@ -320,15 +320,15 @@ def test_converge_calibrates_early_and_grows_the_lock():
     ):
         handler.search_parameter_optimization()
 
-    # then: the early round shrinks RT by half at most (800 -> 400), the lock grows, and RT converges
+    # then: the warm-up round shrinks RT by half at most (800 -> 400), the lock grows, and RT converges
     handler._optlock.grow.assert_called_once()
     assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 60.0)
 
 
-def test_converge_calibrates_new_batches_after_an_early_calibration():
-    """Test that a lock which falls below the calibration threshold after an early calibration grows with the
-    calibrated columns, so that the next extraction finds them (regression: KeyError 'rt_calibrated')."""
-    # given: 15 identifications (calibrate), then 5 (below the threshold of 10), then the target
+def test_expand_after_warm_up_extends_with_the_calibration():
+    """Test that a lock which falls back to expand after a warm-up round extends with the calibrated columns, so
+    that the next extraction finds them (regression: KeyError 'rt_calibrated')."""
+    # given: 15 identifications (warm-up), then 5 (expand, below the threshold of 10), then the target
     handler, _ = _create_converging_handler(
         rates=[0.015, 0.005, 0.03, 0.03], rt_intervals=[100.0] * 4
     )
@@ -336,15 +336,12 @@ def test_converge_calibrates_new_batches_after_an_early_calibration():
     handler._optlock.batches_remaining.return_value = True
     calls = []
 
-    def update():
-        calls.append("update")
+    def extend(calibration_manager):
+        calls.append(("extend", calibration_manager))
         handler._optlock.has_target_num_precursors = True
 
-    handler._optlock.update.side_effect = update
-    handler._optlock.update_with_calibration.side_effect = lambda _: calls.append(
-        "calibrate"
-    )
-    handler._optlock.grow.side_effect = lambda _: calls.append("grow")
+    handler._optlock.extend.side_effect = extend
+    handler._optlock.grow.side_effect = lambda _: calls.append(("grow",))
 
     # when
     with patch(
@@ -352,8 +349,8 @@ def test_converge_calibrates_new_batches_after_an_early_calibration():
     ):
         handler.search_parameter_optimization()
 
-    # then: the batch added below the threshold is calibrated before it is extracted
-    assert calls[:3] == ["grow", "update", "calibrate"]
+    # then: the batch added in expand gets the calibration of the warm-up round
+    assert calls[:2] == [("grow",), ("extend", handler._calibration_manager)]
 
 
 def test_recalibrate_keeps_the_best_peak_group_only():
