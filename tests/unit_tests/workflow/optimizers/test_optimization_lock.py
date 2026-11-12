@@ -223,9 +223,9 @@ def test_optlock_reindex():
 
 
 def test_optlock_grow_searches_the_whole_larger_lock_again():
-    """Test that growing the lock drops the extracted features and covers all elution groups from the first one to
-    the end of the next batch, with the current calibration."""
-    # given
+    """Test that grow drops the extracted features and covers all elution groups from the first elution group to the
+    end of the next batch, with the current calibration."""
+    # Given: a lock with extracted features and fragments
     library = _create_test_library()
     optlock = OptimizationLock(library, TEST_OPTLOCK_CONFIG)
     optlock.update_with_extraction(
@@ -234,10 +234,10 @@ def test_optlock_grow_searches_the_whole_larger_lock_again():
     )
     calibration_manager = MagicMock()
 
-    # when
+    # When: the lock grows
     optlock.grow(calibration_manager)
 
-    # then
+    # Then: the lock covers the next batch from its first elution group, without features, and calibrated
     assert optlock.batch_idx == 1
     expected_elution_groups = set(
         optlock._elution_group_order[: optlock.batch_plan[1][1]]

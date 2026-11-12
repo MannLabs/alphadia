@@ -211,7 +211,7 @@ calibration:
   # minimum number of precursors to be found before search parameter optimization begins
   optimization_lock_target: 1000
 
-  # the maximum number of calibrations (warm-up and converge rounds) before the best round is taken forward
+  # the maximum number of calibrations (warm-up and converge rounds) before the best checkpoint is taken forward
   max_steps: 20
 
   # the maximum number of fragments with correlation scores exceeding correlation_threshold to use for calibrating fragment mz (i.e. ms2)

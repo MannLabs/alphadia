@@ -95,7 +95,7 @@ class CalibrationEstimator:
 
     @property
     def is_fitted(self) -> bool:
-        """Whether the last fit succeeded. The Rust estimator holds this state; a failed fit leaves it unfitted."""
+        """Return True when the last fit succeeded. The Rust estimator holds this state. A failed fit leaves it unfitted."""
         return self._calibration_estimator.is_fitted
 
     def __repr__(self) -> str:
@@ -261,7 +261,7 @@ class CalibrationEstimator:
         Returns
         -------
         float | None
-            the confidence interval of the residual deviation after calibration, None if the estimator is not fitted.
+            the confidence interval of the residual deviation after calibration. None if the estimator is not fitted.
 
         """
         if not 0 < ci < 1:
