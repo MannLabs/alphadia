@@ -268,6 +268,24 @@ def test_converge_does_not_compare_rounds_on_different_locks():
     assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 40.0)
 
 
+def test_unfitted_estimator_keeps_the_current_tolerance():
+    """Test that a tolerance whose estimator could not be fitted keeps its value instead of becoming 0."""
+    # given: the RT estimator fails to fit in every round
+    handler, optimization_manager = _create_converging_handler(
+        rates=[0.02, 0.02], rt_intervals=[None, None]
+    )
+
+    # when
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # then: RT keeps its initial tolerance, the targeted ms2 tolerance is still set
+    assert optimization_manager.rt_error == 800.0
+    assert optimization_manager.ms2_error == 10.0
+
+
 def test_expand_extends_the_lock_until_it_can_calibrate():
     """Test that a lock with too few identifications to calibrate is extended at the current tolerances."""
     # given: 1 identification in the first batch, 20 after the lock has grown

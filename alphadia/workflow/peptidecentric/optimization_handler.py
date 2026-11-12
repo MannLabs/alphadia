@@ -126,12 +126,12 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
     def _propose_tolerance(
         self, name: str, precursor_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ) -> float:
+    ) -> float | None:
         """The tolerance that covers the calibrated residuals of the confident identifications.
 
         Targeted parameters take their target. Otherwise the tolerance is `TOLERANCE_FACTOR` times the
         `TOLERANCE_QUANTILE` interval of the residuals, so that it follows the spread of the true identifications
-        rather than the tail of chance matches inside the current window.
+        rather than the tail of chance matches inside the current window. None if the estimator could not be fitted.
         """
         target = self._target_tolerance(name)
         if target is not None:
@@ -139,9 +139,10 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         group, estimator_name, _ = _TOLERANCES[name]
         df = fragments_df if group == CalibrationGroups.FRAGMENT else precursor_df
         estimator = self._calibration_manager.get_estimator(group, estimator_name)
-        return CalibrationLoop.TOLERANCE_FACTOR[name] * estimator.ci(
-            df, CalibrationLoop.TOLERANCE_QUANTILE
-        )
+        interval = estimator.ci(df, CalibrationLoop.TOLERANCE_QUANTILE)
+        if interval is None:
+            return None
+        return CalibrationLoop.TOLERANCE_FACTOR[name] * interval
 
     def _get_phase(self, n_identified: int) -> str:
         """The calibration phase of the current round, see `search_parameter_optimization`."""
@@ -154,10 +155,18 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
     def _propose_tolerances(
         self, names: list[str], precursor_df: pd.DataFrame, fragments_df: pd.DataFrame
     ) -> dict[str, float]:
-        return {
-            name: self._propose_tolerance(name, precursor_df, fragments_df)
-            for name in names
-        }
+        """Propose every tolerance; a tolerance whose estimator could not be fitted keeps its current value."""
+        proposal = {}
+        for name in names:
+            tolerance = self._propose_tolerance(name, precursor_df, fragments_df)
+            if tolerance is None:
+                tolerance = self._optimization_manager.__dict__[name]
+                self._reporter.log_string(
+                    f"Calibration of {name} could not be fitted, keeping {tolerance:.2f}.",
+                    verbosity="warning",
+                )
+            proposal[name] = tolerance
+        return proposal
 
     def search_parameter_optimization(self) -> None:
         """Recalibrate and set the search tolerances in one loop.
