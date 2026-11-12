@@ -137,7 +137,7 @@ class FeatureTransform(metaclass=ConstantsClass):
 
 
 class SearchTolerance(metaclass=ConstantsClass):
-    """Names of the search tolerances, as attributes of the OptimizationManager."""
+    """Names of the search tolerances. Each name is also an attribute of `OptimizationManager`."""
 
     MS2_ERROR = "ms2_error"
     MS1_ERROR = "ms1_error"

@@ -18,8 +18,8 @@ class CalibrationLoop:
     WARM_UP_MAX_SHRINK = 2
     # the tolerances cover this central interval of the calibrated residuals of the identifications at 1% FDR ...
     TOLERANCE_QUANTILE = 0.99
-    # ... times this factor (automatic parameters only; targeted parameters take their target).
-    # RT gets a wider margin: on Astral, factors 3-6 gave about 0.8 % more precursors than 1.5.
+    # ... times this factor. Only automatic parameters use the factor. Targeted parameters take their target.
+    # RT gets a wider margin. On Astral, factors from 3 to 6 gave about 0.8% more precursors than 1.5.
     TOLERANCE_FACTOR = {
         SearchTolerance.MS2_ERROR: 1.2,
         SearchTolerance.MS1_ERROR: 1.2,

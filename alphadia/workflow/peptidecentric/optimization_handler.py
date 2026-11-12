@@ -31,7 +31,7 @@ from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
 ExtractionHandlerT = TypeVar("ExtractionHandlerT", bound=ExtractionHandler)
 
-# tolerance name -> (calibration group, estimator, config key of the target tolerance in `search`)
+# Maps each tolerance name to its calibration group, its estimator and the config key of its target in `search`.
 _TOLERANCES = {
     SearchTolerance.MS2_ERROR: (
         CalibrationGroups.FRAGMENT,
@@ -115,7 +115,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         )
 
     def _active_tolerances(self) -> list[str]:
-        """Names of the tolerances the raw file has data for."""
+        """Return the names of the tolerances that the raw file has data for."""
         names = [SearchTolerance.MS2_ERROR, SearchTolerance.RT_ERROR]
         if self._dia_data.has_ms1:
             names.append(SearchTolerance.MS1_ERROR)
@@ -124,12 +124,12 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         return names
 
     def _target_tolerance(self, name: str) -> float | None:
-        """The fixed tolerance of a targeted parameter, None if the parameter is set from the data."""
+        """Return the target of a targeted parameter, or None for an automatic parameter."""
         target = self._config["search"][_TOLERANCES[name][2]]
         if target <= 0:
             return None
         if name == SearchTolerance.RT_ERROR and target <= 1:
-            # an RT target up to 1 is a share of the gradient
+            # The config defines an RT target of 1 or less as a share of the gradient length.
             return target * self._dia_data.rt_values.max()
         return target
 
@@ -192,7 +192,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         }
 
     def search_parameter_optimization(self) -> None:
-        """Recalibrate and set the search tolerances in one loop.
+        """Calibrate the library and set the tolerances in one loop.
 
         Each round searches the optimization lock, scores the result and then runs one of three phases, chosen by the
         number of precursors the lock holds at 1% FDR:
@@ -322,7 +322,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     for name in names
                 )
             ):
-                log_string("Search parameters converged.", verbosity="progress")
+                log_string("Tolerances converged.", verbosity="progress")
                 break
 
             self._optimization_manager.update(**next_tolerances)
