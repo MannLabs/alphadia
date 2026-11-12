@@ -208,9 +208,9 @@ RT_TOLERANCE_FACTOR = CalibrationLoop.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
 
 
 @pytest.fixture(autouse=True)
-def warm_up_min_precursors(monkeypatch):
+def warm_up_min_identifications(monkeypatch):
     # Keeps the identification counts of the calibration loop tests small.
-    monkeypatch.setattr(CalibrationLoop, "WARM_UP_MIN_PRECURSORS", 10)
+    monkeypatch.setattr(CalibrationLoop, "WARM_UP_MIN_IDENTIFICATIONS", 10)
 
 
 def test_calibration_stops_when_tolerances_settle():

@@ -159,7 +159,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         """Return the calibration phase of the current round, see `search_parameter_optimization`."""
         if self._optlock.has_target_num_precursors:
             return CalibrationPhase.CONVERGE
-        if n_identified < CalibrationLoop.WARM_UP_MIN_PRECURSORS:
+        if n_identified < CalibrationLoop.WARM_UP_MIN_IDENTIFICATIONS:
             return CalibrationPhase.EXPAND
         return CalibrationPhase.WARM_UP
 
@@ -201,7 +201,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         An identification is a precursor at 1% FDR. Each round searches the optimization lock and scores the result.
         The number of identifications then selects one of three phases:
 
-        - Expand (fewer than `WARM_UP_MIN_PRECURSORS`): too few identifications to calibrate. Extend the lock by the
+        - Expand (fewer than `WARM_UP_MIN_IDENTIFICATIONS`): too few identifications to calibrate. Extend the lock by the
           next batch of the plan and keep the earlier batches.
         - Warm-up (fewer than `optimization_lock_target`): calibrate and set every tolerance from the residuals, see
           `_propose_tolerance`. Each tolerance shrinks by at most `WARM_UP_MAX_SHRINK`. Grow the lock by the next
