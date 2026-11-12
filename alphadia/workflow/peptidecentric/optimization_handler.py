@@ -177,6 +177,20 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             proposal[name] = tolerance
         return proposal
 
+    @staticmethod
+    def _limit_warm_up_shrink(
+        next_tolerances: dict[str, float], current_tolerances: dict[str, float]
+    ) -> dict[str, float]:
+        """Shrink each tolerance by at most `WARM_UP_MAX_SHRINK`: the few identifications of a warm-up round give a
+        noisy residual interval."""
+        return {
+            name: max(
+                tolerance,
+                current_tolerances[name] / CalibrationLoop.WARM_UP_MAX_SHRINK,
+            )
+            for name, tolerance in next_tolerances.items()
+        }
+
     def search_parameter_optimization(self) -> None:
         """Recalibrate and set the search tolerances in one loop.
 
@@ -219,7 +233,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 precursor_df, self._optlock.fragments_df
             )
             n_identified = len(precursor_df_filtered)
-            current = {
+            current_tolerances = {
                 name: self._optimization_manager.__dict__[name] for name in names
             }
 
@@ -228,7 +242,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             if searched_calibrated:
                 checkpoint = CalibrationCheckpoint(
                     id_rate=n_identified / self._optlock.total_elution_groups,
-                    tolerances=current,
+                    tolerances=current_tolerances,
                     classifier_version=self._fdr_manager.current_version,
                 )
                 if best is not None and checkpoint.id_rate < (
@@ -280,23 +294,18 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 precursor_df_filtered, fragments_df_filtered
             )
             n_calibrations += 1
-            proposal = self._propose_tolerances(
+            next_tolerances = self._propose_tolerances(
                 names, precursor_df_filtered, fragments_df_filtered
             )
             if phase == CalibrationPhase.WARM_UP:
-                # few identifications give a noisy interval
-                proposal = {
-                    name: max(
-                        proposal[name],
-                        current[name] / CalibrationLoop.WARM_UP_MAX_SHRINK,
-                    )
-                    for name in names
-                }
+                next_tolerances = self._limit_warm_up_shrink(
+                    next_tolerances, current_tolerances
+                )
             log_string(
                 f"Calibration round {n_calibrations} [{phase}]: {n_identified} identifications "
                 f"on {self._optlock.total_elution_groups} elution groups; "
                 + ", ".join(
-                    f"{name} {current[name]:.2f} -> {proposal[name]:.2f}"
+                    f"{name} {current_tolerances[name]:.2f} -> {next_tolerances[name]:.2f}"
                     for name in names
                 ),
                 verbosity="progress",
@@ -307,7 +316,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 phase == CalibrationPhase.CONVERGE
                 and searched_calibrated
                 and all(
-                    abs(proposal[name] - current[name]) / max(current[name], 1e-9)
+                    abs(next_tolerances[name] - current_tolerances[name])
+                    / max(current_tolerances[name], 1e-9)
                     <= CalibrationLoop.CONVERGENCE_THRESHOLD
                     for name in names
                 )
@@ -315,7 +325,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 log_string("Search parameters converged.", verbosity="progress")
                 break
 
-            self._optimization_manager.update(**proposal)
+            self._optimization_manager.update(**next_tolerances)
             if phase == CalibrationPhase.CONVERGE:
                 self._optlock.resize(self._calibration_manager)
             else:
