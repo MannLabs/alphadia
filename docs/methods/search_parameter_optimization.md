@@ -20,15 +20,17 @@ AlphaDIA starts with the following default search parameters:
 
 ### Optimization Algorithm
 
-The optimization process follows these steps:
-1. Search is performed batch-wise, starting with the first 8000 precursors
-2. Batch size increases exponentially (16,000, 32,000, 64,000, ...) until 200 precursors are identified at 1% FDR
-3. The library is recalibrated on the identified precursors and every tolerance is set in one step:
-   - targeted parameters take their target value
-   - automatic parameters are set to a fixed multiple of the 99% interval of the calibrated residuals
-4. The same precursors are searched again with the new calibration and tolerances
+Search is performed on a random subset of the library, the optimization lock, which starts with the first 8000 precursors and grows exponentially (16,000, 32,000, 64,000, ...). In every round the lock is searched and the round runs one of three phases, depending on how many precursors are identified at 1% FDR:
 
-Optimization stops when no tolerance changes by more than 10% between rounds. If a round finds more than 5% fewer precursors than the best earlier round on the same subset of the library, the calibration and tolerances of the best round are restored.
+1. **Expand** (fewer than 100): too few to calibrate. The next batch is added to the lock.
+2. **Warm-up** (fewer than the lock target of 200): the library is recalibrated on the identified precursors and every tolerance is set from them, but shrinks by at most half per round. The lock grows to the next batch and is searched again with the new calibration and tolerances.
+3. **Converge** (at least 200): the library is recalibrated and every tolerance is set in one step. The lock is reduced to the smallest batch expected to still reach the target and searched again.
+
+Tolerances are set as follows:
+- targeted parameters take their target value
+- automatic parameters are set to a fixed multiple of the 99% interval of the calibrated residuals
+
+Optimization stops when no tolerance changes by more than 10% between converge rounds. If a converge round finds more than 5% fewer precursors than the best earlier round on the same subset of the library, the calibration and tolerances of the best round are restored.
 
 <img src="../_static/images/methods_optimization.png" width="100%" height="auto">
 

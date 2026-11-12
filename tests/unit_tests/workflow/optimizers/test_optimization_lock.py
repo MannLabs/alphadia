@@ -106,7 +106,7 @@ def test_optlock_spot_on_target():
         }
     )
     optlock.update_with_fdr(precursor_df)
-    optlock.update()
+    optlock.resize(MagicMock())
 
     assert optlock.start_idx == 0
     assert optlock.stop_idx == optlock.batch_plan[0][1]
@@ -142,7 +142,7 @@ def test_optlock():
     optlock.update_with_fdr(precursor_df)
 
     assert not optlock.has_target_num_precursors
-    optlock.update()
+    optlock.extend()
 
     assert optlock.start_idx == optlock.batch_plan[1][0]
 
@@ -164,7 +164,7 @@ def test_optlock():
 
     assert optlock.has_target_num_precursors
 
-    optlock.update()
+    optlock.resize(MagicMock())
 
     assert optlock.start_idx == 0
 
@@ -179,10 +179,10 @@ def test_optlock_batch_idx():
 
     assert optlock.start_idx == 0
 
-    optlock.update()
+    optlock.extend()
     assert optlock.start_idx == 100
 
-    optlock.update()
+    optlock.extend()
     assert optlock.start_idx == 2000
 
     precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005), "decoy": np.zeros(4500)})
@@ -190,7 +190,7 @@ def test_optlock_batch_idx():
     optlock.update_with_fdr(precursor_df)
 
     optlock.has_target_num_precursors = True
-    optlock.update()
+    optlock.resize(MagicMock())
 
     assert optlock.start_idx == 0
     assert optlock.stop_idx == 2000
