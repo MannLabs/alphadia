@@ -130,7 +130,7 @@ def test_search_parameter_optimization_raises_without_candidates():
         handler.search_parameter_optimization()
 
 
-def test_search_parameter_optimization_recovers_with_insufficient_precursors():
+def test_search_parameter_optimization_keeps_the_initial_tolerances_with_too_few_precursors():
     """Test that a raw file with candidates but too few precursors to calibrate keeps the initial tolerances."""
     # given
     handler, optimization_manager = _create_handler_that_exhausts_the_batch_plan(
@@ -149,9 +149,15 @@ def test_search_parameter_optimization_recovers_with_insufficient_precursors():
     assert optimization_manager.rt_error == 800.0
 
 
-def _create_converging_handler(rates, rt_intervals, *, target_ms2=10.0):
-    """Make a handler whose rounds find `rates` identifications per elution group and whose RT estimator gives
-    `rt_intervals` residual intervals, one per round."""
+def _identifications(n_identified: int) -> pd.DataFrame:
+    return pd.DataFrame({"precursor_idx": range(n_identified)})
+
+
+def _create_calibration_loop_handler(
+    ids_per_round, rt_residual_intervals, *, target_ms2=10.0
+):
+    """Make a handler whose searches find `ids_per_round` identifications on a lock of 1000 elution groups and whose
+    RT estimator gives `rt_residual_intervals`, one per calibration."""
     config = {
         "search": {
             "target_ms2_tolerance": target_ms2,
@@ -183,27 +189,26 @@ def _create_converging_handler(rates, rt_intervals, *, target_ms2=10.0):
     handler._optlock.has_target_num_precursors = True
     handler._optlock.total_elution_groups = 1000
     handler._optlock.start_idx, handler._optlock.stop_idx = 0, 1000
-    round_rates = iter(rates)
-    handler._process_batch = MagicMock(side_effect=lambda: next(round_rates))
-    handler._filter_dfs = lambda rate, _: (
-        pd.DataFrame({"precursor_idx": range(int(rate * 1000))}),
-        pd.DataFrame(),
+    remaining_ids = iter(ids_per_round)
+    handler._process_batch = MagicMock(
+        side_effect=lambda: _identifications(next(remaining_ids))
     )
-    intervals = iter(rt_intervals)
+    handler._filter_dfs = lambda precursor_df, _: (precursor_df, pd.DataFrame())
+    remaining_rt_intervals = iter(rt_residual_intervals)
     handler._calibration_manager.get_estimator.return_value.ci.side_effect = (
-        lambda df, quantile: next(intervals)
+        lambda df, quantile: next(remaining_rt_intervals)
     )
     return handler, optimization_manager
 
 
-RT_FACTOR = ConvergeCalibration.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
+RT_TOLERANCE_FACTOR = ConvergeCalibration.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
 
 
-def test_converge_stops_when_tolerances_settle():
+def test_calibration_stops_when_tolerances_settle():
     """Test that the loop stops once no tolerance changes by more than the convergence threshold."""
     # given: RT residual intervals of 100, 70 and 68 s
-    handler, optimization_manager = _create_converging_handler(
-        rates=[0.02, 0.04, 0.041], rt_intervals=[100.0, 70.0, 68.0]
+    handler, optimization_manager = _create_calibration_loop_handler(
+        ids_per_round=[20, 40, 41], rt_residual_intervals=[100.0, 70.0, 68.0]
     )
 
     # when
@@ -214,15 +219,15 @@ def test_converge_stops_when_tolerances_settle():
 
     # then: the third proposal changes by less than 10 % and keeps the second
     assert handler._process_batch.call_count == 3
-    assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 70.0)
+    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 70.0)
     assert optimization_manager.ms2_error == 10.0
 
 
-def test_converge_restores_best_round_on_id_loss():
+def test_calibration_restores_the_best_round_on_id_loss():
     """Test that a round losing identifications ends the loop with the tolerances of the best round."""
     # given: the third round loses 25 % of the identifications of the second
-    handler, optimization_manager = _create_converging_handler(
-        rates=[0.02, 0.04, 0.03], rt_intervals=[100.0, 40.0, 40.0]
+    handler, optimization_manager = _create_calibration_loop_handler(
+        ids_per_round=[20, 40, 30], rt_residual_intervals=[100.0, 40.0, 40.0]
     )
 
     # when
@@ -232,23 +237,23 @@ def test_converge_restores_best_round_on_id_loss():
         handler.search_parameter_optimization()
 
     # then: the tolerance of the second round, recalibrated on its 40 identifications
-    assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 100.0)
+    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 100.0)
     last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
     assert len(last_call.args[0]) == 40
 
 
-def test_converge_does_not_compare_rounds_on_different_locks():
+def test_calibration_does_not_compare_rounds_on_different_locks():
     """Test that fewer identifications on another lock do not restore an earlier round."""
     # given: the lock shrinks to 500 elution groups after the second round and finds fewer identifications
-    handler, optimization_manager = _create_converging_handler(
-        rates=[], rt_intervals=[100.0, 40.0, 40.0]
+    handler, optimization_manager = _create_calibration_loop_handler(
+        ids_per_round=[], rt_residual_intervals=[100.0, 40.0, 40.0]
     )
-    rounds = iter([(0.02, 1000), (0.04, 1000), (0.03, 500)])
+    rounds = iter([(20, 1000), (40, 1000), (30, 500)])
 
     def next_round():
-        rate, stop_idx = next(rounds)
+        n_identified, stop_idx = next(rounds)
         handler._optlock.stop_idx = stop_idx
-        return rate
+        return _identifications(n_identified)
 
     handler._process_batch = MagicMock(side_effect=next_round)
 
@@ -259,14 +264,14 @@ def test_converge_does_not_compare_rounds_on_different_locks():
         handler.search_parameter_optimization()
 
     # then: no restore, the loop converges at the tightened tolerance
-    assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 40.0)
+    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 40.0)
 
 
-def test_converge_grows_the_lock_until_the_target():
+def test_calibration_grows_the_lock_until_the_target():
     """Test that the lock grows at the current tolerances until it holds the target number of precursors."""
     # given: a lock below its target that reaches it with the second batch
-    handler, optimization_manager = _create_converging_handler(
-        rates=[0.001, 0.02, 0.02], rt_intervals=[40.0, 40.0]
+    handler, optimization_manager = _create_calibration_loop_handler(
+        ids_per_round=[1, 20, 20], rt_residual_intervals=[40.0, 40.0]
     )
     handler._optlock.has_target_num_precursors = False
     handler._optlock.batches_remaining.return_value = True
@@ -287,4 +292,4 @@ def test_converge_grows_the_lock_until_the_target():
         0
     ]
     assert len(first_recalibration.args[0]) == 20
-    assert optimization_manager.rt_error == pytest.approx(RT_FACTOR * 40.0)
+    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 40.0)
