@@ -399,7 +399,7 @@ def test_expand_after_warm_up_extends_with_the_calibration():
 
 
 def test_recalibrate_keeps_the_best_peak_group_only():
-    """Test that recalibration keeps scoring the best peak group per precursor."""
+    """Test that a calibration keeps one peak group per precursor."""
     # given
     config = {
         "search": {"target_num_candidates": 3, "optimized_peak_group_score": False},
@@ -422,10 +422,10 @@ def test_recalibrate_keeps_the_best_peak_group_only():
     assert optimization_manager.num_candidates == 1
 
 
-def test_search_parameter_optimization_hands_the_final_search_its_number_of_candidates(
+def test_search_parameter_optimization_sets_the_number_of_candidates_for_the_main_search(
     mock_config,
 ):
-    """Test that the final search scores target_num_candidates peak groups although calibration scored one."""
+    """Test that the main search scores target_num_candidates peak groups after a calibration with one."""
     # given
     config = {**mock_config, "search": {"target_num_candidates": 3}}
     workflow = RustPeptideCentricWorkflow("test_instance", config)
