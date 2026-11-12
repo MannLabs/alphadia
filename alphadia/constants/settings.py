@@ -13,7 +13,7 @@ class CalibrationLoop:
 
     # Warm-up: calibrate as soon as the lock holds this number of identifications. Then grow the lock with the
     # calibrated tolerances until it reaches calibration.optimization_lock_target.
-    WARM_UP_MIN_PRECURSORS = 100
+    WARM_UP_MIN_IDENTIFICATIONS = 100
     # Warm-up: a tolerance shrinks by at most this factor per round.
     WARM_UP_MAX_SHRINK = 2
     # The tolerances cover this central interval of the calibrated residuals of the identifications ...
