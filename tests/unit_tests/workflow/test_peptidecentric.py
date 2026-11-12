@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from alphadia.constants.keys import SearchTolerance
-from alphadia.constants.settings import ConvergeCalibration
+from alphadia.constants.settings import CalibrationLoop
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
     RustOptimizationHandler,
@@ -131,19 +131,19 @@ def test_search_parameter_optimization_raises_without_candidates():
 
 
 def test_search_parameter_optimization_keeps_the_initial_tolerances_with_too_few_precursors():
-    """Test that a raw file with candidates but too few precursors to calibrate keeps the initial tolerances."""
-    # given
+    """Test that a raw file with candidates but too few identifications to calibrate keeps the initial tolerances."""
+    # Given: a raw file with candidates and an optimization lock without batches left before the target
     handler, optimization_manager = _create_handler_that_exhausts_the_batch_plan(
         total_elution_groups=2000
     )
 
-    # when
+    # When: the handler runs the calibration loop
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ) as recalibration_handler:
         handler.search_parameter_optimization()
 
-    # then
+    # Then: the handler does not calibrate and keeps the initial tolerances
     recalibration_handler.return_value.recalibrate.assert_not_called()
     assert optimization_manager.ms2_error == 100.0
     assert optimization_manager.rt_error == 800.0
@@ -154,10 +154,10 @@ def _identifications(n_identified: int) -> pd.DataFrame:
 
 
 def _create_calibration_loop_handler(
-    ids_per_round, rt_residual_intervals, *, target_ms2=10.0
+    identifications_per_round, rt_residual_intervals, *, target_ms2=10.0
 ):
-    """Make a handler whose searches find `ids_per_round` identifications on a lock of 1000 elution groups and whose
-    RT estimator gives `rt_residual_intervals`, one per calibration."""
+    """Make a handler whose searches find `identifications_per_round` identifications on a lock of 1000 elution
+    groups. Its RT estimator gives one value of `rt_residual_intervals` per calibration."""
     config = {
         "search": {
             "target_ms2_tolerance": target_ms2,
@@ -189,9 +189,9 @@ def _create_calibration_loop_handler(
     handler._optlock.has_target_num_precursors = True
     handler._optlock.total_elution_groups = 1000
     handler._optlock.start_idx, handler._optlock.stop_idx = 0, 1000
-    remaining_ids = iter(ids_per_round)
+    remaining_identifications = iter(identifications_per_round)
     handler._process_batch = MagicMock(
-        side_effect=lambda: _identifications(next(remaining_ids))
+        side_effect=lambda: _identifications(next(remaining_identifications))
     )
     handler._filter_dfs = lambda precursor_df, _: (precursor_df, pd.DataFrame())
     remaining_rt_intervals = iter(rt_residual_intervals)
@@ -201,52 +201,54 @@ def _create_calibration_loop_handler(
     return handler, optimization_manager
 
 
-RT_TOLERANCE_FACTOR = ConvergeCalibration.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
+RT_TOLERANCE_FACTOR = CalibrationLoop.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
 
 
 def test_calibration_stops_when_tolerances_settle():
-    """Test that the loop stops once no tolerance changes by more than the convergence threshold."""
-    # given: RT residual intervals of 100, 70 and 68 s
+    """Test that the loop stops when no tolerance changes by more than the convergence threshold."""
+    # Given: RT residual intervals of 100, 70 and 68 s
     handler, optimization_manager = _create_calibration_loop_handler(
-        ids_per_round=[20, 40, 41], rt_residual_intervals=[100.0, 70.0, 68.0]
+        identifications_per_round=[20, 40, 41],
+        rt_residual_intervals=[100.0, 70.0, 68.0],
     )
 
-    # when
+    # When: the handler runs the calibration loop
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
         handler.search_parameter_optimization()
 
-    # then: the third proposal changes by less than 10 % and keeps the second
+    # Then: the third proposal changes by less than 10% and the handler keeps the second
     assert handler._process_batch.call_count == 3
     assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 70.0)
     assert optimization_manager.ms2_error == 10.0
 
 
-def test_calibration_restores_the_best_round_on_id_loss():
-    """Test that a round losing identifications ends the loop with the tolerances of the best round."""
-    # given: the third round loses 25 % of the identifications of the second
+def test_calibration_restores_the_best_checkpoint_on_identification_loss():
+    """Test that a round that loses identifications ends the loop with the tolerances of the best checkpoint."""
+    # Given: the third round loses 25% of the identifications of the second round
     handler, optimization_manager = _create_calibration_loop_handler(
-        ids_per_round=[20, 40, 30], rt_residual_intervals=[100.0, 40.0, 40.0]
+        identifications_per_round=[20, 40, 30],
+        rt_residual_intervals=[100.0, 40.0, 40.0],
     )
 
-    # when
+    # When: the handler runs the calibration loop
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ) as recalibration_handler:
         handler.search_parameter_optimization()
 
-    # then: the tolerance of the second round, recalibrated on its 40 identifications
+    # Then: the handler restores the tolerance of the second round and calibrates on its 40 identifications
     assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 100.0)
     last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
     assert len(last_call.args[0]) == 40
 
 
 def test_calibration_does_not_compare_rounds_on_different_locks():
-    """Test that fewer identifications on another lock do not restore an earlier round."""
-    # given: the lock shrinks to 500 elution groups after the second round and finds fewer identifications
+    """Test that fewer identifications on another lock do not restore an earlier checkpoint."""
+    # Given: the lock shrinks to 500 elution groups after the second round and finds fewer identifications
     handler, optimization_manager = _create_calibration_loop_handler(
-        ids_per_round=[], rt_residual_intervals=[100.0, 40.0, 40.0]
+        identifications_per_round=[], rt_residual_intervals=[100.0, 40.0, 40.0]
     )
     rounds = iter([(20, 1000), (40, 1000), (30, 500)])
 
@@ -257,21 +259,21 @@ def test_calibration_does_not_compare_rounds_on_different_locks():
 
     handler._process_batch = MagicMock(side_effect=next_round)
 
-    # when
+    # When: the handler runs the calibration loop
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
         handler.search_parameter_optimization()
 
-    # then: no restore, the loop converges at the tightened tolerance
+    # Then: the handler restores no checkpoint and the loop converges at the smaller tolerance
     assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 40.0)
 
 
-def test_calibration_grows_the_lock_until_the_target():
-    """Test that the lock grows at the current tolerances until it holds the target number of precursors."""
-    # given: a lock below its target that reaches it with the second batch
+def test_calibration_extends_the_lock_until_the_target():
+    """Test that the lock extends at the current tolerances until it holds the target number of identifications."""
+    # Given: a lock below its target that reaches the target with the second batch
     handler, optimization_manager = _create_calibration_loop_handler(
-        ids_per_round=[1, 20, 20], rt_residual_intervals=[40.0, 40.0]
+        identifications_per_round=[1, 20, 20], rt_residual_intervals=[40.0, 40.0]
     )
     handler._optlock.has_target_num_precursors = False
     handler._optlock.batches_remaining.return_value = True
@@ -281,13 +283,13 @@ def test_calibration_grows_the_lock_until_the_target():
 
     handler._optlock.update.side_effect = reach_target
 
-    # when
+    # When: the handler runs the calibration loop
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ) as recalibration_handler:
         handler.search_parameter_optimization()
 
-    # then: the first round only grows the lock, calibration starts on the second
+    # Then: the first round only extends the lock and the calibration starts on the second round
     first_recalibration = recalibration_handler.return_value.recalibrate.call_args_list[
         0
     ]

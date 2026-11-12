@@ -23,12 +23,12 @@ AlphaDIA starts with the following default search parameters:
 The optimization process follows these steps:
 1. Search is performed batch-wise, starting with the first 8000 precursors
 2. Batch size increases exponentially (16,000, 32,000, 64,000, ...) until 200 precursors are identified at 1% FDR
-3. The library is recalibrated on the identified precursors and every tolerance is set in one step:
+3. AlphaDIA calibrates the library on the identified precursors and sets every tolerance in one step:
    - targeted parameters take their target value
-   - automatic parameters are set to a fixed multiple of the 99% interval of the calibrated residuals
-4. The same precursors are searched again with the new calibration and tolerances
+   - automatic parameters get a fixed multiple of the 99% interval of the calibrated residuals
+4. AlphaDIA searches the same precursors again with the new calibration and tolerances
 
-Optimization stops when no tolerance changes by more than 10% between rounds. If a round finds more than 5% fewer precursors than the best earlier round on the same subset of the library, the calibration and tolerances of the best round are restored.
+Optimization stops when no tolerance changes by more than 10% between rounds. Each calibrated round is a checkpoint. If a round finds more than 5% fewer precursors than the best checkpoint on the same subset of the library, AlphaDIA restores the calibration and tolerances of that checkpoint.
 
 <img src="../_static/images/methods_optimization.png" width="100%" height="auto">
 
