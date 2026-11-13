@@ -405,10 +405,16 @@ def test_set_value_disallowed_key_raises():
 
 
 @pytest.mark.parametrize(
-    "removed_key", ["use_idf_features", "candidate_context_features"]
+    ("section", "removed_key", "value"),
+    [
+        ("search", "use_idf_features", True),
+        ("search", "candidate_context_features", True),
+        ("calibration", "min_steps", 3),
+        ("calibration", "max_skips", 1),
+    ],
 )
-def test_default_config_tolerates_removed_search_keys(removed_key):
-    """Test that user configs that still set a removed search key keep loading."""
+def test_default_config_tolerates_removed_keys(section, removed_key, value):
+    """Test that user configs that still set a removed key keep loading."""
     # given
     default_config = Config(name="default")
     default_config.from_yaml(
@@ -416,10 +422,10 @@ def test_default_config_tolerates_removed_search_keys(removed_key):
             os.path.dirname(__file__), "../../../alphadia/constants/default.yaml"
         )
     )
-    user_config = Config({"search": {removed_key: True}}, "user")
+    user_config = Config({section: {removed_key: value}}, "user")
 
     # when
     default_config.update([user_config])
 
     # then
-    assert removed_key not in default_config["search"]
+    assert removed_key not in default_config[section]

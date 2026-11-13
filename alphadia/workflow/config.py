@@ -180,6 +180,9 @@ TOLERATED_KEYS = [
     # supported until 2.4.0:
     "search.use_idf_features",
     "search.candidate_context_features",
+    # the single-loop calibration has no per-optimizer step counting anymore
+    "calibration.min_steps",
+    "calibration.max_skips",
     # supported until 2.2.0:
     "search_output.save_fragment_quant_matrix",
     # supported until 2.0.2:
