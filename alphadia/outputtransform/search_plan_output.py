@@ -108,14 +108,9 @@ class SearchPlanOutput:
 
         """
         logger.progress("Processing search outputs")
-        # the MBR library and the run identifications take the first search's accepted decoys, whether the outputs
-        # keep decoys or not
-        psm_df_with_decoys = self._build_precursor_table(folder_list)
-        psm_df = (
-            psm_df_with_decoys
-            if self.config["fdr"]["keep_decoys"]
-            else psm_df_with_decoys[psm_df_with_decoys["decoy"] == 0]
-        )
+        # the decoys stay in until the precursor table is written: the MBR library and the run identifications take
+        # the first search's accepted decoys whether the outputs keep decoys or not
+        psm_df = self._build_precursor_table(folder_list)
 
         # every output is written as soon as it is built, so a later failure does not
         # discard the outputs already on disk
@@ -131,11 +126,11 @@ class SearchPlanOutput:
                 raise ValueError(
                     "Passing base spectral library is required for MBR library building."
                 )
-            mbr_spec_lib = self._build_mbr_library(base_spec_lib, psm_df_with_decoys)
+            mbr_spec_lib = self._build_mbr_library(base_spec_lib, psm_df)
             if mbr_spec_lib is not None:
                 self._write_library(mbr_spec_lib, SearchPlanFiles.MBR_LIBRARY_FILE_NAME)
                 self._write_run_identifications(
-                    get_run_identifications(psm_df_with_decoys, MBR_LIBRARY_FDR)
+                    get_run_identifications(psm_df, MBR_LIBRARY_FDR)
                 )
 
         if self.config["transfer_library"]["enabled"]:
@@ -173,6 +168,8 @@ class SearchPlanOutput:
             self._write_precursor_table(psm_df)
 
     def _write_precursor_table(self, psm_df: pd.DataFrame) -> None:
+        if not self.config["fdr"]["keep_decoys"]:
+            psm_df = psm_df[psm_df["decoy"] == 0]
         file_format = self.config["search_output"]["file_format"]
         self._write_table(
             apply_output_column_names(psm_df),
