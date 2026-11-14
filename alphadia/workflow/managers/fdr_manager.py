@@ -178,8 +178,7 @@ class FDRManager(BaseManager):
         if self._identified_elution_groups is not None:
             # Elution groups the run identified in the search that built the MBR library are re-found almost always
             # correctly. Pooled with them, the matches transferred from other runs would pass at several times the
-            # nominal FDR.
-            # set in place: a copy of the features would raise the peak memory
+            # nominal FDR. The column is set in place, as a copy of the features would raise the peak memory.
             stratum_column = MbrCols.IDENTIFIED_IN_RUN
             features_df[stratum_column] = (
                 features_df["elution_group_idx"]
