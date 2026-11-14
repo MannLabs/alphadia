@@ -136,6 +136,15 @@ class FeatureTransform(metaclass=ConstantsClass):
     QUANTILE = "quantile"
 
 
+class SearchTolerance(metaclass=ConstantsClass):
+    """Names of the search tolerances. Each name is also an attribute of `OptimizationManager`."""
+
+    MS2_ERROR = "ms2_error"
+    MS1_ERROR = "ms1_error"
+    RT_ERROR = "rt_error"
+    MOBILITY_ERROR = "mobility_error"
+
+
 class DecoyType(metaclass=ConstantsClass):
     """String constants for decoy generation schemes."""
 
