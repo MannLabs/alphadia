@@ -108,6 +108,8 @@ class SearchPlanOutput:
 
         """
         logger.progress("Processing search outputs")
+        # the decoys stay in until the precursor table is written: the MBR library and the run identifications take
+        # the first search's accepted decoys whether the outputs keep decoys or not
         psm_df = self._build_precursor_table(folder_list)
 
         # every output is written as soon as it is built, so a later failure does not
@@ -166,6 +168,8 @@ class SearchPlanOutput:
             self._write_precursor_table(psm_df)
 
     def _write_precursor_table(self, psm_df: pd.DataFrame) -> None:
+        if not self.config["fdr"]["keep_decoys"]:
+            psm_df = psm_df[psm_df["decoy"] == 0]
         file_format = self.config["search_output"]["file_format"]
         self._write_table(
             apply_output_column_names(psm_df),
@@ -326,7 +330,7 @@ class SearchPlanOutput:
         -------
 
         psm_df: pd.DataFrame
-            Precursor table
+            Precursor table, decoys included
         """
         logger.progress("=== Performing protein grouping and FDR ===")
 
@@ -357,7 +361,9 @@ class SearchPlanOutput:
             logger.info(f"Taking the protein q-values from {run_identifications_path}")
             psm_df = transfer_library_pg_qval(
                 psm_df,
-                pd.read_parquet(run_identifications_path, columns=["pg", "pg_qval"]),
+                pd.read_parquet(
+                    run_identifications_path, columns=["pg", "pg_qval", "decoy"]
+                ),
             )
         else:
             logger.info("Performing protein FDR")
@@ -365,9 +371,6 @@ class SearchPlanOutput:
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
         log_protein_fdr_summary(psm_df)
-
-        if not self.config["fdr"]["keep_decoys"]:
-            psm_df = psm_df[psm_df["decoy"] == 0]
 
         return psm_df
 

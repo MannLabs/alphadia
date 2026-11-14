@@ -328,7 +328,7 @@ class TestMbrLibraryBuilder:
 class TestGetRunIdentifications:
     """Tests for get_run_identifications."""
 
-    def test_keeps_the_elution_groups_of_the_target_precursors_passing_both_fdrs(
+    def test_keeps_the_elution_groups_of_the_precursors_passing_both_fdrs_decoys_included(
         self,
     ):
         # given
@@ -349,8 +349,15 @@ class TestGetRunIdentifications:
         result = get_run_identifications(psm_df, fdr=0.01)
 
         # then
-        assert list(result.columns) == ["run", "elution_group_idx", "pg", "pg_qval"]
-        assert result["run"].tolist() == ["run_a"]
-        assert result["elution_group_idx"].tolist() == [0]
-        assert result["pg"].tolist() == ["PG_A"]
-        assert result["pg_qval"].tolist() == [0.001]
+        assert list(result.columns) == [
+            "run",
+            "elution_group_idx",
+            "decoy",
+            "pg",
+            "pg_qval",
+        ]
+        assert result["run"].tolist() == ["run_a", "run_a"]
+        assert result["elution_group_idx"].tolist() == [0, 1]
+        assert result["decoy"].tolist() == [0, 1]
+        assert result["pg"].tolist() == ["PG_A", "PG_A"]
+        assert result["pg_qval"].tolist() == [0.001, 0.001]

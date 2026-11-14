@@ -183,6 +183,49 @@ class TestQuantOutputBuilder:
             col not in protein_result.columns for col in ["sequence", "mods", "charge"]
         )
 
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+    )
+    def test_build_annotates_from_targets_when_decoy_shares_hash(
+        self, mock_accumulate, mock_filter, mock_direct_lfq, psm_df, config, feature_dfs
+    ):
+        """Given a decoy listed first with its target's hashes, when build is called, then the target's precursor and peptide rows keep the target's sequence."""
+        # Given
+        decoy_row = psm_df.iloc[[4]].assign(
+            mod_seq_hash=1, mod_seq_charge_hash=10, sequence="PDPTIDE"
+        )
+        psm_df = pd.concat([decoy_row, psm_df.iloc[:4]], ignore_index=True)
+        mock_accumulate.return_value = feature_dfs
+        mock_filter.return_value = (
+            feature_dfs["intensity"],
+            feature_dfs["correlation"],
+        )
+        mock_direct_lfq.side_effect = lfq_side_effect
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        lfq_results, _ = builder.build(["folder1", "folder2"])
+
+        # Then
+        precursor_result = lfq_results[QuantificationLevelName.PRECURSOR]
+        peptide_result = lfq_results[QuantificationLevelName.PEPTIDE]
+        assert (
+            precursor_result.loc[
+                precursor_result["mod_seq_charge_hash"] == 10, "sequence"
+            ].item()
+            == "PEPTIDE"
+        )
+        assert (
+            peptide_result.loc[peptide_result["mod_seq_hash"] == 1, "sequence"].item()
+            == "PEPTIDE"
+        )
+
     @patch("alphadia.outputtransform.utils.write_df")
     def test_save_results_writes_non_empty_results(self, mock_write_df, psm_df, config):
         """Given LFQ results with data, when save_results is called, then writes files to disk."""

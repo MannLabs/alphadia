@@ -231,13 +231,12 @@ class MbrLibraryBuilder(ProcessingStep):
 
 
 def get_run_identifications(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
-    """Return the elution groups each run identified at `fdr`, from the target PSMs `MbrLibraryBuilder` with this
-    `fdr` builds its library from, with their protein group and its q-value.
+    """Return the elution groups each run identified at `fdr`, by a target or a decoy, from the PSMs
+    `MbrLibraryBuilder` with this `fdr` builds its library from, with their protein group and its q-value.
     """
-    identified_df = _passing_fdr(psm_df, fdr)
     run_identifications_df = (
-        identified_df[identified_df["decoy"] == 0]
-        .reindex(columns=["run", "elution_group_idx", "pg", "pg_qval"])
+        _passing_fdr(psm_df, fdr)
+        .reindex(columns=["run", "elution_group_idx", "decoy", "pg", "pg_qval"])
         .drop_duplicates()
         .reset_index(drop=True)
     )
