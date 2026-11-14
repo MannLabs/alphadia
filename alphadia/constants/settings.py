@@ -9,10 +9,13 @@ MAX_FRAGMENT_MZ_TOLERANCE = 200
 
 
 class CalibrationLoop:
-    """Constants of the calibration loop, see `OptimizationHandler.search_parameter_optimization`."""
+    """Constants of the calibration loop and its phases, see `OptimizationHandler.search_parameter_optimization`."""
 
-    # A calibration fit needs at least this number of identifications.
-    MIN_PRECURSORS_TO_RECALIBRATE = 6
+    # Warm-up: calibrate as soon as the lock holds this number of identifications. Then grow the lock with the
+    # calibrated tolerances until it reaches calibration.optimization_lock_target.
+    WARM_UP_MIN_IDENTIFICATIONS = 100
+    # Warm-up: a tolerance shrinks by at most this factor per round.
+    WARM_UP_MAX_SHRINK = 2
     # The tolerances cover this central interval of the calibrated residuals of the identifications ...
     TOLERANCE_QUANTILE = 0.99
     # ... times this factor. Only automatic parameters use the factor. Targeted parameters take their target.
@@ -27,7 +30,7 @@ class CalibrationLoop:
     # The RT tolerance of the main search spans at least this number of DIA cycles, so that it covers the sampling of
     # the elution peak even when the RT prediction is near perfect, as in an MBR step.
     MIN_RT_TOLERANCE_CYCLES = 10
-    # The tolerances converged when no tolerance changes by more than this share between rounds.
+    # Converge: the tolerances converged when no tolerance changes by more than this share between rounds.
     CONVERGENCE_THRESHOLD = 0.1
-    # Restore the best checkpoint when a round on the same lock finds more than this share fewer identifications.
+    # Stop when the identification rate of a round is more than this share below the best checkpoint.
     MAX_IDENTIFICATION_LOSS = 0.05

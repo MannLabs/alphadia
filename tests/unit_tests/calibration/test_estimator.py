@@ -88,8 +88,31 @@ def test_ci():
         target_column="observed_mz",
         output_column="calibrated_mz",
     )
-    assert mz_calibration.ci(mz_df) == 0  # not fitted
+    assert mz_calibration.ci(mz_df) is None  # not fitted
 
     mz_calibration.fit(mz_df, plot=False)
     ci = mz_calibration.ci(mz_df, 0.95)
     assert ci > 0
+
+
+def test_failed_refit_leaves_the_estimator_unfitted():
+    """Test that a failed fit after a successful fit does not keep the earlier model."""
+    # Given: an estimator with a successful fit
+    mz_df = _mz_testdata()
+    mz_calibration = CalibrationEstimator(
+        name="mz",
+        n_kernels=2,
+        transform_deviation=1e6,
+        input_column="library_mz",
+        target_column="observed_mz",
+        output_column="calibrated_mz",
+    )
+    mz_calibration.fit(mz_df, plot=False)
+
+    # When: the estimator fits again on too few data points
+    mz_calibration.fit(mz_df.head(1), plot=False)
+
+    # Then: the estimator is not fitted and gives no metrics and no confidence interval
+    assert mz_calibration.is_fitted is False
+    assert mz_calibration.metrics is None
+    assert mz_calibration.ci(mz_df) is None

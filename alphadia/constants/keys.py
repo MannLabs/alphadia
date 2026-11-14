@@ -145,6 +145,17 @@ class SearchTolerance(metaclass=ConstantsClass):
     MOBILITY_ERROR = "mobility_error"
 
 
+class CalibrationPhase(metaclass=ConstantsClass):
+    """Phases of the calibration loop, see `OptimizationHandler.search_parameter_optimization`."""
+
+    # Too few identifications to calibrate. Extend the lock by the next batch.
+    EXPAND = "expand"
+    # Calibrate with a limit on the shrink of the tolerances. Grow the lock until it holds its target.
+    WARM_UP = "warm-up"
+    # Calibrate on a lock that holds its target until the tolerances converge.
+    CONVERGE = "converge"
+
+
 class DecoyType(metaclass=ConstantsClass):
     """String constants for decoy generation schemes."""
 

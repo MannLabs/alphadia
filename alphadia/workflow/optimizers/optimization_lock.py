@@ -185,20 +185,51 @@ class OptimizationLock:
         # get index of smallest value >= 0
         self.batch_idx = np.where(batch_plan_diff >= 0)[0][0]
 
-    def update(self):
-        """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
-        If the target has been reached, the feature and fragment dataframes are reset
+    def extend(self, calibration_manager=None) -> None:
+        """Add the next batch of the plan to the lock and keep the batches extracted so far.
+
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager | None
+            Calibrates the new batch like the earlier batches. None when no calibration exists yet.
         """
-        if self.has_target_num_precursors:
-            self.decrease_batch_idx()
-            self._feature_dfs = []
-            self._fragment_dfs = []
+        self.increase_batch_idx()
+        self.set_batch_dfs(self._elution_group_order[self.start_idx : self.stop_idx])
+        if calibration_manager is not None:
+            self.update_with_calibration(calibration_manager)
 
-        else:
-            self.increase_batch_idx()
+    def resize(self, calibration_manager) -> None:
+        """Resize the lock to the smallest batch of the plan that is expected to hold the target.
 
-        eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
-        self.set_batch_dfs(eg_idxes)
+        The next search covers the whole lock again.
+
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager
+            Calibrates the resized lock.
+        """
+        self.decrease_batch_idx()
+        self._feature_dfs = []
+        self._fragment_dfs = []
+        self.set_batch_dfs(self._elution_group_order[: self.stop_idx])
+        self.update_with_calibration(calibration_manager)
+
+    def grow(self, calibration_manager) -> None:
+        """Add the next batch of the plan. The next search covers the whole lock again with the current calibration.
+
+        A warm-up calibration changes the tolerances. The features of the earlier batches used the old tolerances, so
+        the lock drops them and extracts again from its first elution group.
+
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager
+            Calibrates the grown lock.
+        """
+        self.increase_batch_idx()
+        self._feature_dfs = []
+        self._fragment_dfs = []
+        self.set_batch_dfs(self._elution_group_order[: self.stop_idx])
+        self.update_with_calibration(calibration_manager)
 
     def set_batch_dfs(self, eg_idxes: None | np.ndarray = None):
         """

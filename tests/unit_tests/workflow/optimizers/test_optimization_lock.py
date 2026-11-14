@@ -1,5 +1,7 @@
 """Unit tests for the OptimizationLock class."""
 
+from unittest.mock import MagicMock
+
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -104,7 +106,7 @@ def test_optlock_spot_on_target():
         }
     )
     optlock.update_with_fdr(precursor_df)
-    optlock.update()
+    optlock.resize(MagicMock())
 
     assert optlock.start_idx == 0
     assert optlock.stop_idx == optlock.batch_plan[0][1]
@@ -140,7 +142,7 @@ def test_optlock():
     optlock.update_with_fdr(precursor_df)
 
     assert not optlock.has_target_num_precursors
-    optlock.update()
+    optlock.extend()
 
     assert optlock.start_idx == optlock.batch_plan[1][0]
 
@@ -162,7 +164,7 @@ def test_optlock():
 
     assert optlock.has_target_num_precursors
 
-    optlock.update()
+    optlock.resize(MagicMock())
 
     assert optlock.start_idx == 0
 
@@ -177,10 +179,10 @@ def test_optlock_batch_idx():
 
     assert optlock.start_idx == 0
 
-    optlock.update()
+    optlock.extend()
     assert optlock.start_idx == 100
 
-    optlock.update()
+    optlock.extend()
     assert optlock.start_idx == 2000
 
     precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005), "decoy": np.zeros(4500)})
@@ -188,7 +190,7 @@ def test_optlock_batch_idx():
     optlock.update_with_fdr(precursor_df)
 
     optlock.has_target_num_precursors = True
-    optlock.update()
+    optlock.resize(MagicMock())
 
     assert optlock.start_idx == 0
     assert optlock.stop_idx == 2000
@@ -218,3 +220,32 @@ def test_optlock_reindex():
         ]["precursor_idx"]
         == optlock.batch_library._precursor_df.iloc[50]["precursor_idx"] ** 2
     )  # The original start index of any precursor should be equal to the square of the its original ID
+
+
+def test_optlock_grow_searches_the_whole_larger_lock_again():
+    """Test that grow drops the extracted features and covers all elution groups from the first elution group to the
+    end of the next batch, with the current calibration."""
+    # Given: a lock with extracted features and fragments
+    library = _create_test_library()
+    optlock = OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+    optlock.update_with_extraction(
+        pd.DataFrame({"elution_group_idx": np.arange(0, 1000)}),
+        pd.DataFrame({"elution_group_idx": np.arange(0, 10000)}),
+    )
+    calibration_manager = MagicMock()
+
+    # When: the lock grows
+    optlock.grow(calibration_manager)
+
+    # Then: the lock covers the next batch from its first elution group, without features, and calibrated
+    assert optlock.batch_idx == 1
+    expected_elution_groups = set(
+        optlock._elution_group_order[: optlock.batch_plan[1][1]]
+    )
+    assert (
+        set(optlock.batch_library._precursor_df["elution_group_idx"])
+        == expected_elution_groups
+    )
+    assert optlock._feature_dfs == []
+    assert optlock._fragment_dfs == []
+    assert calibration_manager.predict.call_count == 2
