@@ -154,7 +154,7 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
     )
 
     # when
-    precursor_df = handler._process_batch()
+    search = handler._process_batch()
 
     # then
     create_extraction_handler.assert_called_once_with(optlock.batch_library)
@@ -170,7 +170,7 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
         candidates_df
     )
     optlock.update_with_fdr.assert_called_once_with(precursor_fdr_df)
-    pd.testing.assert_frame_equal(precursor_df, precursor_fdr_df)
+    pd.testing.assert_frame_equal(search.precursor_df, precursor_fdr_df)
 
 
 def test_python_workflow_keeps_dia_data(tmp_path):

@@ -87,6 +87,18 @@ class LockSearch(Generic[ExtractionHandlerT]):
     classifier_version: int
 
 
+@dataclass(frozen=True)
+class Refit(Generic[ExtractionHandlerT]):
+    """A refit of the classifier that identified more precursors than the search before it.
+
+    `search` is the refit search, `identifications` and `fragments` are its calibration data, see `_filter_dfs`.
+    """
+
+    search: LockSearch[ExtractionHandlerT]
+    identifications: pd.DataFrame
+    fragments: pd.DataFrame
+
+
 class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
     """
     Handles the optimization of peptide-centric workflows.
@@ -120,7 +132,6 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         self._optlock: OptimizationLock = OptimizationLock(
             self._spectral_library, self._config
         )
-        self._last_search: LockSearch[ExtractionHandlerT] | None = None
 
     def _active_tolerances(self) -> list[str]:
         """Return the names of the tolerances that the raw file has data for."""
@@ -189,13 +200,13 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         )
 
         log_string("Starting initial search for precursors.", verbosity="progress")
-        precursor_df = self._process_batch()
+        search = self._process_batch()
         best_checkpoint = None
         calibrated = False
         restored = False
         for round_idx in range(config["max_steps"] + len(self._optlock.batch_plan)):
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
-                precursor_df, self._optlock.fragments_df
+                search.precursor_df, self._optlock.fragments_df
             )
             n_identified = len(precursor_df_filtered)
             at_target = self._optlock.has_target_num_precursors
@@ -207,7 +218,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     if calibrated:
                         # The new batch needs the calibrated columns that the earlier rounds use.
                         self._optlock.update_with_calibration(self._calibration_manager)
-                    precursor_df = self._process_batch()
+                    search = self._process_batch()
                     continue
                 if self._optlock.total_elution_groups == 0:
                     raise NoOptimizationLockTargetError(
@@ -293,15 +304,18 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 for name in names
             ):
                 log_string("Tolerances converged.", verbosity="progress")
-                refit_identifications = self._converge_classifier(n_identified)
-                if refit_identifications is not None:
-                    recalibration_handler.recalibrate(*refit_identifications)
+                refit = self._converge_classifier(search, n_identified)
+                if refit is not None:
+                    search = refit.search
+                    recalibration_handler.recalibrate(
+                        refit.identifications, refit.fragments
+                    )
                 break
 
             self._optimization_manager.update(**next_tolerances)
             self._optlock.update()
             self._optlock.update_with_calibration(self._calibration_manager)
-            precursor_df = self._process_batch()
+            search = self._process_batch()
 
         else:
             log_string(
@@ -312,13 +326,13 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
         if not restored:
             self._optimization_manager.update(
-                classifier_version=self._last_search.classifier_version
+                classifier_version=search.classifier_version
             )
         if calibrated and self._target_tolerance(SearchTolerance.RT_ERROR) is None:
             self._optimization_manager.update(
                 **{
                     SearchTolerance.RT_ERROR: main_search_rt_tolerance(
-                        self._true_match_rt_interval(),
+                        self._true_match_rt_interval(search),
                         self._optimization_manager.rt_error,
                         self._cycle_duration(),
                     )
@@ -332,47 +346,50 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             log_string(f"{name:<15}: {tolerance:.4f}", verbosity="progress")
 
     def _converge_classifier(
-        self, n_identified: int
-    ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
-        """Refit the classifier on the last search while it identifies more precursors.
+        self, search: LockSearch[ExtractionHandlerT], n_identified: int
+    ) -> Refit[ExtractionHandlerT] | None:
+        """Refit the classifier on `search` while it identifies more precursors.
 
         Each fit continues the training of the previous classifier, so the identifications of a round depend on how
         many rounds came before it. The score cutoff and the calibration of the main search come from the
         identifications of the last calibration. Converging the classifier on the last search makes them independent
         of the number of rounds the tolerances needed.
 
-        Only a refit that identifies more precursors replaces the last search, so a rejected refit leaves no trace.
-        Returns the filtered identifications of the best refit, or None when no refit identified more precursors.
+        Only a refit that identifies more precursors updates the lock. The FDR manager still stores the classifier of
+        a rejected refit as its latest version, so the main search takes the version of the returned refit.
+        Returns the best refit, or None when no refit identified more precursors.
         """
-        identifications = None
+        best_refit = None
         for _ in range(CalibrationLoop.MAX_CLASSIFIER_REFITS):
-            precursor_df = self._refit_classifier()
-            precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
+            precursor_df = self._refit_classifier(search)
+            identifications, fragments = self._filter_dfs(
                 precursor_df, self._optlock.fragments_df
             )
             self._reporter.log_string(
-                f"Classifier refit: {len(precursor_df_filtered)} identifications, before {n_identified}.",
+                f"Classifier refit: {len(identifications)} identifications, before {n_identified}.",
                 verbosity="progress",
             )
-            if len(precursor_df_filtered) <= n_identified:
+            if len(identifications) <= n_identified:
                 break
-            n_identified = len(precursor_df_filtered)
-            identifications = (precursor_df_filtered, fragments_df_filtered)
-            self._last_search = replace(
-                self._last_search,
+            n_identified = len(identifications)
+            search = replace(
+                search,
                 precursor_df=precursor_df,
                 classifier_version=self._fdr_manager.current_version,
             )
+            best_refit = Refit(search, identifications, fragments)
             self._optlock.update_with_fdr(precursor_df)
-        return identifications
+        return best_refit
 
     def _cycle_duration(self) -> float:
         """Return the mean duration of a DIA cycle in seconds."""
         cycle_length = self._dia_data.cycle.shape[1]
         return float(np.diff(self._dia_data.rt_values[::cycle_length]).mean())
 
-    def _true_match_rt_interval(self) -> float | None:
-        """Estimate the RT interval that holds `TOLERANCE_QUANTILE` of the true matches of the last search.
+    def _true_match_rt_interval(
+        self, search: LockSearch[ExtractionHandlerT]
+    ) -> float | None:
+        """Estimate the RT interval that holds `TOLERANCE_QUANTILE` of the true matches of `search`.
 
         The calibration rounds search wider than the residuals of the true matches, so the last search shows their
         tail. Its candidates are weighted by their posterior error probability, see `true_match_interval`. Returns
@@ -383,8 +400,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         )
         if not estimator.is_fitted:
             return None
-        precursor_df = self._last_search.precursor_df
-        searched_tolerance = self._last_search.rt_tolerance
+        precursor_df = search.precursor_df
+        searched_tolerance = search.rt_tolerance
         # The residuals use the latest calibration, which was fitted on this search, while the search was centred on
         # the calibration before it. Both converged, so the shift is small against the searched tolerance of 3 times the interval.
         residuals = estimator.calc_deviation(precursor_df)[:, 2]
@@ -406,16 +423,14 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             )
         return interval
 
-    def _refit_classifier(self) -> pd.DataFrame:
-        """Perform FDR on the last search again, with the classifier trained further."""
-        precursor_df = self._perform_fdr(
-            self._last_search.extraction_handler, self._last_search.batch
-        )
+    def _refit_classifier(self, search: LockSearch[ExtractionHandlerT]) -> pd.DataFrame:
+        """Perform FDR on `search` again, with the classifier trained further."""
+        precursor_df = self._perform_fdr(search.extraction_handler, search.batch)
         log_precursor_df(self._reporter, precursor_df)
         return precursor_df
 
-    def _process_batch(self):
-        """Extracts precursors and fragments from the spectral library, performs FDR correction and logs the precursor dataframe."""
+    def _process_batch(self) -> LockSearch[ExtractionHandlerT]:
+        """Search the optimization lock: extract the current batch library and perform FDR on the whole lock."""
         self._reporter.log_string(
             f"=== Extracting elution groups {self._optlock.start_idx} to {self._optlock.stop_idx} ===",
             verbosity="progress",
@@ -434,7 +449,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         )
 
         precursor_df = self._perform_fdr(extraction_handler, batch)
-        self._last_search = LockSearch(
+        search = LockSearch(
             extraction_handler=extraction_handler,
             batch=batch,
             precursor_df=precursor_df,
@@ -445,12 +460,12 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         self._optlock.update_with_fdr(precursor_df)
 
         self._reporter.log_string(
-            f"=== FDR correction performed with classifier version {self._optimization_manager.classifier_version} ===",
+            f"=== FDR correction performed, classifier version {search.classifier_version} ===",
         )
 
         log_precursor_df(self._reporter, precursor_df)
 
-        return precursor_df
+        return search
 
     @abstractmethod
     def _extract_batch(self, extraction_handler: ExtractionHandlerT) -> ExtractedBatch:
