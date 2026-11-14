@@ -97,3 +97,17 @@ def test_true_match_interval_needs_true_matches():
         true_match_interval(np.array([10.0, 50.0]), np.array([1.0, 1.0]), 100, 0.99)
         is None
     )
+
+
+def test_true_match_interval_is_none_beyond_the_searched_window():
+    """Test that no interval is estimated when the true matches fill the window, so that their tail is not seen."""
+    # Given: likely true matches spread evenly up to the window edge
+    rng = np.random.default_rng(3)
+    residuals = rng.uniform(0, 8, 2000)
+    pep = np.full(2000, 0.01)
+
+    # When: the 99% interval is estimated
+    interval = true_match_interval(residuals, pep, window=8, quantile=0.99)
+
+    # Then: the estimate returns None instead of an interval wider than the searched window
+    assert interval is None

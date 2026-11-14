@@ -66,7 +66,8 @@ def true_match_interval(
     Returns
     -------
     float | None
-        Half width of the interval, or None when the residuals hold too few likely true matches.
+        Half width of the interval, or None when the residuals hold too few likely true matches or the interval is wider
+        than the window.
 
     """
     residuals = np.abs(np.asarray(residuals, dtype=np.float64))
@@ -92,4 +93,6 @@ def true_match_interval(
     start = np.log([max(weighted_median, window * 1e-6), 5.0])
     fit = optimize.minimize(negative_log_likelihood, start, method="Nelder-Mead")
     scale, df = np.exp(fit.x)
-    return float(stats.t(df, scale=scale).ppf(0.5 + quantile / 2))
+    interval = float(stats.t(df, scale=scale).ppf(0.5 + quantile / 2))
+    # The residuals show the true matches only within the window, so a wider interval is not supported by them.
+    return interval if interval <= window else None
