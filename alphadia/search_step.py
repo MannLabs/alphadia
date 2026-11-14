@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 import torch
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
@@ -40,7 +39,6 @@ from alphadia.libtransform.harmonize import (
     RTNormalization,
 )
 from alphadia.libtransform.loader import DynamicLoader
-from alphadia.libtransform.mbr import PerRunMbrLibrary
 from alphadia.libtransform.multiplex import MultiplexLibrary
 from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
@@ -431,16 +429,6 @@ class SearchStep:
                 f"to library_multiplexing.multiplex_mapping and recreate the library. "
             )
 
-    def _init_per_run_mbr_library(self) -> PerRunMbrLibrary | None:
-        """Initialize the per-run adaptation of the MBR library if run identifications are configured."""
-        run_identifications_path = self.config[ConfigKeys.MBR_RUN_IDENTIFICATIONS_PATH]
-        if run_identifications_path is None:
-            return None
-        logger.info(
-            f"Adapting the MBR library to each run with the run identifications from {run_identifications_path}"
-        )
-        return PerRunMbrLibrary(pd.read_parquet(run_identifications_path))
-
     def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
         # iterate over raw files and yield raw data and spectral library
@@ -577,8 +565,6 @@ class SearchStep:
         workflow_folder_list = []
         raw_files_with_errors = []
 
-        per_run_mbr_library = self._init_per_run_mbr_library()
-
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
             random_state = (
@@ -605,9 +591,6 @@ class SearchStep:
                     quant_path=self.config[ConfigKeys.QUANT_DIRECTORY],
                     random_state=random_state,
                 )
-
-                if per_run_mbr_library is not None:
-                    speclib = per_run_mbr_library.for_run(speclib, raw_name)
 
                 self._process_raw_file(workflow, dia_path, speclib)
 

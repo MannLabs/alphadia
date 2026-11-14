@@ -5,13 +5,10 @@ import pandas as pd
 import pytest
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 
-from alphadia.constants.keys import MbrCols
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.mbr import (
     IndexBuilder,
     MbrLibraryBuilder,
-    PerRunMbrLibrary,
-    _median_of_other_rows,
     get_run_identifications,
 )
 
@@ -206,6 +203,26 @@ class TestMbrLibraryBuilder:
         np.testing.assert_array_equal(df_no_decoy["elution_group_idx"].values, [0, 1])
         np.testing.assert_array_equal(df_no_decoy["decoy"].values, [0, 0])
 
+    def test_rt_is_the_mean_over_the_runs(self, base_library, psm_df):
+        """Test a precursor identified in several runs gets the mean of its observed RTs, not the median."""
+        # given: precursor 0 also identified in run_b and run_c
+        psm_df = pd.concat(
+            [
+                psm_df,
+                psm_df.iloc[[0, 0]].assign(
+                    run=["run_b", "run_c"], rt_observed=[12.0, 20.0]
+                ),
+            ],
+            ignore_index=True,
+        )
+
+        # when
+        result = MbrLibraryBuilder(fdr=0.01, keep_decoys=False)(psm_df, base_library)
+
+        # then
+        df = result.precursor_df.sort_values("elution_group_idx")
+        np.testing.assert_allclose(df["rt"].values, [14.0, 20.0])
+
     def test_decoy_type_is_passed_to_decoy_generator(self, base_library, psm_df):
         """Test that the configured decoy_type is used for MBR decoy generation."""
         # when
@@ -311,20 +328,20 @@ class TestMbrLibraryBuilder:
 class TestGetRunIdentifications:
     """Tests for get_run_identifications."""
 
-    def test_keeps_the_target_precursors_passing_both_fdrs(self):
+    def test_keeps_the_elution_groups_of_the_target_precursors_passing_both_fdrs(
+        self,
+    ):
         # given
         psm_df = pd.DataFrame(
             {
-                "run": ["run_a", "run_a", "run_a", "run_b"],
-                "elution_group_idx": [0, 0, 1, 2],
-                "mod_seq_charge_hash": [100, 100, 200, 300],
-                "decoy": [0, 1, 0, 0],
-                "qval": [0.001, 0.001, 0.001, 0.05],
-                "pg_qval": [0.001, 0.001, 0.05, 0.001],
-                "rt_observed": [10.0, 11.0, 20.0, 30.0],
-                "rt_calibrated": [10.5, 11.5, 20.5, 30.5],
-                "pg": ["PG_A", "PG_A", "PG_B", "PG_C"],
-                "proba": [0.1, 0.2, 0.3, 0.4],
+                "run": ["run_a", "run_a", "run_a", "run_a", "run_b"],
+                "elution_group_idx": [0, 0, 1, 2, 3],
+                "mod_seq_charge_hash": [100, 101, 102, 200, 300],
+                "decoy": [0, 0, 1, 0, 0],
+                "qval": [0.001, 0.001, 0.001, 0.001, 0.05],
+                "pg_qval": [0.001, 0.001, 0.001, 0.05, 0.001],
+                "rt_observed": [10.0, 11.0, 12.0, 20.0, 30.0],
+                "pg": ["PG_A", "PG_A", "PG_A", "PG_B", "PG_C"],
             }
         )
 
@@ -332,156 +349,8 @@ class TestGetRunIdentifications:
         result = get_run_identifications(psm_df, fdr=0.01)
 
         # then
-        assert list(result.columns) == [
-            "run",
-            "elution_group_idx",
-            "mod_seq_charge_hash",
-            "rt_observed",
-            "rt_calibrated",
-            "pg",
-            "pg_qval",
-        ]
+        assert list(result.columns) == ["run", "elution_group_idx", "pg", "pg_qval"]
         assert result["run"].tolist() == ["run_a"]
-        assert result["mod_seq_charge_hash"].tolist() == [100]
-        assert result["rt_observed"].tolist() == [10.0]
-        assert result["rt_calibrated"].tolist() == [10.5]
+        assert result["elution_group_idx"].tolist() == [0]
         assert result["pg"].tolist() == ["PG_A"]
         assert result["pg_qval"].tolist() == [0.001]
-
-    def test_without_calibrated_rt_column(self):
-        # given
-        psm_df = pd.DataFrame(
-            {
-                "run": ["run_a"],
-                "elution_group_idx": [0],
-                "mod_seq_charge_hash": [100],
-                "decoy": [0],
-                "qval": [0.001],
-                "pg_qval": [0.001],
-                "rt_observed": [10.0],
-            }
-        )
-
-        # when
-        result = get_run_identifications(psm_df, fdr=0.01)
-
-        # then
-        assert result["rt_calibrated"].isna().all()
-
-
-def test_median_of_other_rows_matches_brute_force():
-    # given: keys with one to five rows each
-    rng = np.random.default_rng(0)
-    keys = rng.integers(0, 30, 100)
-    values = rng.normal(size=100)
-
-    # when
-    result = _median_of_other_rows(keys, values)
-
-    # then
-    expected = [
-        np.median(values[(keys == key) & (np.arange(100) != i)])
-        if (keys == key).sum() > 1
-        else np.nan
-        for i, key in enumerate(keys)
-    ]
-    np.testing.assert_allclose(result, expected)
-
-
-def test_median_of_other_rows_without_rows():
-    assert len(_median_of_other_rows(np.array([], dtype=int), np.array([]))) == 0
-
-
-class TestPerRunMbrLibrary:
-    """Tests for the PerRunMbrLibrary class."""
-
-    @pytest.fixture
-    def speclib(self):
-        """MBR library whose elution group 0 has three precursors and a decoy sharing the first one's hash."""
-        speclib = SpecLibBase()
-        speclib._precursor_df = pd.DataFrame(
-            {
-                "precursor_idx": np.arange(8),
-                "elution_group_idx": [0, 0, 0, 0, 1, 1, 2, 3],
-                "mod_seq_charge_hash": [100, 101, 100, 102, 200, 201, 300, 400],
-                "decoy": [0, 0, 1, 0, 0, 0, 0, 0],
-                "rt_library": [1.0, 1.1, 1.0, 1.2, 2.0, 2.1, 3.0, 4.0],
-            }
-        )
-        return speclib
-
-    @pytest.fixture
-    def run_identifications_df(self):
-        return pd.DataFrame(
-            {
-                "run": ["run_a", "run_a", "run_a", "run_b", "run_b", "run_b", "run_c"],
-                "elution_group_idx": [0, 1, 2, 0, 0, 3, 0],
-                "mod_seq_charge_hash": [100, 200, 300, 100, 101, 400, 100],
-                "rt_observed": [10.0, 18.0, 30.0, 12.0, 13.0, 40.0, 16.0],
-                "rt_calibrated": [10.5, 19.0, np.nan, 12.5, 13.5, 40.5, 16.5],
-            }
-        )
-
-    def test_rt_from_other_runs(self, speclib, run_identifications_df):
-        """Test the library RT of the elution groups the run identified comes from the other runs."""
-        # when
-        result = PerRunMbrLibrary(run_identifications_df).for_run(speclib, "run_a")
-
-        # then
-        precursor_df = result.precursor_df.set_index("precursor_idx")
-        # 0, 2: median over run_b and run_c of the precursor; the decoy shares the target's hash
-        # 1: identified in run_b only, not in run_a
-        # 3: identified in no run, median over the other runs' medians of the elution group
-        # 4: identified in run_a only, calibrated RT of run_a
-        # 5: identified in no run, calibrated RT of run_a's elution group
-        # 6: identified in run_a only, without calibrated RT: not searched
-        # 7: elution group not identified in run_a, MBR library RT kept
-        assert precursor_df.index.tolist() == [0, 1, 2, 3, 4, 5, 7]
-        np.testing.assert_allclose(
-            precursor_df["rt_library"].values,
-            [14.0, 13.0, 14.0, 14.25, 19.0, 19.0, 4.0],
-        )
-        np.testing.assert_array_equal(
-            precursor_df[MbrCols.IDENTIFIED_IN_RUN].values, [1, 1, 1, 1, 1, 1, 0]
-        )
-
-    def test_rt_from_other_runs_is_specific_to_each_run(
-        self, speclib, run_identifications_df
-    ):
-        """Test another run gets the RT without its own identifications, from the same adapter."""
-        # when
-        per_run_mbr_library = PerRunMbrLibrary(run_identifications_df)
-        per_run_mbr_library.for_run(speclib, "run_a")
-        result = per_run_mbr_library.for_run(speclib, "run_b")
-
-        # then
-        precursor_df = result.precursor_df.set_index("precursor_idx")
-        np.testing.assert_allclose(
-            precursor_df["rt_library"].values,
-            [13.0, 13.0, 13.0, 13.0, 2.0, 2.1, 3.0, 40.5],
-        )
-        np.testing.assert_array_equal(
-            precursor_df[MbrCols.IDENTIFIED_IN_RUN].values, [1, 1, 1, 1, 0, 0, 0, 1]
-        )
-
-    def test_run_without_identifications(self, speclib, run_identifications_df):
-        """Test a run that identified nothing keeps the MBR library RT."""
-        # when
-        result = PerRunMbrLibrary(run_identifications_df).for_run(speclib, "run_d")
-
-        # then
-        np.testing.assert_array_equal(
-            result.precursor_df["rt_library"].values,
-            speclib.precursor_df["rt_library"].values,
-        )
-        assert (result.precursor_df[MbrCols.IDENTIFIED_IN_RUN] == 0).all()
-
-    def test_input_library_is_not_modified(self, speclib, run_identifications_df):
-        # given
-        precursor_df_before = speclib.precursor_df.copy()
-
-        # when
-        PerRunMbrLibrary(run_identifications_df).for_run(speclib, "run_a")
-
-        # then
-        pd.testing.assert_frame_equal(speclib.precursor_df, precursor_df_before)

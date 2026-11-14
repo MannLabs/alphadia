@@ -106,7 +106,7 @@ for i in range(0, max_tasks):
     safe_add_key(current_config, None, "library_path", os.path.abspath(lib_source))
 
     # the MBR library building step writes the run identifications next to the MBR library; searching the MBR
-    # library needs them to adapt it to each run
+    # library needs them for the separate q-values of the elution groups each run identified
     run_identifications_path = os.path.join(
         os.path.dirname(lib_source), MBR_RUN_IDENTIFICATIONS_FILE_NAME
     )

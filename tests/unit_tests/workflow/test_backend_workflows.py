@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 from alphadia_search_rs import FeatureSet
 
-from alphadia.constants.keys import MbrCols
 from alphadia.exceptions import GenericUserError
 from alphadia.raw_data.bruker import TimsTOFTranspose
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
@@ -227,30 +226,29 @@ def test_rust_workflow_does_not_support_multiplexing(tmp_path):
         workflow.requantify(MagicMock())
 
 
-@pytest.mark.parametrize(
-    ("run_identifications_path", "expected_stratum_column"),
-    [
-        (None, None),
-        (
-            "/library/speclib.mbr.run_identifications.parquet",
-            MbrCols.IDENTIFIED_IN_RUN,
-        ),
-    ],
-)
+@pytest.mark.parametrize("with_run_identifications", [False, True])
 @patch("alphadia.workflow.peptidecentric.peptidecentric.init_spectral_library")
 @patch("alphadia.workflow.peptidecentric.peptidecentric._get_classifier_base")
 @patch("alphadia.workflow.peptidecentric.peptidecentric.FDRManager")
 @patch("alphadia.workflow.base.WorkflowBase.load")
-def test_load_stratifies_the_fdr_only_with_run_identifications(
+def test_load_passes_the_elution_groups_the_run_identified(
     mock_base_load,
     mock_fdr_manager_cls,
     mock_get_classifier_base,
     mock_init_spectral_library,
-    run_identifications_path,
-    expected_stratum_column,
+    with_run_identifications,
     tmp_path,
 ):
     # given
+    run_identifications_path = None
+    if with_run_identifications:
+        run_identifications_path = str(tmp_path / "run_identifications.parquet")
+        pd.DataFrame(
+            {
+                "run": pd.Categorical(["raw1", "raw1", "raw1", "raw2"]),
+                "elution_group_idx": [5, 5, 7, 9],
+            }
+        ).to_parquet(run_identifications_path)
     workflow = _create_workflow(
         PythonPeptideCentricWorkflow,
         tmp_path,
@@ -269,7 +267,8 @@ def test_load_stratifies_the_fdr_only_with_run_identifications(
     workflow.load("/raw_files/raw1.raw", MagicMock())
 
     # then
-    assert (
-        mock_fdr_manager_cls.call_args.kwargs["stratum_column"]
-        == expected_stratum_column
-    )
+    identified = mock_fdr_manager_cls.call_args.kwargs["identified_elution_groups"]
+    if with_run_identifications:
+        assert sorted(identified) == [5, 7]
+    else:
+        assert identified is None
