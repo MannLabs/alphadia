@@ -183,7 +183,10 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
             self._figure_path,
         )
 
-        optimization_handler.search_parameter_optimization()
+        result = optimization_handler.search_parameter_optimization()
+        self.optimization_manager.update(
+            **result.tolerances, classifier_version=result.classifier_version
+        )
 
         self._save_managers()
 

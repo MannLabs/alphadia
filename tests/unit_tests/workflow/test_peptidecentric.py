@@ -1,6 +1,5 @@
 """Unit test for the peptidecentric module."""
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -10,6 +9,7 @@ import pytest
 from alphadia.constants.keys import SearchTolerance
 from alphadia.constants.settings import CalibrationLoop
 from alphadia.exceptions import NoOptimizationLockTargetError
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.optimization_handler import LockSearch
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
     RustOptimizationHandler,
@@ -83,24 +83,42 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
     )
 
 
-def _record_search(handler, precursor_df: pd.DataFrame) -> pd.DataFrame:
-    """Record `precursor_df` as the last search of `handler`, as `_process_batch` does."""
-    handler._last_search = LockSearch(
+def _create_optimization_manager(
+    ms2_error: float, rt_error: float
+) -> OptimizationManager:
+    """Make an optimization manager whose initial MS2 and RT tolerances are `ms2_error` and `rt_error` seconds."""
+    return OptimizationManager(
+        {
+            "search_initial": {
+                "ms1_tolerance": 5.0,
+                "ms2_tolerance": ms2_error,
+                "rt_tolerance": rt_error,
+                "mobility_tolerance": 0.04,
+                "num_candidates": 1,
+            },
+            "optimization_manager": {
+                "fwhm_rt": 5.0,
+                "fwhm_mobility": 0.01,
+                "score_cutoff": 0.0,
+            },
+        }
+    )
+
+
+def _lock_search(handler, precursor_df: pd.DataFrame) -> LockSearch:
+    """Make the search of the optimization lock that `_process_batch` of `handler` returns for `precursor_df`."""
+    return LockSearch(
         extraction_handler=MagicMock(),
         batch=MagicMock(),
         precursor_df=precursor_df,
         rt_tolerance=handler._optimization_manager.rt_error,
         classifier_version=handler._fdr_manager.current_version,
     )
-    return precursor_df
 
 
 def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
     """Make a handler whose optimization lock runs out of batches before the target."""
-    optimization_manager = SimpleNamespace(ms2_error=100.0, rt_error=800.0)
-    optimization_manager.update = lambda **kwargs: optimization_manager.__dict__.update(
-        kwargs
-    )
+    optimization_manager = _create_optimization_manager(100.0, 800.0)
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
@@ -125,7 +143,7 @@ def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
     handler._optlock.total_elution_groups = total_elution_groups
     handler._optlock.batch_plan = [(0, 1000)]
     handler._process_batch = MagicMock(
-        side_effect=lambda: _record_search(handler, pd.DataFrame())
+        side_effect=lambda: _lock_search(handler, pd.DataFrame())
     )
     handler._filter_dfs = MagicMock(return_value=(pd.DataFrame(), pd.DataFrame()))
     return handler, optimization_manager
@@ -157,12 +175,12 @@ def test_search_parameter_optimization_keeps_the_initial_tolerances_without_a_ch
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ) as recalibration_handler:
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the handler does not calibrate and keeps the initial tolerances
     recalibration_handler.return_value.recalibrate.assert_not_called()
-    assert optimization_manager.ms2_error == 100.0
-    assert optimization_manager.rt_error == 800.0
+    assert result.tolerances[SearchTolerance.MS2_ERROR] == 100.0
+    assert result.tolerances[SearchTolerance.RT_ERROR] == 800.0
 
 
 def _identifications(n_identified: int) -> pd.DataFrame:
@@ -183,6 +201,7 @@ def _create_calibration_loop_handler(
     `warm_up_rounds` grows."""
     config = {
         "search": {
+            "target_num_candidates": 1,
             "target_ms2_tolerance": target_ms2,
             "target_rt_tolerance": 0.0,
             "target_ms1_tolerance": 5.0,
@@ -192,10 +211,7 @@ def _create_calibration_loop_handler(
             "max_steps": 10,
         },
     }
-    optimization_manager = SimpleNamespace(ms2_error=30.0, rt_error=800.0)
-    optimization_manager.update = lambda **kwargs: optimization_manager.__dict__.update(
-        kwargs
-    )
+    optimization_manager = _create_optimization_manager(30.0, 800.0)
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
@@ -224,14 +240,12 @@ def _create_calibration_loop_handler(
 
     def search():
         handler._fdr_manager.current_version += 1
-        return _record_search(
-            handler, _identifications(next(remaining_identifications))
-        )
+        return _lock_search(handler, _identifications(next(remaining_identifications)))
 
     handler._process_batch = MagicMock(side_effect=search)
     remaining_refits = iter(identifications_per_refit)
 
-    def refit():
+    def refit(_search):
         handler._fdr_manager.current_version += 1
         return _identifications(next(remaining_refits, 0))
 
@@ -268,12 +282,14 @@ def test_calibration_stops_when_tolerances_settle():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the third proposal changes by less than 10% and the handler keeps the second
     assert handler._process_batch.call_count == 3
-    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 70.0)
-    assert optimization_manager.ms2_error == 10.0
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
+        RT_TOLERANCE_FACTOR * 70.0
+    )
+    assert result.tolerances[SearchTolerance.MS2_ERROR] == 10.0
 
 
 def test_calibration_refits_the_classifier_until_identifications_stop_increasing():
@@ -290,14 +306,16 @@ def test_calibration_refits_the_classifier_until_identifications_stop_increasing
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ) as recalibration_handler:
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the third refit stops the refits and the last calibration uses the 50 identifications of the second
     assert handler._process_batch.call_count == 3
     assert handler._refit_classifier.call_count == 3
     last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
     assert len(last_call.args[0]) == 50
-    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 70.0)
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
+        RT_TOLERANCE_FACTOR * 70.0
+    )
 
 
 def test_calibration_takes_the_classifier_of_the_best_refit_forward():
@@ -313,10 +331,10 @@ def test_calibration_takes_the_classifier_of_the_best_refit_forward():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the main search uses the classifier of the refit that found 50 identifications
-    assert optimization_manager.classifier_version == 5
+    assert result.classifier_version == 5
 
 
 def test_calibration_discards_a_rejected_refit():
@@ -334,8 +352,9 @@ def test_calibration_discards_a_rejected_refit():
     ):
         handler.search_parameter_optimization()
 
-    # Then: the last search and the lock hold the 50 identifications of the best refit
-    assert len(handler._last_search.precursor_df) == 50
+    # Then: the main search tolerances and the lock use the 50 identifications of the best refit
+    searched = handler._true_match_rt_interval.call_args.args[0]
+    assert len(searched.precursor_df) == 50
     last_fdr = handler._optlock.update_with_fdr.call_args_list[-1]
     assert len(last_fdr.args[0]) == 50
 
@@ -374,12 +393,12 @@ def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance(
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the main search uses the true match interval for RT and the target for the targeted ms2 tolerance
-    handler._true_match_rt_interval.assert_called_once_with()
-    assert optimization_manager.rt_error == 55.0
-    assert optimization_manager.ms2_error == 10.0
+    handler._true_match_rt_interval.assert_called_once()
+    assert result.tolerances[SearchTolerance.RT_ERROR] == 55.0
+    assert result.tolerances[SearchTolerance.MS2_ERROR] == 10.0
 
 
 def test_main_search_rt_tolerance_is_at_least_ten_cycles():
@@ -395,10 +414,10 @@ def test_main_search_rt_tolerance_is_at_least_ten_cycles():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the main search uses the minimum of 10 cycles
-    assert optimization_manager.rt_error == pytest.approx(
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
         CalibrationLoop.MIN_RT_TOLERANCE_CYCLES * 2.0
     )
 
@@ -415,10 +434,12 @@ def test_main_search_keeps_the_rt_tolerance_without_a_true_match_interval():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the RT tolerance stays at the converged value of the loop
-    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 70.0)
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
+        RT_TOLERANCE_FACTOR * 70.0
+    )
 
 
 def test_main_search_keeps_a_targeted_rt_tolerance():
@@ -435,11 +456,11 @@ def test_main_search_keeps_a_targeted_rt_tolerance():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the main search uses the target
     handler._true_match_rt_interval.assert_not_called()
-    assert optimization_manager.rt_error == 150.0
+    assert result.tolerances[SearchTolerance.RT_ERROR] == 150.0
 
 
 def test_calibration_restores_the_best_checkpoint_on_identification_loss():
@@ -455,10 +476,12 @@ def test_calibration_restores_the_best_checkpoint_on_identification_loss():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ) as recalibration_handler:
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the handler restores the tolerance of the second round and the last calibration used its 40 identifications
-    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 100.0)
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
+        RT_TOLERANCE_FACTOR * 100.0
+    )
     last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
     assert len(last_call.args[0]) == 40
 
@@ -474,7 +497,7 @@ def test_identification_loss_is_measured_per_elution_group():
     def next_round():
         n_identified, n_elution_groups = next(rounds)
         handler._optlock.total_elution_groups = n_elution_groups
-        return _record_search(handler, _identifications(n_identified))
+        return _lock_search(handler, _identifications(n_identified))
 
     handler._process_batch = MagicMock(side_effect=next_round)
 
@@ -482,10 +505,12 @@ def test_identification_loss_is_measured_per_elution_group():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the handler restores no checkpoint and the loop converges at the smaller tolerance
-    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 40.0)
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
+        RT_TOLERANCE_FACTOR * 40.0
+    )
 
 
 def test_last_search_is_checked_before_the_loop_ends():
@@ -501,10 +526,12 @@ def test_last_search_is_checked_before_the_loop_ends():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the handler takes the tolerance of the best checkpoint and not the tolerance of the last calibration
-    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 100.0)
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
+        RT_TOLERANCE_FACTOR * 100.0
+    )
 
 
 def test_unfitted_estimator_keeps_the_current_tolerance():
@@ -518,11 +545,11 @@ def test_unfitted_estimator_keeps_the_current_tolerance():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: RT keeps its initial tolerance and the handler still sets the targeted MS2 tolerance
-    assert optimization_manager.rt_error == 800.0
-    assert optimization_manager.ms2_error == 10.0
+    assert result.tolerances[SearchTolerance.RT_ERROR] == 800.0
+    assert result.tolerances[SearchTolerance.MS2_ERROR] == 10.0
 
 
 def test_expand_extends_the_lock_until_it_can_calibrate():
@@ -543,14 +570,16 @@ def test_expand_extends_the_lock_until_it_can_calibrate():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ) as recalibration_handler:
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the first round only extends the lock and the calibration starts on the second round
     first_recalibration = recalibration_handler.return_value.recalibrate.call_args_list[
         0
     ]
     assert len(first_recalibration.args[0]) == 20
-    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 40.0)
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
+        RT_TOLERANCE_FACTOR * 40.0
+    )
 
 
 def test_warm_up_calibrates_and_grows_the_lock():
@@ -572,11 +601,13 @@ def test_warm_up_calibrates_and_grows_the_lock():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the warm-up round shrinks RT by at most half (800 -> 400), the lock grows and RT converges
     handler._optlock.grow.assert_called_once()
-    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 60.0)
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
+        RT_TOLERANCE_FACTOR * 60.0
+    )
 
 
 def test_targeted_tolerance_reaches_its_target_after_warm_up():
@@ -604,12 +635,12 @@ def test_targeted_tolerance_reaches_its_target_after_warm_up():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the lock is searched at 7 ppm and the main search uses the target
     assert searched_ms2[:3] == [30.0, 15.0, 7.5]
     assert searched_ms2[-1] == 7.0
-    assert optimization_manager.ms2_error == 7.0
+    assert result.tolerances[SearchTolerance.MS2_ERROR] == 7.0
 
 
 def test_restored_checkpoint_keeps_the_target_of_a_targeted_tolerance():
@@ -627,11 +658,11 @@ def test_restored_checkpoint_keeps_the_target_of_a_targeted_tolerance():
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
     ):
-        handler.search_parameter_optimization()
+        result = handler.search_parameter_optimization()
 
     # Then: the RT tolerance of the best checkpoint is restored, MS2 keeps its target
-    assert optimization_manager.rt_error == pytest.approx(200.0)
-    assert optimization_manager.ms2_error == 7.0
+    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(200.0)
+    assert result.tolerances[SearchTolerance.MS2_ERROR] == 7.0
 
 
 def test_expand_after_warm_up_extends_with_the_calibration():
@@ -671,7 +702,7 @@ def test_true_match_rt_interval_fits_the_targets_of_the_last_search():
     )
     del handler._true_match_rt_interval
     precursor_df = pd.DataFrame({"decoy": [0, 1, 0], "proba": [0.1, 0.8, 0.3]})
-    handler._last_search = LockSearch(
+    search = LockSearch(
         extraction_handler=MagicMock(),
         batch=MagicMock(),
         precursor_df=precursor_df,
@@ -693,7 +724,7 @@ def test_true_match_rt_interval_fits_the_targets_of_the_last_search():
         ) as pep,
         patch(f"{module}.true_match_interval", return_value=30.0) as interval,
     ):
-        tolerance = handler._true_match_rt_interval()
+        tolerance = handler._true_match_rt_interval(search)
 
     # Then: the PEP uses the target probabilities and the fit gets the targets only, within the searched window
     assert tolerance == 30.0
