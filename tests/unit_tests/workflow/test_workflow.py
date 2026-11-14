@@ -7,19 +7,23 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 from alphadia_search_rs import OptimizationContext
 
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
-from alphadia.constants.keys import FeatureTransform
+from alphadia.constants.keys import FeatureTransform, SearchTolerance
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.managers.base import BaseManager
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationManager,
 )
 from alphadia.workflow.managers.fdr_manager import FDRManager, column_hash
-from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.managers.optimization_manager import (
+    OptimizationManager,
+    rt_tolerance_in_seconds,
+)
 from alphadia.workflow.peptidecentric.peptidecentric import _get_classifier_base
 
 
@@ -218,6 +222,36 @@ def test_optimization_manager():
     assert optimization_manager.fwhm_mobility == 0.01
 
     assert optimization_manager.is_loaded_from_file is False
+
+
+@pytest.mark.parametrize(
+    ("rt_tolerance", "expected"), [(200.0, 200.0), (1.0, 600.0), (0.5, 300.0)]
+)
+def test_rt_tolerance_in_seconds_reads_one_or_less_as_a_share_of_the_gradient(
+    rt_tolerance, expected
+):
+    """Test that an RT tolerance of 1 or less is a share of the gradient length."""
+    # Given: a gradient of 600 s
+
+    # When: the RT tolerance is converted to seconds
+    seconds = rt_tolerance_in_seconds(rt_tolerance, gradient_length=600.0)
+
+    # Then: values above 1 are seconds, values of 1 or less a share of the gradient
+    assert seconds == expected
+
+
+def test_optimization_manager_returns_the_requested_tolerances():
+    """Test that the manager returns the tolerances by their `SearchTolerance` names."""
+    # Given: an optimization manager with the test configuration
+    optimization_manager = OptimizationManager(TEST_OPTIMIZATION_CONFIG)
+
+    # When: the test asks for the MS2 and RT tolerances
+    tolerances = optimization_manager.tolerances(
+        [SearchTolerance.MS2_ERROR, SearchTolerance.RT_ERROR]
+    )
+
+    # Then: the manager returns their values
+    assert tolerances == {SearchTolerance.MS2_ERROR: 7, SearchTolerance.RT_ERROR: 200}
 
 
 def test_optimization_manager_optimization_context_is_a_snapshot():

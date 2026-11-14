@@ -4,6 +4,7 @@ from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.exceptions import NoOptimizationLockTargetError
+from alphadia.fdr.utils import is_identification
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationGroups
 
@@ -33,9 +34,7 @@ class OptimizationLock:
 
         self.batch_idx = 0
         self.batch_plan = self._get_batch_plan(
-            len(self._elution_group_order),
-            self._batch_size,
-            # TODO remove unused fixed_start_idx functionality
+            len(self._elution_group_order), self._batch_size
         )
 
         eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
@@ -68,9 +67,7 @@ class OptimizationLock:
         return self.batch_plan[self.batch_idx][1]
 
     @staticmethod
-    def _get_batch_plan(
-        num_items: int, batch_size: int, *, fixed_start_idx: bool = False
-    ) -> list[tuple[int, int]]:
+    def _get_batch_plan(num_items: int, batch_size: int) -> list[tuple[int, int]]:
         """Gets an exponential batch plan based on num_items and batch_size.
 
         The batch plan is a list of tuples, where each tuple contains the start and stop index of the elution groups to use for each step in the optimization lock.
@@ -81,8 +78,6 @@ class OptimizationLock:
             The total number of items to create a batch plan for.
         batch_size: int
             The batch size to use for each step in the optimization lock.
-        fixed_start_idx: bool
-            If True, the start index of each batch is fixed to 0, otherwise the start index is the stop index of the previous batch.
 
         returns
         -------
@@ -101,8 +96,7 @@ class OptimizationLock:
             stop_idx = min(stop_idx + n_batches * batch_size, num_items)
             plan.append((start_idx, stop_idx))
             step += 1
-            if not fixed_start_idx:
-                start_idx = stop_idx
+            start_idx = stop_idx
 
         return plan
 
@@ -137,9 +131,7 @@ class OptimizationLock:
             The precursor dataframe for the current batch of the optimization lock (from workflow.perform_fdr).
         """
 
-        self._precursor_at_fdr_count = np.sum(
-            (precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)
-        )
+        self._precursor_at_fdr_count = np.sum(is_identification(precursor_df))
         self.has_target_num_precursors = (
             self._precursor_at_fdr_count >= self._precursor_target_count
         )
