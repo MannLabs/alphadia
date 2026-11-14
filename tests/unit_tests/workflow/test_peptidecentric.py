@@ -157,10 +157,15 @@ def _identifications(n_identified: int) -> pd.DataFrame:
 
 
 def _create_calibration_loop_handler(
-    identifications_per_round, rt_residual_intervals, *, target_ms2=10.0
+    identifications_per_round,
+    rt_residual_intervals,
+    *,
+    target_ms2=10.0,
+    identifications_per_refit=(),
 ):
     """Make a handler whose searches find `identifications_per_round` identifications on a lock of 1000 elution
-    groups. Its RT estimator gives one value of `rt_residual_intervals` per calibration."""
+    groups. Its RT estimator gives one value of `rt_residual_intervals` per calibration. Refits of the classifier
+    on the last search find `identifications_per_refit` identifications, then none."""
     config = {
         "search": {
             "target_ms2_tolerance": target_ms2,
@@ -195,6 +200,10 @@ def _create_calibration_loop_handler(
     remaining_identifications = iter(identifications_per_round)
     handler._process_batch = MagicMock(
         side_effect=lambda: _identifications(next(remaining_identifications))
+    )
+    remaining_refits = iter(identifications_per_refit)
+    handler._refit_classifier = MagicMock(
+        side_effect=lambda: _identifications(next(remaining_refits, 0))
     )
     handler._filter_dfs = lambda precursor_df, _: (precursor_df, pd.DataFrame())
     remaining_rt_intervals = iter(rt_residual_intervals)
@@ -231,6 +240,51 @@ def test_calibration_stops_when_tolerances_settle():
     assert handler._process_batch.call_count == 3
     assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 70.0)
     assert optimization_manager.ms2_error == 10.0
+
+
+def test_calibration_refits_the_classifier_until_identifications_stop_increasing():
+    """Test that after the tolerances converge, the classifier is refit on the last search while it identifies more
+    precursors, and the main search is calibrated on the identifications of the best refit."""
+    # Given: tolerances that settle on the third round and refits that find 45, 50 and then 48 identifications
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[20, 40, 41],
+        rt_residual_intervals=[100.0, 70.0, 68.0],
+        identifications_per_refit=[45, 50, 48],
+    )
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ) as recalibration_handler:
+        handler.search_parameter_optimization()
+
+    # Then: the third refit stops the refits and the last calibration uses the 50 identifications of the second
+    assert handler._process_batch.call_count == 3
+    assert handler._refit_classifier.call_count == 3
+    last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
+    assert len(last_call.args[0]) == 50
+    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 70.0)
+
+
+def test_calibration_keeps_its_calibration_when_a_refit_finds_no_more_identifications():
+    """Test that a refit that does not identify more precursors leaves the calibration of the converged round."""
+    # Given: tolerances that settle on the third round and a refit that finds fewer identifications
+    handler, _ = _create_calibration_loop_handler(
+        identifications_per_round=[20, 40, 41],
+        rt_residual_intervals=[100.0, 70.0, 68.0],
+        identifications_per_refit=[39],
+    )
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ) as recalibration_handler:
+        handler.search_parameter_optimization()
+
+    # Then: the handler refits once and the last calibration uses the 41 identifications of the converged round
+    assert handler._refit_classifier.call_count == 1
+    last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
+    assert len(last_call.args[0]) == 41
 
 
 def test_calibration_restores_the_best_checkpoint_on_identification_loss():
