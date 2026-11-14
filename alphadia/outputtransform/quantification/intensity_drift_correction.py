@@ -38,6 +38,7 @@ _PRECURSOR_DRIFT = "RT and precursor mass dependent"
 _SUMMARY_CORRECTED = "corrected"
 _SUMMARY_MAX_ABS_CORRECTION = "max_abs_correction"
 _SUMMARY_N_STRATA = "n_strata"
+_SUMMARY_REFERENCE_RUNS = "reference_runs"
 
 # a single run has nothing to be corrected against, so it is not worth a warning
 _MIN_RUNS_TO_WARN = 2
@@ -205,9 +206,14 @@ def _log_summary(
         if _SUMMARY_N_STRATA in summary
         else ""
     )
+    reference = (
+        f", reference: precursors quantified in at least {summary[_SUMMARY_REFERENCE_RUNS]} of {len(run_columns)} runs"
+        if summary.get(_SUMMARY_REFERENCE_RUNS, 0) > 0
+        else ""
+    )
     logger.info(
         f"Corrected the {drift_name} intensity drift of {corrected_mask.sum()} of "
-        f"{len(run_columns)} runs{strata}, largest correction {max_abs_correction.max(initial=0.0):.3f} log2"
+        f"{len(run_columns)} runs{strata}{reference}, largest correction {max_abs_correction.max(initial=0.0):.3f} log2"
     )
     uncorrected_runs = [
         run
