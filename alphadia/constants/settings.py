@@ -37,3 +37,14 @@ class CalibrationLoop:
     CONVERGENCE_THRESHOLD = 0.1
     # Restore the best checkpoint when a round on the same lock finds more than this share fewer identifications.
     MAX_IDENTIFICATION_LOSS = 0.05
+
+
+class PeakGroupScoreCutoff:
+    """The minimum peak group score of the main search is a factor times a low percentile of the scores of the
+    calibration identifications, see `peak_parameters`."""
+
+    FACTOR = 0.99
+    PERCENTILE = 1
+    # With `search.optimized_peak_group_score`, a higher cutoff saves memory and runtime at a small loss of precursors.
+    MEMORY_SAVING_FACTOR = 0.95
+    MEMORY_SAVING_PERCENTILE = 3

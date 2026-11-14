@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.optimization_handler import (
     ExtractedBatch,
     OptimizationHandler,
@@ -34,5 +35,5 @@ class PythonOptimizationHandler(OptimizationHandler[PythonExtractionHandler]):
             decoy_strategy=get_decoy_strategy(self._config),
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=self._optlock.fragments_df,
-            version=self._optimization_manager.classifier_version,
+            version=FDRManager.LATEST_VERSION,
         )
