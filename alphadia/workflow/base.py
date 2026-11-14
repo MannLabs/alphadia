@@ -137,7 +137,7 @@ class WorkflowBase(ABC):
             self.config,
             gradient_length=self.dia_data.rt_values.max(),
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PKL_NAME),
-            load_from_file=self.config["general"]["reuse_calibration"],
+            load_from_file=False,
             figure_path=self._figure_path,
             reporter=self.reporter,
         )

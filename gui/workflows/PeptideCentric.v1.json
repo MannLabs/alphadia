@@ -60,13 +60,6 @@
                     "type": "boolean"
                 },
                 {
-                    "id": "reuse_calibration",
-                    "name": "Reuse Calibration",
-                    "default": false,
-                    "description": "Reuse previously calculated calibration data for subsequent searches of the same file.",
-                    "type": "boolean"
-                },
-                {
                     "id": "use_gpu",
                     "name": "Use GPU",
                     "default": true,

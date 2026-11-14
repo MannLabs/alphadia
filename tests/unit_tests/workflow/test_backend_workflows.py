@@ -50,7 +50,6 @@ def _create_workflow(workflow_class, tmp_path):
     config = {
         "general": {
             "save_figures": False,
-            "reuse_calibration": False,
             "thread_count": THREAD_COUNT,
         },
         "output_directory": str(tmp_path),
@@ -235,9 +234,9 @@ def test_rust_workflow_does_not_support_multiplexing(tmp_path):
 
 @patch("alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock")
 def test_calibration_fdr_starts_from_the_latest_classifier(_):
-    """Test that the FDR of a calibration search starts from the latest classifier of this run, not from the version
-    of an optimization manager loaded from an earlier run (`general.reuse_calibration`)."""
-    # Given: an optimization manager that carries classifier version 3 from an earlier run
+    """Test that the FDR of a calibration search starts from the latest classifier, not from the version stored on
+    the optimization manager."""
+    # Given: an optimization manager that carries classifier version 3
     optimization_manager = MagicMock(classifier_version=3)
     fdr_manager = MagicMock()
     extraction_handler = MagicMock()
