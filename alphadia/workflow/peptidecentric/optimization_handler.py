@@ -306,6 +306,10 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         if calibrated and self._target_tolerance(SearchTolerance.RT_ERROR) is None:
             rt_tolerance = self._true_match_tolerance(SearchTolerance.RT_ERROR)
             if rt_tolerance is not None:
+                rt_tolerance = max(
+                    rt_tolerance,
+                    CalibrationLoop.MIN_RT_TOLERANCE_CYCLES * self._cycle_duration(),
+                )
                 self._optimization_manager.update(
                     **{SearchTolerance.RT_ERROR: rt_tolerance}
                 )
@@ -345,6 +349,11 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             n_identified = len(precursor_df_filtered)
             identifications = (precursor_df_filtered, fragments_df_filtered)
         return identifications
+
+    def _cycle_duration(self) -> float:
+        """Return the mean duration of a DIA cycle in seconds."""
+        cycle_length = self._dia_data.cycle.shape[1]
+        return float(np.diff(self._dia_data.rt_values[::cycle_length]).mean())
 
     def _true_match_tolerance(self, name: str) -> float | None:
         """Estimate the tolerance that holds `TOLERANCE_QUANTILE` of the true matches of the last calibration round.

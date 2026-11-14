@@ -24,6 +24,9 @@ class CalibrationLoop:
         SearchTolerance.RT_ERROR: 3.0,
         SearchTolerance.MOBILITY_ERROR: 1.2,
     }
+    # The RT tolerance of the main search spans at least this number of DIA cycles, so that it covers the sampling of
+    # the elution peak even when the RT prediction is near perfect, as in an MBR step.
+    MIN_RT_TOLERANCE_CYCLES = 10
     # The tolerances converged when no tolerance changes by more than this share between rounds.
     CONVERGENCE_THRESHOLD = 0.1
     # Restore the best checkpoint when a round on the same lock finds more than this share fewer identifications.
