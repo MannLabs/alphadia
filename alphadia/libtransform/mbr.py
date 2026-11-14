@@ -1,19 +1,14 @@
 import logging
-from copy import copy
 
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
-from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import CalibCols, DecoyType, MbrCols
+from alphadia.constants.keys import CalibCols, DecoyType
 from alphadia.libtransform.base import ProcessingStep
 from alphadia.libtransform.decoy import DecoyGenerator
 
 logger = logging.getLogger()
-
-# median observed RT over the runs other than the one of the row (`_median_of_other_rows`)
-_RT_OTHER_RUNS = "rt_other_runs"
 
 
 def _passing_fdr(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
@@ -193,7 +188,7 @@ class MbrLibraryBuilder(ProcessingStep):
 
         RT and protein group assignment strategy:
         - If a precursor's mod_seq_charge_hash was identified in PSM, use its specific RT/pg
-        - Otherwise, fall back to the median RT / first pg of its elution group
+        - Otherwise, fall back to the mean RT / first pg of its elution group
 
         This ensures identified precursors get their observed values while unidentified
         precursors (e.g., decoys after rehashing) inherit sensible defaults from their
@@ -219,12 +214,14 @@ class MbrLibraryBuilder(ProcessingStep):
             # Decoys inherit target hashes from DecoyGenerator, rehash to get unique hashes
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
 
+        # The mean over the runs, not the median: the median of an odd number of runs is the RT of one of them, which
+        # that run would find again with no RT error at all, a false identification as well as a true one.
         agg_by_eg = psm_df.groupby("elution_group_idx", as_index=False).agg(
-            rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="median"),
+            rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="mean"),
             pg=pd.NamedAgg(column="pg", aggfunc="first"),
         )
         agg_by_hash = psm_df.groupby("mod_seq_charge_hash", as_index=False).agg(
-            rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="median"),
+            rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="mean"),
             pg=pd.NamedAgg(column="pg", aggfunc="first"),
         )
 
@@ -234,154 +231,15 @@ class MbrLibraryBuilder(ProcessingStep):
 
 
 def get_run_identifications(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
-    """Return the target precursors each run identified at `fdr`, the same PSMs `MbrLibraryBuilder` with this `fdr`
-    builds its library from, with their observed and calibrated RT.
-
-    `CalibCols.RT_CALIBRATED` is NaN for runs whose PSMs do not have it.
+    """Return the elution groups each run identified at `fdr`, from the target PSMs `MbrLibraryBuilder` with this
+    `fdr` builds its library from.
     """
     identified_df = _passing_fdr(psm_df, fdr)
     run_identifications_df = (
         identified_df[identified_df["decoy"] == 0]
-        .reindex(
-            columns=[
-                "run",
-                "elution_group_idx",
-                "mod_seq_charge_hash",
-                CalibCols.RT_OBSERVED,
-                CalibCols.RT_CALIBRATED,
-            ]
-        )
+        .reindex(columns=["run", "elution_group_idx"])
+        .drop_duplicates()
         .reset_index(drop=True)
     )
     run_identifications_df["run"] = run_identifications_df["run"].astype("category")
     return run_identifications_df
-
-
-def _median_of_other_rows(keys: np.ndarray, values: np.ndarray) -> np.ndarray:
-    """For each row, return the median of `values` over the other rows with the same key, NaN if there are none.
-
-    After one sort, each median is read off at fixed positions, so the cost does not grow with the square of the rows
-    per key, as computing a median of the other rows for each row would.
-    """
-    order = np.lexsort((values, keys))
-    sorted_keys = keys[order]
-    sorted_values = values[order]
-
-    is_group_start = np.ones(len(keys), dtype=bool)
-    is_group_start[1:] = sorted_keys[1:] != sorted_keys[:-1]
-    group_starts = np.flatnonzero(is_group_start)
-    group_sizes = np.diff(np.append(group_starts, len(keys)))
-    group_of_row = np.cumsum(is_group_start) - 1
-
-    group_start_of_row = group_starts[group_of_row]
-    rank_in_group = np.arange(len(keys)) - group_start_of_row
-    n_other_rows = group_sizes[group_of_row] - 1
-
-    def value_among_other_rows(position: np.ndarray) -> np.ndarray:
-        # positions at or after the row itself are shifted by one to skip it
-        sorted_position = (
-            group_start_of_row + position + (position >= rank_in_group)
-        ).clip(0, max(len(keys) - 1, 0))
-        return sorted_values[sorted_position]
-
-    median_sorted = np.where(
-        n_other_rows > 0,
-        (
-            value_among_other_rows((n_other_rows - 1) // 2)
-            + value_among_other_rows(n_other_rows // 2)
-        )
-        / 2,
-        np.nan,
-    )
-    median = np.empty(len(keys))
-    median[order] = median_sorted
-    return median
-
-
-def _get_rt_by_run(run_identifications_df: pd.DataFrame, key: str) -> pd.DataFrame:
-    """Return the median RTs of each run and `key`, with the median observed RT of the other runs in `_RT_OTHER_RUNS`."""
-    rt_by_run_df = run_identifications_df.groupby(
-        [key, "run"], observed=True, as_index=False
-    )[[CalibCols.RT_OBSERVED, CalibCols.RT_CALIBRATED]].median()
-    rt_by_run_df[_RT_OTHER_RUNS] = _median_of_other_rows(
-        rt_by_run_df[key].to_numpy(), rt_by_run_df[CalibCols.RT_OBSERVED].to_numpy()
-    )
-    return rt_by_run_df
-
-
-class PerRunMbrLibrary:
-    """Adapt the MBR library to each run it is searched in, using the precursors each run identified in the search
-    that built the library (`get_run_identifications`).
-
-    The MBR library RT is the median observed RT over the runs, so a precursor that a run identified, false
-    identifications included, would have that run's own apex in its library RT. With a single run, it would get a
-    near-zero RT error there, which its decoy cannot reproduce. So in the elution groups a run identified, each
-    precursor takes its library RT from the other runs: its own median observed RT where available, else the median
-    of its elution group. Where no other run identified the elution group, the calibrated RT the run had in that
-    search is used, and without that the elution group is not searched in the run.
-    """
-
-    def __init__(self, run_identifications_df: pd.DataFrame) -> None:
-        self._rt_by_run_and_precursor_df = _get_rt_by_run(
-            run_identifications_df, "mod_seq_charge_hash"
-        )
-        self._rt_by_run_and_elution_group_df = _get_rt_by_run(
-            run_identifications_df, "elution_group_idx"
-        )
-        self._rt_all_runs_by_precursor = self._rt_by_run_and_precursor_df.groupby(
-            "mod_seq_charge_hash"
-        )[CalibCols.RT_OBSERVED].median()
-
-        self._precursor_rows_by_run = self._rt_by_run_and_precursor_df.groupby(
-            "run", observed=True
-        ).indices
-        self._elution_group_rows_by_run = self._rt_by_run_and_elution_group_df.groupby(
-            "run", observed=True
-        ).indices
-
-    def for_run(self, speclib: SpecLibFlat, run: str) -> SpecLibFlat:
-        """Return a copy of `speclib` with the library RTs for `run` and the column `MbrCols.IDENTIFIED_IN_RUN`."""
-        precursors_in_run_df = self._rt_by_run_and_precursor_df.iloc[
-            self._precursor_rows_by_run.get(run, [])
-        ].set_index("mod_seq_charge_hash")
-        elution_groups_in_run_df = self._rt_by_run_and_elution_group_df.iloc[
-            self._elution_group_rows_by_run.get(run, [])
-        ].set_index("elution_group_idx")
-
-        precursor_df = speclib.precursor_df
-        precursor_hash = precursor_df["mod_seq_charge_hash"]
-        elution_group = precursor_df["elution_group_idx"]
-
-        # a precursor the run did not identify has the same observed RTs in all runs as in the other runs
-        rt_other_runs = precursor_hash.map(precursors_in_run_df[_RT_OTHER_RUNS]).where(
-            precursor_hash.isin(precursors_in_run_df.index),
-            precursor_hash.map(self._rt_all_runs_by_precursor),
-        )
-        rt_for_run = (
-            rt_other_runs.fillna(
-                elution_group.map(elution_groups_in_run_df[_RT_OTHER_RUNS])
-            )
-            .fillna(precursor_hash.map(precursors_in_run_df[CalibCols.RT_CALIBRATED]))
-            .fillna(
-                elution_group.map(elution_groups_in_run_df[CalibCols.RT_CALIBRATED])
-            )
-        )
-
-        identified_in_run = elution_group.isin(elution_groups_in_run_df.index)
-        without_rt = identified_in_run & rt_for_run.isna()
-        if without_rt.any():
-            logger.warning(
-                f"{run}: {elution_group[without_rt].nunique():,} elution groups were only identified in this run and "
-                f"have no calibrated RT, they are not searched"
-            )
-
-        speclib_for_run = copy(speclib)
-        speclib_for_run._precursor_df = precursor_df.assign(
-            **{
-                CalibCols.RT_LIBRARY: rt_for_run.where(
-                    identified_in_run, precursor_df[CalibCols.RT_LIBRARY]
-                ),
-                MbrCols.IDENTIFIED_IN_RUN: identified_in_run.astype(np.int8),
-            }
-        )[~without_rt].reset_index(drop=True)
-        return speclib_for_run

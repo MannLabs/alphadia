@@ -11,6 +11,7 @@ import torch
 import xxhash
 
 import alphadia
+from alphadia.constants.keys import MbrCols
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
 from alphadia.workflow.config import Config
@@ -62,7 +63,7 @@ class FDRManager(BaseManager):
         path: None | str = None,
         load_from_file: bool = True,
         random_state: int | None = None,
-        stratum_column: str | None = None,
+        identified_elution_groups: np.ndarray | None = None,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -83,9 +84,10 @@ class FDRManager(BaseManager):
             If True, the manager will be loaded from file if it exists.
         random_state: int, optional
             Random state for reproducibility.
-        stratum_column: str, optional
-            Column of the features whose values split the PSMs into strata with separate q-values, for the decoy
-            strategies "precursor" and "precursor_channel_wise". If None, the q-values are computed over all PSMs.
+        identified_elution_groups: np.ndarray, optional
+            Elution groups the search that built the MBR library identified in this run. If given, PSMs of these
+            elution groups and the other PSMs get separate q-values, for the decoy strategies "precursor" and
+            "precursor_channel_wise". If None, the q-values are computed over all PSMs.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
@@ -100,7 +102,7 @@ class FDRManager(BaseManager):
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
-        self._stratum_column = stratum_column
+        self._identified_elution_groups = identified_elution_groups
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -172,6 +174,19 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"Decoy channel: {decoy_channel}")
         self.reporter.log_string(f"competitive: {competitive}")
 
+        stratum_column = None
+        if self._identified_elution_groups is not None:
+            # Elution groups the run identified in the search that built the MBR library are re-found almost always
+            # correctly. Pooled with them, the matches transferred from other runs would pass at several times the
+            # nominal FDR.
+            # set in place: a copy of the features would raise the peak memory
+            stratum_column = MbrCols.IDENTIFIED_IN_RUN
+            features_df[stratum_column] = (
+                features_df["elution_group_idx"]
+                .isin(self._identified_elution_groups)
+                .to_numpy()
+            )
+
         classifier = self.get_classifier(available_columns, version)
         random_state = (
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
@@ -200,7 +215,7 @@ class FDRManager(BaseManager):
                 train_on_best_candidate=train_on_best_candidate,
                 figure_path=self.figure_path,
                 random_state=random_state,
-                stratum_column=self._stratum_column,
+                stratum_column=stratum_column,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -225,7 +240,7 @@ class FDRManager(BaseManager):
                         dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
                         random_state=random_state,
-                        stratum_column=self._stratum_column,
+                        stratum_column=stratum_column,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
