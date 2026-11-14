@@ -341,6 +341,7 @@ class TestGetRunIdentifications:
                 "qval": [0.001, 0.001, 0.001, 0.001, 0.05],
                 "pg_qval": [0.001, 0.001, 0.001, 0.05, 0.001],
                 "rt_observed": [10.0, 11.0, 12.0, 20.0, 30.0],
+                "pg": ["PG_A", "PG_A", "PG_A", "PG_B", "PG_C"],
             }
         )
 
@@ -348,6 +349,8 @@ class TestGetRunIdentifications:
         result = get_run_identifications(psm_df, fdr=0.01)
 
         # then
-        assert list(result.columns) == ["run", "elution_group_idx"]
+        assert list(result.columns) == ["run", "elution_group_idx", "pg", "pg_qval"]
         assert result["run"].tolist() == ["run_a"]
         assert result["elution_group_idx"].tolist() == [0]
+        assert result["pg"].tolist() == ["PG_A"]
+        assert result["pg_qval"].tolist() == [0.001]

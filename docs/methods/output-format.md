@@ -200,9 +200,11 @@ The match-between-runs (MBR) output library containing all precursors which were
 ## `speclib.mbr.run_identifications.parquet`
 The elution groups each run identified with a target precursor at 1 % precursor and protein group FDR, the identifications the MBR library is built from. Written together with `speclib.mbr.hdf`.
 
-Format: one row per identified elution group per run, with the columns `run` and `elution_group_idx`.
+Format: one row per identified elution group and protein group per run, with the columns `run`, `elution_group_idx`, `pg` and `pg_qval`.
 
-The MBR step of a multistep search uses it (config `mbr_run_identifications_path`) to compute the q-values separately for the elution groups the run identified in the first pass and for the others.
+The MBR step of a multistep search uses it (config `mbr_run_identifications_path`):
+- The q-values are computed separately for the elution groups the run identified in the first pass and for the others.
+- Instead of a protein FDR of its own, each target protein group with a precursor at q-value 1 % or below takes its `pg_qval` from the first pass; all other groups get q-value 1.
 
 ## `speclib.transfer.hdf`
 The transfer learning library containing training data for sample-specific model refinement.

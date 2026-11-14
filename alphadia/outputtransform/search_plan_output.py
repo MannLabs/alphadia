@@ -25,7 +25,10 @@ from alphadia.outputtransform.outputaccumulator import (
     AccumulationBroadcaster,
     TransferLearningAccumulator,
 )
-from alphadia.outputtransform.protein_fdr import perform_protein_fdr
+from alphadia.outputtransform.protein_fdr import (
+    perform_protein_fdr,
+    transfer_library_pg_qval,
+)
 from alphadia.outputtransform.quantification import QuantOutputBuilder
 from alphadia.outputtransform.utils import (
     apply_output_column_names,
@@ -347,9 +350,18 @@ class SearchPlanOutput:
             self.config["fdr"]["group_level"],
         )
 
-        logger.info("Performing protein FDR")
-
-        psm_df = perform_protein_fdr(psm_df, self._figure_path)
+        run_identifications_path = self.config.get(
+            ConfigKeys.MBR_RUN_IDENTIFICATIONS_PATH
+        )
+        if run_identifications_path is not None:
+            logger.info(f"Taking the protein q-values from {run_identifications_path}")
+            psm_df = transfer_library_pg_qval(
+                psm_df,
+                pd.read_parquet(run_identifications_path, columns=["pg", "pg_qval"]),
+            )
+        else:
+            logger.info("Performing protein FDR")
+            psm_df = perform_protein_fdr(psm_df, self._figure_path)
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
         log_protein_fdr_summary(psm_df)
