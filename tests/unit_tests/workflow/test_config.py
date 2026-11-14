@@ -218,6 +218,33 @@ def test_config_update_new_key_tolerated():
     assert config_1 == expected_generic_default_config_dict
 
 
+@pytest.mark.parametrize(
+    "removed_config",
+    [
+        {"calibration": {"min_steps": 3, "max_skips": 1}},
+        {"optimization": {"order_of_optimization": None}},
+        {"optimization": {"ms2_error": {"targeted_update_factor": 1.0}}},
+    ],
+)
+def test_config_update_tolerates_keys_removed_with_the_optimizer_cascade(
+    removed_config,
+):
+    """Test that a user config still setting the removed optimizer cascade keys loads against the default config."""
+    # given
+    default_config_path = os.path.join(
+        os.path.dirname(__file__), "../../../alphadia/constants/default.yaml"
+    )
+    with open(default_config_path) as f:
+        config = Config(yaml.safe_load(f), "default")
+
+    # when
+    config.update([Config(removed_config, "user defined")])
+
+    # then
+    assert "optimization" not in config
+    assert "min_steps" not in config["calibration"]
+
+
 def test_config_update_type_mismatch_raises():
     """Test updating a config with a different type"""
     config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
