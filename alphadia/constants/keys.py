@@ -104,16 +104,16 @@ class SearchPlanFiles(metaclass=ConstantsClass):
     QUANT_MATRIX_SUFFIX = ".matrix"
 
     MBR_LIBRARY_FILE_NAME = "speclib.mbr.hdf"
-    # the precursors the MBR library was built from, per run (`get_run_identifications`)
+    # the elution groups each run identified in the search that built the MBR library (`get_run_identifications`)
     MBR_RUN_IDENTIFICATIONS_FILE_NAME = "speclib.mbr.run_identifications.parquet"
     TRANSFER_LIBRARY_FILE_NAME = "speclib.transfer.hdf"
     TRANSFER_MODEL_FOLDER_NAME = "peptdeep.transfer"
 
 
 class MbrCols(metaclass=ConstantsClass):
-    """Precursor columns the MBR step adds to the spectral library of each run."""
+    """PSM columns of the MBR step."""
 
-    # 1 if the search that built the MBR library identified the precursor's elution group in this run, else 0
+    # True if the search that built the MBR library identified the PSM's elution group in this run
     IDENTIFIED_IN_RUN = "mbr_identified_in_run"
 
 
