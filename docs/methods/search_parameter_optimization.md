@@ -20,15 +20,23 @@ AlphaDIA starts with the following default search parameters:
 
 ### Optimization Algorithm
 
-The optimization process follows these steps:
-1. Search is performed batch-wise, starting with the first 8000 precursors
-2. Batch size increases exponentially (16,000, 32,000, 64,000, ...) until 200 precursors are identified at 1% FDR
-3. AlphaDIA calibrates the library on the identified precursors and sets every tolerance in one step:
-   - targeted parameters take their target value
-   - automatic parameters get a fixed multiple of the 99% interval of the calibrated residuals
-4. AlphaDIA searches the same precursors again with the new calibration and tolerances
+AlphaDIA searches a random subset of the library, the optimization lock. The lock starts with the first 8000 precursors and grows exponentially (16,000, 32,000, 64,000, ...). Each round searches the lock and then runs one of three phases. The number of precursors identified at 1% FDR selects the phase:
 
-Optimization stops when no tolerance changes by more than 10% between rounds. Each calibrated round is a checkpoint. If a round finds more than 5% fewer precursors than the best checkpoint on the same subset of the library, AlphaDIA restores the calibration and tolerances of that checkpoint.
+1. **Expand** (fewer than 100): too few precursors to calibrate. AlphaDIA adds the next batch to the lock.
+2. **Warm-up** (fewer than the lock target of 200): AlphaDIA calibrates the library on the identified precursors and sets every tolerance from them. A tolerance shrinks by at most half per round. The lock grows by the next batch, and AlphaDIA searches the whole lock again with the new calibration and tolerances.
+3. **Converge** (at least 200): AlphaDIA calibrates the library and sets every tolerance in one step. It then resizes the lock to the smallest batch that is expected to reach the target and searches the lock again.
+
+AlphaDIA sets the tolerances as follows:
+- targeted parameters take their target value
+- automatic parameters get a fixed multiple of the 99% interval of the calibrated residuals
+
+Each round that searched with a calibration is a checkpoint. The identification rate of a checkpoint is its number of precursors at 1% FDR per searched elution group. This rate compares across lock sizes. Optimization stops in these cases:
+- no tolerance changes by more than 10% between converge rounds
+- the identification rate of a round is more than 5% below the best checkpoint
+- the loop reaches the maximum number of calibrations
+- the library has no batches left before the target
+
+In every case, the main search uses the tolerances and the classifier of the best checkpoint, and the latest calibration. If no checkpoint exists, AlphaDIA keeps the initial tolerances.
 
 <img src="../_static/images/methods_optimization.png" width="100%" height="auto">
 

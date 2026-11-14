@@ -91,8 +91,12 @@ class CalibrationEstimator:
             n_kernels, self.transform_deviation
         )
 
-        self.is_fitted = False
         self.metrics: CalibrationMetrics | None = None
+
+    @property
+    def is_fitted(self) -> bool:
+        """Return True when the last fit succeeded. The Rust estimator holds this state. A failed fit leaves it unfitted."""
+        return self._calibration_estimator.is_fitted
 
     def __repr__(self) -> str:
         """Return a string representation of the Calibration object."""
@@ -155,16 +159,12 @@ class CalibrationEstimator:
         input_values = self._get_input_array(df)
         target_values = self._get_target_array(df)
 
-        self._calibration_estimator = _RustCalibrationEstimator(
-            self._n_kernels, self.transform_deviation
-        )
+        self.metrics = None
         try:
             self._calibration_estimator.fit(input_values, target_values)
         except Exception as e:  # noqa: BLE001
             logging.warning(f"Could not fit estimator {self.name}: {e}")
             return
-
-        self.is_fitted = True
 
         metrics = self._calibration_estimator.metrics()
         self.metrics = (
@@ -247,7 +247,7 @@ class CalibrationEstimator:
             axis=1,
         )
 
-    def ci(self, df: pd.DataFrame, ci: float = 0.95) -> float:
+    def ci(self, df: pd.DataFrame, ci: float = 0.95) -> float | None:
         """Calculate the residual deviation at the given confidence interval.
 
         Parameters
@@ -260,18 +260,13 @@ class CalibrationEstimator:
 
         Returns
         -------
-        float
-            the confidence interval of the residual deviation after calibration.
+        float | None
+            the confidence interval of the residual deviation after calibration. None if the estimator is not fitted.
 
         """
         if not 0 < ci < 1:
             raise ValueError("Confidence interval must be between 0 and 1")
 
-        if not self.is_fitted:
-            return 0
-
-        return float(
-            self._calibration_estimator.ci(
-                self._get_input_array(df), self._get_target_array(df), ci
-            )
+        return self._calibration_estimator.ci(
+            self._get_input_array(df), self._get_target_array(df), ci
         )

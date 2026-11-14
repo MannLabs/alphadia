@@ -12,7 +12,7 @@ from alphadia.calibration.tolerance import (
     posterior_error_probability,
     true_match_interval,
 )
-from alphadia.constants.keys import SearchTolerance
+from alphadia.constants.keys import CalibrationPhase, SearchTolerance
 from alphadia.constants.settings import (
     MAX_FRAGMENT_MZ_TOLERANCE,
     CalibrationLoop,
@@ -62,6 +62,16 @@ _TOLERANCES = {
         "target_mobility_tolerance",
     ),
 }
+
+
+@dataclass
+class CalibrationCheckpoint:
+    """The tolerances and the classifier that a calibrated round searched with, and the identification rate of the
+    round."""
+
+    identification_rate: float
+    tolerances: dict[str, float]
+    classifier_version: int
 
 
 @dataclass
@@ -165,12 +175,13 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
     def _propose_tolerance(
         self, name: str, precursor_df: pd.DataFrame, fragments_df: pd.DataFrame
-    ) -> float:
+    ) -> float | None:
         """Propose a tolerance that covers the calibrated residuals of the identifications.
 
         A targeted parameter takes its target. An automatic parameter gets `TOLERANCE_FACTOR` times the
         `TOLERANCE_QUANTILE` interval of the residuals. The tolerance thus follows the spread of the true
-        identifications and not the tail of chance matches in the current window.
+        identifications and not the tail of chance matches in the current window. Return None when the estimator
+        could not be fitted.
         """
         target = self._target_tolerance(name)
         if target is not None:
@@ -178,31 +189,106 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         group, estimator_name, _ = _TOLERANCES[name]
         df = fragments_df if group == CalibrationGroups.FRAGMENT else precursor_df
         estimator = self._calibration_manager.get_estimator(group, estimator_name)
-        return CalibrationLoop.TOLERANCE_FACTOR[name] * estimator.ci(
-            df, CalibrationLoop.TOLERANCE_QUANTILE
+        interval = estimator.ci(df, CalibrationLoop.TOLERANCE_QUANTILE)
+        if interval is None:
+            return None
+        return CalibrationLoop.TOLERANCE_FACTOR[name] * interval
+
+    def _get_phase(self, n_identified: int) -> str:
+        """Return the calibration phase of the current round, see `search_parameter_optimization`."""
+        if self._optlock.has_target_num_precursors:
+            return CalibrationPhase.CONVERGE
+        if n_identified < CalibrationLoop.WARM_UP_MIN_IDENTIFICATIONS:
+            return CalibrationPhase.EXPAND
+        return CalibrationPhase.WARM_UP
+
+    def _propose_tolerances(
+        self, names: list[str], precursor_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ) -> dict[str, float]:
+        """Propose every tolerance. A tolerance whose estimator could not be fitted keeps its current value."""
+        next_tolerances = {}
+        for name in names:
+            tolerance = self._propose_tolerance(name, precursor_df, fragments_df)
+            if tolerance is None:
+                tolerance = self._optimization_manager.__dict__[name]
+                self._reporter.log_string(
+                    f"Calibration of {name} could not be fitted, keeping {tolerance:.2f}.",
+                    verbosity="warning",
+                )
+            next_tolerances[name] = tolerance
+        return next_tolerances
+
+    def _has_converged(
+        self,
+        name: str,
+        current_tolerances: dict[str, float],
+        next_tolerances: dict[str, float],
+    ) -> bool:
+        """Return True when the round searched with a tolerance that the next round would keep.
+
+        An automatic tolerance converged when it changes by at most `CONVERGENCE_THRESHOLD`. A targeted tolerance
+        converged only when the round searched at its target, since warm-up can leave it short of the target by less
+        than the threshold.
+        """
+        if self._target_tolerance(name) is not None:
+            return current_tolerances[name] == next_tolerances[name]
+        return (
+            abs(next_tolerances[name] - current_tolerances[name])
+            / max(current_tolerances[name], 1e-9)
+            <= CalibrationLoop.CONVERGENCE_THRESHOLD
         )
+
+    @staticmethod
+    def _limit_warm_up_shrink(
+        next_tolerances: dict[str, float], current_tolerances: dict[str, float]
+    ) -> dict[str, float]:
+        """Shrink each tolerance by at most the factor `WARM_UP_MAX_SHRINK`.
+
+        The few identifications of a warm-up round give a noisy residual interval.
+        """
+        return {
+            name: max(
+                tolerance,
+                current_tolerances[name] / CalibrationLoop.WARM_UP_MAX_SHRINK,
+            )
+            for name, tolerance in next_tolerances.items()
+        }
 
     def search_parameter_optimization(self) -> CalibrationResult:
         """Calibrate the library and set the tolerances in one loop.
 
-        An identification is a precursor at 1% FDR.
+        An identification is a precursor at 1% FDR. Each round searches the optimization lock and scores the result.
+        The number of identifications then selects one of three phases:
 
-        1. Extend the optimization lock until it holds `optimization_lock_target` identifications.
-        2. Calibrate on the identifications and set every tolerance from their residuals, see `_propose_tolerance`.
-           Search the lock again with the new calibration and tolerances.
-        3. Stop when no tolerance changes by more than `CONVERGENCE_THRESHOLD`. When a round on the same lock finds
-           more than `MAX_IDENTIFICATION_LOSS` fewer identifications than the best checkpoint, restore that checkpoint.
-        4. After the tolerances converged, refit the classifier on the last search while it identifies more
-           precursors and calibrate on the best refit, see `_converge_classifier`. The main search starts from the
-           classifier of the best refit.
-        5. An automatic RT tolerance for the main search holds `TOLERANCE_QUANTILE` of the true matches of the last
-           search, weighted by the classifier, see `_true_match_rt_interval` and `main_search_rt_tolerance`.
+        - Expand (fewer than `WARM_UP_MIN_IDENTIFICATIONS`): too few identifications to calibrate. Extend the lock by the
+          next batch of the plan and keep the earlier batches.
+        - Warm-up (fewer than `optimization_lock_target`): calibrate and set every tolerance from the residuals, see
+          `_propose_tolerance`. Each tolerance shrinks by at most `WARM_UP_MAX_SHRINK`. Grow the lock by the next
+          batch and search it again from its first elution group.
+        - Converge (at least `optimization_lock_target`): calibrate and set every tolerance from the residuals.
+          Resize the lock to the smallest batch that is expected to hold the target and search it again.
+
+        Each round that searched with a calibration is a checkpoint. Its identifications per extracted elution group
+        give its identification rate, which compares across lock sizes. The loop stops in these cases:
+
+        - In converge, no tolerance changes by more than `CONVERGENCE_THRESHOLD`.
+        - The identification rate falls more than `MAX_IDENTIFICATION_LOSS` below the best checkpoint.
+        - The loop did `max_steps` calibrations.
+        - The plan has no batches left before the target.
+
+        When the tolerances converged, the loop refits the classifier on the last search while the classifier
+        identifies more precursors and calibrates on the best refit, see `_converge_classifier`. The best refit is a
+        checkpoint with the tolerances of the converged round and the refit classifier.
+
+        In every case, the main search uses the tolerances and the classifier of the best checkpoint, and the latest
+        calibration. An automatic RT tolerance holds `TOLERANCE_QUANTILE` of the true matches of the last search,
+        weighted by the classifier, see `_main_search_tolerances`.
 
         Each calibration applies its peak parameters to the optimization manager, see `_calibrate`. Returns the
         tolerances and the classifier version of the main search, which the caller applies.
         """
         log_string = self._reporter.log_string
-        config = self._config["calibration"]
+        max_calibrations = self._config["calibration"]["max_steps"]
         names = self._active_tolerances()
 
         recalibration_handler = RecalibrationHandler(
@@ -211,26 +297,52 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
         log_string("Starting initial search for precursors.", verbosity="progress")
         search = self._process_batch()
-        best_checkpoint = None
-        calibrated = False
-        main_search_tolerances = None
-        classifier_version = None
-        for round_idx in range(config["max_steps"] + len(self._optlock.batch_plan)):
+        best_checkpoint: CalibrationCheckpoint | None = None
+        n_calibrations = 0
+        while True:
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
                 search.precursor_df, self._optlock.fragments_df
             )
             n_identified = len(precursor_df_filtered)
-            at_target = self._optlock.has_target_num_precursors
+            current_tolerances = {
+                name: self._optimization_manager.__dict__[name] for name in names
+            }
 
-            if not at_target:
-                if self._optlock.batches_remaining():
-                    log_string("Target number of precursors not reached yet.")
-                    self._optlock.update()
-                    if calibrated:
-                        # The new batch needs the calibrated columns that the earlier rounds use.
-                        self._optlock.update_with_calibration(self._calibration_manager)
-                    search = self._process_batch()
-                    continue
+            # Score each search before the next decision, so that the loop checks every search.
+            searched_calibrated = n_calibrations > 0
+            if searched_calibrated:
+                checkpoint = CalibrationCheckpoint(
+                    identification_rate=n_identified
+                    / self._optlock.total_elution_groups,
+                    tolerances=current_tolerances,
+                    classifier_version=search.classifier_version,
+                )
+                if best_checkpoint is not None and checkpoint.identification_rate < (
+                    (1 - CalibrationLoop.MAX_IDENTIFICATION_LOSS)
+                    * best_checkpoint.identification_rate
+                ):
+                    log_string(
+                        f"Identification rate dropped from {best_checkpoint.identification_rate:.4f} to {checkpoint.identification_rate:.4f}.",
+                        verbosity="progress",
+                    )
+                    break
+                if (
+                    best_checkpoint is None
+                    or checkpoint.identification_rate
+                    >= best_checkpoint.identification_rate
+                ):
+                    best_checkpoint = checkpoint
+                if n_calibrations >= max_calibrations:
+                    log_string(
+                        f"Tolerances did not converge within {max_calibrations} calibrations.",
+                        verbosity="warning",
+                    )
+                    break
+
+            if (
+                not self._optlock.has_target_num_precursors
+                and not self._optlock.batches_remaining()
+            ):
                 if self._optlock.total_elution_groups == 0:
                     raise NoOptimizationLockTargetError(
                         "The search extracted no candidate from the raw file."
@@ -239,67 +351,35 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     "Insufficient number of precursors to continue optimization.",
                     verbosity="warning",
                 )
-                if n_identified >= CalibrationLoop.MIN_PRECURSORS_TO_RECALIBRATE:
-                    self._calibrate(
-                        recalibration_handler,
-                        precursor_df_filtered,
-                        fragments_df_filtered,
-                    )
-                    main_search_tolerances = {
-                        name: self._propose_tolerance(
-                            name, precursor_df_filtered, fragments_df_filtered
-                        )
-                        for name in names
-                    }
                 break
 
-            current_tolerances = self._optimization_manager.tolerances(names)
-            # Only rounds on the same lock can compare identifications.
-            # A smaller lock finds fewer identifications at the same tolerances.
-            lock_range = (self._optlock.start_idx, self._optlock.stop_idx)
-            if (
-                best_checkpoint is not None
-                and best_checkpoint["lock_range"] == lock_range
-                and n_identified
-                < (1 - CalibrationLoop.MAX_IDENTIFICATION_LOSS)
-                * best_checkpoint["n_identified"]
-            ):
+            phase = self._get_phase(n_identified)
+
+            if phase == CalibrationPhase.EXPAND:
                 log_string(
-                    f"Identifications dropped from {best_checkpoint['n_identified']} to {n_identified}, "
-                    "restoring the best checkpoint.",
-                    verbosity="progress",
+                    f"Calibration round [{phase}]: {n_identified} identifications "
+                    f"on {self._optlock.total_elution_groups} elution groups, too few to calibrate."
                 )
-                self._calibrate(
-                    recalibration_handler, *best_checkpoint["identifications"]
+                # After a calibration, the new batch needs the calibrated columns that the earlier rounds use.
+                self._optlock.extend(
+                    self._calibration_manager if searched_calibrated else None
                 )
-                main_search_tolerances = best_checkpoint["tolerances"]
-                classifier_version = best_checkpoint["classifier_version"]
-                break
-            if (
-                best_checkpoint is None
-                or best_checkpoint["lock_range"] != lock_range
-                or n_identified >= best_checkpoint["n_identified"]
-            ):
-                best_checkpoint = {
-                    "lock_range": lock_range,
-                    "n_identified": n_identified,
-                    "tolerances": current_tolerances,
-                    "classifier_version": search.classifier_version,
-                    "identifications": (precursor_df_filtered, fragments_df_filtered),
-                }
+                search = self._process_batch()
+                continue
 
             self._calibrate(
                 recalibration_handler, precursor_df_filtered, fragments_df_filtered
             )
-            calibrated = True
-            next_tolerances = {
-                name: self._propose_tolerance(
-                    name, precursor_df_filtered, fragments_df_filtered
+            n_calibrations += 1
+            next_tolerances = self._propose_tolerances(
+                names, precursor_df_filtered, fragments_df_filtered
+            )
+            if phase == CalibrationPhase.WARM_UP:
+                next_tolerances = self._limit_warm_up_shrink(
+                    next_tolerances, current_tolerances
                 )
-                for name in names
-            }
             log_string(
-                f"Calibration round {round_idx}: {n_identified} identifications "
+                f"Calibration round {n_calibrations} [{phase}]: {n_identified} identifications "
                 f"on {self._optlock.total_elution_groups} elution groups; "
                 + ", ".join(
                     f"{name} {current_tolerances[name]:.2f} -> {next_tolerances[name]:.2f}"
@@ -308,11 +388,14 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 verbosity="progress",
             )
 
-            if all(
-                abs(next_tolerances[name] - current_tolerances[name])
-                / max(current_tolerances[name], 1e-9)
-                <= CalibrationLoop.CONVERGENCE_THRESHOLD
-                for name in names
+            # A tolerance can only converge after a search with a calibration.
+            if (
+                phase == CalibrationPhase.CONVERGE
+                and searched_calibrated
+                and all(
+                    self._has_converged(name, current_tolerances, next_tolerances)
+                    for name in names
+                )
             ):
                 log_string("Tolerances converged.", verbosity="progress")
                 refit = self._converge_classifier(search, n_identified)
@@ -321,37 +404,47 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     self._calibrate(
                         recalibration_handler, refit.identifications, refit.fragments
                     )
+                    refit_checkpoint = CalibrationCheckpoint(
+                        identification_rate=len(refit.identifications)
+                        / self._optlock.total_elution_groups,
+                        tolerances=current_tolerances,
+                        classifier_version=search.classifier_version,
+                    )
+                    if (
+                        refit_checkpoint.identification_rate
+                        >= best_checkpoint.identification_rate
+                    ):
+                        best_checkpoint = refit_checkpoint
                 break
 
             self._optimization_manager.update(**next_tolerances)
-            self._optlock.update()
-            self._optlock.update_with_calibration(self._calibration_manager)
+            if phase == CalibrationPhase.CONVERGE:
+                self._optlock.resize(self._calibration_manager)
+            else:
+                self._optlock.grow(self._calibration_manager)
             search = self._process_batch()
 
-        else:
+        if best_checkpoint is None:
             log_string(
-                f"Tolerances did not converge within {config['max_steps']} rounds, "
-                "using the last calibration.",
+                "No checkpoint to take forward, keeping the initial tolerances.",
                 verbosity="warning",
             )
-
-        if main_search_tolerances is None:
-            main_search_tolerances = self._optimization_manager.tolerances(names)
-        if classifier_version is None:
-            classifier_version = search.classifier_version
-        if calibrated and self._target_tolerance(SearchTolerance.RT_ERROR) is None:
-            main_search_tolerances[SearchTolerance.RT_ERROR] = main_search_rt_tolerance(
-                self._true_match_rt_interval(search),
-                main_search_tolerances[SearchTolerance.RT_ERROR],
-                self._cycle_duration(),
+            result = CalibrationResult(
+                self._optimization_manager.tolerances(names),
+                FDRManager.LATEST_VERSION,
+            )
+        else:
+            result = CalibrationResult(
+                self._main_search_tolerances(best_checkpoint, search),
+                best_checkpoint.classifier_version,
             )
         log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
             verbosity="progress",
         )
-        for name, tolerance in main_search_tolerances.items():
+        for name, tolerance in result.tolerances.items():
             log_string(f"{name:<15}: {tolerance:.4f}", verbosity="progress")
-        return CalibrationResult(main_search_tolerances, classifier_version)
+        return result
 
     def _calibrate(
         self,
@@ -367,6 +460,29 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             fwhm_mobility=parameters.fwhm_mobility,
             score_cutoff=parameters.score_cutoff,
         )
+
+    def _main_search_tolerances(
+        self, checkpoint: CalibrationCheckpoint, search: LockSearch[ExtractionHandlerT]
+    ) -> dict[str, float]:
+        """Return the tolerances of the main search.
+
+        They are the tolerances of `checkpoint`, except that a targeted tolerance takes its target and an automatic RT
+        tolerance comes from the true matches of `search`, the last search, see `main_search_rt_tolerance`.
+        """
+        # A targeted tolerance is not searched for, so it keeps its target even when warm-up left the checkpoint short
+        # of it.
+        tolerances = checkpoint.tolerances | {
+            name: target
+            for name in checkpoint.tolerances
+            if (target := self._target_tolerance(name)) is not None
+        }
+        if self._target_tolerance(SearchTolerance.RT_ERROR) is None:
+            tolerances[SearchTolerance.RT_ERROR] = main_search_rt_tolerance(
+                self._true_match_rt_interval(search),
+                tolerances[SearchTolerance.RT_ERROR],
+                self._cycle_duration(),
+            )
+        return tolerances
 
     def _converge_classifier(
         self, search: LockSearch[ExtractionHandlerT], n_identified: int
