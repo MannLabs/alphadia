@@ -1,83 +1,88 @@
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 
+from alphadia.constants.settings import PeakGroupScoreCutoff
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationGroups,
     CalibrationManager,
 )
-from alphadia.workflow.managers.optimization_manager import OptimizationManager
+
+
+@dataclass(frozen=True)
+class PeakParameters:
+    """Peak widths and the minimum peak group score that candidate selection takes from the identifications."""
+
+    fwhm_rt: float
+    fwhm_mobility: float
+    score_cutoff: float
+
+
+def peak_parameters(
+    identifications: pd.DataFrame, memory_saving: bool
+) -> PeakParameters:
+    """Return the median peak widths of the identifications and the minimum peak group score.
+
+    The score cutoff is a factor times a low percentile of the peak group scores of the identifications, see
+    `PeakGroupScoreCutoff`. `memory_saving` takes the higher cutoff of `search.optimized_peak_group_score`.
+    """
+    if memory_saving:
+        factor = PeakGroupScoreCutoff.MEMORY_SAVING_FACTOR
+        percentile = PeakGroupScoreCutoff.MEMORY_SAVING_PERCENTILE
+    else:
+        factor = PeakGroupScoreCutoff.FACTOR
+        percentile = PeakGroupScoreCutoff.PERCENTILE
+    return PeakParameters(
+        fwhm_rt=identifications["fwhm_rt"].median(),
+        fwhm_mobility=identifications["fwhm_mobility"].median(),
+        score_cutoff=factor * np.percentile(identifications["score"], percentile),
+    )
 
 
 class RecalibrationHandler:
-    """
-    Handles recalibration of peptide-centric data.
-    """
-
-    DEFAULT_FAC = 0.95
-    DEFAULT_Q = 3
-
-    OPTIMIZED_FAC = 0.99
-    OPTIMIZED_Q = 1
+    """Calibrates the library on identifications and derives the peak parameters of the next search."""
 
     def __init__(
         self,
         config: Config,
-        optimization_manager: OptimizationManager,
         calibration_manager: CalibrationManager,
         reporter: Pipeline,
         figure_path: str,
-        dia_data_has_ms1: bool,
     ):
         self._config = config
-        self._optimization_manager = optimization_manager
         self._calibration_manager = calibration_manager
         self._reporter = reporter
         self._figure_path = figure_path
-        self._dia_data_has_ms1 = dia_data_has_ms1
 
     def recalibrate(
-        self, precursor_df_filtered: pd.DataFrame, fragments_df_filtered: pd.DataFrame
-    ) -> None:
-        """Performs recalibration of the MS1, MS2, RT and mobility properties and fits the convolution kernel and the score cutoff.
-
-        The calibration manager is used to fit the data and predict the calibrated values.
+        self, identifications: pd.DataFrame, fragments: pd.DataFrame
+    ) -> PeakParameters:
+        """Fit the MS1, MS2, RT and mobility calibration on the identifications and return their peak parameters.
 
         Parameters
         ----------
-        precursor_df_filtered : pd.DataFrame
-            Filtered precursor dataframe (see filter_dfs)
+        identifications : pd.DataFrame
+            Identified precursors, see `OptimizationHandler._filter_dfs`.
 
-        fragments_df_filtered : pd.DataFrame
-            Filtered fragment dataframe (see filter_dfs)
+        fragments : pd.DataFrame
+            Fragments of the identifications used for calibration, see `OptimizationHandler._filter_dfs`.
 
         """
         self._calibration_manager.fit(
-            precursor_df_filtered,
+            identifications,
             CalibrationGroups.PRECURSOR,
             figure_path=self._figure_path,
         )
-
         self._calibration_manager.fit(
-            fragments_df_filtered,
+            fragments,
             CalibrationGroups.FRAGMENT,
             figure_path=self._figure_path,
         )
-
-        score = precursor_df_filtered["score"]
-        if self._config["search"]["optimized_peak_group_score"]:
-            # these values give benefits on max memory and runtime, with a small precursor penalty
-            fac, q = self.DEFAULT_FAC, self.DEFAULT_Q
-        else:
-            fac, q = self.OPTIMIZED_FAC, self.OPTIMIZED_Q
-
-        score_cutoff = fac * np.percentile(score, q)
-
-        self._reporter.log_string(f"Using score_cutoff {score_cutoff} ({fac=}, {q=})")
-
-        self._optimization_manager.update(
-            fwhm_rt=precursor_df_filtered["fwhm_rt"].median(),
-            fwhm_mobility=precursor_df_filtered["fwhm_mobility"].median(),
-            score_cutoff=score_cutoff,
+        parameters = peak_parameters(
+            identifications, self._config["search"]["optimized_peak_group_score"]
         )
+        self._reporter.log_string(f"Using score_cutoff {parameters.score_cutoff}")
+        return parameters

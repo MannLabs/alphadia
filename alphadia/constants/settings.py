@@ -11,6 +11,8 @@ MAX_FRAGMENT_MZ_TOLERANCE = 200
 class CalibrationLoop:
     """Constants of the calibration loop and its phases, see `OptimizationHandler.search_parameter_optimization`."""
 
+    # An identification is a target precursor below this q-value.
+    IDENTIFICATION_FDR = 0.01
     # Warm-up: calibrate as soon as the lock holds this number of identifications. Then grow the lock with the
     # calibrated tolerances until it reaches calibration.optimization_lock_target.
     WARM_UP_MIN_IDENTIFICATIONS = 100
@@ -38,3 +40,14 @@ class CalibrationLoop:
     CONVERGENCE_THRESHOLD = 0.1
     # Stop when the identification rate of a round is more than this share below the best checkpoint.
     MAX_IDENTIFICATION_LOSS = 0.05
+
+
+class PeakGroupScoreCutoff:
+    """The minimum peak group score of the main search is a factor times a low percentile of the scores of the
+    calibration identifications, see `peak_parameters`."""
+
+    FACTOR = 0.99
+    PERCENTILE = 1
+    # With `search.optimized_peak_group_score`, a higher cutoff saves memory and runtime at a small loss of precursors.
+    MEMORY_SAVING_FACTOR = 0.95
+    MEMORY_SAVING_PERCENTILE = 3
