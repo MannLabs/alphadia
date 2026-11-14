@@ -19,7 +19,8 @@ class CalibrationLoop:
     # The tolerances cover this central interval of the calibrated residuals of the identifications ...
     TOLERANCE_QUANTILE = 0.99
     # ... times this factor. Only automatic parameters use the factor. Targeted parameters take their target.
-    # RT gets a wider margin. On Astral, factors from 3 to 6 gave about 0.8% more precursors than 1.5.
+    # The calibration rounds search RT 3 times wider than the identifications, so that the last round shows the tail of
+    # the true matches. The main search takes the RT interval of the true matches, see `true_match_interval`.
     TOLERANCE_FACTOR = {
         SearchTolerance.MS2_ERROR: 1.2,
         SearchTolerance.MS1_ERROR: 1.2,
