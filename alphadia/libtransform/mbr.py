@@ -11,6 +11,14 @@ from alphadia.libtransform.decoy import DecoyGenerator
 logger = logging.getLogger()
 
 
+def _passing_fdr(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
+    """Return the PSMs whose precursor and protein group both pass `fdr`."""
+    # The precursor table is filtered at the configured fdr.fdr, which entrapment and other diagnostic runs raise
+    # above 1 %. Protein groups that only passed at that looser level would enter the MBR library, where the MBR
+    # step cannot reject them any more.
+    return psm_df[(psm_df["qval"] <= fdr) & (psm_df["pg_qval"] <= fdr)]
+
+
 class IndexBuilder:
     """Build and apply lookup indices with fallback and specific matching.
 
@@ -171,7 +179,7 @@ class MbrLibraryBuilder(ProcessingStep):
         Notes
         -----
         MBR library generation procedure:
-        1. Filter PSMs by FDR threshold
+        1. Filter PSMs by FDR threshold, of the precursor and of its protein group
         2. Get elution groups that passed FDR (targets only, or targets+decoys)
         3. Filter base library to those elution groups
         4. Generate decoys if keep_decoys=True, then rehash so each
@@ -180,14 +188,14 @@ class MbrLibraryBuilder(ProcessingStep):
 
         RT and protein group assignment strategy:
         - If a precursor's mod_seq_charge_hash was identified in PSM, use its specific RT/pg
-        - Otherwise, fall back to the median RT / first pg of its elution group
+        - Otherwise, fall back to the mean RT / first pg of its elution group
 
         This ensures identified precursors get their observed values while unidentified
         precursors (e.g., decoys after rehashing) inherit sensible defaults from their
         elution group.
 
         """
-        psm_df = psm_df[psm_df["qval"] <= self.fdr]
+        psm_df = _passing_fdr(psm_df, self.fdr)
 
         if self.keep_decoys:
             elution_groups = psm_df["elution_group_idx"].unique()
@@ -206,15 +214,32 @@ class MbrLibraryBuilder(ProcessingStep):
             # Decoys inherit target hashes from DecoyGenerator, rehash to get unique hashes
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
 
+        # The mean over the runs, not the median: the median of an odd number of runs is the RT of one of them, which
+        # that run would find again with no RT error at all, a false identification as well as a true one.
         agg_by_eg = psm_df.groupby("elution_group_idx", as_index=False).agg(
-            rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="median"),
+            rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="mean"),
             pg=pd.NamedAgg(column="pg", aggfunc="first"),
         )
         agg_by_hash = psm_df.groupby("mod_seq_charge_hash", as_index=False).agg(
-            rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="median"),
+            rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="mean"),
             pg=pd.NamedAgg(column="pg", aggfunc="first"),
         )
 
         self._assign_rt_and_protein_groups(mbr_speclib, agg_by_eg, agg_by_hash)
 
         return mbr_speclib
+
+
+def get_run_identifications(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
+    """Return the elution groups each run identified at `fdr`, from the target PSMs `MbrLibraryBuilder` with this
+    `fdr` builds its library from.
+    """
+    identified_df = _passing_fdr(psm_df, fdr)
+    run_identifications_df = (
+        identified_df[identified_df["decoy"] == 0]
+        .reindex(columns=["run", "elution_group_idx"])
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
+    run_identifications_df["run"] = run_identifications_df["run"].astype("category")
+    return run_identifications_df

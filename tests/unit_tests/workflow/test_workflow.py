@@ -13,7 +13,7 @@ from alphadia_search_rs import OptimizationContext
 
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
-from alphadia.constants.keys import FeatureTransform
+from alphadia.constants.keys import FeatureTransform, MbrCols
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
@@ -366,6 +366,58 @@ def test_fdr_manager_fit_predict_leaves_out_excluded_columns():
 
     assert column_hash(["feature_a"]) in fdr_manager.classifier_store
     assert column_hash(FDR_TEST_FEATURES) not in fdr_manager.classifier_store
+
+
+@pytest.mark.parametrize("decoy_strategy", ["precursor", "precursor_channel_wise"])
+@patch("alphadia.workflow.managers.fdr_manager.fdr.perform_fdr")
+def test_fdr_manager_fit_predict_stratifies_by_the_identified_elution_groups(
+    mock_perform_fdr, decoy_strategy
+):
+    # given
+    mock_perform_fdr.return_value = pd.DataFrame()
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config={"search": {"compete_for_fragments": False}},
+        identified_elution_groups=np.array([1, 3]),
+    )
+    features_df = fdr_testdata(FDR_TEST_FEATURES).assign(
+        channel=0, elution_group_idx=np.arange(100) % 4
+    )
+
+    # when
+    fdr_manager.fit_predict(
+        features_df, decoy_strategy=decoy_strategy, competitive=False
+    )
+
+    # then
+    kwargs = mock_perform_fdr.call_args.kwargs
+    psm_df = mock_perform_fdr.call_args.args[2]
+    assert kwargs["stratum_column"] == MbrCols.IDENTIFIED_IN_RUN
+    np.testing.assert_array_equal(
+        psm_df[MbrCols.IDENTIFIED_IN_RUN], psm_df["elution_group_idx"].isin([1, 3])
+    )
+
+
+@patch("alphadia.workflow.managers.fdr_manager.fdr.perform_fdr")
+def test_fdr_manager_fit_predict_without_identified_elution_groups_does_not_stratify(
+    mock_perform_fdr,
+):
+    # given
+    mock_perform_fdr.return_value = pd.DataFrame()
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config={"search": {"compete_for_fragments": False}},
+    )
+
+    # when
+    fdr_manager.fit_predict(
+        fdr_testdata(FDR_TEST_FEATURES), decoy_strategy="precursor", competitive=False
+    )
+
+    # then
+    assert mock_perform_fdr.call_args.kwargs["stratum_column"] is None
 
 
 def test_fdr_manager_fit_predict():

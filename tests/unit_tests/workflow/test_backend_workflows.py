@@ -40,7 +40,7 @@ OPTIMIZATION_CONFIG = {
 }
 
 
-def _create_workflow(workflow_class, tmp_path):
+def _create_workflow(workflow_class, tmp_path, extra_config: dict | None = None):
     config = {
         "general": {
             "save_figures": False,
@@ -55,7 +55,7 @@ def _create_workflow(workflow_class, tmp_path):
             "quant_all": True,
             "experimental_xic": False,
         },
-    }
+    } | (extra_config or {})
     workflow = workflow_class("raw1", config)
     workflow.reporter = MagicMock()
     workflow._optimization_manager = OptimizationManager(OPTIMIZATION_CONFIG)
@@ -224,3 +224,51 @@ def test_rust_workflow_does_not_support_multiplexing(tmp_path):
     # when / then
     with pytest.raises(NotImplementedError):
         workflow.requantify(MagicMock())
+
+
+@pytest.mark.parametrize("with_run_identifications", [False, True])
+@patch("alphadia.workflow.peptidecentric.peptidecentric.init_spectral_library")
+@patch("alphadia.workflow.peptidecentric.peptidecentric._get_classifier_base")
+@patch("alphadia.workflow.peptidecentric.peptidecentric.FDRManager")
+@patch("alphadia.workflow.base.WorkflowBase.load")
+def test_load_passes_the_elution_groups_the_run_identified(
+    mock_base_load,
+    mock_fdr_manager_cls,
+    mock_get_classifier_base,
+    mock_init_spectral_library,
+    with_run_identifications,
+    tmp_path,
+):
+    # given
+    run_identifications_path = None
+    if with_run_identifications:
+        run_identifications_path = str(tmp_path / "run_identifications.parquet")
+        pd.DataFrame(
+            {
+                "run": pd.Categorical(["raw1", "raw1", "raw1", "raw2"]),
+                "elution_group_idx": [5, 5, 7, 9],
+            }
+        ).to_parquet(run_identifications_path)
+    workflow = _create_workflow(
+        PythonPeptideCentricWorkflow,
+        tmp_path,
+        {
+            "mbr_run_identifications_path": run_identifications_path,
+            "fdr": {
+                "enable_nn_hyperparameter_tuning": False,
+                "feature_transform": None,
+            },
+        },
+    )
+    workflow.config["search"]["channel_filter"] = "0"
+    workflow._spectral_library = MagicMock()
+
+    # when
+    workflow.load("/raw_files/raw1.raw", MagicMock())
+
+    # then
+    identified = mock_fdr_manager_cls.call_args.kwargs["identified_elution_groups"]
+    if with_run_identifications:
+        assert sorted(identified) == [5, 7]
+    else:
+        assert identified is None

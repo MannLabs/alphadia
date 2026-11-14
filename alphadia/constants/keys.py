@@ -47,6 +47,7 @@ class ConfigKeys(metaclass=ConstantsClass):
     VERSION = "version"
     OUTPUT_DIRECTORY = "output_directory"
     LIBRARY_PATH = "library_path"
+    MBR_RUN_IDENTIFICATIONS_PATH = "mbr_run_identifications_path"
     RAW_PATHS = "raw_paths"
     FASTA_PATHS = "fasta_paths"
     QUANT_DIRECTORY = "quant_directory"
@@ -103,8 +104,17 @@ class SearchPlanFiles(metaclass=ConstantsClass):
     QUANT_MATRIX_SUFFIX = ".matrix"
 
     MBR_LIBRARY_FILE_NAME = "speclib.mbr.hdf"
+    # the elution groups each run identified in the search that built the MBR library (`get_run_identifications`)
+    MBR_RUN_IDENTIFICATIONS_FILE_NAME = "speclib.mbr.run_identifications.parquet"
     TRANSFER_LIBRARY_FILE_NAME = "speclib.transfer.hdf"
     TRANSFER_MODEL_FOLDER_NAME = "peptdeep.transfer"
+
+
+class MbrCols(metaclass=ConstantsClass):
+    """PSM columns of the MBR step."""
+
+    # True if the search that built the MBR library identified the PSM's elution group in this run
+    IDENTIFIED_IN_RUN = "mbr_identified_in_run"
 
 
 class TableFormats(metaclass=ConstantsClass):

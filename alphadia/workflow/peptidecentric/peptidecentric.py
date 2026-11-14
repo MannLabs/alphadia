@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import FeatureTransform
+from alphadia.constants.keys import ConfigKeys, FeatureTransform
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -57,6 +57,19 @@ def _get_classifier_base(
         feature_transform=feature_transform,
         random_state=random_state,
     )
+
+
+def _get_identified_elution_groups(
+    run_identifications_path: str | None, run: str
+) -> np.ndarray | None:
+    """Return the elution groups the search that built the MBR library identified in `run`, None without a path."""
+    if run_identifications_path is None:
+        return None
+    return pd.read_parquet(
+        run_identifications_path,
+        columns=["elution_group_idx"],
+        filters=[("run", "==", run)],
+    )["elution_group_idx"].unique()
 
 
 class PeptideCentricWorkflow(base.WorkflowBase, ABC):
@@ -127,6 +140,9 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
             config=self.config,
             figure_path=self._figure_path,
             random_state=self._random_state_fdr_manager,
+            identified_elution_groups=_get_identified_elution_groups(
+                self.config[ConfigKeys.MBR_RUN_IDENTIFICATIONS_PATH], self.instance_name
+            ),
         )
 
         init_spectral_library(
