@@ -18,6 +18,7 @@ from alphadia.constants.settings import (
     CalibrationLoop,
 )
 from alphadia.exceptions import NoOptimizationLockTargetError
+from alphadia.fdr.utils import is_identification
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
@@ -27,9 +28,11 @@ from alphadia.workflow.managers.calibration_manager import (
     CalibrationManager,
 )
 from alphadia.workflow.managers.fdr_manager import FDRManager
-from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.managers.optimization_manager import (
+    OptimizationManager,
+    rt_tolerance_in_seconds,
+)
 from alphadia.workflow.optimizers.optimization_lock import OptimizationLock
-from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
@@ -119,12 +122,6 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         )
         self._last_search: LockSearch[ExtractionHandlerT] | None = None
 
-        self._column_name_handler = ColumnNameHandler(
-            self._calibration_manager,
-            dia_data_has_ms1=self._dia_data.has_ms1,
-            dia_data_has_mobility=self._dia_data.has_mobility,
-        )
-
     def _active_tolerances(self) -> list[str]:
         """Return the names of the tolerances that the raw file has data for."""
         names = [SearchTolerance.MS2_ERROR, SearchTolerance.RT_ERROR]
@@ -139,9 +136,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         target = self._config["search"][_TOLERANCES[name][2]]
         if target <= 0:
             return None
-        if name == SearchTolerance.RT_ERROR and target <= 1:
-            # The config defines an RT target of 1 or less as a share of the gradient length.
-            return target * self._dia_data.rt_values.max()
+        if name == SearchTolerance.RT_ERROR:
+            return rt_tolerance_in_seconds(target, self._dia_data.rt_values.max())
         return target
 
     def _propose_tolerance(
@@ -235,9 +231,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     )
                 break
 
-            current_tolerances = {
-                name: self._optimization_manager.__dict__[name] for name in names
-            }
+            current_tolerances = self._optimization_manager.tolerances(names)
             # Only rounds on the same lock can compare identifications.
             # A smaller lock finds fewer identifications at the same tolerances.
             lock_range = (self._optlock.start_idx, self._optlock.stop_idx)
@@ -334,11 +328,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             "Search parameter optimization finished. Values taken forward for search are:",
             verbosity="progress",
         )
-        for name in names:
-            log_string(
-                f"{name:<15}: {self._optimization_manager.__dict__[name]:.4f}",
-                verbosity="progress",
-            )
+        for name, tolerance in self._optimization_manager.tolerances(names).items():
+            log_string(f"{name:<15}: {tolerance:.4f}", verbosity="progress")
 
     def _converge_classifier(
         self, n_identified: int
@@ -491,17 +482,14 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         Returns
         -------
         precursor_df_filtered : pd.DataFrame
-            Filtered precursor dataframe. Decoy precursors and those found at worse than 1% FDR are removed from the precursor dataframe.
+            Filtered precursor dataframe, the identifications, see `is_identification`.
 
         fragments_df_filtered : pd.DataFrame
-            Filtered fragment dataframe. Retained fragments must either:
-                1) have a correlation greater than 0.7 and belong to the top 5000 fragments sorted by correlation, if there are more than 500 with a correlation greater than 0.7, or
-                2) belong to the top 500 fragments sorted by correlation otherwise.
-            Fragments with abs(mass_error) greater than MAX_FRAGMENT_MZ_TOLERANCE (200) are removed.
+            Filtered fragment dataframe. Retained fragments belong to a retained precursor, have abs(mass_error) of at
+            most MAX_FRAGMENT_MZ_TOLERANCE, a correlation above `calibration.min_correlation`, and are among the
+            `calibration.max_fragments` fragments with the highest correlation.
         """
-        qval_mask = precursor_df["qval"] < 0.01
-        decoy_mask = precursor_df["decoy"] == 0
-        precursor_df_filtered = precursor_df[qval_mask & decoy_mask]
+        precursor_df_filtered = precursor_df[is_identification(precursor_df)]
 
         precursor_idx_mask = fragments_df["precursor_idx"].isin(
             precursor_df_filtered["precursor_idx"]

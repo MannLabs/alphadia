@@ -11,6 +11,8 @@ MAX_FRAGMENT_MZ_TOLERANCE = 200
 class CalibrationLoop:
     """Constants of the calibration loop, see `OptimizationHandler.search_parameter_optimization`."""
 
+    # An identification is a target precursor below this q-value.
+    IDENTIFICATION_FDR = 0.01
     # A calibration fit needs at least this number of identifications.
     MIN_PRECURSORS_TO_RECALIBRATE = 6
     # The tolerances cover this central interval of the calibrated residuals of the identifications ...

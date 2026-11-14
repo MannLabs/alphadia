@@ -8,6 +8,11 @@ from alphadia.workflow.managers.base import BaseManager
 logger = logging.getLogger()
 
 
+def rt_tolerance_in_seconds(rt_tolerance: float, gradient_length: float) -> float:
+    """Return an RT tolerance in seconds. The config defines an RT tolerance of 1 or less as a share of the gradient."""
+    return rt_tolerance if rt_tolerance > 1 else rt_tolerance * gradient_length
+
+
 class OptimizationManager(BaseManager):
     ms1_error: float
     ms2_error: float
@@ -33,11 +38,8 @@ class OptimizationManager(BaseManager):
             self.ms1_error = config["search_initial"]["ms1_tolerance"]
             self.ms2_error = config["search_initial"]["ms2_tolerance"]
 
-            initial_rt_tolerance = config["search_initial"]["rt_tolerance"]
-            self.rt_error = (
-                initial_rt_tolerance
-                if initial_rt_tolerance > 1
-                else initial_rt_tolerance * gradient_length
+            self.rt_error = rt_tolerance_in_seconds(
+                config["search_initial"]["rt_tolerance"], gradient_length
             )
             self.mobility_error = config["search_initial"]["mobility_tolerance"]
 
@@ -119,6 +121,10 @@ class OptimizationManager(BaseManager):
             self.reporter.log_string(
                 f"Updating optimization_manager: {log}", verbosity="info"
             )
+
+    def tolerances(self, names: list[str]) -> dict[str, float]:
+        """Return the tolerances of the given `SearchTolerance` names."""
+        return {name: getattr(self, name) for name in names}
 
     def get_optimization_context(self) -> OptimizationContext:
         """Snapshot of the current optimization context, which later updates of this manager do not change."""

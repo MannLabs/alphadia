@@ -1,6 +1,5 @@
 """Unit test for the peptidecentric module."""
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -10,6 +9,7 @@ import pytest
 from alphadia.constants.keys import SearchTolerance
 from alphadia.constants.settings import CalibrationLoop
 from alphadia.exceptions import NoOptimizationLockTargetError
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.optimization_handler import LockSearch
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
     RustOptimizationHandler,
@@ -83,6 +83,28 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
     )
 
 
+def _create_optimization_manager(
+    ms2_error: float, rt_error: float
+) -> OptimizationManager:
+    """Make an optimization manager whose initial MS2 and RT tolerances are `ms2_error` and `rt_error` seconds."""
+    return OptimizationManager(
+        {
+            "search_initial": {
+                "ms1_tolerance": 5.0,
+                "ms2_tolerance": ms2_error,
+                "rt_tolerance": rt_error,
+                "mobility_tolerance": 0.04,
+                "num_candidates": 1,
+            },
+            "optimization_manager": {
+                "fwhm_rt": 5.0,
+                "fwhm_mobility": 0.01,
+                "score_cutoff": 0.0,
+            },
+        }
+    )
+
+
 def _record_search(handler, precursor_df: pd.DataFrame) -> pd.DataFrame:
     """Record `precursor_df` as the last search of `handler`, as `_process_batch` does."""
     handler._last_search = LockSearch(
@@ -97,10 +119,7 @@ def _record_search(handler, precursor_df: pd.DataFrame) -> pd.DataFrame:
 
 def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
     """Make a handler whose optimization lock runs out of batches before the target."""
-    optimization_manager = SimpleNamespace(ms2_error=100.0, rt_error=800.0)
-    optimization_manager.update = lambda **kwargs: optimization_manager.__dict__.update(
-        kwargs
-    )
+    optimization_manager = _create_optimization_manager(100.0, 800.0)
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
@@ -190,10 +209,7 @@ def _create_calibration_loop_handler(
             "max_steps": 10,
         },
     }
-    optimization_manager = SimpleNamespace(ms2_error=30.0, rt_error=800.0)
-    optimization_manager.update = lambda **kwargs: optimization_manager.__dict__.update(
-        kwargs
-    )
+    optimization_manager = _create_optimization_manager(30.0, 800.0)
     with patch(
         "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
     ):
