@@ -4,8 +4,12 @@ import numpy as np
 from scipy import optimize, stats
 from sklearn.linear_model import LogisticRegression
 
-# The fit needs at least this expected number of true matches, the sum of 1 - PEP.
-MIN_EXPECTED_TRUE_MATCHES = 3
+from alphadia.constants.settings import CalibrationLoop
+
+# Inverse regularisation strength of the PEP model. Its two parameters need no shrinkage, so it is effectively off.
+PEP_MODEL_INVERSE_REGULARISATION = 1e6
+# Start of the degrees of freedom of the t distribution, between the heavy tail of df=1 and the near normal of df>30.
+INITIAL_DEGREES_OF_FREEDOM = 5.0
 
 
 def posterior_error_probability(score: np.ndarray, is_decoy: np.ndarray) -> np.ndarray:
@@ -34,7 +38,7 @@ def posterior_error_probability(score: np.ndarray, is_decoy: np.ndarray) -> np.n
         return np.zeros(len(is_decoy))
     score = np.clip(np.asarray(score, dtype=np.float64), 1e-9, 1 - 1e-9)
     logit = np.log(score / (1 - score)).reshape(-1, 1)
-    model = LogisticRegression(C=1e6).fit(logit, is_decoy)
+    model = LogisticRegression(C=PEP_MODEL_INVERSE_REGULARISATION).fit(logit, is_decoy)
     if model.coef_[0, 0] > 0:
         # Decoys that score higher than targets give no evidence on the error rate.
         return np.ones(len(is_decoy))
@@ -66,15 +70,15 @@ def true_match_interval(
     Returns
     -------
     float | None
-        Half width of the interval, or None when the residuals hold too few likely true matches or the interval is wider
-        than the window.
+        Half width of the interval, or None when the residuals hold too few likely true matches, the fit does not
+        converge or the interval is wider than the window.
 
     """
     residuals = np.abs(np.asarray(residuals, dtype=np.float64))
     pep = np.clip(np.asarray(pep, dtype=np.float64), 1e-6, 1 - 1e-6)
     inside = residuals < window
     residuals, pep = residuals[inside], pep[inside]
-    if np.sum(1 - pep) < MIN_EXPECTED_TRUE_MATCHES:
+    if np.sum(1 - pep) < CalibrationLoop.MIN_EXPECTED_TRUE_MATCHES:
         return None
 
     def negative_log_likelihood(params: np.ndarray) -> float:
@@ -90,9 +94,26 @@ def true_match_interval(
     weighted_median = residuals[order][
         np.searchsorted(cumulative_weight, cumulative_weight[-1] / 2)
     ]
-    start = np.log([max(weighted_median, window * 1e-6), 5.0])
+    start = np.log([max(weighted_median, window * 1e-6), INITIAL_DEGREES_OF_FREEDOM])
     fit = optimize.minimize(negative_log_likelihood, start, method="Nelder-Mead")
+    if not fit.success:
+        return None
     scale, df = np.exp(fit.x)
     interval = float(stats.t(df, scale=scale).ppf(0.5 + quantile / 2))
     # The residuals show the true matches only within the window, so a wider interval is not supported by them.
     return interval if interval <= window else None
+
+
+def main_search_rt_tolerance(
+    true_match_interval: float | None, loop_tolerance: float, cycle_duration: float
+) -> float:
+    """Return the automatic RT tolerance of the main search.
+
+    The main search takes the interval of the true matches, or the tolerance of the calibration loop when the true
+    matches give no interval. It spans at least `MIN_RT_TOLERANCE_CYCLES` DIA cycles, so that it covers the sampling of
+    the elution peak even when the RT prediction is near perfect.
+    """
+    tolerance = (
+        true_match_interval if true_match_interval is not None else loop_tolerance
+    )
+    return max(tolerance, CalibrationLoop.MIN_RT_TOLERANCE_CYCLES * cycle_duration)

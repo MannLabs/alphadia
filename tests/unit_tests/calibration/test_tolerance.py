@@ -1,8 +1,12 @@
+from types import SimpleNamespace
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 from scipy import stats
 
 from alphadia.calibration.tolerance import (
+    main_search_rt_tolerance,
     posterior_error_probability,
     true_match_interval,
 )
@@ -110,4 +114,43 @@ def test_true_match_interval_is_none_beyond_the_searched_window():
     interval = true_match_interval(residuals, pep, window=8, quantile=0.99)
 
     # Then: the estimate returns None instead of an interval wider than the searched window
+    assert interval is None
+
+
+@pytest.mark.parametrize(
+    ("interval", "loop_tolerance", "cycle_duration", "expected"),
+    [
+        (55.0, 210.0, 2.0, 55.0),
+        (None, 210.0, 2.0, 210.0),
+        (5.0, 210.0, 2.0, 20.0),
+        (None, 3.0, 2.0, 20.0),
+    ],
+    ids=["interval", "no interval", "interval below bound", "loop below bound"],
+)
+def test_main_search_rt_tolerance(interval, loop_tolerance, cycle_duration, expected):
+    """Test that the main search takes the true match interval, falls back to the loop tolerance and spans at least
+    `MIN_RT_TOLERANCE_CYCLES` DIA cycles."""
+    # Given: a true match interval, the tolerance of the loop and a DIA cycle of 2 s
+
+    # When: the RT tolerance of the main search is chosen
+    tolerance = main_search_rt_tolerance(interval, loop_tolerance, cycle_duration)
+
+    # Then: it is the interval, else the loop tolerance, and at least 10 cycles
+    assert tolerance == pytest.approx(expected)
+
+
+def test_true_match_interval_is_none_when_the_fit_fails():
+    """Test that a failed likelihood fit gives no interval instead of an unconverged one."""
+    # Given: residuals of true matches and a likelihood fit that does not converge
+    rng = np.random.default_rng(0)
+    residuals = rng.normal(0, 10, 500)
+    failed_fit = SimpleNamespace(success=False, x=np.log([10.0, 5.0]))
+
+    # When: the interval is estimated
+    with patch(
+        "alphadia.calibration.tolerance.optimize.minimize", return_value=failed_fit
+    ):
+        interval = true_match_interval(residuals, np.zeros(500), 100.0, 0.99)
+
+    # Then: there is no interval
     assert interval is None
