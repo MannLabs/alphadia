@@ -370,6 +370,77 @@ def test_warm_up_calibrates_and_grows_the_lock():
     assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 60.0)
 
 
+def test_targeted_tolerance_reaches_its_target_after_warm_up():
+    """Test that the loop does not converge before the main search tolerance of a targeted parameter is its target.
+
+    Warm-up halves MS2 per round (30 -> 15 -> 7.5). The step from 7.5 to the target of 7 is below the convergence
+    threshold, but the lock was never searched at 7 (regression: the main search used 7.5 ppm)."""
+    # Given: an MS2 target of 7 ppm, two warm-up rounds and then the lock target
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[15, 15, 30, 30, 30],
+        rt_residual_intervals=[60.0] * 5,
+        target_ms2=7.0,
+    )
+    handler._optlock.has_target_num_precursors = False
+    handler._optlock.batches_remaining.return_value = True
+    n_grown = []
+
+    def grow(_):
+        n_grown.append(1)
+        handler._optlock.has_target_num_precursors = len(n_grown) >= 2
+
+    handler._optlock.grow.side_effect = grow
+    searched_ms2 = []
+    search = handler._process_batch.side_effect
+
+    def search_and_record():
+        searched_ms2.append(optimization_manager.ms2_error)
+        return search()
+
+    handler._process_batch.side_effect = search_and_record
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # Then: the lock is searched at 7 ppm and the main search uses the target
+    assert searched_ms2[:3] == [30.0, 15.0, 7.5]
+    assert searched_ms2[-1] == 7.0
+    assert optimization_manager.ms2_error == 7.0
+
+
+def test_restored_checkpoint_keeps_the_target_of_a_targeted_tolerance():
+    """Test that restoring a warm-up checkpoint does not bring back a targeted tolerance short of its target."""
+    # Given: an MS2 target of 7 ppm; the warm-up round at 7.5 ppm is the best checkpoint and the round at 7 ppm loses
+    # identifications
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[15, 15, 40, 20],
+        rt_residual_intervals=[60.0] * 4,
+        target_ms2=7.0,
+    )
+    handler._optlock.has_target_num_precursors = False
+    handler._optlock.batches_remaining.return_value = True
+    n_grown = []
+
+    def grow(_):
+        n_grown.append(1)
+        handler._optlock.has_target_num_precursors = len(n_grown) >= 2
+
+    handler._optlock.grow.side_effect = grow
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # Then: the RT tolerance of the best checkpoint is restored, MS2 keeps its target
+    assert optimization_manager.rt_error == pytest.approx(200.0)
+    assert optimization_manager.ms2_error == 7.0
+
+
 def test_expand_after_warm_up_extends_with_the_calibration():
     """Test that a lock that goes back to expand after a warm-up round extends with the calibrated columns. The next
     extraction needs these columns (regression: KeyError 'rt_calibrated')."""
