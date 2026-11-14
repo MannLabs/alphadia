@@ -153,6 +153,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
            Search the lock again with the new calibration and tolerances.
         3. Stop when no tolerance changes by more than `CONVERGENCE_THRESHOLD`. When a round on the same lock finds
            more than `MAX_IDENTIFICATION_LOSS` fewer identifications than the best checkpoint, restore that checkpoint.
+        4. After the tolerances converged, refit the classifier on the last search while it identifies more
+           precursors and calibrate on the best refit, see `_converge_classifier`.
         """
         log_string = self._reporter.log_string
         config = self._config["calibration"]
@@ -274,6 +276,9 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 for name in names
             ):
                 log_string("Tolerances converged.", verbosity="progress")
+                refit_identifications = self._converge_classifier(n_identified)
+                if refit_identifications is not None:
+                    recalibration_handler.recalibrate(*refit_identifications)
                 break
 
             self._optimization_manager.update(**next_tolerances)
@@ -302,6 +307,40 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 verbosity="progress",
             )
 
+    def _converge_classifier(
+        self, n_identified: int
+    ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+        """Refit the classifier on the last search while it identifies more precursors.
+
+        Each fit continues the training of the previous classifier, so the identifications of a round depend on how
+        many rounds came before it. The score cutoff and the calibration of the main search come from the
+        identifications of the last calibration. Converging the classifier on the last search makes them independent
+        of the number of rounds the tolerances needed.
+
+        Returns the filtered identifications of the best refit, or None when no refit identified more precursors.
+        """
+        identifications = None
+        for _ in range(self._config["calibration"]["max_steps"]):
+            precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
+                self._refit_classifier(), self._optlock.fragments_df
+            )
+            self._reporter.log_string(
+                f"Classifier refit: {len(precursor_df_filtered)} identifications, before {n_identified}.",
+                verbosity="progress",
+            )
+            if len(precursor_df_filtered) <= n_identified:
+                break
+            n_identified = len(precursor_df_filtered)
+            identifications = (precursor_df_filtered, fragments_df_filtered)
+        return identifications
+
+    def _refit_classifier(self) -> pd.DataFrame:
+        """Perform FDR on the last search again, with the classifier trained further."""
+        precursor_df = self._perform_fdr(*self._last_search)
+        self._optlock.update_with_fdr(precursor_df)
+        log_precursor_df(self._reporter, precursor_df)
+        return precursor_df
+
     def _process_batch(self):
         """Extracts precursors and fragments from the spectral library, performs FDR correction and logs the precursor dataframe."""
         self._reporter.log_string(
@@ -314,6 +353,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         )
 
         batch = self._extract_batch(extraction_handler)
+        self._last_search = (extraction_handler, batch)
         self._optlock.update_with_extraction(batch.precursors_df, batch.fragments_df)
 
         self._reporter.log_string(
