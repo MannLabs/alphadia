@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -206,6 +207,8 @@ def _create_calibration_loop_handler(
         side_effect=lambda: _identifications(next(remaining_refits, 0))
     )
     handler._true_match_tolerance = MagicMock(return_value=None)
+    handler._dia_data.rt_values = np.arange(0, 600, 0.5)
+    handler._dia_data.cycle = np.zeros((1, 4, 1, 2))
     handler._filter_dfs = lambda precursor_df, _: (precursor_df, pd.DataFrame())
     remaining_rt_intervals = iter(rt_residual_intervals)
     handler._calibration_manager.get_estimator.return_value.ci.side_effect = (
@@ -307,6 +310,27 @@ def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance(
     handler._true_match_tolerance.assert_called_once_with(SearchTolerance.RT_ERROR)
     assert optimization_manager.rt_error == 55.0
     assert optimization_manager.ms2_error == 10.0
+
+
+def test_main_search_rt_tolerance_is_at_least_ten_cycles():
+    """Test that the RT tolerance of the main search does not fall below the minimum number of DIA cycles."""
+    # Given: true matches with a 99% RT interval of 5 s, and the handler's DIA cycle of 4 spectra 0.5 s apart (2 s)
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[20, 40, 41],
+        rt_residual_intervals=[100.0, 70.0, 68.0],
+    )
+    handler._true_match_tolerance.return_value = 5.0
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # Then: the main search uses the minimum of 10 cycles
+    assert optimization_manager.rt_error == pytest.approx(
+        CalibrationLoop.MIN_RT_TOLERANCE_CYCLES * 2.0
+    )
 
 
 def test_main_search_keeps_the_rt_tolerance_without_a_true_match_interval():
