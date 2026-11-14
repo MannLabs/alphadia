@@ -2,7 +2,7 @@
 
 Converts the dataframes to the one-row-per-run matrices of
 `alphadia_search_rs.IntensityDriftCorrection` (fragments, along the RT) and
-`alphadia_search_rs.PrecursorDriftCorrection` (precursors, along the RT and the precursor
+`alphadia_search_rs.PrecursorDriftCorrection` (precursors, along the RT and the neutral precursor
 mass), which define the corrections and their thresholds.
 """
 
@@ -10,6 +10,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+from alphabase.constants.atom import MASS_PROTON
 from alphadia_search_rs import IntensityDriftCorrection, PrecursorDriftCorrection
 
 from alphadia.constants.keys import CalibCols, QuantificationLevelKey
@@ -30,11 +31,16 @@ _PRECURSOR_REQUIRED_PSM_COLUMNS = [
     CalibCols.MZ_LIBRARY,
     _CHARGE_COLUMN,
 ]
+_FRAGMENT_DRIFT = "RT dependent"
+_PRECURSOR_DRIFT = "RT and precursor mass dependent"
 
 # keys of the summary returned by IntensityDriftCorrection.correct and PrecursorDriftCorrection.correct
 _SUMMARY_CORRECTED = "corrected"
 _SUMMARY_MAX_ABS_CORRECTION = "max_abs_correction"
 _SUMMARY_N_STRATA = "n_strata"
+
+# a single run has nothing to be corrected against, so it is not worth a warning
+_MIN_RUNS_TO_WARN = 2
 
 
 def _validate_psm_columns(psm_df: pd.DataFrame, required_columns: list[str]) -> None:
@@ -77,18 +83,18 @@ def correct_intensity_drift(
     ion_precursor_codes, unique_precursor_idx = pd.factorize(
         intensity_df[PRECURSOR_IDX_COLUMN].to_numpy(np.int64)
     )
-    intensity_matrix = _runs_as_rows(intensity_df[run_columns])
+    intensity_matrix = _runs_as_rows(intensity_df[run_columns], np.float32)
 
     # correct() overwrites intensity_matrix in place, the corrected values are read back from it
     summary = IntensityDriftCorrection().correct(
         intensity_matrix,
-        _runs_as_rows(correlation_df[run_columns]),
+        _runs_as_rows(correlation_df[run_columns], np.float32),
         _rt_by_run(
             psm_df, PRECURSOR_IDX_COLUMN, unique_precursor_idx, run_columns, np.float32
         ),
         ion_precursor_codes.astype(np.uintp),
     )
-    _log_summary(run_columns, summary)
+    _log_summary(run_columns, summary, _FRAGMENT_DRIFT)
 
     corrected_df = intensity_df.copy(deep=False)
     corrected_df[run_columns] = intensity_matrix.T
@@ -98,7 +104,7 @@ def correct_intensity_drift(
 def correct_precursor_intensity_drift(
     precursor_df: pd.DataFrame, psm_df: pd.DataFrame
 ) -> pd.DataFrame:
-    """Return `precursor_df` with the RT and precursor mass dependent intensity drift of every run column removed.
+    """Return `precursor_df` with the RT and neutral precursor mass dependent intensity drift of every run column removed.
 
     Parameters
     ----------
@@ -106,7 +112,8 @@ def correct_precursor_intensity_drift(
         Linear precursor quantities, one row per precursor, with mod_seq_charge_hash, the other
         quantification level columns and one column per run. 0 or NaN marks a missing value.
     psm_df : pd.DataFrame
-        PSM table with mod_seq_charge_hash, run, rt_observed, mz_library and charge.
+        PSM table with mod_seq_charge_hash, run, rt_observed, mz_library and charge. Of several
+        psms of a precursor in a run, the first is used.
 
     Returns
     -------
@@ -121,47 +128,51 @@ def correct_precursor_intensity_drift(
     _validate_psm_columns(psm_df, _PRECURSOR_REQUIRED_PSM_COLUMNS)
     run_columns = get_run_columns(precursor_df)
     precursor_keys = precursor_df[QuantificationLevelKey.PRECURSOR].to_numpy()
-    intensity_matrix = np.ascontiguousarray(
-        precursor_df[run_columns].to_numpy(dtype=np.float64).T
+    intensity_matrix = _runs_as_rows(precursor_df[run_columns], np.float64)
+    # one psm per (precursor, run), so that the RT and the mass come from the same psm
+    unique_psm_df = psm_df.drop_duplicates(
+        [QuantificationLevelKey.PRECURSOR, _RUN_COLUMN]
     )
 
     # correct() overwrites intensity_matrix in place, the corrected values are read back from it
     summary = PrecursorDriftCorrection().correct(
         intensity_matrix,
         _rt_by_run(
-            psm_df,
+            unique_psm_df,
             QuantificationLevelKey.PRECURSOR,
             precursor_keys,
             run_columns,
             np.float64,
         ),
-        _precursor_mass(psm_df, precursor_keys),
+        _neutral_precursor_mass(unique_psm_df, precursor_keys),
     )
-    _log_precursor_summary(run_columns, summary)
+    _log_summary(run_columns, summary, _PRECURSOR_DRIFT)
 
     corrected_df = precursor_df.copy(deep=False)
     corrected_df[run_columns] = intensity_matrix.T
     return corrected_df
 
 
-def _precursor_mass(psm_df: pd.DataFrame, precursor_keys: np.ndarray) -> np.ndarray:
-    """Library m/z times charge of every precursor key, NaN for a key without a psm."""
-    psm_mass = psm_df[CalibCols.MZ_LIBRARY].to_numpy(np.float64) * psm_df[
-        _CHARGE_COLUMN
-    ].to_numpy(np.float64)
-    mass_by_key = (
-        pd.Series(psm_mass, index=psm_df[QuantificationLevelKey.PRECURSOR].to_numpy())
-        .groupby(level=0)
-        .first()
+def _neutral_precursor_mass(
+    psm_df: pd.DataFrame, precursor_keys: np.ndarray
+) -> np.ndarray:
+    """Neutral mass from the library m/z and the charge of every precursor key, NaN for a key without a psm."""
+    first_psm_df = psm_df.drop_duplicates(QuantificationLevelKey.PRECURSOR)
+    charge = first_psm_df[_CHARGE_COLUMN].to_numpy(np.float64)
+    neutral_mass = (
+        first_psm_df[CalibCols.MZ_LIBRARY].to_numpy(np.float64) - MASS_PROTON
+    ) * charge
+    mass_by_key = pd.Series(
+        neutral_mass, index=first_psm_df[QuantificationLevelKey.PRECURSOR].to_numpy()
     )
     return np.ascontiguousarray(
         mass_by_key.reindex(precursor_keys).to_numpy(np.float64)
     )
 
 
-def _runs_as_rows(df: pd.DataFrame) -> np.ndarray:
-    """Return `df` as a C-contiguous float32 matrix of shape `(n_columns, n_rows)`."""
-    return np.ascontiguousarray(df.to_numpy(dtype=np.float32).T)
+def _runs_as_rows(df: pd.DataFrame, dtype: type) -> np.ndarray:
+    """Return `df` as a C-contiguous matrix of shape `(n_columns, n_rows)`."""
+    return np.ascontiguousarray(df.to_numpy(dtype=dtype).T)
 
 
 def _rt_by_run(
@@ -183,40 +194,35 @@ def _rt_by_run(
     return rt
 
 
-def _log_summary(run_columns: list[str], summary: dict[str, np.ndarray]) -> None:
+def _log_summary(
+    run_columns: list[str], summary: dict[str, np.ndarray], drift_name: str
+) -> None:
+    """Log how many runs were corrected, and warn about the runs left uncorrected."""
     corrected_mask = summary[_SUMMARY_CORRECTED]
     max_abs_correction = summary[_SUMMARY_MAX_ABS_CORRECTION]
-    logger.info(
-        f"Corrected the RT dependent intensity drift of {corrected_mask.sum()} of "
-        f"{len(run_columns)} runs, largest correction {max_abs_correction.max(initial=0.0):.3f} log2"
+    strata = (
+        f" in {summary[_SUMMARY_N_STRATA]} mass strata"
+        if _SUMMARY_N_STRATA in summary
+        else ""
     )
+    logger.info(
+        f"Corrected the {drift_name} intensity drift of {corrected_mask.sum()} of "
+        f"{len(run_columns)} runs{strata}, largest correction {max_abs_correction.max(initial=0.0):.3f} log2"
+    )
+    uncorrected_runs = [
+        run
+        for run, is_run_corrected in zip(run_columns, corrected_mask, strict=True)
+        if not is_run_corrected
+    ]
+    if uncorrected_runs and len(run_columns) >= _MIN_RUNS_TO_WARN:
+        logger.warning(
+            f"The {drift_name} intensity drift of {len(uncorrected_runs)} runs is not corrected, "
+            f"too few precursors or ions shared with the other runs: {', '.join(uncorrected_runs)}"
+        )
     for run, is_run_corrected, run_max_abs_correction in zip(
         run_columns, corrected_mask, max_abs_correction, strict=True
     ):
         if is_run_corrected:
             logger.debug(
                 f"Run {run}: largest correction {run_max_abs_correction:.3f} log2"
-            )
-        else:
-            logger.debug(f"Run {run}: not corrected, too few usable ions for a curve")
-
-
-def _log_precursor_summary(run_columns: list[str], summary: dict) -> None:
-    corrected_mask = summary[_SUMMARY_CORRECTED]
-    max_abs_correction = summary[_SUMMARY_MAX_ABS_CORRECTION]
-    logger.info(
-        f"Corrected the RT and precursor mass dependent intensity drift of {corrected_mask.sum()} of "
-        f"{len(run_columns)} runs in {summary[_SUMMARY_N_STRATA]} mass strata, "
-        f"largest correction {max_abs_correction.max(initial=0.0):.3f} log2"
-    )
-    for run, is_run_corrected, run_max_abs_correction in zip(
-        run_columns, corrected_mask, max_abs_correction, strict=True
-    ):
-        if is_run_corrected:
-            logger.debug(
-                f"Run {run}: largest correction {run_max_abs_correction:.3f} log2"
-            )
-        else:
-            logger.debug(
-                f"Run {run}: not corrected, a single run or too few precursors quantified in every run"
             )

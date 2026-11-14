@@ -88,6 +88,39 @@ def feature_dfs():
     }
 
 
+@pytest.fixture
+def varmodel_config(config):
+    """Configuration of the variance-model path."""
+    config["search_output"]["normalization_method"] = (
+        NormalizationMethods.VARMODEL_DIRECTLFQ
+    )
+    config["search_output"]["normalize_directlfq"] = False
+    config["search_output"]["min_k_fragments"] = 4
+    config["search_output"]["min_nonnan"] = 3
+    return config
+
+
+@pytest.fixture
+def varmodel_psm_df():
+    """PSM dataframe of the precursors of `_varmodel_feature_dfs`."""
+    return pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2],
+            "decoy": [0, 0, 0],
+            "pg": ["PG001", "PG001", "PG002"],
+            "mod_seq_hash": [1, 2, 3],
+            "mod_seq_charge_hash": [10, 20, 30],
+            "sequence": ["PEPTIDE", "SEQUENCE", "PROTEIN"],
+            "mods": ["", "", ""],
+            "mod_sites": ["", "", ""],
+            "charge": [2, 2, 2],
+            "run": ["run1", "run1", "run2"],
+            "rt_observed": [100.0, 200.0, 300.0],
+            "mz_library": [500.0, 600.0, 700.0],
+        }
+    )
+
+
 def lfq_side_effect(*args, **kwargs):
     # Extract the lfq_config instance from kwargs (it's passed as a keyword argument)
     lfq_config = kwargs.get("lfq_config")
@@ -362,35 +395,6 @@ def _varmodel_feature_dfs():
 class TestVarModelQuantification:
     """The variance-model precursor quantities feed directLFQ on every level."""
 
-    @pytest.fixture
-    def varmodel_config(self, config):
-        config["search_output"]["normalization_method"] = (
-            NormalizationMethods.VARMODEL_DIRECTLFQ
-        )
-        config["search_output"]["normalize_directlfq"] = False
-        config["search_output"]["min_k_fragments"] = 4
-        config["search_output"]["min_nonnan"] = 3
-        return config
-
-    @pytest.fixture
-    def varmodel_psm_df(self):
-        return pd.DataFrame(
-            {
-                "precursor_idx": [0, 1, 2],
-                "decoy": [0, 0, 0],
-                "pg": ["PG001", "PG001", "PG002"],
-                "mod_seq_hash": [1, 2, 3],
-                "mod_seq_charge_hash": [10, 20, 30],
-                "sequence": ["PEPTIDE", "SEQUENCE", "PROTEIN"],
-                "mods": ["", "", ""],
-                "mod_sites": ["", "", ""],
-                "charge": [2, 2, 2],
-                "run": ["run1", "run1", "run2"],
-                "rt_observed": [100.0, 200.0, 300.0],
-                "mz_library": [500.0, 600.0, 700.0],
-            }
-        )
-
     def test_loads_the_library_intensity(self, varmodel_psm_df, varmodel_config):
         # Given / When
         builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
@@ -494,33 +498,6 @@ def _passthrough_fragment_drift(intensity_df, correlation_df, psm_df):
 class TestIntensityDriftCorrectionPath:
     """One drift correction per quantification path: precursors for the variance model, fragments otherwise."""
 
-    @pytest.fixture
-    def varmodel_config(self, config):
-        config["search_output"]["normalization_method"] = (
-            NormalizationMethods.VARMODEL_DIRECTLFQ
-        )
-        config["search_output"]["min_k_fragments"] = 4
-        return config
-
-    @pytest.fixture
-    def varmodel_psm_df(self):
-        return pd.DataFrame(
-            {
-                "precursor_idx": [0, 1, 2],
-                "decoy": [0, 0, 0],
-                "pg": ["PG001", "PG001", "PG002"],
-                "mod_seq_hash": [1, 2, 3],
-                "mod_seq_charge_hash": [10, 20, 30],
-                "sequence": ["PEPTIDE", "SEQUENCE", "PROTEIN"],
-                "mods": ["", "", ""],
-                "mod_sites": ["", "", ""],
-                "charge": [2, 2, 2],
-                "run": ["run1", "run1", "run2"],
-                "rt_observed": [100.0, 200.0, 300.0],
-                "mz_library": [500.0, 600.0, 700.0],
-            }
-        )
-
     @patch(
         f"{DRIFT_MODULE}.correct_precursor_intensity_drift",
         side_effect=_passthrough_precursor_drift,
@@ -617,3 +594,40 @@ class TestIntensityDriftCorrectionPath:
         # Then
         mock_fragment_drift.assert_not_called()
         mock_precursor_drift.assert_not_called()
+
+    @patch(
+        f"{DRIFT_MODULE}.correct_precursor_intensity_drift",
+        side_effect=_passthrough_precursor_drift,
+    )
+    @patch(
+        f"{DRIFT_MODULE}.correct_intensity_drift",
+        side_effect=_passthrough_fragment_drift,
+    )
+    @patch(f"{DRIFT_MODULE}.QuantBuilder.quantselect_lfq")
+    @patch(ACCUMULATE)
+    def test_quantselect_corrects_the_fragments_once(
+        self,
+        mock_accumulate,
+        mock_quantselect,
+        mock_fragment_drift,
+        mock_precursor_drift,
+        psm_df,
+        config,
+        feature_dfs,
+    ):
+        """Given the QuantSelect path, when built, then the fragment intensities are drift corrected once for all levels."""
+        # Given
+        config["search_output"]["normalization_method"] = (
+            NormalizationMethods.QUANTSELECT
+        )
+        mock_accumulate.return_value = feature_dfs
+        mock_quantselect.side_effect = lfq_side_effect
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        builder.build(["folder1"])
+
+        # Then
+        mock_fragment_drift.assert_called_once()
+        mock_precursor_drift.assert_not_called()
+        assert mock_quantselect.call_count == 3

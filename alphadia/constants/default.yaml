@@ -350,10 +350,11 @@ search_output:
   # The correction of each run is centred on zero, so it only flattens how the intensity changes along the gradient.
   # It does not shift the overall intensity of a run; differences in overall run intensity are corrected by the LFQ normalization.
   # With normalization_method varmodel_directlfq the precursor quantities are corrected along the retention time and the
-  # precursor mass (alphadia_search_rs.PrecursorDriftCorrection, reference: precursors quantified in every run).
+  # neutral precursor mass (alphadia_search_rs.PrecursorDriftCorrection, reference: precursors quantified in at least half
+  # of the runs, >= 200 of them per run).
   # Otherwise the fragment intensities are corrected along the retention time (alphadia_search_rs.IntensityDriftCorrection,
   # fragments observed in every run with correlation >= 0.8, >= 500 per run), not with search_output.min_correlation.
-  # Runs without enough reference precursors or fragments are left uncorrected.
+  # Runs without enough reference precursors or fragments are left uncorrected, with a warning.
   intensity_drift_correction: True
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
