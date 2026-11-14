@@ -27,6 +27,10 @@ class CalibrationLoop:
     # The RT tolerance of the main search spans at least this number of DIA cycles, so that it covers the sampling of
     # the elution peak even when the RT prediction is near perfect, as in an MBR step.
     MIN_RT_TOLERANCE_CYCLES = 10
+    # The true match interval needs at least this expected number of true matches, the sum of 1 - PEP.
+    MIN_EXPECTED_TRUE_MATCHES = 3
+    # The classifier is refit on the last search at most this number of times, see `_converge_classifier`.
+    MAX_CLASSIFIER_REFITS = 10
     # The tolerances converged when no tolerance changes by more than this share between rounds.
     CONVERGENCE_THRESHOLD = 0.1
     # Restore the best checkpoint when a round on the same lock finds more than this share fewer identifications.
