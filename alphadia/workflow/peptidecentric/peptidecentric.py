@@ -184,8 +184,11 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
         )
 
         result = optimization_handler.search_parameter_optimization()
+        # Calibration scores only the best peak group of each precursor. The main search scores the configured number.
         self.optimization_manager.update(
-            **result.tolerances, classifier_version=result.classifier_version
+            **result.tolerances,
+            classifier_version=result.classifier_version,
+            num_candidates=self.config["search"]["target_num_candidates"],
         )
 
         self._save_managers()

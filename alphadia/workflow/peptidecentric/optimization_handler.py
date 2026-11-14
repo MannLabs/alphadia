@@ -295,6 +295,11 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             self._config, self._calibration_manager, self._reporter, self._figure_path
         )
 
+        # Calibration scores the initial number of peak groups per precursor, also with a manager that an earlier run
+        # left at the number of the main search (`general.reuse_calibration`).
+        self._optimization_manager.update(
+            num_candidates=self._config["search_initial"]["num_candidates"]
+        )
         log_string("Starting initial search for precursors.", verbosity="progress")
         search = self._process_batch()
         best_checkpoint: CalibrationCheckpoint | None = None
@@ -455,7 +460,6 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         """Calibrate on the identifications and apply their peak parameters, which the next search selects with."""
         parameters = recalibration_handler.recalibrate(identifications, fragments)
         self._optimization_manager.update(
-            num_candidates=self._config["search"]["target_num_candidates"],
             fwhm_rt=parameters.fwhm_rt,
             fwhm_mobility=parameters.fwhm_mobility,
             score_cutoff=parameters.score_cutoff,

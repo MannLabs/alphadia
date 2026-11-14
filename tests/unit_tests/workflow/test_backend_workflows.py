@@ -55,6 +55,7 @@ def _create_workflow(workflow_class, tmp_path):
         },
         "output_directory": str(tmp_path),
         "search": {
+            "target_num_candidates": 3,
             "top_k_fragments_selection": 12,
             "exclude_shared_ions": True,
             "quant_window": 3,

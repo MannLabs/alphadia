@@ -10,7 +10,10 @@ from alphadia.constants.keys import SearchTolerance
 from alphadia.constants.settings import CalibrationLoop
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
-from alphadia.workflow.peptidecentric.optimization_handler import LockSearch
+from alphadia.workflow.peptidecentric.optimization_handler import (
+    CalibrationResult,
+    LockSearch,
+)
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
     RustOptimizationHandler,
 )
@@ -124,6 +127,7 @@ def _create_handler_that_exhausts_the_batch_plan(total_elution_groups: int):
     ):
         handler = RustOptimizationHandler(
             {
+                "search_initial": {"num_candidates": 1},
                 "search": {
                     "target_ms2_tolerance": 0.0,
                     "target_rt_tolerance": 0.0,
@@ -200,6 +204,7 @@ def _create_calibration_loop_handler(
     on the last search find `identifications_per_refit` identifications, then none. The lock reaches its target after
     `warm_up_rounds` grows."""
     config = {
+        "search_initial": {"num_candidates": 1},
         "search": {
             "target_num_candidates": 1,
             "target_ms2_tolerance": target_ms2,
@@ -691,6 +696,66 @@ def test_expand_after_warm_up_extends_with_the_calibration():
 
     # Then: the batch that expand adds gets the calibration of the warm-up round
     assert calls[:2] == [("grow",), ("extend", handler._calibration_manager)]
+
+
+def test_calibration_searches_score_the_initial_number_of_peak_groups():
+    """Test that the calibration searches score `search_initial.num_candidates` peak groups, also when the manager
+    comes from an earlier run with the number of the main search (`general.reuse_calibration`)."""
+    # Given: a manager left at 3 peak groups by the main search of an earlier run
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[20, 40, 41],
+        rt_residual_intervals=[100.0, 70.0, 68.0],
+    )
+    optimization_manager.update(num_candidates=3)
+    searched_num_candidates = []
+    search = handler._process_batch.side_effect
+
+    def search_and_record():
+        searched_num_candidates.append(optimization_manager.num_candidates)
+        return search()
+
+    handler._process_batch.side_effect = search_and_record
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # Then: every calibration search scores the best peak group only
+    assert searched_num_candidates == [1, 1, 1]
+
+
+def test_search_parameter_optimization_sets_the_number_of_candidates_for_the_main_search(
+    mock_config,
+):
+    """Test that the main search scores target_num_candidates peak groups after a calibration with one."""
+    # given
+    config = {**mock_config, "search": {"target_num_candidates": 3}}
+    workflow = RustPeptideCentricWorkflow("test_instance", config)
+    workflow._optimization_manager = MagicMock()
+    workflow._calibration_manager = MagicMock()
+    workflow._fdr_manager = MagicMock()
+    workflow._spectral_library = MagicMock()
+    workflow._dia_data = MagicMock()
+    workflow.reporter = MagicMock()
+
+    # when
+    with (
+        patch.object(
+            RustPeptideCentricWorkflow, "OPTIMIZATION_HANDLER_CLASS"
+        ) as handler_class,
+        patch.object(RustPeptideCentricWorkflow, "_save_managers"),
+    ):
+        handler_class.return_value.search_parameter_optimization.return_value = (
+            CalibrationResult({}, classifier_version=2)
+        )
+        workflow.search_parameter_optimization()
+
+    # then
+    workflow.optimization_manager.update.assert_called_once_with(
+        classifier_version=2, num_candidates=3
+    )
 
 
 def test_true_match_rt_interval_fits_the_targets_of_the_last_search():
