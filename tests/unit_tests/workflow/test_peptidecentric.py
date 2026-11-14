@@ -202,6 +202,7 @@ def _create_calibration_loop_handler(
     handler._refit_classifier = MagicMock(
         side_effect=lambda: _identifications(next(remaining_refits, 0))
     )
+    handler._true_match_tolerance = MagicMock(return_value=None)
     handler._filter_dfs = lambda precursor_df, _: (precursor_df, pd.DataFrame())
     remaining_rt_intervals = iter(rt_residual_intervals)
     handler._calibration_manager.get_estimator.return_value.ci.side_effect = (
@@ -276,6 +277,66 @@ def test_calibration_keeps_its_calibration_when_a_refit_finds_no_more_identifica
     assert handler._refit_classifier.call_count == 1
     last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
     assert len(last_call.args[0]) == 41
+
+
+def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance():
+    """Test that an automatic RT tolerance is set from the true matches of the last calibration round."""
+    # Given: tolerances that settle on the third round, and true matches whose 99% RT interval is 55 s
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[20, 40, 41],
+        rt_residual_intervals=[100.0, 70.0, 68.0],
+    )
+    handler._true_match_tolerance.return_value = 55.0
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # Then: the main search uses the true match interval for RT and the target for the targeted ms2 tolerance
+    handler._true_match_tolerance.assert_called_once_with(SearchTolerance.RT_ERROR)
+    assert optimization_manager.rt_error == 55.0
+    assert optimization_manager.ms2_error == 10.0
+
+
+def test_main_search_keeps_the_rt_tolerance_without_a_true_match_interval():
+    """Test that the RT tolerance of the loop is kept when the true matches give no interval."""
+    # Given: tolerances that settle on the third round and too few true matches for an interval
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[20, 40, 41],
+        rt_residual_intervals=[100.0, 70.0, 68.0],
+    )
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # Then: the RT tolerance stays at the converged value of the loop
+    assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 70.0)
+
+
+def test_main_search_keeps_a_targeted_rt_tolerance():
+    """Test that a targeted RT tolerance is not replaced by the true match interval."""
+    # Given: an RT target of 150 s
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[20, 40],
+        rt_residual_intervals=[100.0, 70.0],
+    )
+    handler._config["search"]["target_rt_tolerance"] = 150.0
+    handler._true_match_tolerance.return_value = 55.0
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # Then: the main search uses the target
+    handler._true_match_tolerance.assert_not_called()
+    assert optimization_manager.rt_error == 150.0
 
 
 def test_calibration_restores_the_best_checkpoint_on_identification_loss():

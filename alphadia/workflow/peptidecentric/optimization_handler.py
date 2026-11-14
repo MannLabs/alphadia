@@ -7,6 +7,10 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.calibration.tolerance import (
+    posterior_error_probability,
+    true_match_interval,
+)
 from alphadia.constants.keys import SearchTolerance
 from alphadia.constants.settings import (
     MAX_FRAGMENT_MZ_TOLERANCE,
@@ -155,6 +159,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
            more than `MAX_IDENTIFICATION_LOSS` fewer identifications than the best checkpoint, restore that checkpoint.
         4. After the tolerances converged, refit the classifier on the last search while it identifies more
            precursors and calibrate on the best refit, see `_converge_classifier`.
+        5. An automatic RT tolerance for the main search holds `TOLERANCE_QUANTILE` of the true matches of the last
+           round, weighted by the classifier, see `_true_match_tolerance`.
         """
         log_string = self._reporter.log_string
         config = self._config["calibration"]
@@ -297,6 +303,12 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             self._optimization_manager.update(
                 classifier_version=self._fdr_manager.current_version
             )
+        if calibrated and self._target_tolerance(SearchTolerance.RT_ERROR) is None:
+            rt_tolerance = self._true_match_tolerance(SearchTolerance.RT_ERROR)
+            if rt_tolerance is not None:
+                self._optimization_manager.update(
+                    **{SearchTolerance.RT_ERROR: rt_tolerance}
+                )
         log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
             verbosity="progress",
@@ -334,9 +346,41 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             identifications = (precursor_df_filtered, fragments_df_filtered)
         return identifications
 
+    def _true_match_tolerance(self, name: str) -> float | None:
+        """Estimate the tolerance that holds `TOLERANCE_QUANTILE` of the true matches of the last calibration round.
+
+        The calibration rounds search wider than the residuals of the true matches, so the last round shows their
+        tail. Its candidates are weighted by their posterior error probability, see `true_match_interval`. Returns
+        None when the estimator is not fitted or the round holds too few likely true matches.
+        """
+        group, estimator_name, _ = _TOLERANCES[name]
+        estimator = self._calibration_manager.get_estimator(group, estimator_name)
+        if not estimator.is_fitted:
+            return None
+        precursor_df, window = self._last_fdr
+        residuals = estimator.calc_deviation(precursor_df)[:, 2]
+        is_decoy = precursor_df["decoy"].to_numpy() == 1
+        # The classifier probability `proba` is the probability of a decoy.
+        pep = posterior_error_probability(
+            1 - precursor_df["proba"].to_numpy(), is_decoy
+        )
+        tolerance = true_match_interval(
+            residuals[~is_decoy],
+            pep[~is_decoy],
+            window,
+            CalibrationLoop.TOLERANCE_QUANTILE,
+        )
+        if tolerance is not None:
+            self._reporter.log_string(
+                f"{name} of the true matches: {tolerance:.2f} (searched {window:.2f}).",
+                verbosity="progress",
+            )
+        return tolerance
+
     def _refit_classifier(self) -> pd.DataFrame:
         """Perform FDR on the last search again, with the classifier trained further."""
         precursor_df = self._perform_fdr(*self._last_search)
+        self._last_fdr = (precursor_df, self._last_fdr[1])
         self._optlock.update_with_fdr(precursor_df)
         log_precursor_df(self._reporter, precursor_df)
         return precursor_df
@@ -362,6 +406,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         )
 
         precursor_df = self._perform_fdr(extraction_handler, batch)
+        self._last_fdr = (precursor_df, self._optimization_manager.rt_error)
 
         self._optlock.update_with_fdr(precursor_df)
 
