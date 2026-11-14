@@ -108,7 +108,7 @@ class FDRManager(BaseManager):
         competitive: bool,
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
-        version: int = -1,
+        version: int | None = -1,
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
         excluded_columns: Collection[str] = (),
         train_on_best_candidate: bool = False,
@@ -127,8 +127,9 @@ class FDRManager(BaseManager):
             Dataframe containing the fragments to use for the classifier. If None, no fragments are used.
         decoy_channel: int
             Channel to use for decoy competition if decoy_strategy is "channel". Defaults to -1, which means no decoy channel is used.
-        version: int
-            Version of the classifier to use. If -1, uses the latest version. Defaults to -1.
+        version: int | None
+            Version of the classifier to start from. If -1, uses the latest version. If None, starts from the base
+            classifier. Defaults to -1.
         fragment_provider: None | Callable[[pd.DataFrame], pd.DataFrame]
             Returns the fragments of the PSMs it is given, for fragment competition when `df_fragments` is not
             available up front. Only used with decoy_strategy "precursor".
@@ -349,15 +350,17 @@ class FDRManager(BaseManager):
                     classifier.from_state_dict(state_dict)
                     self.classifier_store[classifier_hash].append(classifier)
 
-    def get_classifier(self, available_columns: list, version: int = -1) -> Classifier:
-        """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
+    def get_classifier(
+        self, available_columns: list, version: int | None = -1
+    ) -> Classifier:
+        """Gets the classifier for a given set of feature columns and version. If the version is None or the classifier is not found in the store, gets the base classifier instead.
 
         Parameters
         ----------
         available_columns: list
             List of feature columns
-        version: int
-            Version of the classifier to get
+        version: int | None
+            Version of the classifier to get. None gets the base classifier.
 
         Returns
         ----------
@@ -366,7 +369,7 @@ class FDRManager(BaseManager):
 
         """
         classifier_hash = column_hash(available_columns)
-        if classifier_hash in self.classifier_store:
+        if version is not None and classifier_hash in self.classifier_store:
             classifier = self.classifier_store[classifier_hash][version]
         else:
             classifier = self.classifier_base
