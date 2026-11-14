@@ -64,16 +64,11 @@ class PythonPeptideCentricWorkflow(PeptideCentricWorkflow):
             extraction_handler.score_and_quantify_candidates(candidates_df)
         )
 
-        self.reporter.log_string(
-            f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
-        )
-
         precursor_df = self._fdr_manager.fit_predict(
             precursor_quantified_w_features_df,
             decoy_strategy=get_decoy_strategy(self._config),
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=fragments_df,
-            version=self.optimization_manager.classifier_version,
         )
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]

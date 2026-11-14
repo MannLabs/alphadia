@@ -91,7 +91,6 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
             extraction_handler.perform_fdr_and_filter_candidates(
                 precursor_w_features_df,
                 candidates_df,
-                self.optimization_manager.classifier_version,
                 final_round=True,
                 train_on_best_candidate=True,
             )

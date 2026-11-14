@@ -2,13 +2,11 @@ import json
 import os
 import tempfile
 from copy import deepcopy
-from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
-import torch
 from alphadia_search_rs import OptimizationContext
 
 import alphadia
@@ -19,7 +17,7 @@ from alphadia.workflow.managers.base import BaseManager
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationManager,
 )
-from alphadia.workflow.managers.fdr_manager import FDRManager, column_hash
+from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import (
     OptimizationManager,
     rt_tolerance_in_seconds,
@@ -358,16 +356,22 @@ def test_fdr_manager():
     assert fdr_manager.classifier_base == FDR_TEST_BASE_CLASSIFIER
 
 
-def test_fdr_manager_fit_predict_leaves_out_excluded_columns():
-    fdr_manager = FDRManager(
+def _create_fdr_manager() -> FDRManager:
+    return FDRManager(
         feature_columns=FDR_TEST_FEATURES,
         classifier_base=FDR_TEST_BASE_CLASSIFIER,
-        config={
-            "search": {"compete_for_fragments": False},
-        },
+        config={"search": {"compete_for_fragments": False}},
         dia_cycle=None,
     )
 
+
+@patch("alphadia.workflow.managers.fdr_manager.fdr.perform_fdr")
+def test_fdr_manager_fit_predict_leaves_out_excluded_columns(perform_fdr):
+    """Test that the classifier does not see the excluded feature columns."""
+    # Given: an FDR manager for two feature columns
+    fdr_manager = _create_fdr_manager()
+
+    # When: the manager fits without feature_b
     fdr_manager.fit_predict(
         fdr_testdata(FDR_TEST_FEATURES),
         decoy_strategy="precursor",
@@ -375,61 +379,33 @@ def test_fdr_manager_fit_predict_leaves_out_excluded_columns():
         excluded_columns=["feature_b"],
     )
 
-    assert column_hash(["feature_a"]) in fdr_manager.classifier_store
-    assert column_hash(FDR_TEST_FEATURES) not in fdr_manager.classifier_store
+    # Then: the classifier uses feature_a only
+    assert perform_fdr.call_args.args[1] == ["feature_a"]
 
 
-def test_fdr_manager_fit_predict():
-    fdr_manager = FDRManager(
-        feature_columns=FDR_TEST_FEATURES,
-        classifier_base=FDR_TEST_BASE_CLASSIFIER,
-        config={
-            "search": {"compete_for_fragments": False},
-        },
-        dia_cycle=None,
-    )
-    test_features_df = fdr_testdata(FDR_TEST_FEATURES)
+@patch("alphadia.workflow.managers.fdr_manager.fdr.perform_fdr")
+def test_fdr_manager_continues_one_classifier_per_feature_columns(perform_fdr):
+    """Test that fits on the same feature columns train one classifier further, and fits on other feature columns
+    start from a copy of the base classifier."""
+    # Given: an FDR manager for two feature columns
+    fdr_manager = _create_fdr_manager()
+    features_df = fdr_testdata(FDR_TEST_FEATURES)
 
-    # the shipped classifier has a two-output head and is not loaded
-    assert len(fdr_manager.classifier_store) == 0
+    # When: the manager fits twice on both columns and once without feature_b
+    for excluded_columns in [(), (), ("feature_b",)]:
+        fdr_manager.fit_predict(
+            features_df,
+            decoy_strategy="precursor",
+            competitive=False,
+            excluded_columns=excluded_columns,
+        )
 
-    fdr_manager.fit_predict(
-        test_features_df,
-        decoy_strategy="precursor",
-        competitive=False,
-        df_fragments=None,
-    )
-
-    assert len(fdr_manager.classifier_store) == 1
-    assert fdr_manager.current_version == 0
-    assert column_hash(FDR_TEST_FEATURES) in fdr_manager.classifier_store
-
-    fdr_manager.fit_predict(
-        test_features_df,
-        decoy_strategy="precursor",
-        competitive=False,
-        df_fragments=None,
-        version=0,
-    )
-
-    assert fdr_manager.current_version == 1
-    assert fdr_manager.get_classifier(FDR_TEST_FEATURES, 0).fitted is True
-
-    fdr_manager.save_classifier_store(tempfile.tempdir)
-
-    fdr_manager_new = FDRManager(
-        feature_columns=FDR_TEST_FEATURES,
-        classifier_base=FDR_TEST_BASE_CLASSIFIER,
-        config=MagicMock(),
-    )
-    fdr_manager_new.load_classifier_store(tempfile.tempdir)
-
-    temp_path = os.path.join(tempfile.tempdir, f"{column_hash(FDR_TEST_FEATURES)}.pth")
-
-    assert os.path.exists(temp_path)
-    assert fdr_manager_new.get_classifier(FDR_TEST_FEATURES).fitted is True
-
-    os.remove(temp_path)
+    # Then: the two fits on both columns share a classifier, the third has its own copy of the base classifier
+    first, second, third = (call.args[0] for call in perform_fdr.call_args_list)
+    assert first is second
+    assert third is not first
+    assert third is not FDR_TEST_BASE_CLASSIFIER
+    assert first is not FDR_TEST_BASE_CLASSIFIER
 
 
 def test_get_classifier_base_passes_feature_transform():
@@ -438,25 +414,3 @@ def test_get_classifier_base_passes_feature_transform():
 
     # Then: the classifier applies the transform
     assert classifier.feature_transform == FeatureTransform.QUANTILE
-
-
-def test_fdr_manager_skips_stored_two_output_classifiers():
-    """The shipped classifier was saved with the former two-output softmax head.
-
-    Loading its weights into the one-logit network would fail, so the store leaves it out.
-    """
-    shipped_dir = Path(alphadia.__file__).parent / "constants" / "classifier"
-    two_output_hashes = [
-        f.stem
-        for f in shipped_dir.glob("*.pth")
-        if torch.load(f, weights_only=False).get("output_dim", 1) != 1
-    ]
-    assert two_output_hashes
-
-    fdr_manager = FDRManager(
-        feature_columns=FDR_TEST_FEATURES,
-        classifier_base=FDR_TEST_BASE_CLASSIFIER,
-        config=MagicMock(),
-    )
-
-    assert not set(two_output_hashes) & set(fdr_manager.classifier_store)

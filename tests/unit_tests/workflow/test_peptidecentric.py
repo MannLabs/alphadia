@@ -115,7 +115,6 @@ def _lock_search(handler, precursor_df: pd.DataFrame) -> LockSearch:
         batch=MagicMock(),
         precursor_df=precursor_df,
         rt_tolerance=handler._optimization_manager.rt_error,
-        classifier_version=handler._fdr_manager.current_version,
     )
 
 
@@ -224,7 +223,7 @@ def _create_calibration_loop_handler(
             config,
             optimization_manager,
             MagicMock(),
-            MagicMock(current_version=0),
+            MagicMock(),
             MagicMock(),
             MagicMock(),
             MagicMock(has_ms1=False, has_mobility=False),
@@ -244,14 +243,12 @@ def _create_calibration_loop_handler(
     remaining_identifications = iter(identifications_per_round)
 
     def search():
-        handler._fdr_manager.current_version += 1
         return _lock_search(handler, _identifications(next(remaining_identifications)))
 
     handler._process_batch = MagicMock(side_effect=search)
     remaining_refits = iter(identifications_per_refit)
 
     def refit(_search):
-        handler._fdr_manager.current_version += 1
         return _identifications(next(remaining_refits, 0))
 
     handler._refit_classifier = MagicMock(side_effect=refit)
@@ -321,25 +318,6 @@ def test_calibration_refits_the_classifier_until_identifications_stop_increasing
     assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
         RT_TOLERANCE_FACTOR * 70.0
     )
-
-
-def test_calibration_takes_the_classifier_of_the_best_refit_forward():
-    """Test that the main search starts from the classifier of the best refit, not from a rejected later refit."""
-    # Given: three searches (classifier versions 1-3) and refits that find 45, 50 and then 48 (versions 4-6)
-    handler, optimization_manager = _create_calibration_loop_handler(
-        identifications_per_round=[20, 40, 41],
-        rt_residual_intervals=[100.0, 70.0, 68.0],
-        identifications_per_refit=[45, 50, 48],
-    )
-
-    # When: the handler runs the calibration loop
-    with patch(
-        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
-    ):
-        result = handler.search_parameter_optimization()
-
-    # Then: the main search uses the classifier of the refit that found 50 identifications
-    assert result.classifier_version == 5
 
 
 def test_calibration_discards_a_rejected_refit():
@@ -748,14 +726,12 @@ def test_search_parameter_optimization_sets_the_number_of_candidates_for_the_mai
         patch.object(RustPeptideCentricWorkflow, "_save_managers"),
     ):
         handler_class.return_value.search_parameter_optimization.return_value = (
-            CalibrationResult({}, classifier_version=2)
+            CalibrationResult({})
         )
         workflow.search_parameter_optimization()
 
     # then
-    workflow.optimization_manager.update.assert_called_once_with(
-        classifier_version=2, num_candidates=3
-    )
+    workflow.optimization_manager.update.assert_called_once_with(num_candidates=3)
 
 
 def test_true_match_rt_interval_fits_the_targets_of_the_last_search():
@@ -772,7 +748,6 @@ def test_true_match_rt_interval_fits_the_targets_of_the_last_search():
         batch=MagicMock(),
         precursor_df=precursor_df,
         rt_tolerance=120.0,
-        classifier_version=1,
     )
     estimator = handler._calibration_manager.get_estimator.return_value
     estimator.is_fitted = True

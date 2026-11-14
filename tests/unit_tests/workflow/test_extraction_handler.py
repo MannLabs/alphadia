@@ -27,7 +27,6 @@ OPTIMIZATION_CONTEXT = OptimizationContext(
     num_candidates=3,
     score_cutoff=0.0,
 )
-CLASSIFIER_VERSION = 4
 
 
 def _create_handler(config, fdr_manager=None):
@@ -137,9 +136,7 @@ def test_perform_fdr_and_filter_candidates_quantifies_only_the_competing_candida
         handler, "quantify_candidates", return_value=(None, fragments_df)
     ) as mock_quantify:
         candidates_filtered, precursor_fdr_df = (
-            handler.perform_fdr_and_filter_candidates(
-                features_df, candidates_df, CLASSIFIER_VERSION
-            )
+            handler.perform_fdr_and_filter_candidates(features_df, candidates_df)
         )
 
     # Then: the handler quantifies only the competing candidates, the FDR step gets their fragments and the FDR result filters the candidates
@@ -165,15 +162,13 @@ def test_perform_fdr_and_filter_candidates_uses_given_fragments():
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
-        CLASSIFIER_VERSION,
         df_fragments=fragments_df,
     )
 
-    # Then: the FDR step gets them directly and no provider, with the given classifier version
+    # Then: the FDR step gets them directly and no provider
     kwargs = fdr_manager.fit_predict.call_args.kwargs
     assert kwargs["df_fragments"] is fragments_df
     assert kwargs["fragment_provider"] is None
-    assert kwargs["version"] == CLASSIFIER_VERSION
 
 
 @pytest.mark.parametrize(
@@ -194,7 +189,6 @@ def test_perform_fdr_and_filter_candidates_leaves_fwhm_rt_out_of_the_final_round
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
-        CLASSIFIER_VERSION,
         df_fragments=pd.DataFrame(),
         final_round=final_round,
     )
@@ -219,7 +213,6 @@ def test_perform_fdr_and_filter_candidates_passes_train_on_best_candidate(
     handler.perform_fdr_and_filter_candidates(
         features_df,
         candidates_df,
-        CLASSIFIER_VERSION,
         df_fragments=pd.DataFrame(),
         train_on_best_candidate=train_on_best_candidate,
     )
