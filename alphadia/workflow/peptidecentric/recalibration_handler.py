@@ -65,10 +65,6 @@ class RecalibrationHandler:
             figure_path=self._figure_path,
         )
 
-        self._optimization_manager.update(
-            num_candidates=self._config["search"]["target_num_candidates"],
-        )
-
         score = precursor_df_filtered["score"]
         if self._config["search"]["optimized_peak_group_score"]:
             # these values give benefits on max memory and runtime, with a small precursor penalty
