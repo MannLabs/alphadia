@@ -179,6 +179,26 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             next_tolerances[name] = tolerance
         return next_tolerances
 
+    def _has_converged(
+        self,
+        name: str,
+        current_tolerances: dict[str, float],
+        next_tolerances: dict[str, float],
+    ) -> bool:
+        """Return True when the round searched with a tolerance that the next round would keep.
+
+        An automatic tolerance converged when it changes by at most `CONVERGENCE_THRESHOLD`. A targeted tolerance
+        converged only when the round searched at its target, since warm-up can leave it short of the target by less
+        than the threshold.
+        """
+        if self._target_tolerance(name) is not None:
+            return current_tolerances[name] == next_tolerances[name]
+        return (
+            abs(next_tolerances[name] - current_tolerances[name])
+            / max(current_tolerances[name], 1e-9)
+            <= CalibrationLoop.CONVERGENCE_THRESHOLD
+        )
+
     @staticmethod
     def _limit_warm_up_shrink(
         next_tolerances: dict[str, float], current_tolerances: dict[str, float]
@@ -331,9 +351,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 phase == CalibrationPhase.CONVERGE
                 and searched_calibrated
                 and all(
-                    abs(next_tolerances[name] - current_tolerances[name])
-                    / max(current_tolerances[name], 1e-9)
-                    <= CalibrationLoop.CONVERGENCE_THRESHOLD
+                    self._has_converged(name, current_tolerances, next_tolerances)
                     for name in names
                 )
             ):
@@ -353,8 +371,15 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 verbosity="warning",
             )
         else:
+            # A targeted tolerance is not searched for, so it keeps its target even when warm-up left the best
+            # checkpoint short of it.
+            targets = {
+                name: self._target_tolerance(name)
+                for name in names
+                if self._target_tolerance(name) is not None
+            }
             self._optimization_manager.update(
-                **best_checkpoint.tolerances,
+                **(best_checkpoint.tolerances | targets),
                 classifier_version=best_checkpoint.classifier_version,
             )
         log_string(
