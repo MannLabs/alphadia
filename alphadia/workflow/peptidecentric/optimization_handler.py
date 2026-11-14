@@ -398,14 +398,17 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             and self._target_tolerance(SearchTolerance.RT_ERROR) is None
         ):
             rt_tolerance = self._true_match_tolerance(SearchTolerance.RT_ERROR)
-            if rt_tolerance is not None:
-                rt_tolerance = max(
-                    rt_tolerance,
-                    CalibrationLoop.MIN_RT_TOLERANCE_CYCLES * self._cycle_duration(),
-                )
-                self._optimization_manager.update(
-                    **{SearchTolerance.RT_ERROR: rt_tolerance}
-                )
+            if rt_tolerance is None:
+                rt_tolerance = self._optimization_manager.rt_error
+            self._optimization_manager.update(
+                **{
+                    SearchTolerance.RT_ERROR: max(
+                        rt_tolerance,
+                        CalibrationLoop.MIN_RT_TOLERANCE_CYCLES
+                        * self._cycle_duration(),
+                    )
+                }
+            )
         log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
             verbosity="progress",
