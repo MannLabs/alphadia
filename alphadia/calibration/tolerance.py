@@ -105,15 +105,13 @@ def true_match_interval(
 
 
 def main_search_rt_tolerance(
-    true_match_interval: float | None, loop_tolerance: float, cycle_duration: float
+    interval: float | None, loop_tolerance: float, cycle_duration: float
 ) -> float:
     """Return the automatic RT tolerance of the main search.
 
-    The main search takes the interval of the true matches, or the tolerance of the calibration loop when the true
+    The main search takes `interval`, the RT interval of the true matches, or the tolerance of the calibration loop when the true
     matches give no interval. It spans at least `MIN_RT_TOLERANCE_CYCLES` DIA cycles, so that it covers the sampling of
     the elution peak even when the RT prediction is near perfect.
     """
-    tolerance = (
-        true_match_interval if true_match_interval is not None else loop_tolerance
-    )
+    tolerance = interval if interval is not None else loop_tolerance
     return max(tolerance, CalibrationLoop.MIN_RT_TOLERANCE_CYCLES * cycle_duration)

@@ -71,16 +71,16 @@ class ExtractedBatch:
 
 
 @dataclass
-class SearchedRound(Generic[ExtractionHandlerT]):
-    """The last search of the optimization lock and its FDR result.
+class LockSearch(Generic[ExtractionHandlerT]):
+    """A search of the optimization lock, its FDR result and the RT tolerance and classifier it used.
 
-    A refit of the classifier scores the same search again. `rt_window` is the RT tolerance that the search used.
+    A refit of the classifier scores the same search again and replaces `precursor_df` and `classifier_version`.
     """
 
     extraction_handler: ExtractionHandlerT
     batch: ExtractedBatch
     precursor_df: pd.DataFrame
-    rt_window: float
+    rt_tolerance: float
     classifier_version: int
 
 
@@ -117,7 +117,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         self._optlock: OptimizationLock = OptimizationLock(
             self._spectral_library, self._config
         )
-        self._last_round: SearchedRound[ExtractionHandlerT] | None = None
+        self._last_search: LockSearch[ExtractionHandlerT] | None = None
 
         self._column_name_handler = ColumnNameHandler(
             self._calibration_manager,
@@ -177,7 +177,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
            precursors and calibrate on the best refit, see `_converge_classifier`. The main search starts from the
            classifier of the best refit.
         5. An automatic RT tolerance for the main search holds `TOLERANCE_QUANTILE` of the true matches of the last
-           round, weighted by the classifier, see `_true_match_rt_tolerance` and `main_search_rt_tolerance`.
+           search, weighted by the classifier, see `_true_match_rt_interval` and `main_search_rt_tolerance`.
         """
         log_string = self._reporter.log_string
         config = self._config["calibration"]
@@ -318,13 +318,13 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
         if not restored:
             self._optimization_manager.update(
-                classifier_version=self._last_round.classifier_version
+                classifier_version=self._last_search.classifier_version
             )
         if calibrated and self._target_tolerance(SearchTolerance.RT_ERROR) is None:
             self._optimization_manager.update(
                 **{
                     SearchTolerance.RT_ERROR: main_search_rt_tolerance(
-                        self._true_match_rt_tolerance(),
+                        self._true_match_rt_interval(),
                         self._optimization_manager.rt_error,
                         self._cycle_duration(),
                     )
@@ -367,8 +367,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 break
             n_identified = len(precursor_df_filtered)
             identifications = (precursor_df_filtered, fragments_df_filtered)
-            self._last_round = replace(
-                self._last_round,
+            self._last_search = replace(
+                self._last_search,
                 precursor_df=precursor_df,
                 classifier_version=self._fdr_manager.current_version,
             )
@@ -380,8 +380,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         cycle_length = self._dia_data.cycle.shape[1]
         return float(np.diff(self._dia_data.rt_values[::cycle_length]).mean())
 
-    def _true_match_rt_tolerance(self) -> float | None:
-        """Estimate the RT tolerance that holds `TOLERANCE_QUANTILE` of the true matches of the last search.
+    def _true_match_rt_interval(self) -> float | None:
+        """Estimate the RT interval that holds `TOLERANCE_QUANTILE` of the true matches of the last search.
 
         The calibration rounds search wider than the residuals of the true matches, so the last search shows their
         tail. Its candidates are weighted by their posterior error probability, see `true_match_interval`. Returns
@@ -392,33 +392,33 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         )
         if not estimator.is_fitted:
             return None
-        precursor_df = self._last_round.precursor_df
-        window = self._last_round.rt_window
+        precursor_df = self._last_search.precursor_df
+        searched_tolerance = self._last_search.rt_tolerance
         # The residuals use the latest calibration, which was fitted on this search, while the search was centred on
-        # the calibration before it. Both converged, so the shift is small against the window of 3 times the interval.
+        # the calibration before it. Both converged, so the shift is small against the searched tolerance of 3 times the interval.
         residuals = estimator.calc_deviation(precursor_df)[:, 2]
         is_decoy = precursor_df["decoy"].to_numpy() == 1
         # The classifier probability `proba` is the probability of a decoy.
         pep = posterior_error_probability(
             1 - precursor_df["proba"].to_numpy(), is_decoy
         )
-        tolerance = true_match_interval(
+        interval = true_match_interval(
             residuals[~is_decoy],
             pep[~is_decoy],
-            window,
+            searched_tolerance,
             CalibrationLoop.TOLERANCE_QUANTILE,
         )
-        if tolerance is not None:
+        if interval is not None:
             self._reporter.log_string(
-                f"{SearchTolerance.RT_ERROR} of the true matches: {tolerance:.2f} (searched {window:.2f}).",
+                f"RT interval of the true matches: {interval:.2f} (searched {searched_tolerance:.2f}).",
                 verbosity="progress",
             )
-        return tolerance
+        return interval
 
     def _refit_classifier(self) -> pd.DataFrame:
         """Perform FDR on the last search again, with the classifier trained further."""
         precursor_df = self._perform_fdr(
-            self._last_round.extraction_handler, self._last_round.batch
+            self._last_search.extraction_handler, self._last_search.batch
         )
         log_precursor_df(self._reporter, precursor_df)
         return precursor_df
@@ -443,11 +443,11 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         )
 
         precursor_df = self._perform_fdr(extraction_handler, batch)
-        self._last_round = SearchedRound(
+        self._last_search = LockSearch(
             extraction_handler=extraction_handler,
             batch=batch,
             precursor_df=precursor_df,
-            rt_window=self._optimization_manager.rt_error,
+            rt_tolerance=self._optimization_manager.rt_error,
             classifier_version=self._fdr_manager.current_version,
         )
 
