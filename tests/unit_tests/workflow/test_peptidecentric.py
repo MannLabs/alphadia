@@ -10,7 +10,7 @@ import pytest
 from alphadia.constants.keys import SearchTolerance
 from alphadia.constants.settings import CalibrationLoop
 from alphadia.exceptions import NoOptimizationLockTargetError
-from alphadia.workflow.peptidecentric.optimization_handler import SearchedRound
+from alphadia.workflow.peptidecentric.optimization_handler import LockSearch
 from alphadia.workflow.peptidecentric.recalibration_handler import (
     RecalibrationHandler,
 )
@@ -88,11 +88,11 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
 
 def _record_search(handler, precursor_df: pd.DataFrame) -> pd.DataFrame:
     """Record `precursor_df` as the last search of `handler`, as `_process_batch` does."""
-    handler._last_round = SearchedRound(
+    handler._last_search = LockSearch(
         extraction_handler=MagicMock(),
         batch=MagicMock(),
         precursor_df=precursor_df,
-        rt_window=handler._optimization_manager.rt_error,
+        rt_tolerance=handler._optimization_manager.rt_error,
         classifier_version=handler._fdr_manager.current_version,
     )
     return precursor_df
@@ -239,7 +239,7 @@ def _create_calibration_loop_handler(
         return _identifications(next(remaining_refits, 0))
 
     handler._refit_classifier = MagicMock(side_effect=refit)
-    handler._true_match_rt_tolerance = MagicMock(return_value=None)
+    handler._true_match_rt_interval = MagicMock(return_value=None)
     handler._dia_data.rt_values = np.arange(0, 600, 0.5)
     handler._dia_data.cycle = np.zeros((1, 4, 1, 2))
     handler._filter_dfs = lambda precursor_df, _: (precursor_df, pd.DataFrame())
@@ -338,7 +338,7 @@ def test_calibration_discards_a_rejected_refit():
         handler.search_parameter_optimization()
 
     # Then: the last search and the lock hold the 50 identifications of the best refit
-    assert len(handler._last_round.precursor_df) == 50
+    assert len(handler._last_search.precursor_df) == 50
     last_fdr = handler._optlock.update_with_fdr.call_args_list[-1]
     assert len(last_fdr.args[0]) == 50
 
@@ -371,7 +371,7 @@ def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance(
         identifications_per_round=[20, 40, 41],
         rt_residual_intervals=[100.0, 70.0, 68.0],
     )
-    handler._true_match_rt_tolerance.return_value = 55.0
+    handler._true_match_rt_interval.return_value = 55.0
 
     # When: the handler runs the calibration loop
     with patch(
@@ -380,7 +380,7 @@ def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance(
         handler.search_parameter_optimization()
 
     # Then: the main search uses the true match interval for RT and the target for the targeted ms2 tolerance
-    handler._true_match_rt_tolerance.assert_called_once_with()
+    handler._true_match_rt_interval.assert_called_once_with()
     assert optimization_manager.rt_error == 55.0
     assert optimization_manager.ms2_error == 10.0
 
@@ -392,7 +392,7 @@ def test_main_search_rt_tolerance_is_at_least_ten_cycles():
         identifications_per_round=[20, 40, 41],
         rt_residual_intervals=[100.0, 70.0, 68.0],
     )
-    handler._true_match_rt_tolerance.return_value = 5.0
+    handler._true_match_rt_interval.return_value = 5.0
 
     # When: the handler runs the calibration loop
     with patch(
@@ -432,7 +432,7 @@ def test_main_search_keeps_a_targeted_rt_tolerance():
         rt_residual_intervals=[100.0, 70.0],
     )
     handler._config["search"]["target_rt_tolerance"] = 150.0
-    handler._true_match_rt_tolerance.return_value = 55.0
+    handler._true_match_rt_interval.return_value = 55.0
 
     # When: the handler runs the calibration loop
     with patch(
@@ -441,7 +441,7 @@ def test_main_search_keeps_a_targeted_rt_tolerance():
         handler.search_parameter_optimization()
 
     # Then: the main search uses the target
-    handler._true_match_rt_tolerance.assert_not_called()
+    handler._true_match_rt_interval.assert_not_called()
     assert optimization_manager.rt_error == 150.0
 
 
@@ -491,7 +491,7 @@ def test_identification_loss_is_measured_per_elution_group():
     assert optimization_manager.rt_error == pytest.approx(RT_TOLERANCE_FACTOR * 40.0)
 
 
-def test_last_round_is_checked_before_the_loop_ends():
+def test_last_search_is_checked_before_the_loop_ends():
     """Test that the loop checks the round that searched with the last calibration for an identification loss."""
     # Given: two calibrations allowed, and the round that searched with the second calibration loses half the
     # identifications
@@ -714,20 +714,20 @@ def test_search_parameter_optimization_sets_the_number_of_candidates_for_the_mai
     workflow.optimization_manager.update.assert_called_once_with(num_candidates=3)
 
 
-def test_true_match_rt_tolerance_fits_the_targets_of_the_last_search():
+def test_true_match_rt_interval_fits_the_targets_of_the_last_search():
     """Test that the true match RT interval is fitted on the target residuals of the last search, weighted by the PEP
-    from the target probability, within the RT window that search used."""
-    # Given: a last search with two targets and one decoy, searched with an RT window of 120 s
+    from the target probability, within the RT tolerance that search used."""
+    # Given: a last search with two targets and one decoy, searched with an RT tolerance of 120 s
     handler, _ = _create_calibration_loop_handler(
         identifications_per_round=[], rt_residual_intervals=[]
     )
-    del handler._true_match_rt_tolerance
+    del handler._true_match_rt_interval
     precursor_df = pd.DataFrame({"decoy": [0, 1, 0], "proba": [0.1, 0.8, 0.3]})
-    handler._last_round = SearchedRound(
+    handler._last_search = LockSearch(
         extraction_handler=MagicMock(),
         batch=MagicMock(),
         precursor_df=precursor_df,
-        rt_window=120.0,
+        rt_tolerance=120.0,
         classifier_version=1,
     )
     estimator = handler._calibration_manager.get_estimator.return_value
@@ -745,7 +745,7 @@ def test_true_match_rt_tolerance_fits_the_targets_of_the_last_search():
         ) as pep,
         patch(f"{module}.true_match_interval", return_value=30.0) as interval,
     ):
-        tolerance = handler._true_match_rt_tolerance()
+        tolerance = handler._true_match_rt_interval()
 
     # Then: the PEP uses the target probabilities and the fit gets the targets only, within the searched window
     assert tolerance == 30.0
