@@ -348,6 +348,32 @@ class TestCorrectPrecursorIntensityDrift:
             * np.abs(without_blank_correction).to_numpy().mean()
         )
 
+    @pytest.mark.parametrize(
+        ("blank_run", "reference_runs"), [(False, len(RUNS)), (True, len(RUNS) - 1)]
+    )
+    def test_logs_the_runs_the_reference_precursors_are_quantified_in(
+        self, caplog, blank_run, reference_runs
+    ):
+        """Given complete runs or one near-blank run, when corrected, then the summary names the runs the reference precursors are quantified in: all, or all but the near-blank one."""
+        # Given
+        precursor_df, psm_df = _make_precursor_tables()
+        if blank_run:
+            precursor_df.loc[N_BLANK_RUN_PRECURSORS:, BLANK_RUN] = np.nan
+
+        # When
+        with caplog.at_level(logging.INFO):
+            correct_precursor_intensity_drift(precursor_df, psm_df)
+
+        # Then
+        summaries = [
+            r.getMessage() for r in caplog.records if r.levelno == logging.INFO
+        ]
+        assert len(summaries) == 1
+        assert (
+            f"reference: precursors quantified in at least {reference_runs} of {len(RUNS)} runs"
+            in summaries[0]
+        )
+
     def test_leaves_a_single_run_unchanged_without_a_warning(self, caplog):
         """Given a single run, when corrected, then its quantities are unchanged and nothing is warned."""
         # Given
