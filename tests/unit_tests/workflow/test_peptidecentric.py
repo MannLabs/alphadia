@@ -324,6 +324,26 @@ def test_main_search_rt_tolerance_is_at_least_ten_cycles():
     )
 
 
+def test_main_search_rt_tolerance_is_at_least_ten_cycles_without_a_true_match_interval():
+    """Test that the minimum number of DIA cycles also bounds the RT tolerance that the loop converged to."""
+    # Given: RT intervals that converge to 3 * 0.7 s, too few true matches for an interval and a DIA cycle of 2 s
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[20, 40, 41],
+        rt_residual_intervals=[1.0, 0.7, 0.68],
+    )
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # Then: the main search uses the minimum of 10 cycles
+    assert optimization_manager.rt_error == pytest.approx(
+        CalibrationLoop.MIN_RT_TOLERANCE_CYCLES * 2.0
+    )
+
+
 def test_main_search_keeps_the_rt_tolerance_without_a_true_match_interval():
     """Test that the RT tolerance of the loop is kept when the true matches give no interval."""
     # Given: tolerances that settle on the third round and too few true matches for an interval
