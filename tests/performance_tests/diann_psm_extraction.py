@@ -147,13 +147,13 @@ if __name__ == "__main__":
             "precursor",
             plot=True,
         )
-        m1_70 = calibration.get_estimator("precursor", "mz").ci(features_df, 0.7)[0]
-        m1_99 = calibration.get_estimator("precursor", "mz").ci(features_df, 0.99)[0]
-        rt_70 = calibration.get_estimator("precursor", "rt").ci(features_df, 0.7)[0]
-        rt_99 = calibration.get_estimator("precursor", "rt").ci(features_df, 0.7)[0]
+        m1_70 = calibration.get_estimator("precursor", "mz").ci(features_df, 0.7)
+        m1_99 = calibration.get_estimator("precursor", "mz").ci(features_df, 0.99)
+        rt_70 = calibration.get_estimator("precursor", "rt").ci(features_df, 0.7)
+        rt_99 = calibration.get_estimator("precursor", "rt").ci(features_df, 0.99)
         mobility_99 = calibration.get_estimator("precursor", "mobility").ci(
             features_df, 0.99
-        )[0]
+        )
 
         fragment_calibration_df = unpack_fragment_info(feature_filtered)
         fragment_calibration_df = fragment_calibration_df.sort_values(
@@ -167,10 +167,10 @@ if __name__ == "__main__":
         )
         m2_70 = calibration.get_estimator("fragment", "mz").ci(
             fragment_calibration_df, 0.7
-        )[0]
+        )
         m2_99 = calibration.get_estimator("fragment", "mz").ci(
             fragment_calibration_df, 0.99
-        )[0]
+        )
 
         if (
             initial_ms1_error == target_ms1_error

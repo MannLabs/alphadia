@@ -1,7 +1,8 @@
+import pandas as pd
 import pytest
 import torch
 
-from alphadia.fdr.utils import manage_torch_threads
+from alphadia.fdr.utils import is_identification, manage_torch_threads
 
 
 @manage_torch_threads(max_threads=2)
@@ -47,3 +48,17 @@ def test_manage_torch_threads_with_exception():
 
     # Cleanup
     torch.set_num_threads(original_threads)
+
+
+def test_is_identification_keeps_targets_below_the_identification_fdr():
+    """Test that an identification is a target below the identification FDR."""
+    # Given: targets and decoys on both sides of 1% q-value
+    precursor_df = pd.DataFrame(
+        {"qval": [0.005, 0.005, 0.01, 0.02], "decoy": [0, 1, 0, 0]}
+    )
+
+    # When: the identifications are selected
+    mask = is_identification(precursor_df)
+
+    # Then: only the target below 1% q-value is an identification
+    assert mask.tolist() == [True, False, False, False]

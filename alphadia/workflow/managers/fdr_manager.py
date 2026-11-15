@@ -54,6 +54,9 @@ def column_hash(columns):
 
 
 class FDRManager(BaseManager):
+    # `version` that selects the classifier of the latest fit.
+    LATEST_VERSION = -1
+
     def __init__(
         self,
         feature_columns: list,
@@ -115,7 +118,7 @@ class FDRManager(BaseManager):
         competitive: bool,
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
-        version: int = -1,
+        version: int = LATEST_VERSION,
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
         excluded_columns: Collection[str] = (),
         train_on_best_candidate: bool = False,
