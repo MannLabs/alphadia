@@ -84,13 +84,8 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
 def transfer_library_pg_qval(
     psm_df: pd.DataFrame, run_identifications_df: pd.DataFrame
 ) -> pd.DataFrame:
-    """Give each target protein group with a confident precursor its q-value from the search that built the MBR
-    library (the columns `pg` and `pg_qval` of `run_identifications_df`), and every other group NO_EVIDENCE_QVAL.
-
-    The MBR step only searches the groups that passed the first search, and the false groups among them were counted by
-    that search's protein FDR. A protein FDR of its own would count decoys of groups that are already accepted, so a few
-    of its decoys scoring into the targets cut accepted groups (paired entrapment, 5 ng: protein FDP 0.26-0.49 % at
-    q 1 % with an own estimate, 0.58-1.21 % with the library q-value).
+    """Give each target protein group with a precursor at q-value MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING or below its
+    q-value from `run_identifications_df` (columns `pg` and `pg_qval`), and every other group NO_EVIDENCE_QVAL.
     """
     is_target = (psm_df["decoy"] == 0).to_numpy()
     confident_groups = psm_df.loc[

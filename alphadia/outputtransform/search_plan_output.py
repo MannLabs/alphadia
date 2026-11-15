@@ -354,6 +354,9 @@ class SearchPlanOutput:
             ConfigKeys.MBR_RUN_IDENTIFICATIONS_PATH
         )
         if run_identifications_path is not None:
+            # The MBR step only searches the groups that passed the first search, whose protein FDR counted the false
+            # groups among them. A protein FDR of its own would count decoys of groups that are already accepted, so a
+            # few of its decoys scoring into the targets would cut accepted groups.
             logger.info(f"Taking the protein q-values from {run_identifications_path}")
             psm_df = transfer_library_pg_qval(
                 psm_df,
