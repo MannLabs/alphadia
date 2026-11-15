@@ -186,8 +186,9 @@ search:
   # the number of most intense fragments to use in the selection
   top_k_fragments_selection: 12
 
-  # a peak group needs signal of at least this number of its selection fragments within one cycle of its apex
-  min_fragments_selection: 3
+  # a peak group needs signal of at least this number of its selection fragments within one cycle of its apex.
+  # 0 turns the filter off.
+  min_fragments_selection: 0
 
   # the number of most intense fragments to use in the scoring
   top_k_fragments_scoring: 12
