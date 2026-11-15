@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 import numpy as np
@@ -8,9 +8,9 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.calibration.tolerance import (
+    TrueMatchDistribution,
     main_search_rt_tolerance,
     posterior_error_probability,
-    true_match_interval,
 )
 from alphadia.constants.keys import CalibrationPhase, SearchTolerance
 from alphadia.constants.settings import (
@@ -85,10 +85,7 @@ class ExtractedBatch:
 
 @dataclass
 class LockSearch(Generic[ExtractionHandlerT]):
-    """A search of the optimization lock, its FDR result and the RT tolerance and classifier it used.
-
-    A refit of the classifier scores the same search again and replaces `precursor_df` and `classifier_version`.
-    """
+    """A search of the optimization lock, its FDR result and the RT tolerance and classifier it used."""
 
     extraction_handler: ExtractionHandlerT
     batch: ExtractedBatch
@@ -107,18 +104,6 @@ class CalibrationResult:
 
     tolerances: dict[str, float]
     classifier_version: int
-
-
-@dataclass(frozen=True)
-class Refit(Generic[ExtractionHandlerT]):
-    """A refit of the classifier that identified more precursors than the search before it.
-
-    `search` is the refit search, `identifications` and `fragments` are its calibration data, see `_filter_dfs`.
-    """
-
-    search: LockSearch[ExtractionHandlerT]
-    identifications: pd.DataFrame
-    fragments: pd.DataFrame
 
 
 class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
@@ -276,15 +261,12 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         - The loop did `max_steps` calibrations.
         - The plan has no batches left before the target.
 
-        When the tolerances converged, the loop refits the classifier on the last search while the classifier
-        identifies more precursors and calibrates on the best refit, see `_converge_classifier`. The best refit is a
-        checkpoint with the tolerances of the converged round and the refit classifier.
-
         In every case, the main search uses the tolerances and the classifier of the best checkpoint, and the latest
-        calibration. An automatic RT tolerance holds `TOLERANCE_QUANTILE` of the true matches of the last search,
-        weighted by the classifier, see `_main_search_tolerances`.
+        calibration. An automatic RT tolerance holds `TOLERANCE_QUANTILE` of the true matches of the last calibrated
+        search, weighted by the classifier, see `_main_search_tolerances`.
 
-        Each calibration applies its peak parameters to the optimization manager, see `_calibrate`. Returns the
+        Each calibration applies its peak parameters and the RT prior of its search to the optimization manager, see
+        `_calibrate`. Searches before the first calibration have no RT prior. Returns the
         tolerances and the classifier version of the main search, which the caller applies.
         """
         log_string = self._reporter.log_string
@@ -303,6 +285,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         log_string("Starting initial search for precursors.", verbosity="progress")
         search = self._process_batch()
         best_checkpoint: CalibrationCheckpoint | None = None
+        rt_distribution: TrueMatchDistribution | None = None
         n_calibrations = 0
         while True:
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
@@ -372,8 +355,14 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 search = self._process_batch()
                 continue
 
-            self._calibrate(
-                recalibration_handler, precursor_df_filtered, fragments_df_filtered
+            rt_distribution = (
+                self._calibrate(
+                    recalibration_handler,
+                    search,
+                    precursor_df_filtered,
+                    fragments_df_filtered,
+                )
+                or rt_distribution
             )
             n_calibrations += 1
             next_tolerances = self._propose_tolerances(
@@ -403,23 +392,6 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 )
             ):
                 log_string("Tolerances converged.", verbosity="progress")
-                refit = self._converge_classifier(search, n_identified)
-                if refit is not None:
-                    search = refit.search
-                    self._calibrate(
-                        recalibration_handler, refit.identifications, refit.fragments
-                    )
-                    refit_checkpoint = CalibrationCheckpoint(
-                        identification_rate=len(refit.identifications)
-                        / self._optlock.total_elution_groups,
-                        tolerances=current_tolerances,
-                        classifier_version=search.classifier_version,
-                    )
-                    if (
-                        refit_checkpoint.identification_rate
-                        >= best_checkpoint.identification_rate
-                    ):
-                        best_checkpoint = refit_checkpoint
                 break
 
             self._optimization_manager.update(**next_tolerances)
@@ -440,7 +412,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             )
         else:
             result = CalibrationResult(
-                self._main_search_tolerances(best_checkpoint, search),
+                self._main_search_tolerances(best_checkpoint, rt_distribution),
                 best_checkpoint.classifier_version,
             )
         log_string(
@@ -454,24 +426,44 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
     def _calibrate(
         self,
         recalibration_handler: RecalibrationHandler,
+        search: LockSearch[ExtractionHandlerT],
         identifications: pd.DataFrame,
         fragments: pd.DataFrame,
-    ) -> None:
-        """Calibrate on the identifications and apply their peak parameters, which the next search selects with."""
-        parameters = recalibration_handler.recalibrate(identifications, fragments)
+    ) -> TrueMatchDistribution | None:
+        """Calibrate on the identifications of `search` and apply the parameters that the next search selects with.
+
+        These are the peak parameters of the identifications, with the score cutoff from the decoy scores of the
+        search, and the RT prior: the distribution of the RT residuals of the true matches of the search, see
+        `_true_match_rt_distribution`. Returns that distribution, or None when it could not be fitted, which keeps the
+        RT prior of the calibration before.
+        """
+        features = self._optlock.features_df
+        decoy_scores = features.loc[features["decoy"] == 1, "score"].to_numpy()
+        parameters = recalibration_handler.recalibrate(
+            identifications, fragments, decoy_scores
+        )
         self._optimization_manager.update(
             fwhm_rt=parameters.fwhm_rt,
             fwhm_mobility=parameters.fwhm_mobility,
             score_cutoff=parameters.score_cutoff,
         )
+        rt_distribution = self._true_match_rt_distribution(search)
+        if rt_distribution is not None:
+            self._optimization_manager.update(
+                rt_prior_scale=rt_distribution.scale, rt_prior_df=rt_distribution.df
+            )
+        return rt_distribution
 
     def _main_search_tolerances(
-        self, checkpoint: CalibrationCheckpoint, search: LockSearch[ExtractionHandlerT]
+        self,
+        checkpoint: CalibrationCheckpoint,
+        rt_distribution: TrueMatchDistribution | None,
     ) -> dict[str, float]:
         """Return the tolerances of the main search.
 
         They are the tolerances of `checkpoint`, except that a targeted tolerance takes its target and an automatic RT
-        tolerance comes from the true matches of `search`, the last search, see `main_search_rt_tolerance`.
+        tolerance holds `TOLERANCE_QUANTILE` of `rt_distribution`, the RT residuals of the true matches of the last
+        calibrated search, see `main_search_rt_tolerance`.
         """
         # A targeted tolerance is not searched for, so it keeps its target even when warm-up left the checkpoint short
         # of it.
@@ -481,62 +473,36 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             if (target := self._target_tolerance(name)) is not None
         }
         if self._target_tolerance(SearchTolerance.RT_ERROR) is None:
+            interval = (
+                None
+                if rt_distribution is None
+                else rt_distribution.interval(CalibrationLoop.TOLERANCE_QUANTILE)
+            )
+            if interval is not None:
+                self._reporter.log_string(
+                    f"RT interval of the true matches: {interval:.2f} (searched {rt_distribution.window:.2f}).",
+                    verbosity="progress",
+                )
             tolerances[SearchTolerance.RT_ERROR] = main_search_rt_tolerance(
-                self._true_match_rt_interval(search),
+                interval,
                 tolerances[SearchTolerance.RT_ERROR],
                 self._cycle_duration(),
             )
         return tolerances
-
-    def _converge_classifier(
-        self, search: LockSearch[ExtractionHandlerT], n_identified: int
-    ) -> Refit[ExtractionHandlerT] | None:
-        """Refit the classifier on `search` while it identifies more precursors.
-
-        Each fit continues the training of the previous classifier, so the identifications of a round depend on how
-        many rounds came before it. The score cutoff and the calibration of the main search come from the
-        identifications of the last calibration. Converging the classifier on the last search makes them independent
-        of the number of rounds the tolerances needed.
-
-        Only a refit that identifies more precursors updates the lock. The FDR manager still stores the classifier of
-        a rejected refit as its latest version, so the main search takes the version of the returned refit.
-        Returns the best refit, or None when no refit identified more precursors.
-        """
-        best_refit = None
-        for _ in range(CalibrationLoop.MAX_CLASSIFIER_REFITS):
-            precursor_df = self._refit_classifier(search)
-            identifications, fragments = self._filter_dfs(
-                precursor_df, self._optlock.fragments_df
-            )
-            self._reporter.log_string(
-                f"Classifier refit: {len(identifications)} identifications, before {n_identified}.",
-                verbosity="progress",
-            )
-            if len(identifications) <= n_identified:
-                break
-            n_identified = len(identifications)
-            search = replace(
-                search,
-                precursor_df=precursor_df,
-                classifier_version=self._fdr_manager.current_version,
-            )
-            best_refit = Refit(search, identifications, fragments)
-            self._optlock.update_with_fdr(precursor_df)
-        return best_refit
 
     def _cycle_duration(self) -> float:
         """Return the mean duration of a DIA cycle in seconds."""
         cycle_length = self._dia_data.cycle.shape[1]
         return float(np.diff(self._dia_data.rt_values[::cycle_length]).mean())
 
-    def _true_match_rt_interval(
+    def _true_match_rt_distribution(
         self, search: LockSearch[ExtractionHandlerT]
-    ) -> float | None:
-        """Estimate the RT interval that holds `TOLERANCE_QUANTILE` of the true matches of `search`.
+    ) -> TrueMatchDistribution | None:
+        """Fit the RT residuals of the true matches of `search`, see `TrueMatchDistribution.fit`.
 
-        The calibration rounds search wider than the residuals of the true matches, so the last search shows their
-        tail. Its candidates are weighted by their posterior error probability, see `true_match_interval`. Returns
-        None when the estimator is not fitted or the search holds too few likely true matches.
+        The calibration rounds search wider than the residuals of the true matches, so the search shows their tail.
+        Its candidates are weighted by their posterior error probability. Returns None when the estimator is not
+        fitted or the search holds too few likely true matches.
         """
         estimator = self._calibration_manager.get_estimator(
             CalibrationGroups.PRECURSOR, CalibrationEstimators.RT
@@ -544,33 +510,18 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         if not estimator.is_fitted:
             return None
         precursor_df = search.precursor_df
-        searched_tolerance = search.rt_tolerance
-        # The residuals use the latest calibration, which was fitted on this search, while the search was centred on
-        # the calibration before it. Both converged, so the shift is small against the searched tolerance of 3 times the interval.
+        # The residuals use the calibration just fitted on this search, while the search was centred on the
+        # calibration before it. After a few rounds both agree, so the shift is small against the searched tolerance
+        # of 3 times the interval.
         residuals = estimator.calc_deviation(precursor_df)[:, 2]
         is_decoy = precursor_df["decoy"].to_numpy() == 1
         # The classifier probability `proba` is the probability of a decoy.
         pep = posterior_error_probability(
             1 - precursor_df["proba"].to_numpy(), is_decoy
         )
-        interval = true_match_interval(
-            residuals[~is_decoy],
-            pep[~is_decoy],
-            searched_tolerance,
-            CalibrationLoop.TOLERANCE_QUANTILE,
+        return TrueMatchDistribution.fit(
+            residuals[~is_decoy], pep[~is_decoy], search.rt_tolerance
         )
-        if interval is not None:
-            self._reporter.log_string(
-                f"RT interval of the true matches: {interval:.2f} (searched {searched_tolerance:.2f}).",
-                verbosity="progress",
-            )
-        return interval
-
-    def _refit_classifier(self, search: LockSearch[ExtractionHandlerT]) -> pd.DataFrame:
-        """Perform FDR on `search` again, with the classifier trained further."""
-        precursor_df = self._perform_fdr(search.extraction_handler, search.batch)
-        log_precursor_df(self._reporter, precursor_df)
-        return precursor_df
 
     def _process_batch(self) -> LockSearch[ExtractionHandlerT]:
         """Search the optimization lock: extract the current batch library and perform FDR on the whole lock."""

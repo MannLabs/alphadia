@@ -91,7 +91,7 @@ class PythonExtractionHandler(ExtractionHandler):
             }
         )
 
-    def _select_candidates(self) -> pd.DataFrame:
+    def _select_candidates(self, min_score: float) -> pd.DataFrame:
         """Select candidates from DIA data using CandidateSelection.
 
         See superclass documentation for interface details.

@@ -6,10 +6,16 @@ import pytest
 from scipy import stats
 
 from alphadia.calibration.tolerance import (
+    TrueMatchDistribution,
     main_search_rt_tolerance,
     posterior_error_probability,
-    true_match_interval,
 )
+
+
+def true_match_interval(residuals, pep, window, quantile):
+    """The interval of the fitted distribution, or None without a fit."""
+    distribution = TrueMatchDistribution.fit(residuals, pep, window)
+    return None if distribution is None else distribution.interval(quantile)
 
 
 def _scores(rng, n_targets, n_decoys):
@@ -154,3 +160,28 @@ def test_true_match_interval_is_none_when_the_fit_fails():
 
     # Then: there is no interval
     assert interval is None
+
+
+def test_fit_true_match_distribution_recovers_scale_and_degrees_of_freedom():
+    """Test that the fit returns the scale and degrees of freedom of the Student-t of the true matches."""
+    # Given: candidates whose true matches follow a Student-t with scale 20 s and 5 degrees of freedom
+    rng = np.random.default_rng(4)
+    residuals, pep = _residuals(rng, 20000, sigma=20, nu=5, window=300)
+
+    # When: the distribution of the true matches is fitted
+    distribution = TrueMatchDistribution.fit(residuals, pep, window=300)
+
+    # Then: both parameters and the window it was fitted in are kept
+    assert distribution.scale == pytest.approx(20, rel=0.1)
+    assert distribution.df == pytest.approx(5, rel=0.3)
+    assert distribution.window == 300
+
+
+def test_true_match_distribution_interval_is_the_central_interval_of_its_t_distribution():
+    """Test that the interval is the central interval of the Student-t, and None beyond the fitted window."""
+    # Given: a distribution with scale 20 s and 5 degrees of freedom, fitted in a 300 s window
+    distribution = TrueMatchDistribution(scale=20.0, df=5.0, window=300.0)
+
+    # When / Then: the 99% interval is the 99.5% quantile, and an interval wider than the window is None
+    assert distribution.interval(0.99) == pytest.approx(stats.t(5).ppf(0.995) * 20)
+    assert TrueMatchDistribution(scale=20.0, df=5.0, window=50.0).interval(0.99) is None

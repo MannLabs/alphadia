@@ -22,7 +22,7 @@ class CalibrationLoop:
     TOLERANCE_QUANTILE = 0.99
     # ... times this factor. Only automatic parameters use the factor. Targeted parameters take their target.
     # The calibration rounds search RT 3 times wider than the identifications, so that the last search shows the tail of
-    # the true matches. The main search takes the RT interval of the true matches, see `true_match_interval`.
+    # the true matches. The main search takes the RT interval of the true matches, see `TrueMatchDistribution`.
     TOLERANCE_FACTOR = {
         SearchTolerance.MS2_ERROR: 1.2,
         SearchTolerance.MS1_ERROR: 1.2,
@@ -34,8 +34,6 @@ class CalibrationLoop:
     MIN_RT_TOLERANCE_CYCLES = 10
     # The true match interval needs at least this expected number of true matches, the sum of 1 - PEP.
     MIN_EXPECTED_TRUE_MATCHES = 3
-    # The classifier is refit on the last search at most this number of times, see `_converge_classifier`.
-    MAX_CLASSIFIER_REFITS = 10
     # Converge: the tolerances converged when no tolerance changes by more than this share between rounds.
     CONVERGENCE_THRESHOLD = 0.1
     # Stop when the identification rate of a round is more than this share below the best checkpoint.
@@ -48,6 +46,9 @@ class PeakGroupScoreCutoff:
 
     FACTOR = 0.99
     PERCENTILE = 1
+    # With the decoy scores of the search, the cutoff keeps all but this share of the main search identifications, see
+    # `decoy_probit_score_cutoff`. HeLa 5 ng: 0.3% kept every file above the classifier-refit cutoff, 1% did not.
+    ACCEPTED_LOSS = 0.003
     # With `search.optimized_peak_group_score`, a higher cutoff saves memory and runtime at a small loss of precursors.
     MEMORY_SAVING_FACTOR = 0.95
     MEMORY_SAVING_PERCENTILE = 3

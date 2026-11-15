@@ -64,7 +64,7 @@ class RustExtractionHandler(ExtractionHandler):
             fragment_mz_column=column_name_handler.get_fragment_mz_column(),
         )
 
-    def _select_candidates(self) -> pd.DataFrame:
+    def _select_candidates(self, min_score: float) -> pd.DataFrame:
         """Select candidates using the Rust backend.
 
         See superclass documentation for interface details.
@@ -77,10 +77,14 @@ class RustExtractionHandler(ExtractionHandler):
                 "fwhm_rt": self._optimization_context.fwhm_rt,
                 # 'kernel_size': 20,  # 15?
                 "top_k_fragments": self._config["search"]["top_k_fragments_selection"],
+                "min_fragments": self._config["search"]["min_fragments_selection"],
+                "min_score": min_score,
                 "peak_length": self._config["search"]["quant_window"],
                 "mass_tolerance": self._optimization_context.ms2_error,
                 "rt_tolerance": self._optimization_context.rt_error,
                 "candidate_count": self._optimization_context.num_candidates,
+                "rt_prior_scale": self._optimization_context.rt_prior_scale,
+                "rt_prior_df": self._optimization_context.rt_prior_df,
             }
         )
 

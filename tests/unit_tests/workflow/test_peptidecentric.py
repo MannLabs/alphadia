@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from alphadia.calibration.tolerance import TrueMatchDistribution
 from alphadia.constants.keys import SearchTolerance
 from alphadia.constants.settings import CalibrationLoop
 from alphadia.exceptions import NoOptimizationLockTargetError
@@ -196,13 +197,11 @@ def _create_calibration_loop_handler(
     rt_residual_intervals,
     *,
     target_ms2=10.0,
-    identifications_per_refit=(),
     warm_up_rounds=0,
 ):
     """Make a handler whose searches find `identifications_per_round` identifications on a lock of 1000 elution
-    groups. Its RT estimator gives one value of `rt_residual_intervals` per calibration. Refits of the classifier
-    on the last search find `identifications_per_refit` identifications, then none. The lock reaches its target after
-    `warm_up_rounds` grows."""
+    groups. Its RT estimator gives one value of `rt_residual_intervals` per calibration. The RT residuals of the true
+    matches give no distribution unless a test sets one. The lock reaches its target after `warm_up_rounds` grows."""
     config = {
         "search_initial": {"num_candidates": 1},
         "search": {
@@ -248,14 +247,7 @@ def _create_calibration_loop_handler(
         return _lock_search(handler, _identifications(next(remaining_identifications)))
 
     handler._process_batch = MagicMock(side_effect=search)
-    remaining_refits = iter(identifications_per_refit)
-
-    def refit(_search):
-        handler._fdr_manager.current_version += 1
-        return _identifications(next(remaining_refits, 0))
-
-    handler._refit_classifier = MagicMock(side_effect=refit)
-    handler._true_match_rt_interval = MagicMock(return_value=None)
+    handler._true_match_rt_distribution = MagicMock(return_value=None)
     handler._dia_data.rt_values = np.arange(0, 600, 0.5)
     handler._dia_data.cycle = np.zeros((1, 4, 1, 2))
     handler._filter_dfs = lambda precursor_df, _: (precursor_df, pd.DataFrame())
@@ -267,6 +259,15 @@ def _create_calibration_loop_handler(
 
 
 RT_TOLERANCE_FACTOR = CalibrationLoop.TOLERANCE_FACTOR[SearchTolerance.RT_ERROR]
+
+
+def _rt_distribution(interval: float) -> MagicMock:
+    """A distribution of the RT residuals of the true matches, fitted in a 200 s window, with this 99% interval."""
+    distribution = MagicMock(
+        spec=TrueMatchDistribution, scale=20.0, df=5.0, window=200.0
+    )
+    distribution.interval.return_value = interval
+    return distribution
 
 
 @pytest.fixture(autouse=True)
@@ -297,59 +298,23 @@ def test_calibration_stops_when_tolerances_settle():
     assert result.tolerances[SearchTolerance.MS2_ERROR] == 10.0
 
 
-def test_calibration_refits_the_classifier_until_identifications_stop_increasing():
-    """Test that after the tolerances converge, the classifier is refit on the last search while it identifies more
-    precursors, and the main search is calibrated on the identifications of the best refit."""
-    # Given: tolerances that settle on the third round and refits that find 45, 50 and then 48 identifications
+def test_searches_after_a_calibration_use_the_rt_prior_of_the_true_matches():
+    """Test that the search before the first calibration has no RT prior, and every search after a calibration uses
+    the distribution of the RT residuals of the true matches of the calibrated search."""
+    # Given: three rounds, and true matches whose RT residuals follow a Student-t with scale 20 s and 5 df
     handler, optimization_manager = _create_calibration_loop_handler(
         identifications_per_round=[20, 40, 41],
         rt_residual_intervals=[100.0, 70.0, 68.0],
-        identifications_per_refit=[45, 50, 48],
     )
+    handler._true_match_rt_distribution.return_value = _rt_distribution(55.0)
+    priors = []
+    search = handler._process_batch.side_effect
 
-    # When: the handler runs the calibration loop
-    with patch(
-        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
-    ) as recalibration_handler:
-        result = handler.search_parameter_optimization()
+    def search_and_record_the_prior():
+        priors.append(optimization_manager.rt_prior_scale)
+        return search()
 
-    # Then: the third refit stops the refits and the last calibration uses the 50 identifications of the second
-    assert handler._process_batch.call_count == 3
-    assert handler._refit_classifier.call_count == 3
-    last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
-    assert len(last_call.args[0]) == 50
-    assert result.tolerances[SearchTolerance.RT_ERROR] == pytest.approx(
-        RT_TOLERANCE_FACTOR * 70.0
-    )
-
-
-def test_calibration_takes_the_classifier_of_the_best_refit_forward():
-    """Test that the main search starts from the classifier of the best refit, not from a rejected later refit."""
-    # Given: three searches (classifier versions 1-3) and refits that find 45, 50 and then 48 (versions 4-6)
-    handler, optimization_manager = _create_calibration_loop_handler(
-        identifications_per_round=[20, 40, 41],
-        rt_residual_intervals=[100.0, 70.0, 68.0],
-        identifications_per_refit=[45, 50, 48],
-    )
-
-    # When: the handler runs the calibration loop
-    with patch(
-        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
-    ):
-        result = handler.search_parameter_optimization()
-
-    # Then: the main search uses the classifier of the refit that found 50 identifications
-    assert result.classifier_version == 5
-
-
-def test_calibration_discards_a_rejected_refit():
-    """Test that a refit that identifies fewer precursors leaves the last search and the lock unchanged."""
-    # Given: refits that find 45, 50 and then 48 identifications
-    handler, _ = _create_calibration_loop_handler(
-        identifications_per_round=[20, 40, 41],
-        rt_residual_intervals=[100.0, 70.0, 68.0],
-        identifications_per_refit=[45, 50, 48],
-    )
+    handler._process_batch.side_effect = search_and_record_the_prior
 
     # When: the handler runs the calibration loop
     with patch(
@@ -357,20 +322,20 @@ def test_calibration_discards_a_rejected_refit():
     ):
         handler.search_parameter_optimization()
 
-    # Then: the main search tolerances and the lock use the 50 identifications of the best refit
-    searched = handler._true_match_rt_interval.call_args.args[0]
-    assert len(searched.precursor_df) == 50
-    last_fdr = handler._optlock.update_with_fdr.call_args_list[-1]
-    assert len(last_fdr.args[0]) == 50
+    # Then: the first search has no prior, the later searches use the fitted one
+    assert priors == [0.0, 20.0, 20.0]
+    assert optimization_manager.rt_prior_df == 5.0
 
 
-def test_calibration_keeps_its_calibration_when_a_refit_finds_no_more_identifications():
-    """Test that a refit that does not identify more precursors leaves the calibration of the converged round."""
-    # Given: tolerances that settle on the third round and a refit that finds fewer identifications
+def test_calibration_passes_the_decoy_scores_of_the_lock_to_the_score_cutoff():
+    """Test that each calibration gets the peak group scores of the decoy candidates of the lock."""
+    # Given: a lock whose candidates are two targets and two decoys
     handler, _ = _create_calibration_loop_handler(
         identifications_per_round=[20, 40, 41],
         rt_residual_intervals=[100.0, 70.0, 68.0],
-        identifications_per_refit=[39],
+    )
+    handler._optlock.features_df = pd.DataFrame(
+        {"decoy": [0, 1, 0, 1], "score": [9.0, 3.0, 8.0, 2.0]}
     )
 
     # When: the handler runs the calibration loop
@@ -379,10 +344,9 @@ def test_calibration_keeps_its_calibration_when_a_refit_finds_no_more_identifica
     ) as recalibration_handler:
         handler.search_parameter_optimization()
 
-    # Then: the handler refits once and the last calibration uses the 41 identifications of the converged round
-    assert handler._refit_classifier.call_count == 1
-    last_call = recalibration_handler.return_value.recalibrate.call_args_list[-1]
-    assert len(last_call.args[0]) == 41
+    # Then: every calibration gets the scores of the two decoys
+    for call in recalibration_handler.return_value.recalibrate.call_args_list:
+        np.testing.assert_array_equal(call.args[2], [3.0, 2.0])
 
 
 def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance():
@@ -392,7 +356,8 @@ def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance(
         identifications_per_round=[20, 40, 41],
         rt_residual_intervals=[100.0, 70.0, 68.0],
     )
-    handler._true_match_rt_interval.return_value = 55.0
+    distribution = _rt_distribution(55.0)
+    handler._true_match_rt_distribution.return_value = distribution
 
     # When: the handler runs the calibration loop
     with patch(
@@ -401,7 +366,7 @@ def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance(
         result = handler.search_parameter_optimization()
 
     # Then: the main search uses the true match interval for RT and the target for the targeted ms2 tolerance
-    handler._true_match_rt_interval.assert_called_once()
+    distribution.interval.assert_called_once_with(CalibrationLoop.TOLERANCE_QUANTILE)
     assert result.tolerances[SearchTolerance.RT_ERROR] == 55.0
     assert result.tolerances[SearchTolerance.MS2_ERROR] == 10.0
 
@@ -413,7 +378,7 @@ def test_main_search_rt_tolerance_is_at_least_ten_cycles():
         identifications_per_round=[20, 40, 41],
         rt_residual_intervals=[100.0, 70.0, 68.0],
     )
-    handler._true_match_rt_interval.return_value = 5.0
+    handler._true_match_rt_distribution.return_value = _rt_distribution(5.0)
 
     # When: the handler runs the calibration loop
     with patch(
@@ -455,7 +420,8 @@ def test_main_search_keeps_a_targeted_rt_tolerance():
         rt_residual_intervals=[100.0, 70.0],
     )
     handler._config["search"]["target_rt_tolerance"] = 150.0
-    handler._true_match_rt_interval.return_value = 55.0
+    distribution = _rt_distribution(55.0)
+    handler._true_match_rt_distribution.return_value = distribution
 
     # When: the handler runs the calibration loop
     with patch(
@@ -464,7 +430,7 @@ def test_main_search_keeps_a_targeted_rt_tolerance():
         result = handler.search_parameter_optimization()
 
     # Then: the main search uses the target
-    handler._true_match_rt_interval.assert_not_called()
+    distribution.interval.assert_not_called()
     assert result.tolerances[SearchTolerance.RT_ERROR] == 150.0
 
 
@@ -758,14 +724,14 @@ def test_search_parameter_optimization_sets_the_number_of_candidates_for_the_mai
     )
 
 
-def test_true_match_rt_interval_fits_the_targets_of_the_last_search():
-    """Test that the true match RT interval is fitted on the target residuals of the last search, weighted by the PEP
-    from the target probability, within the RT tolerance that search used."""
+def test_true_match_rt_distribution_fits_the_targets_of_the_search():
+    """Test that the RT distribution of the true matches is fitted on the target residuals of the search, weighted by
+    the PEP from the target probability, within the RT tolerance that search used."""
     # Given: a last search with two targets and one decoy, searched with an RT tolerance of 120 s
     handler, _ = _create_calibration_loop_handler(
         identifications_per_round=[], rt_residual_intervals=[]
     )
-    del handler._true_match_rt_interval
+    del handler._true_match_rt_distribution
     precursor_df = pd.DataFrame({"decoy": [0, 1, 0], "proba": [0.1, 0.8, 0.3]})
     search = LockSearch(
         extraction_handler=MagicMock(),
@@ -781,22 +747,23 @@ def test_true_match_rt_interval_fits_the_targets_of_the_last_search():
     )
     module = "alphadia.workflow.peptidecentric.optimization_handler"
 
-    # When: the handler estimates the RT tolerance of the true matches
+    fitted = TrueMatchDistribution(scale=10.0, df=5.0, window=120.0)
+
+    # When: the handler fits the RT distribution of the true matches
     with (
         patch(
             f"{module}.posterior_error_probability",
             return_value=np.array([0.01, 0.9, 0.2]),
         ) as pep,
-        patch(f"{module}.true_match_interval", return_value=30.0) as interval,
+        patch.object(TrueMatchDistribution, "fit", return_value=fitted) as fit,
     ):
-        tolerance = handler._true_match_rt_interval(search)
+        distribution = handler._true_match_rt_distribution(search)
 
     # Then: the PEP uses the target probabilities and the fit gets the targets only, within the searched window
-    assert tolerance == 30.0
+    assert distribution == fitted
     np.testing.assert_allclose(pep.call_args.args[0], [0.9, 0.2, 0.7])
     np.testing.assert_array_equal(pep.call_args.args[1], [False, True, False])
-    residuals, target_pep, window, quantile = interval.call_args.args
+    residuals, target_pep, window = fit.call_args.args
     np.testing.assert_allclose(residuals, [4.0, -7.0])
     np.testing.assert_allclose(target_pep, [0.01, 0.2])
     assert window == 120.0
-    assert quantile == CalibrationLoop.TOLERANCE_QUANTILE
