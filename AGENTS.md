@@ -100,10 +100,10 @@ SearchPlan (search_plan.py)
 ### Key Modules
 
 - `alphadia/libtransform/` - Library transformation pipeline (loading, prediction, decoys, flattening)
-- `alphadia/search/` - Core search algorithms (python version, the rust version is imported from `alphadia_search_rs`)
-  - `search/scoring/` - Candidate scoring and feature extraction
-  - `search/selection/` - Candidate selection using FFT-based methods
-  - `search/jitclasses/` - Numba JIT-compiled data structures
+- `alphadia/search/python/` - Core search algorithms of the Python backend (the Rust backend is imported from `alphadia_search_rs`)
+  - `search/python/scoring/` - Candidate scoring and feature extraction
+  - `search/python/selection/` - Candidate selection using FFT-based methods
+  - `search/python/jitclasses/` - Numba JIT-compiled data structures
 - `alphadia/fdr/` - FDR control and classifiers
 - `alphadia/calibration/` - RT, m/z, mobility calibration
 - `alphadia/outputtransform/` - Output processing and quantification

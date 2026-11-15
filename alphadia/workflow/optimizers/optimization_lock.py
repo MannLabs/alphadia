@@ -4,6 +4,7 @@ from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.exceptions import NoOptimizationLockTargetError
+from alphadia.fdr.utils import is_identification
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationGroups
 
@@ -22,7 +23,6 @@ class OptimizationLock:
         """
         self._library = library
 
-        self.previously_calibrated = False
         self.has_target_num_precursors = False
 
         self._elution_group_order = library._precursor_df["elution_group_idx"].unique()
@@ -34,9 +34,7 @@ class OptimizationLock:
 
         self.batch_idx = 0
         self.batch_plan = self._get_batch_plan(
-            len(self._elution_group_order),
-            self._batch_size,
-            # TODO remove unused fixed_start_idx functionality
+            len(self._elution_group_order), self._batch_size
         )
 
         eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
@@ -60,7 +58,7 @@ class OptimizationLock:
         if self.has_target_num_precursors:
             return 0
         elif self.batch_idx >= len(self.batch_plan):
-            raise NoOptimizationLockTargetError()  # This should never be triggered since introduction of the BaseOptimizer.proceed_with_insufficient_precursors method and associated code, and could be removed.
+            raise NoOptimizationLockTargetError()
         else:
             return self.batch_plan[self.batch_idx][0]
 
@@ -69,9 +67,7 @@ class OptimizationLock:
         return self.batch_plan[self.batch_idx][1]
 
     @staticmethod
-    def _get_batch_plan(
-        num_items: int, batch_size: int, *, fixed_start_idx: bool = False
-    ) -> list[tuple[int, int]]:
+    def _get_batch_plan(num_items: int, batch_size: int) -> list[tuple[int, int]]:
         """Gets an exponential batch plan based on num_items and batch_size.
 
         The batch plan is a list of tuples, where each tuple contains the start and stop index of the elution groups to use for each step in the optimization lock.
@@ -82,8 +78,6 @@ class OptimizationLock:
             The total number of items to create a batch plan for.
         batch_size: int
             The batch size to use for each step in the optimization lock.
-        fixed_start_idx: bool
-            If True, the start index of each batch is fixed to 0, otherwise the start index is the stop index of the previous batch.
 
         returns
         -------
@@ -102,8 +96,7 @@ class OptimizationLock:
             stop_idx = min(stop_idx + n_batches * batch_size, num_items)
             plan.append((start_idx, stop_idx))
             step += 1
-            if not fixed_start_idx:
-                start_idx = stop_idx
+            start_idx = stop_idx
 
         return plan
 
@@ -138,9 +131,7 @@ class OptimizationLock:
             The precursor dataframe for the current batch of the optimization lock (from workflow.perform_fdr).
         """
 
-        self._precursor_at_fdr_count = np.sum(
-            (precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)
-        )
+        self._precursor_at_fdr_count = np.sum(is_identification(precursor_df))
         self.has_target_num_precursors = (
             self._precursor_at_fdr_count >= self._precursor_target_count
         )
@@ -186,34 +177,50 @@ class OptimizationLock:
         # get index of smallest value >= 0
         self.batch_idx = np.where(batch_plan_diff >= 0)[0][0]
 
-    def update(self):
-        """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
-        If the target has been reached, the feature and fragment dataframes are reset
+    def extend(self, calibration_manager=None) -> None:
+        """Add the next batch of the plan to the lock and keep the batches extracted so far.
+
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager | None
+            Calibrates the new batch like the earlier batches. None when no calibration exists yet.
         """
-        if self.has_target_num_precursors:
-            self.decrease_batch_idx()
-            self._feature_dfs = []
-            self._fragment_dfs = []
+        self.increase_batch_idx()
+        self.set_batch_dfs(self._elution_group_order[self.start_idx : self.stop_idx])
+        if calibration_manager is not None:
+            self.update_with_calibration(calibration_manager)
 
-        else:
-            self.increase_batch_idx()
+    def resize(self, calibration_manager) -> None:
+        """Resize the lock to the smallest batch of the plan that is expected to hold the target.
 
-        eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
-        self.set_batch_dfs(eg_idxes)
+        The next search covers the whole lock again.
 
-    def reset_after_convergence(self, calibration_manager):
-        """Resets the optimization lock after all optimizers in a given round of optimization have converged.
-
-        Parameter
-        ---------
+        Parameters
+        ----------
         calibration_manager: CalibrationManager
-            The calibration manager object from the PeptideCentricWorkflow object.
-
+            Calibrates the resized lock.
         """
-        self.has_target_num_precursors = True
+        self.decrease_batch_idx()
         self._feature_dfs = []
         self._fragment_dfs = []
-        self.set_batch_dfs()
+        self.set_batch_dfs(self._elution_group_order[: self.stop_idx])
+        self.update_with_calibration(calibration_manager)
+
+    def grow(self, calibration_manager) -> None:
+        """Add the next batch of the plan. The next search covers the whole lock again with the current calibration.
+
+        A warm-up calibration changes the tolerances. The features of the earlier batches used the old tolerances, so
+        the lock drops them and extracts again from its first elution group.
+
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager
+            Calibrates the grown lock.
+        """
+        self.increase_batch_idx()
+        self._feature_dfs = []
+        self._fragment_dfs = []
+        self.set_batch_dfs(self._elution_group_order[: self.stop_idx])
         self.update_with_calibration(calibration_manager)
 
     def set_batch_dfs(self, eg_idxes: None | np.ndarray = None):

@@ -9,7 +9,7 @@ from alpharaw.utils.pjit import pjit, set_threads
 
 from alphadia.exceptions import NotValidDiaDataError
 from alphadia.raw_data.bruker_hdf import HDF_FILE_EXTENSION, import_data_from_hdf_file
-from alphadia.search.jitclasses.bruker_jit import TimsTOFTransposeJIT
+from alphadia.search.python.jitclasses.bruker_jit import TimsTOFTransposeJIT
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()

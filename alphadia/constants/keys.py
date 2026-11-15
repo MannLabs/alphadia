@@ -122,6 +122,13 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
+class ExtractionBackend(metaclass=ConstantsClass):
+    """String constants for the `search.extraction_backend` config value."""
+
+    PYTHON = "python"
+    RUST = "rust"
+
+
 class FeatureTransform(metaclass=ConstantsClass):
     """String constants for the feature transform applied before FDR classification."""
 
@@ -136,6 +143,26 @@ class FdrClassifierBackend(metaclass=ConstantsClass):
     RUST = "rust"
     # torch network with a sklearn feature transform
     TORCH = "torch"
+
+
+class SearchTolerance(metaclass=ConstantsClass):
+    """Names of the search tolerances. Each name is also an attribute of `OptimizationManager`."""
+
+    MS2_ERROR = "ms2_error"
+    MS1_ERROR = "ms1_error"
+    RT_ERROR = "rt_error"
+    MOBILITY_ERROR = "mobility_error"
+
+
+class CalibrationPhase(metaclass=ConstantsClass):
+    """Phases of the calibration loop, see `OptimizationHandler.search_parameter_optimization`."""
+
+    # Too few identifications to calibrate. Extend the lock by the next batch.
+    EXPAND = "expand"
+    # Calibrate with a limit on the shrink of the tolerances. Grow the lock until it holds its target.
+    WARM_UP = "warm-up"
+    # Calibrate on a lock that holds its target until the tolerances converge.
+    CONVERGE = "converge"
 
 
 class DecoyType(metaclass=ConstantsClass):

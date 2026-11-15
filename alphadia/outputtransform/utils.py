@@ -182,6 +182,7 @@ def log_protein_fdr_summary(psm_df: pd.DataFrame) -> None:
         Precursor table with protein grouping and FDR filtering applied
     """
     pg_count = psm_df[psm_df["decoy"] == 0]["pg"].nunique()
+    decoy_pg_count = psm_df[psm_df["decoy"] == 1]["pg"].nunique()
     precursor_count = psm_df[psm_df["decoy"] == 0]["precursor_idx"].nunique()
 
     logger.info(
@@ -189,6 +190,13 @@ def log_protein_fdr_summary(psm_df: pd.DataFrame) -> None:
     )
     logger.info("Unique protein groups in output")
     logger.info(f"  1% protein FDR: {pg_count:,}")
+    # the accepted decoy groups are the whole evidence behind the reported protein FDR. At 1 % that
+    # is one per hundred target groups, so on a small proteome (plasma) the estimate rests on a few
+    # decoys, so we log the number as it also gives an idea of the uncertainty in the estimate.
+    logger.info(
+        f"  accepted decoy groups: {decoy_pg_count:,} "
+        f"({decoy_pg_count / max(pg_count, 1):.2%} of target groups)"
+    )
     logger.info("")
     logger.info("Unique precursor in output")
     logger.info(f"  1% protein FDR: {precursor_count:,}")

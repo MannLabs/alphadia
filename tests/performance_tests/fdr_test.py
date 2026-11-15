@@ -13,7 +13,7 @@ from alphabase.tools.data_downloader import DataShareDownloader
 
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
-from alphadia.workflow.peptidecentric.utils import feature_columns
+from alphadia.workflow.peptidecentric.python.utils import feature_columns
 
 classifiers = {
     "legacy_new_batching": BinaryClassifierLegacyNewBatching,
@@ -114,7 +114,7 @@ def main():
     performance_dicts = []
 
     for iteration in range(args.n_iter):
-        print(f"Iteration {iteration+1}/{args.n_iter}")
+        print(f"Iteration {iteration + 1}/{args.n_iter}")
 
         target_df = features_df[features_df["decoy"] == 0].sample(frac=args.size / 100)
         decoy_df = features_df[features_df["decoy"] == 1].sample(frac=args.size / 100)
@@ -163,26 +163,26 @@ def main():
     print("==========================")
     print("Precursor @ 1% FDR")
     print(
-        f'mean: {performance_df["fdr1"].mean()}, std: {performance_df["fdr1"].std():.2f}'
+        f"mean: {performance_df['fdr1'].mean()}, std: {performance_df['fdr1'].std():.2f}"
     )
     print(
-        f'min: {performance_df["fdr1"].min()}, max: {performance_df["fdr1"].max():.2f}'
+        f"min: {performance_df['fdr1'].min()}, max: {performance_df['fdr1'].max():.2f}"
     )
     print("")
     print("Precursor @ 0.1% FDR")
     print(
-        f'mean: {performance_df["fdr01"].mean()}, std: {performance_df["fdr01"].std():.2f}'
+        f"mean: {performance_df['fdr01'].mean()}, std: {performance_df['fdr01'].std():.2f}"
     )
     print(
-        f'min: {performance_df["fdr01"].min()}, max: {performance_df["fdr01"].max():.2f}'
+        f"min: {performance_df['fdr01'].min()}, max: {performance_df['fdr01'].max():.2f}"
     )
     print("")
     print("FDR ratio")
     print(
-        f'mean: {performance_df["fdr_ratio"].mean()}, std: {performance_df["fdr_ratio"].std():.2f}'
+        f"mean: {performance_df['fdr_ratio'].mean()}, std: {performance_df['fdr_ratio'].std():.2f}"
     )
     print(
-        f'min: {performance_df["fdr_ratio"].min()}, max: {performance_df["fdr_ratio"].max():.2f}'
+        f"min: {performance_df['fdr_ratio'].min()}, max: {performance_df['fdr_ratio'].max():.2f}"
     )
     print("==========================")
 
