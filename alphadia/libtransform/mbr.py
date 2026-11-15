@@ -215,7 +215,9 @@ class MbrLibraryBuilder(ProcessingStep):
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
 
         # The mean over the runs, not the median: the median of an odd number of runs is the RT of one of them, which
-        # that run would find again with no RT error at all, a false identification as well as a true one.
+        # that run would find again with no RT error at all. The mean only lowers the share of each run's own RT: an
+        # elution group identified in a single run still gets that run's RT, and its re-finding there is left to the
+        # separate q-values of the MBR step.
         agg_by_eg = psm_df.groupby("elution_group_idx", as_index=False).agg(
             rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="mean"),
             pg=pd.NamedAgg(column="pg", aggfunc="first"),
@@ -231,8 +233,8 @@ class MbrLibraryBuilder(ProcessingStep):
 
 
 def get_run_identifications(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
-    """Return the elution groups each run identified at `fdr`, by a target or a decoy, from the PSMs
-    `MbrLibraryBuilder` with this `fdr` builds its library from, with their protein group and its q-value.
+    """Return the elution groups each run identified at `fdr`, by a target or a decoy, with their protein group and its
+    q-value: those of the PSMs whose precursor and protein group both pass `fdr`.
     """
     run_identifications_df = (
         _passing_fdr(psm_df, fdr)
