@@ -120,13 +120,14 @@ def test_few_decoy_groups_still_give_accepted_groups():
 
 
 def test_transfer_library_pg_qval():
-    """Test target groups with a confident precursor take the library q-value, all other rows get none."""
+    """Test target and decoy groups with a confident precursor take the library q-value of their own kind, all other
+    rows get none."""
     # given
     psm_df = pd.DataFrame(
         {
-            "pg": ["A", "A", "B", "C", "A"],
-            "decoy": [0, 0, 0, 0, 1],
-            "qval": [0.001, 0.5, 0.5, 0.001, 0.001],
+            "pg": ["A", "A", "B", "C", "A", "C"],
+            "decoy": [0, 0, 0, 0, 1, 1],
+            "qval": [0.001, 0.5, 0.5, 0.001, 0.001, 0.001],
         }
     )
     # one row per run identification, so a group can appear more than once; the decoy group carries C's name
@@ -141,8 +142,9 @@ def test_transfer_library_pg_qval():
     # when
     result = transfer_library_pg_qval(psm_df, run_identifications_df)
 
-    # then: A has a confident target, B only a weak one, C only as a decoy in the library, the A decoy is a decoy
+    # then: A has a confident target, B only a weak one, the C target and the A decoy are not in the library, the C
+    # decoy is
     np.testing.assert_array_equal(
         result["pg_qval"].values,
-        [0.002, 0.002, NO_EVIDENCE_QVAL, NO_EVIDENCE_QVAL, NO_EVIDENCE_QVAL],
+        [0.002, 0.002, NO_EVIDENCE_QVAL, NO_EVIDENCE_QVAL, NO_EVIDENCE_QVAL, 0.001],
     )
