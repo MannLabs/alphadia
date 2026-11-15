@@ -77,7 +77,6 @@ class RustExtractionHandler(ExtractionHandler):
                 "fwhm_rt": self._optimization_context.fwhm_rt,
                 # 'kernel_size': 20,  # 15?
                 "top_k_fragments": self._config["search"]["top_k_fragments_selection"],
-                "min_fragments": self._config["search"]["min_fragments_selection"],
                 "min_ion_number": self._config["search"]["min_ion_number_selection"],
                 "min_score": min_score,
                 "peak_length": self._config["search"]["quant_window"],
