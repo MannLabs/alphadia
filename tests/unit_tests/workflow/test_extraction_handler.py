@@ -111,7 +111,6 @@ def test_select_candidates_passes_the_rt_prior_of_the_optimization_context(
     config = {
         "search": {
             "top_k_fragments_selection": 12,
-            "min_fragments_selection": 3,
             "min_ion_number_selection": 3,
             "quant_window": 3,
         }
@@ -141,12 +140,11 @@ def test_select_candidates_passes_the_rt_prior_of_the_optimization_context(
     # When: the handler selects the candidates above a score of 9.5
     handler._select_candidates(min_score=9.5)
 
-    # Then: the selection uses the RT prior, the minimum number of fragments, the minimum ion number and the minimum score
+    # Then: the selection uses the RT prior, the minimum ion number and the minimum score
     selection_params = mock_selection.call_args.args[0]
     assert selection_params.min_score == 9.5
     assert selection_params.rt_prior_scale == 20.0
     assert selection_params.rt_prior_df == 5.0
-    assert selection_params.min_fragments == 3
     assert selection_params.min_ion_number == 3
 
 
