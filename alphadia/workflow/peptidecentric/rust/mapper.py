@@ -1,5 +1,7 @@
 """Conversion between alphaDIA and alphadia-search-rs data structures."""
 
+from collections.abc import Collection
+
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -94,6 +96,58 @@ def get_feature_names(feature_set: FeatureSet) -> list[str]:
 # The final-round classifier leaves fwhm_rt out: permuting it in offline replays of the final round moved the real
 # identifications by less than 1 %. It is still scored, because the precursor output reports it as the peak width.
 FINAL_ROUND_EXCLUDED_FEATURES = ("fwhm_rt",)
+
+# The interference features by the `search.<flag>` that adds them to the classifier. They are in FeatureSet.Full only,
+# so they only exist in the final round and never enter the calibration fits.
+INTERFERENCE_FEATURE_GROUPS = {
+    # |fitted - library| of the unit-sum fragment intensities, each fragment XIC fitted to the median elution profile
+    "fitted_spread_features": (
+        "fit_intensity_abs_diff_mean",
+        "fit_intensity_abs_diff_std",
+        "fit_intensity_abs_diff_max",
+        "fit_y_intensity_abs_diff_std",
+    ),
+    # the candidate's share of its isolation window's MS2 signal at the apex, raw and against its neighbours
+    "window_signal_share_features": (
+        "apex_window_signal_frac",
+        "apex_window_signal_frac_rank",
+        "apex_window_signal_frac_zscore",
+    ),
+}
+
+
+def get_interference_feature_groups(search_config: dict) -> list[str]:
+    """Get the interference feature groups whose `search.<group>` flag is set."""
+    return [
+        group
+        for group in INTERFERENCE_FEATURE_GROUPS
+        if search_config.get(group, False)
+    ]
+
+
+def get_classifier_feature_columns(
+    interference_feature_groups: Collection[str] = (),
+) -> list[str]:
+    """Get the feature columns the FDR classifier is trained on.
+
+    The full feature set; the FDR manager uses only the columns present, so calibration rounds use the core subset.
+    The interference features are left out unless their group is in `interference_feature_groups`.
+    """
+    unknown_groups = set(interference_feature_groups) - set(INTERFERENCE_FEATURE_GROUPS)
+    if unknown_groups:
+        raise ValueError(f"Unknown interference feature groups: {unknown_groups}")
+
+    excluded = {
+        column
+        for group, columns in INTERFERENCE_FEATURE_GROUPS.items()
+        if group not in interference_feature_groups
+        for column in columns
+    }
+    return [
+        column
+        for column in get_feature_names(FeatureSet.Full)
+        if column not in excluded
+    ]
 
 
 def parse_candidates(
