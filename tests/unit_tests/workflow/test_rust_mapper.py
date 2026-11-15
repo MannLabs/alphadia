@@ -140,7 +140,7 @@ def test_get_interference_feature_groups_reads_the_search_flags():
     assert get_interference_feature_groups({}) == []
 
 
-def test_default_config_disables_the_interference_features():
+def test_default_config_enables_the_interference_features():
     # given
     with open(
         os.path.join(os.path.dirname(alphadia.__file__), "constants", "default.yaml")
@@ -148,6 +148,9 @@ def test_default_config_disables_the_interference_features():
         search_config = yaml.safe_load(f)["search"]
 
     # when / then
-    assert search_config["fitted_spread_features"] is False
-    assert search_config["window_signal_share_features"] is False
-    assert get_interference_feature_groups(search_config) == []
+    assert search_config["fitted_spread_features"] is True
+    assert search_config["window_signal_share_features"] is True
+    assert get_interference_feature_groups(search_config) == [
+        "fitted_spread_features",
+        "window_signal_share_features",
+    ]
