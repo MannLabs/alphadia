@@ -190,6 +190,10 @@ search:
   # 0 turns the filter off.
   min_fragments_selection: 0
 
+  # the selection does not use fragments with an ion number below this value. 3 leaves out b1, b2, y1 and y2, which
+  # many precursors share. Scoring and quantification use all fragments. 0 turns the filter off.
+  min_ion_number_selection: 3
+
   # the number of most intense fragments to use in the scoring
   top_k_fragments_scoring: 12
 
