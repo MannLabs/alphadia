@@ -71,7 +71,13 @@ class ExtractionHandler(ABC):
             f"Extracting batch of {len(self._spectral_library.precursor_df)} precursors",
             verbosity="progress",
         )
-        candidates_df = self._select_candidates()
+        # The selection does not create the candidates below the cutoff. The filter below covers selections that
+        # ignore the minimum score.
+        candidates_df = self._select_candidates(
+            min_score=self._optimization_context.score_cutoff
+            if apply_cutoff
+            else float("-inf")
+        )
 
         # plt.hist(candidates_df["score"], bins=100)
 
@@ -81,8 +87,13 @@ class ExtractionHandler(ABC):
         return candidates_df
 
     @abstractmethod
-    def _select_candidates(self) -> pd.DataFrame:
+    def _select_candidates(self, min_score: float) -> pd.DataFrame:
         """Select candidates from the DIA data based on the spectral library.
+
+        Parameters
+        ----------
+        min_score : float
+            A backend may leave out the candidates whose score is not above it, so that it never creates them.
 
         Returns
         -------

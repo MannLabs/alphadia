@@ -23,6 +23,8 @@ class OptimizationManager(BaseManager):
     fwhm_rt: float
     fwhm_mobility: float
     score_cutoff: float
+    rt_prior_scale: float
+    rt_prior_df: float
 
     def __init__(
         self,
@@ -50,6 +52,9 @@ class OptimizationManager(BaseManager):
             self.score_cutoff = config["optimization_manager"]["score_cutoff"]
 
             self.classifier_version = -1
+            # No RT prior until a calibration has fitted the distribution of the true matches.
+            self.rt_prior_scale = 0.0
+            self.rt_prior_df = 0.0
 
             for key in [
                 "ms1_error",
@@ -78,6 +83,8 @@ class OptimizationManager(BaseManager):
         fwhm_rt: float | None = None,
         fwhm_mobility: float | None = None,
         score_cutoff: float | None = None,
+        rt_prior_scale: float | None = None,
+        rt_prior_df: float | None = None,
     ):
         """Update the parameters dict with the values in update_dict."""
 
@@ -116,6 +123,12 @@ class OptimizationManager(BaseManager):
         if score_cutoff is not None:
             _add_update_log("score_cutoff", self.score_cutoff, score_cutoff)
             self.score_cutoff = score_cutoff
+        if rt_prior_scale is not None:
+            _add_update_log("rt_prior_scale", self.rt_prior_scale, rt_prior_scale)
+            self.rt_prior_scale = rt_prior_scale
+        if rt_prior_df is not None:
+            _add_update_log("rt_prior_df", self.rt_prior_df, rt_prior_df)
+            self.rt_prior_df = rt_prior_df
 
         for log in update_logs:
             self.reporter.log_string(
@@ -137,4 +150,6 @@ class OptimizationManager(BaseManager):
             fwhm_mobility=self.fwhm_mobility,
             num_candidates=self.num_candidates,
             score_cutoff=self.score_cutoff,
+            rt_prior_scale=self.rt_prior_scale,
+            rt_prior_df=self.rt_prior_df,
         )
