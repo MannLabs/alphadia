@@ -47,6 +47,9 @@ class ConfigKeys(metaclass=ConstantsClass):
     VERSION = "version"
     OUTPUT_DIRECTORY = "output_directory"
     LIBRARY_PATH = "library_path"
+    # Set by the multistep search for the MBR step: the elution groups each run identified in the search that built the
+    # MBR library (`speclib.mbr.run_identifications.parquet`). Each run gets separate q-values for the elution groups it
+    # identified there and for the others. The protein groups keep their q-values from that search.
     MBR_RUN_IDENTIFICATIONS_PATH = "mbr_run_identifications_path"
     RAW_PATHS = "raw_paths"
     FASTA_PATHS = "fasta_paths"
@@ -144,6 +147,26 @@ class FeatureTransform(metaclass=ConstantsClass):
 
     NONE = "none"
     QUANTILE = "quantile"
+
+
+class SearchTolerance(metaclass=ConstantsClass):
+    """Names of the search tolerances. Each name is also an attribute of `OptimizationManager`."""
+
+    MS2_ERROR = "ms2_error"
+    MS1_ERROR = "ms1_error"
+    RT_ERROR = "rt_error"
+    MOBILITY_ERROR = "mobility_error"
+
+
+class CalibrationPhase(metaclass=ConstantsClass):
+    """Phases of the calibration loop, see `OptimizationHandler.search_parameter_optimization`."""
+
+    # Too few identifications to calibrate. Extend the lock by the next batch.
+    EXPAND = "expand"
+    # Calibrate with a limit on the shrink of the tolerances. Grow the lock until it holds its target.
+    WARM_UP = "warm-up"
+    # Calibrate on a lock that holds its target until the tolerances converge.
+    CONVERGE = "converge"
 
 
 class DecoyType(metaclass=ConstantsClass):

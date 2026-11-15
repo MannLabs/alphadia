@@ -180,6 +180,25 @@ TOLERATED_KEYS = [
     # supported until 2.4.0:
     "search.use_idf_features",
     "search.candidate_context_features",
+    "calibration.min_steps",
+    "calibration.max_skips",
+    "optimization",
+    "optimization.order_of_optimization",
+    *[
+        f"optimization.{error}{setting}"
+        for error in ["ms1_error", "ms2_error", "rt_error", "mobility_error"]
+        for setting in [
+            "",
+            ".targeted_update_percentile_range",
+            ".targeted_update_factor",
+            ".automatic_update_percentile_range",
+            ".automatic_update_factor",
+            ".try_narrower_values",
+            ".maximal_decrease",
+            ".favour_narrower_optimum",
+            ".maximum_decrease_from_maximum",
+        ]
+    ],
     # supported until 2.2.0:
     "search_output.save_fragment_quant_matrix",
     # supported until 2.0.2:
