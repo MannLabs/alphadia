@@ -5,12 +5,21 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 
+from alphadia.constants.settings import CalibrationLoop
 from alphadia.exceptions import TooFewPSMError
 
 logger = logging.getLogger()
+
+
+def is_identification(precursor_df: pd.DataFrame) -> pd.Series:
+    """Return whether each precursor is an identification, a target below `IDENTIFICATION_FDR`."""
+    return (precursor_df["qval"] < CalibrationLoop.IDENTIFICATION_FDR) & (
+        precursor_df["decoy"] == 0
+    )
 
 
 def train_test_split_(
