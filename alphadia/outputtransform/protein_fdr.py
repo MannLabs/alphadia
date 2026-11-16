@@ -82,22 +82,25 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
 
 
 def transfer_library_pg_qval(
-    psm_df: pd.DataFrame, run_identifications_df: pd.DataFrame
+    psm_df: pd.DataFrame, library_pg_qval_df: pd.DataFrame
 ) -> pd.DataFrame:
-    """Give each target protein group with a precursor at q-value MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING or below its
-    q-value from `run_identifications_df` (columns `pg` and `pg_qval`), and every other group NO_EVIDENCE_QVAL.
+    """Give each protein group, target or decoy, with a precursor at q-value MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING or
+    below its q-value from `library_pg_qval_df` (columns `pg`, `decoy` and `pg_qval`), and every other group
+    NO_EVIDENCE_QVAL.
     """
-    is_target = (psm_df["decoy"] == 0).to_numpy()
-    confident_groups = psm_df.loc[
-        is_target
-        & (psm_df["qval"] <= MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING).to_numpy(),
-        "pg",
-    ].unique()
-    library_pg_qval = run_identifications_df.groupby("pg")["pg_qval"].max()
-    library_qval = psm_df["pg"].map(library_pg_qval).to_numpy()
-    keep = (
-        is_target
-        & psm_df["pg"].isin(confident_groups).to_numpy()
-        & ~np.isnan(library_qval)
+    # a decoy group carries the protein names of its target group, so the groups are told apart by `pg` and `decoy`
+    group_columns = ["pg", "decoy"]
+    library_pg_qval = (
+        library_pg_qval_df.groupby(group_columns)["pg_qval"].max().reset_index()
     )
-    return psm_df.assign(pg_qval=np.where(keep, library_qval, NO_EVIDENCE_QVAL))
+    confident_groups = psm_df.loc[
+        psm_df["qval"] <= MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING, group_columns
+    ].drop_duplicates()
+    confident_pg_qval = confident_groups.merge(library_pg_qval, on=group_columns)
+    pg_qval = (
+        psm_df[group_columns]
+        .merge(confident_pg_qval, on=group_columns, how="left")["pg_qval"]
+        .fillna(NO_EVIDENCE_QVAL)
+        .to_numpy()
+    )
+    return psm_df.assign(pg_qval=pg_qval)

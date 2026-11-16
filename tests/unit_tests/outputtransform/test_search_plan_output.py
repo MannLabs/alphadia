@@ -63,6 +63,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
             "inference_strategy": InferenceStrategy.HEURISTIC,
             "group_level": "proteins",
             "keep_decoys": False,
+            "pg_qval_from_library": False,
         },
         "search_output": {
             "precursor_level_lfq": True,
