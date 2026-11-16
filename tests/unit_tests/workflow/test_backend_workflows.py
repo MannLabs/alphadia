@@ -233,6 +233,35 @@ def test_rust_workflow_does_not_support_multiplexing(tmp_path):
         workflow.requantify(MagicMock())
 
 
+@patch("alphadia.workflow.peptidecentric.rust.workflow.log_precursor_df")
+@patch("alphadia.workflow.peptidecentric.rust.workflow.add_library_fragment_intensity")
+def test_rust_main_search_starts_from_the_base_classifier(_, __, tmp_path):
+    """Test that the Rust main search does not ask for a calibration classifier, which it cannot use: the
+    calibration rounds train on other feature columns, so no calibration classifier is stored for the main search."""
+    # Given: a Rust workflow whose calibration took classifier version 3 forward
+    workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
+    workflow._optimization_manager.update(classifier_version=3)
+    extraction_handler = MagicMock()
+    extraction_handler.perform_fdr_and_filter_candidates.return_value = (
+        pd.DataFrame(),
+        pd.DataFrame(),
+    )
+    extraction_handler.quantify_candidates.return_value = (
+        pd.DataFrame(),
+        pd.DataFrame(),
+    )
+    workflow._create_extraction_handler = MagicMock(return_value=extraction_handler)
+    workflow._spectral_library = MagicMock()
+
+    # When: the workflow runs the main search
+    workflow.extraction()
+
+    # Then: the FDR of the main search starts from the base classifier
+    fdr_call = extraction_handler.perform_fdr_and_filter_candidates.call_args
+    assert fdr_call.args[2] is None
+    assert fdr_call.kwargs["final_round"] is True
+
+
 @patch("alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock")
 def test_calibration_fdr_starts_from_the_latest_classifier(_):
     """Test that the FDR of a calibration search starts from the latest classifier of this run, not from the version

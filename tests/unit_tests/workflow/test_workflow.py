@@ -432,6 +432,30 @@ def test_fdr_manager_fit_predict():
     os.remove(temp_path)
 
 
+def test_get_classifier_without_version_returns_the_base_classifier():
+    """Test that `version=None` starts from the base classifier even when a fitted classifier is stored for the
+    same feature columns."""
+    # Given: a manager that stored a fitted classifier for the test features
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config={"search": {"compete_for_fragments": False}},
+        dia_cycle=None,
+    )
+    fdr_manager.fit_predict(
+        fdr_testdata(FDR_TEST_FEATURES),
+        decoy_strategy="precursor",
+        competitive=False,
+        df_fragments=None,
+    )
+
+    # When: the manager gets the classifier without a version
+    classifier = fdr_manager.get_classifier(FDR_TEST_FEATURES, None)
+
+    # Then: it is the unfitted base classifier
+    assert classifier.fitted is False
+
+
 def test_get_classifier_base_passes_feature_transform():
     # When: the base classifier is created with the quantile feature transform
     classifier = _get_classifier_base(feature_transform=FeatureTransform.QUANTILE)

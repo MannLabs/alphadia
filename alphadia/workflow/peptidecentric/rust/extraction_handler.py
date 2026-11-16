@@ -205,7 +205,7 @@ class RustExtractionHandler(ExtractionHandler):
         self,
         features_df: pd.DataFrame,
         candidates_df: pd.DataFrame,
-        classifier_version: int,
+        classifier_version: int | None,
         df_fragments: pd.DataFrame | None = None,
         final_round: bool = False,
         train_on_best_candidate: bool = False,
@@ -220,8 +220,8 @@ class RustExtractionHandler(ExtractionHandler):
         candidates_df : pd.DataFrame
             DataFrame with candidates
 
-        classifier_version : int
-            Version of the stored FDR classifier to start from. `FDRManager.fit_predict` defines the values.
+        classifier_version : int | None
+            Version of the stored FDR classifier to start from, None for the base classifier. `FDRManager.fit_predict` defines the values.
 
         df_fragments : pd.DataFrame, optional
             Quantified fragments of all candidates. If not given, the fragments of the

@@ -87,11 +87,14 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
             candidates_df, FeatureSet.Full
         )
 
+        # The calibration rounds train on `FeatureSet.Calibration`, the main search on `FeatureSet.Full` without
+        # `FINAL_ROUND_EXCLUDED_FEATURES`. The FDR manager stores classifiers per feature columns, so no calibration
+        # classifier fits the main search and its FDR starts from the base classifier.
         candidates_fdr_df, precursor_fdr_df = (
             extraction_handler.perform_fdr_and_filter_candidates(
                 precursor_w_features_df,
                 candidates_df,
-                self.optimization_manager.classifier_version,
+                None,
                 final_round=True,
                 train_on_best_candidate=True,
             )
