@@ -623,7 +623,11 @@ class SearchStep:
                 base_spec_lib = None
 
             output = SearchPlanOutput(self.config, self.output_folder)
-            output.build(workflow_folder_list, base_spec_lib)
+            output.build(
+                workflow_folder_list,
+                base_spec_lib,
+                self.spectral_library.precursor_df,
+            )
 
         except Exception as e:
             _log_exception_event(e)
