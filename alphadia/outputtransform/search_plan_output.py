@@ -2,7 +2,6 @@ import logging
 import os
 
 import pandas as pd
-from alphabase.io.hdf import HDF_File
 from alphabase.peptide import fragment
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
@@ -87,7 +86,12 @@ class SearchPlanOutput:
         if self._figure_path and not os.path.exists(self._figure_path):
             os.makedirs(self._figure_path)
 
-    def build(self, folder_list: list[str], base_spec_lib: base.SpecLibBase | None):
+    def build(
+        self,
+        folder_list: list[str],
+        base_spec_lib: base.SpecLibBase | None,
+        library_precursor_df: pd.DataFrame | None = None,
+    ):
         """Build output from a list of search outputs.
 
         The following files are written to the output folder:
@@ -107,9 +111,13 @@ class SearchPlanOutput:
         base_spec_lib: base.SpecLibBase, optional
             Base spectral library
 
+        library_precursor_df: pd.DataFrame, optional
+            Precursor table of the searched library. If it has the column `pg_qval` (an MBR library), the protein
+            groups take their q-values from it instead of from a protein FDR.
+
         """
         logger.progress("Processing search outputs")
-        psm_df = self._build_precursor_table(folder_list)
+        psm_df = self._build_precursor_table(folder_list, library_precursor_df)
 
         # every output is written as soon as it is built, so a later failure does not
         # discard the outputs already on disk
@@ -304,7 +312,11 @@ class SearchPlanOutput:
             file_format=self.config["search_output"]["file_format"],
         )
 
-    def _build_precursor_table(self, folder_list: list[str]) -> pd.DataFrame:
+    def _build_precursor_table(
+        self,
+        folder_list: list[str],
+        library_precursor_df: pd.DataFrame | None = None,
+    ) -> pd.DataFrame:
         """Build precursor table from a list of search outputs
 
         Parameters
@@ -312,6 +324,10 @@ class SearchPlanOutput:
 
         folder_list: List[str]
             List of folders containing the search outputs
+
+        library_precursor_df: pd.DataFrame, optional
+            Precursor table of the searched library. If it has the column `pg_qval` (an MBR library), the protein
+            groups take their q-values from it instead of from a protein FDR.
 
         Returns
         -------
@@ -341,12 +357,13 @@ class SearchPlanOutput:
             self.config["fdr"]["group_level"],
         )
 
-        if self.config["fdr"]["pg_qval_from_library"]:
-            # The MBR step searches only the groups that passed the protein FDR of the first search, which counted the
-            # false groups among them, so each group keeps the q-value it got there.
-            library_path = self.config[ConfigKeys.LIBRARY_PATH]
-            logger.info(f"Taking the protein q-values from {library_path}")
-            library_precursor_df = HDF_File(library_path).library.precursor_df.values
+        if (
+            library_precursor_df is not None
+            and "pg_qval" in library_precursor_df.columns
+        ):
+            # An MBR library holds only the groups that passed the protein FDR of the search that built it, which
+            # counted the false groups among them, so each group keeps the q-value it got there.
+            logger.info("Taking the protein q-values from the MBR library")
             psm_df = apply_library_pg_qval(
                 psm_df,
                 library_precursor_df[["proteins", "decoy", "pg_qval"]].rename(

@@ -514,7 +514,9 @@ def test_run_creates_no_workflow_for_reused_folder(mock_output_cls, tmp_path):
     mock_workflow_cls.assert_called_once()
     assert mock_workflow_cls.call_args.args[0] == "raw2"
     mock_output_cls.return_value.build.assert_called_once_with(
-        [str(reused_folder), mock_workflow_cls.return_value.path], None
+        [str(reused_folder), mock_workflow_cls.return_value.path],
+        None,
+        step.spectral_library.precursor_df,
     )
 
 

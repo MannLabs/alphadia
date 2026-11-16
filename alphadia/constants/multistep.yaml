@@ -38,7 +38,6 @@ mbr:
   fasta_paths: []
   fdr:
     inference_strategy: library
-    pg_qval_from_library: True
   search:
     target_num_candidates: 5
   # override settings that could have been set by the user:

@@ -16,9 +16,6 @@ import numpy as np
 import pandas as pd
 import yaml
 
-# as written by alphadia's MBR library building step (`SearchPlanFiles`)
-MBR_LIBRARY_FILE_NAME = "speclib.mbr.hdf"
-
 
 # Add keys to config if they don't exist
 def safe_add_key(config, parent_key, key, value):
@@ -103,10 +100,6 @@ for i in range(0, max_tasks):
 
     # set library path in config (convert to absolute path to avoid working directory issues)
     safe_add_key(current_config, None, "library_path", os.path.abspath(lib_source))
-
-    # the MBR library carries the protein group q-values of the search that built it
-    if os.path.basename(lib_source) == MBR_LIBRARY_FILE_NAME:
-        safe_add_key(current_config, "fdr", "pg_qval_from_library", True)
 
     # set chunk folder as output_directory in the config
     safe_add_key(current_config, None, "output_directory", "./")

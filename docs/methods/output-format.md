@@ -192,7 +192,7 @@ The match-between-runs (MBR) output library containing all precursors which were
 
 - All high-confidence precursor identifications from the search
 - Empirically optimized retention times and ion mobilities
-- The q-value of each precursor's protein group in the search (`pg_qval`), which the MBR step of a multistep search takes instead of a protein FDR of its own (`fdr.pg_qval_from_library`)
+- The q-value of each precursor's protein group in the search (`pg_qval`), which a search of this library, like the MBR step of a multistep search, takes instead of a protein FDR of its own
 - Only created when `general.save_mbr_library: true` in the configuration
 
 ## `speclib.transfer.hdf`
