@@ -606,7 +606,7 @@
                     "id": "intensity_drift_correction",
                     "name": "Intensity drift correction",
                     "default": true,
-                    "description": "Remove each run's retention-time dependent intensity drift before label-free quantification. Each run's correction curve is centred on zero, so it only flattens how the intensity changes along the gradient and does not shift the overall intensity of a run. Differences in overall run intensity are corrected by the label-free quantification normalization.",
+                    "description": "Remove each run's retention-time dependent intensity drift before label-free quantification. Each run's correction is centred on zero, so it only flattens how the intensity changes along the gradient and does not shift the overall intensity of a run. Differences in overall run intensity are corrected by the label-free quantification normalization. With the varmodel_directlfq normalization method the precursor quantities are corrected along the retention time and the neutral precursor mass, against the precursors quantified in every run, or, if fewer than 10,000 are, in the largest number of runs that 10,000 precursors reach (at least two); otherwise the fragment intensities are corrected along the retention time, against the fragments observed in every run. Runs without enough reference precursors or fragments are left uncorrected, with a warning.",
                     "type": "boolean"
                 }
             ]
