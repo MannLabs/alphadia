@@ -438,6 +438,7 @@ def test_set_value_disallowed_key_raises():
         ("search", "candidate_context_features", True),
         ("calibration", "min_steps", 3),
         ("calibration", "max_skips", 1),
+        ("general", "reuse_calibration", True),
     ],
 )
 def test_default_config_tolerates_removed_keys(section, removed_key, value):

@@ -21,8 +21,6 @@ general:
   mbr_step_enabled: false
 
   # === advanced settings ===
-  # whether to reuse previously calculated calibration data
-  reuse_calibration: false
   # whether to reuse previously calculated quantification data
   reuse_quant: false
   # quant directories (e.g. `<previous_run>/quant`) of other runs to reuse quantification data from

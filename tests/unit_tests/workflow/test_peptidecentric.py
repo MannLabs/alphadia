@@ -23,7 +23,7 @@ from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWor
 @pytest.fixture
 def mock_config():
     return {
-        "general": {"save_figures": True, "reuse_calibration": False},
+        "general": {"save_figures": True},
         "output_directory": "",
         "calibration": {"min_correlation": 0.55, "max_fragments": 3},
     }
@@ -696,34 +696,6 @@ def test_expand_after_warm_up_extends_with_the_calibration():
 
     # Then: the batch that expand adds gets the calibration of the warm-up round
     assert calls[:2] == [("grow",), ("extend", handler._calibration_manager)]
-
-
-def test_calibration_searches_score_the_initial_number_of_peak_groups():
-    """Test that the calibration searches score `search_initial.num_candidates` peak groups, also when the manager
-    comes from an earlier run with the number of the main search (`general.reuse_calibration`)."""
-    # Given: a manager left at 3 peak groups by the main search of an earlier run
-    handler, optimization_manager = _create_calibration_loop_handler(
-        identifications_per_round=[20, 40, 41],
-        rt_residual_intervals=[100.0, 70.0, 68.0],
-    )
-    optimization_manager.update(num_candidates=3)
-    searched_num_candidates = []
-    search = handler._process_batch.side_effect
-
-    def search_and_record():
-        searched_num_candidates.append(optimization_manager.num_candidates)
-        return search()
-
-    handler._process_batch.side_effect = search_and_record
-
-    # When: the handler runs the calibration loop
-    with patch(
-        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
-    ):
-        handler.search_parameter_optimization()
-
-    # Then: every calibration search scores the best peak group only
-    assert searched_num_candidates == [1, 1, 1]
 
 
 def test_search_parameter_optimization_sets_the_number_of_candidates_for_the_main_search(

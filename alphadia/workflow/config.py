@@ -178,6 +178,7 @@ class Config(UserDict):
 # Note: if multiple levels have been removed, multiple entries are needed, e.g. ["removed_key_level1, removed_key_level1.removed_key_level2"]
 TOLERATED_KEYS = [
     # supported until 2.4.0:
+    "general.reuse_calibration",
     "search.use_idf_features",
     "search.candidate_context_features",
     "calibration.min_steps",
