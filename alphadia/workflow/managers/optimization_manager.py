@@ -19,7 +19,6 @@ class OptimizationManager(BaseManager):
     rt_error: float
     mobility_error: float
     num_candidates: int
-    classifier_version: int
     fwhm_rt: float
     fwhm_mobility: float
     score_cutoff: float
@@ -49,8 +48,6 @@ class OptimizationManager(BaseManager):
             self.fwhm_mobility = config["optimization_manager"]["fwhm_mobility"]
             self.score_cutoff = config["optimization_manager"]["score_cutoff"]
 
-            self.classifier_version = -1
-
             for key in [
                 "ms1_error",
                 "ms2_error",
@@ -60,7 +57,6 @@ class OptimizationManager(BaseManager):
                 "fwhm_rt",
                 "fwhm_mobility",
                 "score_cutoff",
-                "classifier_version",
             ]:
                 self.reporter.log_string(
                     f"initial parameter: {key} = {self.__dict__[key]}"
@@ -74,7 +70,6 @@ class OptimizationManager(BaseManager):
         rt_error: float | None = None,
         mobility_error: float | None = None,
         num_candidates: int | None = None,
-        classifier_version: int | None = None,
         fwhm_rt: float | None = None,
         fwhm_mobility: float | None = None,
         score_cutoff: float | None = None,
@@ -102,11 +97,6 @@ class OptimizationManager(BaseManager):
         if num_candidates is not None:
             _add_update_log("num_candidates", self.num_candidates, num_candidates)
             self.num_candidates = num_candidates
-        if classifier_version is not None:
-            _add_update_log(
-                "classifier_version", self.classifier_version, classifier_version
-            )
-            self.classifier_version = classifier_version
         if fwhm_rt is not None:
             _add_update_log("fwhm_rt", self.fwhm_rt, fwhm_rt)
             self.fwhm_rt = fwhm_rt

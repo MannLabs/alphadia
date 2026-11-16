@@ -66,12 +66,10 @@ _TOLERANCES = {
 
 @dataclass
 class CalibrationCheckpoint:
-    """The tolerances and the classifier that a calibrated round searched with, and the identification rate of the
-    round."""
+    """The tolerances that a calibrated round searched with, and the identification rate of the round."""
 
     identification_rate: float
     tolerances: dict[str, float]
-    classifier_version: int
 
 
 @dataclass
@@ -85,28 +83,26 @@ class ExtractedBatch:
 
 @dataclass
 class LockSearch(Generic[ExtractionHandlerT]):
-    """A search of the optimization lock, its FDR result and the RT tolerance and classifier it used.
+    """A search of the optimization lock, its FDR result and the RT tolerance it used.
 
-    A refit of the classifier scores the same search again and replaces `precursor_df` and `classifier_version`.
+    A refit of the classifier scores the same search again and replaces `precursor_df`.
     """
 
     extraction_handler: ExtractionHandlerT
     batch: ExtractedBatch
     precursor_df: pd.DataFrame
     rt_tolerance: float
-    classifier_version: int
 
 
 @dataclass(frozen=True)
 class CalibrationResult:
-    """The tolerances and the classifier version that the main search takes from the calibration loop.
+    """The tolerances that the main search takes from the calibration loop.
 
     The main search takes the calibration and the peak parameters of the last calibration, which the loop applies
     to the calibration and optimization managers.
     """
 
     tolerances: dict[str, float]
-    classifier_version: int
 
 
 @dataclass(frozen=True)
@@ -278,14 +274,13 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
         When the tolerances converged, the loop refits the classifier on the last search while the classifier
         identifies more precursors and calibrates on the best refit, see `_converge_classifier`. The best refit is a
-        checkpoint with the tolerances of the converged round and the refit classifier.
+        checkpoint with the tolerances of the converged round.
 
-        In every case, the main search uses the tolerances and the classifier of the best checkpoint, and the latest
-        calibration. An automatic RT tolerance holds `TOLERANCE_QUANTILE` of the true matches of the last search,
+        In every case, the main search uses the tolerances of the best checkpoint and the latest calibration. An automatic RT tolerance holds `TOLERANCE_QUANTILE` of the true matches of the last search,
         weighted by the classifier, see `_main_search_tolerances`.
 
         Each calibration applies its peak parameters to the optimization manager, see `_calibrate`. Returns the
-        tolerances and the classifier version of the main search, which the caller applies.
+        tolerances of the main search, which the caller applies.
         """
         log_string = self._reporter.log_string
         max_calibrations = self._config["calibration"]["max_steps"]
@@ -315,7 +310,6 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                     identification_rate=n_identified
                     / self._optlock.total_elution_groups,
                     tolerances=current_tolerances,
-                    classifier_version=search.classifier_version,
                 )
                 if best_checkpoint is not None and checkpoint.identification_rate < (
                     (1 - CalibrationLoop.MAX_IDENTIFICATION_LOSS)
@@ -408,7 +402,6 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                         identification_rate=len(refit.identifications)
                         / self._optlock.total_elution_groups,
                         tolerances=current_tolerances,
-                        classifier_version=search.classifier_version,
                     )
                     if (
                         refit_checkpoint.identification_rate
@@ -429,14 +422,10 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 "No checkpoint to take forward, keeping the initial tolerances.",
                 verbosity="warning",
             )
-            result = CalibrationResult(
-                self._optimization_manager.tolerances(names),
-                FDRManager.LATEST_VERSION,
-            )
+            result = CalibrationResult(self._optimization_manager.tolerances(names))
         else:
             result = CalibrationResult(
-                self._main_search_tolerances(best_checkpoint, search),
-                best_checkpoint.classifier_version,
+                self._main_search_tolerances(best_checkpoint, search)
             )
         log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
@@ -493,9 +482,9 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         identifications of the last calibration. Converging the classifier on the last search makes them independent
         of the number of rounds the tolerances needed.
 
-        Only a refit that identifies more precursors updates the lock. The FDR manager still stores the classifier of
-        a rejected refit as its latest version, so the main search takes the version of the returned refit.
-        Returns the best refit, or None when no refit identified more precursors.
+        Only a refit that identifies more precursors updates the lock. Every refit trains the one classifier of the
+        FDR manager further, including the last refit that the loop rejects. Returns the best refit, or None when no
+        refit identified more precursors.
         """
         best_refit = None
         for _ in range(CalibrationLoop.MAX_CLASSIFIER_REFITS):
@@ -510,11 +499,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             if len(identifications) <= n_identified:
                 break
             n_identified = len(identifications)
-            search = replace(
-                search,
-                precursor_df=precursor_df,
-                classifier_version=self._fdr_manager.current_version,
-            )
+            search = replace(search, precursor_df=precursor_df)
             best_refit = Refit(search, identifications, fragments)
             self._optlock.update_with_fdr(precursor_df)
         return best_refit
@@ -592,14 +577,9 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             batch=batch,
             precursor_df=precursor_df,
             rt_tolerance=self._optimization_manager.rt_error,
-            classifier_version=self._fdr_manager.current_version,
         )
 
         self._optlock.update_with_fdr(precursor_df)
-
-        self._reporter.log_string(
-            f"=== FDR correction performed, classifier version {search.classifier_version} ===",
-        )
 
         log_precursor_df(self._reporter, precursor_df)
 

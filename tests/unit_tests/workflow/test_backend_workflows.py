@@ -10,14 +10,10 @@ from alphadia_search_rs import FeatureSet
 from alphadia.constants.keys import SearchTolerance
 from alphadia.exceptions import GenericUserError
 from alphadia.raw_data.bruker import TimsTOFTranspose
-from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.optimization_handler import CalibrationResult
 from alphadia.workflow.peptidecentric.python.extraction_handler import (
     PythonExtractionHandler,
-)
-from alphadia.workflow.peptidecentric.python.optimization_handler import (
-    PythonOptimizationHandler,
 )
 from alphadia.workflow.peptidecentric.python.utils import feature_columns
 from alphadia.workflow.peptidecentric.python.workflow import (
@@ -232,87 +228,13 @@ def test_rust_workflow_does_not_support_multiplexing(tmp_path):
         workflow.requantify(MagicMock())
 
 
-@patch("alphadia.workflow.peptidecentric.rust.workflow.log_precursor_df")
-@patch("alphadia.workflow.peptidecentric.rust.workflow.add_library_fragment_intensity")
-def test_rust_main_search_starts_from_the_base_classifier(_, __, tmp_path):
-    """Test that the Rust main search does not ask for a calibration classifier, which it cannot use: the
-    calibration rounds train on other feature columns, so no calibration classifier is stored for the main search."""
-    # Given: a Rust workflow whose calibration took classifier version 3 forward
-    workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
-    workflow._optimization_manager.update(classifier_version=3)
-    extraction_handler = MagicMock()
-    extraction_handler.perform_fdr_and_filter_candidates.return_value = (
-        pd.DataFrame(),
-        pd.DataFrame(),
-    )
-    extraction_handler.quantify_candidates.return_value = (
-        pd.DataFrame(),
-        pd.DataFrame(),
-    )
-    workflow._create_extraction_handler = MagicMock(return_value=extraction_handler)
-    workflow._spectral_library = MagicMock()
-
-    # When: the workflow runs the main search
-    workflow.extraction()
-
-    # Then: the FDR of the main search starts from the base classifier
-    fdr_call = extraction_handler.perform_fdr_and_filter_candidates.call_args
-    assert fdr_call.args[2] is None
-    assert fdr_call.kwargs["final_round"] is True
-
-
-@patch("alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock")
-def test_calibration_fdr_starts_from_the_latest_classifier(_):
-    """Test that the FDR of a calibration search starts from the latest classifier, not from the version stored on
-    the optimization manager."""
-    # Given: an optimization manager that carries classifier version 3
-    optimization_manager = MagicMock(classifier_version=3)
-    fdr_manager = MagicMock()
-    extraction_handler = MagicMock()
-    extraction_handler.perform_fdr_and_filter_candidates.return_value = (None, None)
-    rust_handler = RustOptimizationHandler(
-        {},
-        optimization_manager,
-        MagicMock(),
-        fdr_manager,
-        MagicMock(),
-        MagicMock(),
-        MagicMock(),
-        create_extraction_handler=MagicMock(),
-    )
-    python_handler = PythonOptimizationHandler(
-        {"search": {}, "fdr": {"competitive_scoring": True}},
-        optimization_manager,
-        MagicMock(),
-        fdr_manager,
-        MagicMock(),
-        MagicMock(),
-        MagicMock(),
-        create_extraction_handler=MagicMock(),
-    )
-
-    # When: both backends perform the FDR of a calibration search
-    rust_handler._perform_fdr(extraction_handler, MagicMock())
-    with patch(
-        "alphadia.workflow.peptidecentric.python.optimization_handler.get_decoy_strategy"
-    ):
-        python_handler._perform_fdr(MagicMock(), MagicMock())
-
-    # Then: both start from the latest classifier
-    rust_call = extraction_handler.perform_fdr_and_filter_candidates.call_args
-    assert rust_call.args[2] == FDRManager.LATEST_VERSION
-    assert fdr_manager.fit_predict.call_args.kwargs["version"] == (
-        FDRManager.LATEST_VERSION
-    )
-
-
 def test_search_parameter_optimization_applies_the_calibration_result(tmp_path):
-    """Test that the workflow applies the tolerances and the classifier version that the calibration returns."""
-    # Given: a workflow whose calibration returns an MS2 tolerance of 9 and classifier version 4
+    """Test that the workflow applies the tolerances that the calibration returns."""
+    # Given: a workflow whose calibration returns an MS2 tolerance of 9
     workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
     workflow._fdr_manager = MagicMock()
     workflow._spectral_library = MagicMock()
-    result = CalibrationResult({SearchTolerance.MS2_ERROR: 9.0}, classifier_version=4)
+    result = CalibrationResult({SearchTolerance.MS2_ERROR: 9.0})
 
     # When: the workflow runs the search parameter optimization
     with (
@@ -326,4 +248,3 @@ def test_search_parameter_optimization_applies_the_calibration_result(tmp_path):
 
     # Then: the optimization manager holds the result for the main search
     assert workflow.optimization_manager.ms2_error == 9.0
-    assert workflow.optimization_manager.classifier_version == 4
