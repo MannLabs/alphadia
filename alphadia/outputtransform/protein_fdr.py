@@ -84,22 +84,17 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
 def apply_library_pg_qval(
     psm_df: pd.DataFrame, library_pg_qval_df: pd.DataFrame
 ) -> pd.DataFrame:
-    """Give each protein group, target or decoy, with a precursor at q-value MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING or
-    below its q-value from `library_pg_qval_df` (columns `pg`, `decoy` and `pg_qval`), and every other group
-    NO_EVIDENCE_QVAL.
+    """Give each protein group, target or decoy, its q-value from `library_pg_qval_df` (columns `pg`, `decoy` and
+    `pg_qval`), and every group without one there NO_EVIDENCE_QVAL.
     """
     # a decoy group carries the protein names of its target group, so the groups are told apart by `pg` and `decoy`
     group_columns = ["pg", "decoy"]
     library_pg_qval = (
         library_pg_qval_df.groupby(group_columns)["pg_qval"].max().reset_index()
     )
-    confident_groups = psm_df.loc[
-        psm_df["qval"] <= MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING, group_columns
-    ].drop_duplicates()
-    confident_pg_qval = confident_groups.merge(library_pg_qval, on=group_columns)
     pg_qval = (
         psm_df[group_columns]
-        .merge(confident_pg_qval, on=group_columns, how="left")["pg_qval"]
+        .merge(library_pg_qval, on=group_columns, how="left")["pg_qval"]
         .fillna(NO_EVIDENCE_QVAL)
         .to_numpy()
     )
