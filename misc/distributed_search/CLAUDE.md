@@ -82,7 +82,7 @@ sbatch outer.sh --files file_list.csv --nnodes 45 --mbr_library 0 --second_searc
 | `--search_config` | search.config | Search configuration file |
 | `--nnodes` | 1 | Number of parallel nodes |
 | `--cpus` | 32 | CPUs per task (thread_count) |
-| `--mem` | '250G' | RAM per task |
+| `--mem` | '100G' | RAM per task |
 | `--predict_library` | 1 | Enable library prediction |
 | `--first_search` | 1 | Enable first search |
 | `--mbr_library` | 1 | Enable MBR library building |

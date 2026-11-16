@@ -18,7 +18,7 @@ set -u -e
 nnodes=1
 ntasks_per_node=1
 cpus=32
-mem='250G'
+mem='100G'
 
 # Default search flags
 predict_library=1

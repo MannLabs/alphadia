@@ -43,7 +43,7 @@ For example, number of precursor candidates and inference strategy, as well as m
     across these nodes. If there are 5 nodes and 50 raw files, the search will take place on 5 nodes in chunks of 10 rawfiles each.
     - `--ntasks_per_node` (int): default to 1, some HPCL systems allow for multiple tasks to run on one node
     - `--cpus` (int): default to 12, specifies how many CPUs shall be used per task.
-    - `--mem` (str): default to '250G', specifies RAM requirements for each task.
+    - `--mem` (str): default to '100G', specifies RAM requirements for each task.
 
     *--> HPCL setups may restrict user resources to certain limits. Make sure the above parameters comply with your HPCL setup.*
     - `--predict_library` (1/0): default to 1, whether to predict a spectral library from a given fasta.
