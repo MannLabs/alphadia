@@ -4,8 +4,8 @@ import pandas as pd
 from alphadia.outputtransform.protein_fdr import (
     MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING,
     NO_EVIDENCE_QVAL,
+    apply_library_pg_qval,
     perform_protein_fdr,
-    transfer_library_pg_qval,
 )
 
 N_TRUE_TARGET_GROUPS = 1800
@@ -119,7 +119,7 @@ def test_few_decoy_groups_still_give_accepted_groups():
     assert len(accepted) == N_SMALL_TRUE_TARGET_GROUPS
 
 
-def test_transfer_library_pg_qval():
+def test_apply_library_pg_qval():
     """Test target and decoy groups with a confident precursor take the library q-value of their own kind, all other
     rows get none."""
     # given
@@ -140,7 +140,7 @@ def test_transfer_library_pg_qval():
     )
 
     # when
-    result = transfer_library_pg_qval(psm_df, library_pg_qval_df)
+    result = apply_library_pg_qval(psm_df, library_pg_qval_df)
 
     # then: A has a confident target, B only a weak one, the C target and the A decoy are not in the library, the C
     # decoy is

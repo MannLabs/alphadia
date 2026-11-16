@@ -81,7 +81,7 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     return scored
 
 
-def transfer_library_pg_qval(
+def apply_library_pg_qval(
     psm_df: pd.DataFrame, library_pg_qval_df: pd.DataFrame
 ) -> pd.DataFrame:
     """Give each protein group, target or decoy, with a precursor at q-value MAX_PRECURSOR_QVAL_FOR_PROTEIN_SCORING or
