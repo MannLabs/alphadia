@@ -2,9 +2,6 @@ import numpy as np
 import pandas as pd
 from alphadia_search_rs import VarModelQuantification
 
-from alphadia.outputtransform.quantification.censored_varmodel import (
-    censored_quantities,
-)
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     QuantBuilder,
@@ -16,6 +13,67 @@ N_RUNS = 6
 NOISE_SD = 0.25
 DETECTION_LIMIT = 9.0
 SEED = 1
+CORRELATION_SEED = 7
+# quantities of the first precursors from the validated array implementation of the censored fit, on the simulation
+# below with float32 inputs and correlations drawn with CORRELATION_SEED
+REFERENCE_CENSORED_G15 = np.array(
+    [
+        [
+            14.108416001952,
+            13.874226813174,
+            14.034860309895,
+            13.026770541503,
+            13.083449747145,
+            13.2233685966,
+        ],
+        [
+            17.737312000812,
+            17.656306024715,
+            17.512980086071,
+            16.624840076002,
+            16.629909130891,
+            16.82865774444,
+        ],
+        [np.nan] * N_RUNS,
+        [
+            17.639847688761,
+            17.594789333111,
+            17.538307952362,
+            16.620343315772,
+            16.536957324443,
+            16.597799885239,
+        ],
+    ]
+)
+REFERENCE_DROP_G1 = np.array(
+    [
+        [
+            14.112237041889,
+            13.906194732911,
+            14.094810461036,
+            13.033826736763,
+            13.076673767097,
+            13.22209950443,
+        ],
+        [
+            17.729902937759,
+            17.656766540045,
+            17.513641607546,
+            16.620774978435,
+            16.641287230911,
+            16.81776757159,
+        ],
+        [np.nan] * N_RUNS,
+        [
+            17.636630281078,
+            17.59612940009,
+            17.536601081281,
+            16.622618532447,
+            16.535514226902,
+            16.592772722142,
+        ],
+    ]
+)
 
 
 def simulate(log2_ratio: float, detection_limit: float | None):
@@ -43,26 +101,84 @@ def simulate(log2_ratio: float, detection_limit: float | None):
     )
 
 
-def test_without_censoring_the_port_reproduces_the_backend_fit():
-    intensity, library, precursor_index, _ = simulate(-1.0, DETECTION_LIMIT)
-
-    port = censored_quantities(
-        intensity, library, precursor_index, N_PRECURSORS, censored=False
-    )
-    backend = (
+def censored_quantities(
+    intensity: np.ndarray,
+    library: np.ndarray,
+    precursor_index: np.ndarray,
+    n_precursors: int,
+    censored: bool = True,
+    correlation: np.ndarray | None = None,
+    quality_exponent: float = 0.0,
+) -> np.ndarray:
+    """(precursors, runs) log2 quantities of the backend fit on (fragments, runs) intensities."""
+    options = {}
+    if correlation is not None:
+        options["correlation"] = np.ascontiguousarray(correlation.T.astype(np.float32))
+    return (
         VarModelQuantification()
         .fit(
             np.ascontiguousarray(intensity.T.astype(np.float32)),
             library.astype(np.float32),
             precursor_index.astype(np.uintp),
-            N_PRECURSORS,
+            n_precursors,
+            missing_fragments="censored" if censored else "drop",
+            quality_exponent=quality_exponent,
+            **options,
         )["quantity"]
         .T
     )
 
-    both = np.isfinite(port) & np.isfinite(backend)
+
+def test_without_censoring_the_extended_fit_reproduces_the_plain_fit():
+    # Given a quality exponent too small to change any weight, which still runs the extended (f64) fit
+    intensity, library, precursor_index, _ = simulate(-1.0, DETECTION_LIMIT)
+
+    # When
+    extended = censored_quantities(
+        intensity,
+        library,
+        precursor_index,
+        N_PRECURSORS,
+        censored=False,
+        correlation=np.full(intensity.shape, 0.5),
+        quality_exponent=1e-12,
+    )
+    plain = censored_quantities(
+        intensity, library, precursor_index, N_PRECURSORS, censored=False
+    )
+
+    # Then
+    both = np.isfinite(extended) & np.isfinite(plain)
     assert both.mean() > 0.6
-    np.testing.assert_allclose(port[both], backend[both], atol=0.02)
+    np.testing.assert_allclose(extended[both], plain[both], atol=0.02)
+
+
+def test_extended_fit_matches_the_reference_implementation():
+    # Given
+    intensity, library, precursor_index, _ = simulate(-1.0, DETECTION_LIMIT)
+    correlation = np.random.default_rng(CORRELATION_SEED).uniform(
+        0.3, 1.0, intensity.shape
+    )
+
+    for censored, gamma, reference in (
+        (True, 1.5, REFERENCE_CENSORED_G15),
+        (False, 1.0, REFERENCE_DROP_G1),
+    ):
+        # When
+        quantities = censored_quantities(
+            intensity,
+            library,
+            precursor_index,
+            N_PRECURSORS,
+            censored=censored,
+            correlation=correlation,
+            quality_exponent=gamma,
+        )
+
+        # Then
+        np.testing.assert_allclose(
+            quantities[: len(reference)], reference, rtol=0, atol=1e-7
+        )
 
 
 def test_a_run_without_missing_fragments_does_not_spoil_the_other_runs():
@@ -164,8 +280,8 @@ def test_quality_exponent_downweights_interfered_values():
     assert shift[1.5] < 0.75 * shift[0.0]
 
 
-def test_precursor_table_of_a_single_run_uses_the_backend_fit():
-    # given: one run, where the numpy fit has no fragments seen in several runs to estimate its noise curve from
+def test_precursor_table_of_a_single_run_uses_the_plain_fit():
+    # given: one run, where the extended fit has no fragments seen in several runs to estimate its noise curve from
     intensity, library, precursor_index, _ = simulate(0.0, None)
     intensity_df = pd.DataFrame({"run0": intensity[:, 0]})
     intensity_df.insert(0, "precursor_idx", precursor_index)
