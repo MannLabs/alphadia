@@ -6,7 +6,6 @@ version: null
 workflow_name: null
 output_directory: null
 library_path: null  # the expected type is steered by general.input_library_type
-mbr_run_identifications_path: null
 raw_paths: []
 fasta_paths: []
 quant_directory: null
@@ -304,6 +303,9 @@ fdr:
   keep_decoys: false
   # whether to keep decoy PSMs in the MBR library
   keep_decoys_in_mbr_library: true
+  # whether to take the protein group q-values from the column pg_qval of the library (an MBR library) instead of a
+  # protein FDR of its own; set for the MBR step by the multistep search
+  pg_qval_from_library: false
   # decoy generation scheme for the search library and the MBR library: "diann" or "pseudo_reverse"
   # ignored if the provided library already contains decoys
   decoy_type: "diann"

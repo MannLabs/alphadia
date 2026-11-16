@@ -10,7 +10,6 @@ output/
 ├── internal.tsv
 ├── speclib.hdf
 ├── speclib.mbr.hdf
-├── speclib.mbr.run_identifications.parquet
 ├── frozen_config.yaml
 ├── quant/
 │   ├── <raw_file_1>/
@@ -37,7 +36,6 @@ The final results will still be saved in the `output` folder.
 ### Match Between Runs (`mbr_step_enabled: true`)
 When MBR is enabled, a two-pass search strategy is used. The first pass performs an initial search to build a sample-specific MBR library. Intermediate results are stored in `output/library/`, including:
 - The MBR library built from first-pass identifications (`speclib.mbr.hdf`)
-- The elution groups each run identified in the first pass (`speclib.mbr.run_identifications.parquet`), for the separate q-values of the MBR step
 - Statistics from the library building step
 
 The final results will still be saved in the `output` folder.
@@ -56,7 +54,6 @@ The final results will still be saved in the `output` folder.
 | `internal.tsv` | Internal statistics and metadata from the search |
 | `speclib.hdf` | Input spectral library (may be reannotated or predicted) |
 | `speclib.mbr.hdf` | MBR library containing all identified precursors |
-| `speclib.mbr.run_identifications.parquet` | Elution groups each run identified, which the MBR library was built from |
 | `speclib.transfer.hdf` | Fragment quantities extracted from search results for transfer learning |
 | `frozen_config.yaml` | Complete configuration snapshot for reproducibility |
 | `quant/` | Per-file quantification data for checkpointing |
@@ -195,16 +192,8 @@ The match-between-runs (MBR) output library containing all precursors which were
 
 - All high-confidence precursor identifications from the search
 - Empirically optimized retention times and ion mobilities
+- The q-value of each precursor's protein group in the search (`pg_qval`), which the MBR step of a multistep search takes instead of a protein FDR of its own (`fdr.pg_qval_from_library`)
 - Only created when `general.save_mbr_library: true` in the configuration
-
-## `speclib.mbr.run_identifications.parquet`
-The elution groups each run identified with a target or a decoy precursor at 1 % precursor and protein group FDR, the identifications the MBR library is built from. Written together with `speclib.mbr.hdf`.
-
-Format: one row per identified elution group, target or decoy, and protein group per run, with the columns `run`, `elution_group_idx`, `decoy`, `pg` and `pg_qval`.
-
-The MBR step of a multistep search uses it (config `mbr_run_identifications_path`):
-- The q-values are computed separately for the elution groups the run identified in the first pass, by a target or a decoy, and for the others.
-- Instead of a protein FDR of its own, each protein group, target or decoy, with a precursor at q-value 1 % or below takes the `pg_qval` it had in the first pass; all other groups get q-value 1.
 
 ## `speclib.transfer.hdf`
 The transfer learning library containing training data for sample-specific model refinement.

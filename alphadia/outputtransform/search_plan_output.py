@@ -2,6 +2,7 @@ import logging
 import os
 
 import pandas as pd
+from alphabase.io.hdf import HDF_File
 from alphabase.peptide import fragment
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
@@ -14,7 +15,7 @@ from alphadia.constants.keys import (
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
-from alphadia.libtransform.mbr import MbrLibraryBuilder, get_run_identifications
+from alphadia.libtransform.mbr import MbrLibraryBuilder
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
     build_run_stat_df,
@@ -108,8 +109,8 @@ class SearchPlanOutput:
 
         """
         logger.progress("Processing search outputs")
-        # the decoys stay in until the precursor table is written: the MBR library and the run identifications take
-        # the first search's accepted decoys whether the outputs keep decoys or not
+        # the decoys stay in until the precursor table is written: the MBR library takes the first search's accepted
+        # decoys whether the outputs keep decoys or not
         psm_df = self._build_precursor_table(folder_list)
 
         # every output is written as soon as it is built, so a later failure does not
@@ -129,9 +130,6 @@ class SearchPlanOutput:
             mbr_spec_lib = self._build_mbr_library(base_spec_lib, psm_df)
             if mbr_spec_lib is not None:
                 self._write_library(mbr_spec_lib, SearchPlanFiles.MBR_LIBRARY_FILE_NAME)
-                self._write_run_identifications(
-                    get_run_identifications(psm_df, MBR_LIBRARY_FDR)
-                )
 
         if self.config["transfer_library"]["enabled"]:
             self._write_library(
@@ -183,13 +181,6 @@ class SearchPlanOutput:
         library_path = os.path.join(self.output_folder, file_name)
         logger.info(f"Writing spectral library to {library_path}")
         spec_lib.save_hdf(library_path)
-
-    def _write_run_identifications(self, run_identifications_df: pd.DataFrame) -> None:
-        run_identifications_path = os.path.join(
-            self.output_folder, SearchPlanFiles.MBR_RUN_IDENTIFICATIONS_FILE_NAME
-        )
-        logger.info(f"Writing run identifications to {run_identifications_path}")
-        run_identifications_df.to_parquet(run_identifications_path, index=False)
 
     def _write_model(self, tune_mgr: FinetuneManager) -> None:
         tune_mgr.save_models(
@@ -354,18 +345,17 @@ class SearchPlanOutput:
             self.config["fdr"]["group_level"],
         )
 
-        run_identifications_path = self.config.get(
-            ConfigKeys.MBR_RUN_IDENTIFICATIONS_PATH
-        )
-        if run_identifications_path is not None:
+        if self.config["fdr"]["pg_qval_from_library"]:
             # The MBR step only searches the groups that passed the first search, whose protein FDR counted the false
             # groups among them. A protein FDR of its own would count decoys of groups that are already accepted, so a
             # few of its decoys scoring into the targets would cut accepted groups.
-            logger.info(f"Taking the protein q-values from {run_identifications_path}")
+            library_path = self.config[ConfigKeys.LIBRARY_PATH]
+            logger.info(f"Taking the protein q-values from {library_path}")
+            library_precursor_df = HDF_File(library_path).library.precursor_df.values
             psm_df = transfer_library_pg_qval(
                 psm_df,
-                pd.read_parquet(
-                    run_identifications_path, columns=["pg", "pg_qval", "decoy"]
+                library_precursor_df[["proteins", "decoy", "pg_qval"]].rename(
+                    columns={"proteins": "pg"}
                 ),
             )
         else:

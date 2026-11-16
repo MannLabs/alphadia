@@ -174,7 +174,8 @@ class MbrLibraryBuilder(ProcessingStep):
         Returns
         -------
         SpecLibBase
-            MBR library with RT and protein group assignments.
+            MBR library with RT and protein group assignments, and in the column `pg_qval` the q-value each precursor's
+            protein group, target or decoy, had in `psm_df` (NaN if it did not pass the FDR threshold).
 
         Notes
         -----
@@ -184,7 +185,7 @@ class MbrLibraryBuilder(ProcessingStep):
         3. Filter base library to those elution groups
         4. Generate decoys if keep_decoys=True, then rehash so each
            precursor has a unique mod_seq_charge_hash
-        5. Assign RT and protein groups to each precursor
+        5. Assign RT, protein groups and protein group q-values to each precursor
 
         RT and protein group assignment strategy:
         - If a precursor's mod_seq_charge_hash was identified in PSM, use its specific RT/pg
@@ -215,9 +216,7 @@ class MbrLibraryBuilder(ProcessingStep):
             mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
 
         # The mean over the runs, not the median: the median of an odd number of runs is the RT of one of them, which
-        # that run would find again with no RT error at all. The mean only lowers the share of each run's own RT: an
-        # elution group identified in a single run still gets that run's RT, and its re-finding there is left to the
-        # separate q-values of the MBR step.
+        # that run would find again with no RT error at all.
         agg_by_eg = psm_df.groupby("elution_group_idx", as_index=False).agg(
             rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="mean"),
             pg=pd.NamedAgg(column="pg", aggfunc="first"),
@@ -229,18 +228,11 @@ class MbrLibraryBuilder(ProcessingStep):
 
         self._assign_rt_and_protein_groups(mbr_speclib, agg_by_eg, agg_by_hash)
 
+        # a decoy group carries the protein names of its target group, so the groups are told apart by `decoy`
+        pg_qval = psm_df.groupby(["pg", "decoy"])["pg_qval"].max()
+        precursor_df = mbr_speclib._precursor_df
+        precursor_df["pg_qval"] = pg_qval.reindex(
+            pd.MultiIndex.from_arrays([precursor_df["proteins"], precursor_df["decoy"]])
+        ).to_numpy()
+
         return mbr_speclib
-
-
-def get_run_identifications(psm_df: pd.DataFrame, fdr: float) -> pd.DataFrame:
-    """Return the elution groups each run identified at `fdr`, by a target or a decoy, with their protein group and its
-    q-value: those of the PSMs whose precursor and protein group both pass `fdr`.
-    """
-    run_identifications_df = (
-        _passing_fdr(psm_df, fdr)
-        .reindex(columns=["run", "elution_group_idx", "decoy", "pg", "pg_qval"])
-        .drop_duplicates()
-        .reset_index(drop=True)
-    )
-    run_identifications_df["run"] = run_identifications_df["run"].astype("category")
-    return run_identifications_df

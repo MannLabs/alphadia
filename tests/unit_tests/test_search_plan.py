@@ -249,12 +249,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
         | {
             "library_path": str(
                 Path("/user_provided_output_path/library/speclib.mbr.hdf")
-            ),
-            "mbr_run_identifications_path": str(
-                Path(
-                    "/user_provided_output_path/library/speclib.mbr.run_identifications.parquet"
-                )
-            ),
+            )
         },
         "cli_config": BASE_CLI_PARAMS_CONFIG,
         "step_name": "mbr",
@@ -326,11 +321,6 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         | {
             "library_path": str(
                 Path("/user_provided_output_path/library/speclib.mbr.hdf")
-            ),
-            "mbr_run_identifications_path": str(
-                Path(
-                    "/user_provided_output_path/library/speclib.mbr.run_identifications.parquet"
-                )
             ),
         },
         "cli_config": BASE_CLI_PARAMS_CONFIG,

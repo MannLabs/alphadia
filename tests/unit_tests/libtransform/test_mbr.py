@@ -6,11 +6,7 @@ import pytest
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 
 from alphadia.libtransform.decoy import DecoyGenerator
-from alphadia.libtransform.mbr import (
-    IndexBuilder,
-    MbrLibraryBuilder,
-    get_run_identifications,
-)
+from alphadia.libtransform.mbr import IndexBuilder, MbrLibraryBuilder
 
 
 class TestIndexBuilder:
@@ -168,7 +164,6 @@ class TestMbrLibraryBuilder:
                 "pg_qval": [0.001, 0.001, 0.001, 0.001],
                 "run": ["run_a", "run_a", "run_b", "run_b"],
                 "rt_observed": [10.0, 11.0, 20.0, 30.0],
-                "rt_calibrated": [10.5, 11.5, 20.5, 30.5],
                 "pg": ["PG_A", "PG_A", "PG_B", "PG_C"],
                 "mod_seq_charge_hash": [
                     lib_hashes[0],
@@ -202,6 +197,22 @@ class TestMbrLibraryBuilder:
         ).reset_index(drop=True)
         np.testing.assert_array_equal(df_no_decoy["elution_group_idx"].values, [0, 1])
         np.testing.assert_array_equal(df_no_decoy["decoy"].values, [0, 0])
+
+    def test_precursors_carry_the_q_value_of_their_protein_group(
+        self, base_library, psm_df
+    ):
+        """Test each precursor gets the q-value of its own protein group, a decoy that of the decoy group."""
+        # given
+        psm_df["pg_qval"] = [0.001, 0.004, 0.002, 0.001]
+
+        # when
+        result = MbrLibraryBuilder(fdr=0.01, keep_decoys=True)(psm_df, base_library)
+
+        # then: the decoy group of PG_B did not pass
+        df = result.precursor_df.sort_values(["elution_group_idx", "decoy"])
+        np.testing.assert_array_equal(
+            df["pg_qval"].values, [0.001, 0.004, 0.002, np.nan]
+        )
 
     def test_rt_is_the_mean_over_the_runs(self, base_library, psm_df):
         """Test a precursor identified in several runs gets the mean of its observed RTs, not the median."""
@@ -277,7 +288,6 @@ class TestMbrLibraryBuilder:
                 "pg_qval": [0.001, 0.001],
                 "run": ["run_a", "run_a"],
                 "rt_observed": [10.0, 20.0],
-                "rt_calibrated": [10.5, 20.5],
                 "pg": ["PG_A", "PG_B"],
                 "mod_seq_charge_hash": [lib_hashes[0], -1],
             }
@@ -323,41 +333,3 @@ class TestMbrLibraryBuilder:
         np.testing.assert_array_equal(
             result.precursor_df["elution_group_idx"].values, [0]
         )
-
-
-class TestGetRunIdentifications:
-    """Tests for get_run_identifications."""
-
-    def test_keeps_the_elution_groups_of_the_precursors_passing_both_fdrs_decoys_included(
-        self,
-    ):
-        # given
-        psm_df = pd.DataFrame(
-            {
-                "run": ["run_a", "run_a", "run_a", "run_a", "run_b"],
-                "elution_group_idx": [0, 0, 1, 2, 3],
-                "mod_seq_charge_hash": [100, 101, 102, 200, 300],
-                "decoy": [0, 0, 1, 0, 0],
-                "qval": [0.001, 0.001, 0.001, 0.001, 0.05],
-                "pg_qval": [0.001, 0.001, 0.001, 0.05, 0.001],
-                "rt_observed": [10.0, 11.0, 12.0, 20.0, 30.0],
-                "pg": ["PG_A", "PG_A", "PG_A", "PG_B", "PG_C"],
-            }
-        )
-
-        # when
-        result = get_run_identifications(psm_df, fdr=0.01)
-
-        # then
-        assert list(result.columns) == [
-            "run",
-            "elution_group_idx",
-            "decoy",
-            "pg",
-            "pg_qval",
-        ]
-        assert result["run"].tolist() == ["run_a", "run_a"]
-        assert result["elution_group_idx"].tolist() == [0, 1]
-        assert result["decoy"].tolist() == [0, 1]
-        assert result["pg"].tolist() == ["PG_A", "PG_A"]
-        assert result["pg_qval"].tolist() == [0.001, 0.001]
