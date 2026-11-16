@@ -27,8 +27,8 @@ from alphadia.outputtransform.outputaccumulator import (
     TransferLearningAccumulator,
 )
 from alphadia.outputtransform.protein_fdr import (
+    apply_library_pg_qval,
     perform_protein_fdr,
-    transfer_library_pg_qval,
 )
 from alphadia.outputtransform.quantification import QuantOutputBuilder
 from alphadia.outputtransform.utils import (
@@ -346,13 +346,12 @@ class SearchPlanOutput:
         )
 
         if self.config["fdr"]["pg_qval_from_library"]:
-            # The MBR step only searches the groups that passed the first search, whose protein FDR counted the false
-            # groups among them. A protein FDR of its own would count decoys of groups that are already accepted, so a
-            # few of its decoys scoring into the targets would cut accepted groups.
+            # The MBR step searches only the groups that passed the protein FDR of the first search, which counted the
+            # false groups among them, so each group keeps the q-value it got there.
             library_path = self.config[ConfigKeys.LIBRARY_PATH]
             logger.info(f"Taking the protein q-values from {library_path}")
             library_precursor_df = HDF_File(library_path).library.precursor_df.values
-            psm_df = transfer_library_pg_qval(
+            psm_df = apply_library_pg_qval(
                 psm_df,
                 library_precursor_df[["proteins", "decoy", "pg_qval"]].rename(
                     columns={"proteins": "pg"}
