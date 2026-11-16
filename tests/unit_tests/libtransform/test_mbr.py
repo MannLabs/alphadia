@@ -6,11 +6,7 @@ import pytest
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 
 from alphadia.libtransform.decoy import DecoyGenerator
-from alphadia.libtransform.mbr import (
-    IndexBuilder,
-    MbrLibraryBuilder,
-    get_run_identifications,
-)
+from alphadia.libtransform.mbr import IndexBuilder, MbrLibraryBuilder
 
 
 class TestIndexBuilder:
@@ -168,7 +164,6 @@ class TestMbrLibraryBuilder:
                 "pg_qval": [0.001, 0.001, 0.001, 0.001],
                 "run": ["run_a", "run_a", "run_b", "run_b"],
                 "rt_observed": [10.0, 11.0, 20.0, 30.0],
-                "rt_calibrated": [10.5, 11.5, 20.5, 30.5],
                 "pg": ["PG_A", "PG_A", "PG_B", "PG_C"],
                 "mod_seq_charge_hash": [
                     lib_hashes[0],
@@ -277,7 +272,6 @@ class TestMbrLibraryBuilder:
                 "pg_qval": [0.001, 0.001],
                 "run": ["run_a", "run_a"],
                 "rt_observed": [10.0, 20.0],
-                "rt_calibrated": [10.5, 20.5],
                 "pg": ["PG_A", "PG_B"],
                 "mod_seq_charge_hash": [lib_hashes[0], -1],
             }
@@ -323,31 +317,3 @@ class TestMbrLibraryBuilder:
         np.testing.assert_array_equal(
             result.precursor_df["elution_group_idx"].values, [0]
         )
-
-
-class TestGetRunIdentifications:
-    """Tests for get_run_identifications."""
-
-    def test_keeps_the_elution_groups_of_the_target_precursors_passing_both_fdrs(
-        self,
-    ):
-        # given
-        psm_df = pd.DataFrame(
-            {
-                "run": ["run_a", "run_a", "run_a", "run_a", "run_b"],
-                "elution_group_idx": [0, 0, 1, 2, 3],
-                "mod_seq_charge_hash": [100, 101, 102, 200, 300],
-                "decoy": [0, 0, 1, 0, 0],
-                "qval": [0.001, 0.001, 0.001, 0.001, 0.05],
-                "pg_qval": [0.001, 0.001, 0.001, 0.05, 0.001],
-                "rt_observed": [10.0, 11.0, 12.0, 20.0, 30.0],
-            }
-        )
-
-        # when
-        result = get_run_identifications(psm_df, fdr=0.01)
-
-        # then
-        assert list(result.columns) == ["run", "elution_group_idx"]
-        assert result["run"].tolist() == ["run_a"]
-        assert result["elution_group_idx"].tolist() == [0]

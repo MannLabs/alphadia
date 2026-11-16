@@ -126,8 +126,7 @@ search_<basename>/
 │   └── ...
 ├── 3_mbr_library/
 │   └── chunk_0/
-│       ├── speclib.mbr.hdf
-│       └── speclib.mbr.run_identifications.parquet  # passed to the second search with the MBR library
+│       └── speclib.mbr.hdf
 ├── 4_second_search/
 │   ├── chunk_0/
 │   └── ...
