@@ -160,6 +160,7 @@ class DecoyType(metaclass=ConstantsClass):
     """String constants for decoy generation schemes."""
 
     DIANN = "diann"
+    DIANN_INNER = "diann_inner"
     PSEUDO_REVERSE = "pseudo_reverse"
 
 

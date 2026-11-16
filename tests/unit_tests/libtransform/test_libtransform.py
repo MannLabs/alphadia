@@ -22,7 +22,7 @@ from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
 
 
-@pytest.mark.parametrize("decoy_type", ["diann", "pseudo_reverse"])
+@pytest.mark.parametrize("decoy_type", ["diann", "diann_inner", "pseudo_reverse"])
 def test_library_transform(decoy_type):
     fasta = """
 >sp|Q9CX84|RGS19_MOUSE Regulator of G-protein signaling 19 OS=Mus musculus OX=10090 GN=Rgs19 PE=1 SV=2
