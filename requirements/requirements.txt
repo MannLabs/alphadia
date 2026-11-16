@@ -3,7 +3,7 @@
 # alphaX
 alphadia-search-rs>=1.11.0,<2
 alpharaw>=0.6.0
-alphabase>1.10.2 # diann_inner decoys
+alphabase>1.10.2
 peptdeep>=1.4.1
 directlfq>=0.2.19
 # quantification model selection
