@@ -84,7 +84,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
 
         self._timing_manager: TimingManager = TimingManager(
             path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
-            load_from_file=self.config["general"]["reuse_calibration"],
+            load_from_file=False,
         )
 
         if random_state is not None:

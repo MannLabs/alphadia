@@ -46,7 +46,6 @@ def _create_workflow(workflow_class, tmp_path):
     config = {
         "general": {
             "save_figures": False,
-            "reuse_calibration": False,
             "thread_count": THREAD_COUNT,
         },
         "output_directory": str(tmp_path),
