@@ -79,6 +79,8 @@ class RawFileManager(BaseManager):
 
         """
         file_extension = os.path.splitext(dia_data_path)[1]
+        # the MS1 features need the MS1 scans, also those acquired on their own clock
+        align_ms1 = self._config["search"]["ms1_features"]
 
         if file_extension.lower() == ".d":
             raw_data_type = "bruker"
@@ -92,7 +94,7 @@ class RawFileManager(BaseManager):
                 dia_data = TimsTOFTranspose(dia_data_path)
             else:
                 raw_data_type = "alpharaw"
-                dia_data = AlphaRawBase(dia_data_path)
+                dia_data = AlphaRawBase(dia_data_path, align_ms1=align_ms1)
 
         elif file_extension.lower() == ".raw":
             raw_data_type = "thermo"
@@ -100,17 +102,18 @@ class RawFileManager(BaseManager):
             dia_data = Thermo(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
+                align_ms1=align_ms1,
             )
 
         elif file_extension.lower() == ".mzml":
             raw_data_type = "mzml"
 
-            dia_data = MzML(dia_data_path)
+            dia_data = MzML(dia_data_path, align_ms1=align_ms1)
 
         elif file_extension.lower() == ".wiff":
             raw_data_type = "sciex"
 
-            dia_data = Sciex(dia_data_path)
+            dia_data = Sciex(dia_data_path, align_ms1=align_ms1)
 
         else:
             raise ValueError(
@@ -152,10 +155,10 @@ class RawFileManager(BaseManager):
         rt_duration = self.stats["rt_limit_max"] - self.stats["rt_limit_min"]
 
         logger.info(
-            f"{'RT (min)':<20}: {self.stats['rt_limit_min']/60:.1f} - {self.stats['rt_limit_max']/60:.1f}"
+            f"{'RT (min)':<20}: {self.stats['rt_limit_min'] / 60:.1f} - {self.stats['rt_limit_max'] / 60:.1f}"
         )
         logger.info(f"{'RT duration (sec)':<20}: {rt_duration:.1f}")
-        logger.info(f"{'RT duration (min)':<20}: {rt_duration/60:.1f}")
+        logger.info(f"{'RT duration (min)':<20}: {rt_duration / 60:.1f}")
 
         logger.info(f"{'Cycle len (scans)':<20}: {self.stats['cycle_length']:.0f}")
         logger.info(f"{'Cycle len (sec)':<20}: {self.stats['cycle_duration']:.2f}")
