@@ -42,6 +42,9 @@ from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
+# precursor and protein group FDR of the identifications the MBR library is built from, independent of fdr.fdr
+MBR_LIBRARY_FDR = 0.01
+
 
 class SearchPlanOutput:
     def __init__(self, config: Config, output_folder: str):
@@ -444,7 +447,7 @@ class SearchPlanOutput:
             return None
 
         libbuilder = MbrLibraryBuilder(
-            fdr=0.01,
+            fdr=MBR_LIBRARY_FDR,
             keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
             decoy_type=self.config["fdr"]["decoy_type"],
         )
