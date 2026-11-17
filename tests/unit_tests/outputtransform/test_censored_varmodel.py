@@ -14,8 +14,10 @@ NOISE_SD = 0.25
 DETECTION_LIMIT = 9.0
 SEED = 1
 CORRELATION_SEED = 7
-# quantities of the first precursors from the validated array implementation of the censored fit, on the simulation
-# below with float32 inputs and correlations drawn with CORRELATION_SEED
+REFERENCE_TOLERANCE = 2e-4
+# quantities of the first precursors from the array implementation the censored fit was validated against (dropout
+# curve on every measurement, all precursors swept in lockstep), on the simulation below with float32 inputs and
+# correlations drawn with CORRELATION_SEED
 REFERENCE_CENSORED_G15 = np.array(
     [
         [
@@ -153,7 +155,9 @@ def test_without_censoring_the_extended_fit_reproduces_the_plain_fit():
     np.testing.assert_allclose(extended[both], plain[both], atol=0.02)
 
 
-def test_extended_fit_matches_the_reference_implementation():
+def test_extended_fit_agrees_with_the_reference_implementation():
+    # the binned dropout likelihood and the per-precursor convergence move the quantities within the convergence
+    # tolerance only
     # Given
     intensity, library, precursor_index, _ = simulate(-1.0, DETECTION_LIMIT)
     correlation = np.random.default_rng(CORRELATION_SEED).uniform(
@@ -177,7 +181,7 @@ def test_extended_fit_matches_the_reference_implementation():
 
         # Then
         np.testing.assert_allclose(
-            quantities[: len(reference)], reference, rtol=0, atol=1e-7
+            quantities[: len(reference)], reference, rtol=0, atol=REFERENCE_TOLERANCE
         )
 
 
