@@ -82,7 +82,13 @@ def test_score_candidates_returns_the_scored_features(
     mock_candidates_to_rust, mock_scoring, mock_to_features_df, feature_set
 ):
     # Given: a handler with a configured top k fragments value
-    config = {"search": {"top_k_fragments_scoring": 12}}
+    config = {
+        "search": {
+            "top_k_fragments_scoring": 12,
+            "ms1_features": False,
+            "detection_features": False,
+        }
+    }
     handler = _create_handler(config)
 
     # When: the handler scores the candidates with the feature set
@@ -97,7 +103,10 @@ def test_score_candidates_returns_the_scored_features(
         handler._dia_data, handler._speclib_rust, mock_candidates_to_rust.return_value
     )
     mock_to_features_df.assert_called_once_with(
-        mock_scoring.return_value.score.return_value, handler._spectral_library
+        mock_scoring.return_value.score.return_value,
+        handler._spectral_library,
+        ms1_scored=False,
+        detection_scored=False,
     )
     assert features_df is mock_to_features_df.return_value
 

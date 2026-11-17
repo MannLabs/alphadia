@@ -1,8 +1,10 @@
 """Unit tests for the alphadia-search-rs mapper."""
 
 import os
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -11,6 +13,7 @@ from alphadia_search_rs import FeatureSet
 import alphadia
 from alphadia.workflow.peptidecentric.rust.mapper import (
     INTERFERENCE_FEATURE_GROUPS,
+    dia_data_to_rust,
     get_classifier_feature_columns,
     get_interference_feature_groups,
     to_features_df,
@@ -154,3 +157,41 @@ def test_default_config_enables_the_interference_features():
         "fitted_spread_features",
         "window_signal_share_features",
     ]
+
+
+def _dia_data(cycle_positions=None):
+    return SimpleNamespace(
+        spectrum_df=pd.DataFrame(
+            {
+                "isolation_lower_mz": [-1.0, 400.0, -1.0, 400.0],
+                "isolation_upper_mz": [-1.0, 600.0, -1.0, 600.0],
+                "peak_start_idx": [0, 1, 2, 3],
+                "peak_stop_idx": [1, 2, 3, 4],
+                "rt": [1.0, 1.1, 2.0, 2.1],
+            }
+        ),
+        peak_df=pd.DataFrame({"mz": [1.0, 2.0, 3.0, 4.0], "intensity": [1.0] * 4}),
+        cycle=np.zeros((1, 2, 1, 2)),
+        cycle_positions=cycle_positions,
+    )
+
+
+@patch("alphadia.workflow.peptidecentric.rust.mapper.DiaDataRust")
+def test_dia_data_to_rust_passes_the_cycle_positions_of_aligned_ms1_scans(
+    mock_dia_data_rust,
+):
+    # when
+    dia_data_rust = dia_data_to_rust(_dia_data(np.array([0.5, 0.0])))
+
+    # then
+    dia_data_rust.set_cycle_positions.assert_called_once_with([0.5, 0.0])
+    assert dia_data_rust is mock_dia_data_rust.from_arrays.return_value
+
+
+@patch("alphadia.workflow.peptidecentric.rust.mapper.DiaDataRust")
+def test_dia_data_to_rust_keeps_the_default_cycle_positions(mock_dia_data_rust):
+    # when
+    dia_data_rust = dia_data_to_rust(_dia_data())
+
+    # then
+    dia_data_rust.set_cycle_positions.assert_not_called()
