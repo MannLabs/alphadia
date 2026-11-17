@@ -198,6 +198,22 @@ class TestMbrLibraryBuilder:
         np.testing.assert_array_equal(df_no_decoy["elution_group_idx"].values, [0, 1])
         np.testing.assert_array_equal(df_no_decoy["decoy"].values, [0, 0])
 
+    def test_precursors_carry_the_q_value_of_their_protein_group(
+        self, base_library, psm_df
+    ):
+        """Test each precursor gets the q-value of its own protein group, a decoy that of the decoy group."""
+        # given
+        psm_df["pg_qval"] = [0.001, 0.004, 0.002, 0.001]
+
+        # when
+        result = MbrLibraryBuilder(fdr=0.01, keep_decoys=True)(psm_df, base_library)
+
+        # then: the decoy group of PG_B did not pass
+        df = result.precursor_df.sort_values(["elution_group_idx", "decoy"])
+        np.testing.assert_array_equal(
+            df["pg_qval"].values, [0.001, 0.004, 0.002, np.nan]
+        )
+
     def test_rt_is_the_mean_over_the_runs(self, base_library, psm_df):
         """Test a precursor identified in several runs gets the mean of its observed RTs, not the median."""
         # given: precursor 0 also identified in run_b and run_c

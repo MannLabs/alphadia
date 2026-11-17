@@ -174,7 +174,8 @@ class MbrLibraryBuilder(ProcessingStep):
         Returns
         -------
         SpecLibBase
-            MBR library with RT and protein group assignments.
+            MBR library with RT and protein group assignments, and in the column `pg_qval` the q-value each precursor's
+            protein group, target or decoy, had in `psm_df` (NaN if it did not pass the FDR threshold).
 
         Notes
         -----
@@ -184,7 +185,7 @@ class MbrLibraryBuilder(ProcessingStep):
         3. Filter base library to those elution groups
         4. Generate decoys if keep_decoys=True, then rehash so each
            precursor has a unique mod_seq_charge_hash
-        5. Assign RT and protein groups to each precursor
+        5. Assign RT, protein groups and protein group q-values to each precursor
 
         RT and protein group assignment strategy:
         - If a precursor's mod_seq_charge_hash was identified in PSM, use its specific RT/pg
@@ -226,5 +227,12 @@ class MbrLibraryBuilder(ProcessingStep):
         )
 
         self._assign_rt_and_protein_groups(mbr_speclib, agg_by_eg, agg_by_hash)
+
+        # a decoy group carries the protein names of its target group, so the groups are told apart by `decoy`
+        pg_qval = psm_df.groupby(["pg", "decoy"])["pg_qval"].max()
+        precursor_df = mbr_speclib._precursor_df
+        precursor_df["pg_qval"] = pg_qval.reindex(
+            pd.MultiIndex.from_arrays([precursor_df["proteins"], precursor_df["decoy"]])
+        ).to_numpy()
 
         return mbr_speclib

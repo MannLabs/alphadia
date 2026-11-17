@@ -306,3 +306,41 @@ def test_build_stat_df_returns_stats_without_writing(tmp_path):
     # then
     assert stat_df[StatSearchCols.PRECURSORS].tolist() == [1]
     assert not (tmp_path / SearchPlanFiles.STAT_FILE_NAME).exists()
+
+
+def test_build_precursor_table_takes_the_protein_q_values_of_an_mbr_library(tmp_path):
+    """Test the protein groups take their q-values from a library with the column pg_qval, groups outside it fail."""
+    # given
+    config = {
+        "general": {"thread_count": 1, "save_figures": False},
+        "fdr": {
+            "fdr": 0.01,
+            "inference_strategy": InferenceStrategy.LIBRARY,
+            "group_level": "proteins",
+            "keep_decoys": False,
+        },
+    }
+    raw_folder = tmp_path / "run_0"
+    raw_folder.mkdir()
+    mock_precursor_df(n_precursor=100, with_decoy=False).assign(run="run_0").to_parquet(
+        raw_folder / "psm.parquet", index=False
+    )
+    library_pg_qval = {"APROT": 0.002, "CPROT": 0.005}
+    library_precursor_df = pd.DataFrame(
+        {
+            "proteins": list(library_pg_qval),
+            "decoy": [0, 0],
+            "pg_qval": list(library_pg_qval.values()),
+        }
+    )
+
+    # when
+    psm_df = SearchPlanOutput(config, str(tmp_path))._build_precursor_table(
+        [str(raw_folder)], library_precursor_df
+    )
+
+    # then
+    assert set(psm_df["pg"]) == set(library_pg_qval)
+    np.testing.assert_array_equal(
+        psm_df["pg_qval"].to_numpy(), psm_df["pg"].map(library_pg_qval).to_numpy()
+    )
