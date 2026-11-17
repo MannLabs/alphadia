@@ -412,7 +412,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
 
             self._optimization_manager.update(**next_tolerances)
             if phase == CalibrationPhase.CONVERGE:
-                self._optlock.resize(self._calibration_manager)
+                if prune_summary := self._optlock.resize(self._calibration_manager):
+                    log_string(prune_summary, verbosity="progress")
             else:
                 self._optlock.grow(self._calibration_manager)
             search = self._process_batch()

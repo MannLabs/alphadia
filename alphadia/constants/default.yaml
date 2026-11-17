@@ -218,6 +218,15 @@ calibration:
   # the correlation threshold for fragments used to calibrate fragment mz (i.e. ms2)
   min_correlation: 0.7
 
+  # Prune the optimization lock once, when the calibration first reaches optimization_lock_target and resizes the lock:
+  # keep only the elution groups with a candidate below prune_lock_qval and drop the others from the later calibration
+  # rounds. The kept groups hold the identifications, so the later rounds calibrate on the same precursors and search a
+  # much smaller lock. Pruning affects only the calibration; the main search scores the whole library.
+  prune_lock: False
+  # With fragment competition (search.compete_for_fragments), the calibration rounds keep candidates up to a q-value of
+  # 0.1, so a higher value prunes like 0.1.
+  prune_lock_qval: 0.1
+
 search_initial:
   # Number of peak groups identified in the convolution score to classify with target decoy competition
   num_candidates: 1
