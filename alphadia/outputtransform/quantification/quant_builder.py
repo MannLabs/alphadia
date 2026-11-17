@@ -33,6 +33,7 @@ PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
 VARMODEL_MISSING_DROP = "drop"
 VARMODEL_MISSING_CENSORED = "censored"
+VARMODEL_QUALITY_EXPONENT_AUTO = "auto"
 # censoring and quality weights estimate their noise curve from fragments seen in several runs; with fewer runs there
 # are no ratios to protect and the plain fit is used
 MIN_RUNS_FOR_EXTENDED_FIT = 2
@@ -276,7 +277,7 @@ class QuantBuilder:
         intensity_df: pd.DataFrame,
         missing_fragments: str = VARMODEL_MISSING_DROP,
         correlation_df: pd.DataFrame | None = None,
-        quality_exponent: float = 0.0,
+        quality_exponent: float | str | None = 0.0,
     ) -> pd.DataFrame:
         """Estimate the precursor quantities with the variance-model fit.
 
@@ -290,10 +291,10 @@ class QuantBuilder:
         missing_fragments: str
             "drop" (missing fragments are left out) or "censored"
         correlation_df: pd.DataFrame | None
-            XIC correlations aligned row by row with intensity_df; needed when quality_exponent > 0
-        quality_exponent: float
-            > 0 multiplies each fragment value's variance by exp(quality_exponent * (1 - sqrt(correlation))), for
-            "drop" and "censored" alike
+            XIC correlations aligned row by row with intensity_df; needed unless quality_exponent is 0
+        quality_exponent: float | str | None
+            gamma of the variance factor exp(gamma * (1 - sqrt(correlation))) of each fragment value, for "drop" and
+            "censored" alike: a number fixes it (0 turns it off), None or "auto" estimates it from the data
 
         Returns
         -------
@@ -319,11 +320,14 @@ class QuantBuilder:
 
         options = {}
         if len(run_columns) >= MIN_RUNS_FOR_EXTENDED_FIT:
+            estimated = quality_exponent in (None, VARMODEL_QUALITY_EXPONENT_AUTO)
             options = {
                 "missing_fragments": missing_fragments,
-                "quality_exponent": quality_exponent,
+                "quality_exponent": VARMODEL_QUALITY_EXPONENT_AUTO
+                if estimated
+                else quality_exponent,
             }
-            if quality_exponent > 0:
+            if estimated or quality_exponent > 0:
                 options["correlation"] = np.ascontiguousarray(
                     correlation_df[run_columns].to_numpy(dtype=np.float32).T
                 )
@@ -339,6 +343,10 @@ class QuantBuilder:
             f"loss scale {result['loss_scale']:.2f}, "
             f"offset shrinkage {result['offset_shrinkage']:.2f}"
         )
+        if options.get("quality_exponent") == VARMODEL_QUALITY_EXPONENT_AUTO:
+            logger.info(
+                f"Variance-model quality exponent estimated from the data: {result['quality_exponent']:.3f}"
+            )
         if "detection_limit" in result:
             logger.info(
                 f"Censored variance model: detection limit {np.round(result['detection_limit'], 2)} log2, width "
