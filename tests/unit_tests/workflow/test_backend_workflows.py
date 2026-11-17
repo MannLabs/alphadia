@@ -165,6 +165,7 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
     optlock = mock_optlock_cls.return_value
     optlock.features_df = pd.DataFrame({"precursor_idx": [1]})
     optlock.fragments_df = fragments_df
+    optlock.prune_qval = None
     calls = MagicMock()
     calls.attach_mock(optlock.update_with_extraction, "update_with_extraction")
     calls.attach_mock(
@@ -256,7 +257,7 @@ def test_rust_workflow_does_not_support_multiplexing(tmp_path):
 
 
 @patch("alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock")
-def test_calibration_fdr_starts_from_the_latest_classifier(_):
+def test_calibration_fdr_starts_from_the_latest_classifier(mock_optlock_cls):
     """Test that the FDR of a calibration search starts from the latest classifier of this run, not from the version
     of an optimization manager loaded from an earlier run (`general.reuse_calibration`)."""
     # Given: an optimization manager that carries classifier version 3 from an earlier run
@@ -264,6 +265,7 @@ def test_calibration_fdr_starts_from_the_latest_classifier(_):
     fdr_manager = MagicMock()
     extraction_handler = MagicMock()
     extraction_handler.perform_fdr_and_filter_candidates.return_value = (None, None)
+    mock_optlock_cls.return_value.prune_qval = None
     rust_handler = RustOptimizationHandler(
         {},
         optimization_manager,
@@ -321,3 +323,39 @@ def test_search_parameter_optimization_applies_the_calibration_result(tmp_path):
     # Then: the optimization manager holds the result for the main search
     assert workflow.optimization_manager.ms2_error == 9.0
     assert workflow.optimization_manager.classifier_version == 4
+
+
+@patch("alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock")
+def test_rust_fdr_records_prune_candidates_and_returns_identifications(
+    mock_optlock_cls,
+):
+    """Test that with a pending pruning the rust FDR asks for q-values up to the prune q-value, gives them to the lock
+    and returns only the precursors up to fdr.fdr."""
+    # given
+    optlock = mock_optlock_cls.return_value
+    optlock.prune_qval = 0.1
+    extraction_handler = MagicMock()
+    precursor_df = pd.DataFrame({"precursor_idx": [1, 2, 3], "qval": [0.0, 0.05, 0.09]})
+    extraction_handler.perform_fdr_and_filter_candidates.return_value = (
+        None,
+        precursor_df,
+    )
+    handler = RustOptimizationHandler(
+        {"fdr": {"fdr": 0.01}},
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        create_extraction_handler=MagicMock(),
+    )
+
+    # when
+    result = handler._perform_fdr(extraction_handler, MagicMock())
+
+    # then
+    call = extraction_handler.perform_fdr_and_filter_candidates.call_args
+    assert call.kwargs["max_qval"] == 0.1
+    optlock.record_prune_candidates.assert_called_once_with(precursor_df)
+    assert result["precursor_idx"].tolist() == [1]

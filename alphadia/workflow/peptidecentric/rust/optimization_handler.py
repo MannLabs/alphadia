@@ -53,10 +53,16 @@ class RustOptimizationHandler(OptimizationHandler[RustExtractionHandler]):
     def _perform_fdr(
         self, extraction_handler: RustExtractionHandler, batch: ExtractedBatch
     ) -> pd.DataFrame:
+        # Pruning the lock needs the q-values above the FDR threshold.
+        prune_qval = self._optlock.prune_qval
         _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
             self._optlock.features_df,
             batch.candidates_df,
             FDRManager.LATEST_VERSION,
             df_fragments=self._optlock.fragments_df,
+            max_qval=prune_qval,
         )
-        return precursor_df
+        if prune_qval is None:
+            return precursor_df
+        self._optlock.record_prune_candidates(precursor_df)
+        return precursor_df[precursor_df["qval"] <= self._config["fdr"]["fdr"]]
