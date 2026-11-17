@@ -156,8 +156,9 @@ class QuantOutputBuilder:
                     f"No quantities for the {quantlevel_config.level_name} level, skipping"
                 )
                 continue
+            # decoys carry the precursor and peptide hashes of their targets, so they could annotate a target's row
             lfq_results[quantlevel_config.level_name] = self._annotate_quant_df(
-                lfq_df, self.psm_df, quantlevel_config
+                lfq_df, self._psm_no_decoys_df, quantlevel_config
             )
 
         psm_df_with_quant = merge_quant_levels_to_psm(
