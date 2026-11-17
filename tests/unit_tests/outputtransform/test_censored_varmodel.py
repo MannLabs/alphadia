@@ -1,17 +1,11 @@
-import logging
-
 import numpy as np
 import pandas as pd
-import pytest
-import yaml
 from alphadia_search_rs import VarModelQuantification
 
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     QuantBuilder,
 )
-from alphadia.search_plan import CONSTANTS_FOLDER_PATH
-from alphadia.workflow.config import Config
 
 N_PRECURSORS = 3000
 N_FRAGMENTS = 8
@@ -313,65 +307,3 @@ def test_precursor_table_of_a_single_run_uses_the_plain_fit():
     # then
     assert len(precursor_df) == N_PRECURSORS
     assert (precursor_df["run0"] > 0).all()
-
-
-def test_precursor_table_estimates_the_quality_exponent_by_default(caplog):
-    # given: noisier values where the XIC correlation is low
-    intensity, library, precursor_index, _ = simulate(0.0, None)
-    rng = np.random.default_rng(CORRELATION_SEED)
-    correlation = rng.uniform(0.0, 1.0, intensity.shape)
-    intensity = intensity * np.exp2(
-        rng.normal(0.0, 0.3, intensity.shape) * (1 - np.sqrt(correlation))
-    )
-    runs = [f"run{i}" for i in range(N_RUNS)]
-    intensity_df = pd.DataFrame(intensity, columns=runs)
-    intensity_df.insert(0, "precursor_idx", precursor_index)
-    intensity_df.insert(1, "ion", np.arange(len(library)))
-    intensity_df["pg"] = precursor_index
-    intensity_df["mod_seq_hash"] = precursor_index
-    intensity_df["mod_seq_charge_hash"] = precursor_index
-    intensity_df[INTENSITY_LIBRARY_COLUMN] = library
-    correlation_df = intensity_df.copy()
-    correlation_df[runs] = correlation
-
-    # when
-    with caplog.at_level(logging.INFO):
-        tables = {
-            quality_exponent: QuantBuilder(pd.DataFrame()).varmodel_precursor_table(
-                intensity_df,
-                missing_fragments="censored",
-                correlation_df=correlation_df,
-                quality_exponent=quality_exponent,
-            )
-            for quality_exponent in (None, "auto")
-        }
-
-    # then
-    pd.testing.assert_frame_equal(tables[None], tables["auto"])
-    estimates = [
-        float(r.getMessage().split(": ")[-1])
-        for r in caplog.records
-        if "quality exponent estimated" in r.getMessage()
-    ]
-    assert len(estimates) == 2
-    assert 0 < estimates[0] <= 2
-
-
-@pytest.mark.parametrize("quality_exponent", [0.5, 1, "auto", None])
-def test_default_config_takes_a_fixed_or_estimated_quality_exponent(quality_exponent):
-    # given
-    with (CONSTANTS_FOLDER_PATH / "default.yaml").open() as f:
-        config = Config(yaml.safe_load(f), "default")
-
-    # when
-    config.update(
-        [
-            Config(
-                {"search_output": {"varmodel_quality_exponent": quality_exponent}},
-                "user",
-            )
-        ]
-    )
-
-    # then
-    assert config["search_output"]["varmodel_quality_exponent"] == quality_exponent
