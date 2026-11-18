@@ -19,6 +19,7 @@ from alphadia.workflow.peptidecentric.rust.extraction_handler import (
 from alphadia.workflow.peptidecentric.rust.mapper import (
     DETECTION_FEATURES,
     MS1_FEATURES,
+    MS1_ISOTOPE_COLUMNS,
     set_ms1_isotopes,
     to_features_df,
 )
@@ -231,6 +232,10 @@ OPTIMIZATION_CONTEXT = OptimizationContext(
 def _handler(
     ms1_features: bool = True,  # noqa: FBT001, FBT002
     detection_features: bool = False,  # noqa: FBT001, FBT002
+    *,
+    has_ms1: bool = True,
+    precursor_df: pd.DataFrame | None = None,
+    reporter: MagicMock | None = None,
 ) -> RustExtractionHandler:
     config = {
         "search": {
@@ -242,15 +247,18 @@ def _handler(
     column_name_handler = MagicMock(name="column_name_handler")
     column_name_handler.get_precursor_mz_column.return_value = "mz_library"
     column_name_handler.get_rt_column.return_value = "rt"
+    column_name_handler.dia_data_has_ms1 = has_ms1
     with patch(f"{HANDLER}.speclib_to_rust", return_value=MagicMock()):
         return RustExtractionHandler(
             config,
             OPTIMIZATION_CONTEXT,
             MagicMock(),
-            MagicMock(),
+            reporter or MagicMock(),
             column_name_handler,
             MagicMock(name="dia_data"),
-            SimpleNamespace(precursor_df=_precursor_df()),
+            SimpleNamespace(
+                precursor_df=_precursor_df() if precursor_df is None else precursor_df
+            ),
         )
 
 
@@ -370,3 +378,43 @@ def test_score_candidates_asks_for_the_detection_features_in_the_final_round(
         "ms1_scored": False,
         "detection_scored": True,
     }
+
+
+@pytest.mark.parametrize(
+    ("has_ms1", "drop_isotopes", "reason"),
+    [
+        (False, False, "the raw file has no MS1 scans"),
+        (True, True, "the library has no isotope abundances"),
+    ],
+)
+@patch(f"{HANDLER}.ScoringParameters", _RecordingScoringParameters)
+@patch(f"{HANDLER}.to_features_df")
+@patch(f"{HANDLER}.set_ms1_isotopes")
+@patch(f"{HANDLER}.PeakGroupScoring")
+@patch(f"{HANDLER}.candidates_to_rust")
+def test_ms1_features_are_skipped_with_a_warning_when_they_cannot_be_scored(
+    mock_candidates_to_rust,
+    mock_scoring,
+    mock_set_ms1_isotopes,
+    mock_to_features_df,
+    has_ms1,
+    drop_isotopes,
+    reason,
+):
+    # given: ms1_features on, but no MS1 scans or no isotope abundances in the library
+    precursor_df = _precursor_df()
+    if drop_isotopes:
+        precursor_df = precursor_df.drop(columns=MS1_ISOTOPE_COLUMNS, errors="ignore")
+    reporter = MagicMock()
+    handler = _handler(has_ms1=has_ms1, precursor_df=precursor_df, reporter=reporter)
+
+    # when
+    handler.score_candidates(_candidates_df(), FeatureSet.Full)
+
+    # then: no pre-pass, no MS1 tolerance, no MS1 columns, and a warning that says why
+    mock_scoring.return_value.score_ms1_calibration.assert_not_called()
+    mock_set_ms1_isotopes.assert_not_called()
+    assert "ms1_mass_tolerance" not in mock_scoring.call_args.args[0].params
+    assert mock_to_features_df.call_args.kwargs["ms1_scored"] is False
+    message = reporter.log_string.call_args.args[0]
+    assert message.startswith("search.ms1_features is skipped") and reason in message

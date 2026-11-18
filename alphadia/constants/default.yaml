@@ -212,15 +212,16 @@ search:
   # The isotopes M-1 .. M+3 of every precursor are extracted from the MS1 scans at its own m/z, shifted by an MS1 mass
   # calibration fitted on the 10,000 best target candidates of the final round (15 ppm pre-pass, tolerance 4 residual
   # sd clipped to 3-15 ppm), and compared with the fragment elution profile and the library isotope abundances
-  # (10 ms1_* columns). Needs the isotope abundances i_0.. in the library. Also keeps MS1 scans acquired on their own
-  # clock (time-based MS1 interval, e.g. Astral) by aligning them to the MS2 cycle instead of dropping them.
-  ms1_features: False
+  # (10 ms1_* columns). Skipped with a warning when the library has no isotope abundances i_0.. or the raw file has no
+  # MS1 scans. Also keeps MS1 scans acquired on their own clock (time-based MS1 interval, e.g. Astral) by aligning them
+  # to the MS2 cycle instead of dropping them.
+  ms1_features: True
 
   # fragment detection features for the final-round FDR classifier (rust backend only), for one-scan peaks at low
   # input: the share of coherent fragments that are the M+1 isotope of another ion (shadow_lib_share), and the hit
   # and miss terms of an abundance-aware likelihood ratio of the fragments seen at the apex scan against each
   # fragment channel's background hit rate (det_faint_hits, det_faint_miss)
-  detection_features: False
+  detection_features: True
 
   # === python backend only ===
   # exclude fragments shared between multiple channels
