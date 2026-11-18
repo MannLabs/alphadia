@@ -68,6 +68,8 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
             "precursor_level_lfq": True,
             "peptide_level_lfq": True,
             "min_k_fragments": 3,
+            "varmodel_missing_fragments": "drop",
+            "varmodel_quality_exponent": 0.0,
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
