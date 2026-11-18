@@ -27,6 +27,7 @@ from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandl
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.rust.mapper import (
     FINAL_ROUND_EXCLUDED_FEATURES,
+    MS1_ISOTOPE_COLUMNS,
     candidates_to_rust,
     parse_candidates,
     parse_quantification,
@@ -77,6 +78,24 @@ class RustExtractionHandler(ExtractionHandler):
         )
         # MS1 extraction tolerance (ppm) from the MS1 calibration pre-pass; None until the MS1 isotopes are set
         self._ms1_tolerance_ppm: float | None = None
+        # whether the final round can score the MS1 features, see `_can_score_ms1`; None until the final round asks
+        self._ms1_scorable: bool | None = None
+
+    def _can_score_ms1(self) -> bool:
+        """Return whether the MS1 features can be scored: the raw file has MS1 scans and the library the isotope
+        abundances. Otherwise log why search.ms1_features is skipped."""
+        if not self._column_name_handler.dia_data_has_ms1:
+            reason = "the raw file has no MS1 scans"
+        elif MS1_ISOTOPE_COLUMNS[0] not in self._spectral_library.precursor_df.columns:
+            reason = (
+                f"the library has no isotope abundances ({MS1_ISOTOPE_COLUMNS[0]}..)"
+            )
+        else:
+            return True
+        self._reporter.log_string(
+            f"search.ms1_features is skipped: {reason}.", verbosity="warning"
+        )
+        return False
 
     def _select_candidates(self) -> pd.DataFrame:
         """Select candidates using the Rust backend.
@@ -127,6 +146,10 @@ class RustExtractionHandler(ExtractionHandler):
         # cutoff of the final extraction.
         final_round = feature_set == FeatureSet.Full
         score_ms1 = final_round and self._config["search"]["ms1_features"]
+        if score_ms1:
+            if self._ms1_scorable is None:
+                self._ms1_scorable = self._can_score_ms1()
+            score_ms1 = self._ms1_scorable
         score_detection = final_round and self._config["search"]["detection_features"]
         if score_ms1 and self._ms1_tolerance_ppm is None:
             self._ms1_tolerance_ppm = self._prepare_ms1(candidates_df)

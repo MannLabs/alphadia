@@ -26,6 +26,11 @@ class ColumnNameHandler:
         self._dia_data_has_ms1 = dia_data_has_ms1
         self._dia_data_has_mobility = dia_data_has_mobility
 
+    @property
+    def dia_data_has_ms1(self) -> bool:
+        """Whether the raw file has MS1 scans."""
+        return self._dia_data_has_ms1
+
     def get_precursor_mz_column(self) -> str:
         """Get the precursor m/z column name.
 

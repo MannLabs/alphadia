@@ -79,8 +79,11 @@ class RawFileManager(BaseManager):
 
         """
         file_extension = os.path.splitext(dia_data_path)[1]
-        # the MS1 features need the MS1 scans, also those acquired on their own clock
-        align_ms1 = self._config["search"]["ms1_features"]
+        # the MS1 features (rust backend only) need the MS1 scans, also those acquired on their own clock
+        align_ms1 = (
+            self._config["search"]["ms1_features"]
+            and self._config["search"]["extraction_backend"] == "rust"
+        )
 
         if file_extension.lower() == ".d":
             raw_data_type = "bruker"
@@ -155,10 +158,10 @@ class RawFileManager(BaseManager):
         rt_duration = self.stats["rt_limit_max"] - self.stats["rt_limit_min"]
 
         logger.info(
-            f"{'RT (min)':<20}: {self.stats['rt_limit_min'] / 60:.1f} - {self.stats['rt_limit_max'] / 60:.1f}"
+            f"{'RT (min)':<20}: {self.stats['rt_limit_min']/60:.1f} - {self.stats['rt_limit_max']/60:.1f}"
         )
         logger.info(f"{'RT duration (sec)':<20}: {rt_duration:.1f}")
-        logger.info(f"{'RT duration (min)':<20}: {rt_duration / 60:.1f}")
+        logger.info(f"{'RT duration (min)':<20}: {rt_duration/60:.1f}")
 
         logger.info(f"{'Cycle len (scans)':<20}: {self.stats['cycle_length']:.0f}")
         logger.info(f"{'Cycle len (sec)':<20}: {self.stats['cycle_duration']:.2f}")
