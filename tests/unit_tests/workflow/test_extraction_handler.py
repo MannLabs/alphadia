@@ -101,6 +101,44 @@ def test_score_candidates_returns_the_scored_features(
     assert features_df is mock_to_features_df.return_value
 
 
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.parse_candidates")
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.PeakGroupSelection")
+def test_select_candidates_passes_the_rt_prior_of_the_optimization_context(
+    mock_selection, mock_parse_candidates
+):
+    # Given: a handler whose optimization context has an RT prior with scale 20 s and 5 degrees of freedom
+    config = {"search": {"top_k_fragments_selection": 12, "quant_window": 3}}
+    with patch(SPECLIB_TO_RUST, return_value=MagicMock(name="speclib_rust")):
+        handler = RustExtractionHandler(
+            config,
+            OptimizationContext(
+                rt_error=120.0,
+                ms1_error=30.0,
+                ms2_error=7.5,
+                mobility_error=0.1,
+                fwhm_rt=5.0,
+                fwhm_mobility=-1.0,
+                num_candidates=3,
+                score_cutoff=0.0,
+                rt_prior_scale=20.0,
+                rt_prior_df=5.0,
+            ),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(name="dia_data"),
+            MagicMock(name="spectral_library"),
+        )
+
+    # When: the handler selects the candidates
+    handler._select_candidates()
+
+    # Then: the selection uses the RT prior
+    selection_params = mock_selection.call_args.args[0]
+    assert selection_params.rt_prior_scale == 20.0
+    assert selection_params.rt_prior_df == 5.0
+
+
 def _fdr_handler(fit_predict):
     config = {"fdr": {"competitive_scoring": True, "fdr": 0.01}}
     fdr_manager = MagicMock(name="fdr_manager")

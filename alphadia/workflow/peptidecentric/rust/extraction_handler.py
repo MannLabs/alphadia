@@ -81,6 +81,8 @@ class RustExtractionHandler(ExtractionHandler):
                 "mass_tolerance": self._optimization_context.ms2_error,
                 "rt_tolerance": self._optimization_context.rt_error,
                 "candidate_count": self._optimization_context.num_candidates,
+                "rt_prior_scale": self._optimization_context.rt_prior_scale,
+                "rt_prior_df": self._optimization_context.rt_prior_df,
             }
         )
 
