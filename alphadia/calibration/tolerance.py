@@ -1,5 +1,7 @@
 """Search tolerances from the calibrated residuals of true matches, weighted by the classifier."""
 
+from dataclasses import dataclass
+
 import numpy as np
 from scipy import optimize, stats
 from sklearn.linear_model import LogisticRegression
@@ -46,62 +48,82 @@ def posterior_error_probability(score: np.ndarray, is_decoy: np.ndarray) -> np.n
     return np.clip(p_decoy / np.maximum(1 - p_decoy, 1e-12), 0, 1)
 
 
-def true_match_interval(
-    residuals: np.ndarray, pep: np.ndarray, window: float, quantile: float
-) -> float | None:
-    """Estimate the central interval that holds `quantile` of the calibrated residuals of the true matches.
+@dataclass(frozen=True)
+class TrueMatchDistribution:
+    """Distribution of the calibrated residuals of the true matches in one search dimension.
 
-    Each residual is a true match with probability 1 - PEP and then follows a Student-t distribution centred on zero.
-    Otherwise it is a false match, spread uniformly over the searched window. The scale and the degrees of freedom of
-    the t distribution are fitted by maximum likelihood, with the t distribution normalised to the window. The
-    estimate thus uses every candidate, weighted by the classifier, and does not shrink when the window cuts the tail.
-
-    Parameters
-    ----------
-    residuals : np.ndarray
-        Calibrated residuals of the target candidates.
-    pep : np.ndarray
-        Posterior error probability of each target candidate.
-    window : float
-        Tolerance that the residuals were searched with.
-    quantile : float
-        Share of the true matches that the interval holds.
-
-    Returns
-    -------
-    float | None
-        Half width of the interval, or None when the residuals hold too few likely true matches, the fit does not
-        converge or the interval is wider than the window.
-
+    A true match deviates from its calibrated prediction by a Student-t with `scale` and `df` degrees of freedom,
+    centred on zero. It is fitted on a search with tolerance `window`, which shows the true matches only within the
+    window. The calibration uses it for the tolerance of the main search, see `interval`.
     """
-    residuals = np.abs(np.asarray(residuals, dtype=np.float64))
-    pep = np.clip(np.asarray(pep, dtype=np.float64), 1e-6, 1 - 1e-6)
-    inside = residuals < window
-    residuals, pep = residuals[inside], pep[inside]
-    if np.sum(1 - pep) < CalibrationLoop.MIN_EXPECTED_TRUE_MATCHES:
-        return None
 
-    def negative_log_likelihood(params: np.ndarray) -> float:
-        scale, df = np.exp(params)
-        distribution = stats.t(df, scale=scale)
-        true_density = (
-            2 * distribution.pdf(residuals) / (2 * distribution.cdf(window) - 1)
+    scale: float
+    df: float
+    window: float
+
+    @classmethod
+    def fit(
+        cls, residuals: np.ndarray, pep: np.ndarray, window: float
+    ) -> "TrueMatchDistribution | None":
+        """Fit the distribution to the residuals of the target candidates of a search.
+
+        Each residual is a true match with probability 1 - PEP and then follows the Student-t. Otherwise it is a false
+        match, spread uniformly over the searched window. The scale and the degrees of freedom are fitted by maximum
+        likelihood, with the t distribution normalised to the window. The fit thus uses every candidate, weighted by
+        the classifier, and does not shrink when the window cuts the tail.
+
+        Parameters
+        ----------
+        residuals : np.ndarray
+            Calibrated residuals of the target candidates.
+        pep : np.ndarray
+            Posterior error probability of each target candidate.
+        window : float
+            Tolerance that the residuals were searched with.
+
+        Returns
+        -------
+        TrueMatchDistribution | None
+            The fitted distribution, or None when the residuals hold too few likely true matches or the fit does not
+            converge.
+
+        """
+        residuals = np.abs(np.asarray(residuals, dtype=np.float64))
+        pep = np.clip(np.asarray(pep, dtype=np.float64), 1e-6, 1 - 1e-6)
+        inside = residuals < window
+        residuals, pep = residuals[inside], pep[inside]
+        if np.sum(1 - pep) < CalibrationLoop.MIN_EXPECTED_TRUE_MATCHES:
+            return None
+
+        def negative_log_likelihood(params: np.ndarray) -> float:
+            scale, df = np.exp(params)
+            distribution = stats.t(df, scale=scale)
+            true_density = (
+                2 * distribution.pdf(residuals) / (2 * distribution.cdf(window) - 1)
+            )
+            return -np.sum(np.log((1 - pep) * true_density + pep / window + 1e-300))
+
+        order = np.argsort(residuals)
+        cumulative_weight = np.cumsum(1 - pep[order])
+        weighted_median = residuals[order][
+            np.searchsorted(cumulative_weight, cumulative_weight[-1] / 2)
+        ]
+        start = np.log(
+            [max(weighted_median, window * 1e-6), INITIAL_DEGREES_OF_FREEDOM]
         )
-        return -np.sum(np.log((1 - pep) * true_density + pep / window + 1e-300))
+        fit = optimize.minimize(negative_log_likelihood, start, method="Nelder-Mead")
+        if not fit.success:
+            return None
+        scale, df = np.exp(fit.x)
+        return cls(scale=float(scale), df=float(df), window=float(window))
 
-    order = np.argsort(residuals)
-    cumulative_weight = np.cumsum(1 - pep[order])
-    weighted_median = residuals[order][
-        np.searchsorted(cumulative_weight, cumulative_weight[-1] / 2)
-    ]
-    start = np.log([max(weighted_median, window * 1e-6), INITIAL_DEGREES_OF_FREEDOM])
-    fit = optimize.minimize(negative_log_likelihood, start, method="Nelder-Mead")
-    if not fit.success:
-        return None
-    scale, df = np.exp(fit.x)
-    interval = float(stats.t(df, scale=scale).ppf(0.5 + quantile / 2))
-    # The residuals show the true matches only within the window, so a wider interval is not supported by them.
-    return interval if interval <= window else None
+    def interval(self, quantile: float) -> float | None:
+        """Return the half width of the central interval that holds `quantile` of the true matches.
+
+        None when the interval is wider than the window: the fit saw the true matches only within it.
+        """
+        interval = float(stats.t(self.df, scale=self.scale).ppf(0.5 + quantile / 2))
+        return interval if interval <= self.window else None
 
 
 def main_search_rt_tolerance(
