@@ -13,7 +13,7 @@ def test_estimator_groups_use_allowed_names() -> None:
     allowed_groups = CalibrationGroups.get_values()
     allowed_estimators = CalibrationEstimators.get_values()
 
-    manager = CalibrationManager(load_from_file=False)
+    manager = CalibrationManager()
 
     errors = []
     for group_name, group in manager.estimator_groups.items():
@@ -33,16 +33,14 @@ def test_estimator_groups_use_allowed_names() -> None:
 def test_estimator_groups_gating() -> None:
     """MS1 and mobility estimators are skipped when not available in the raw data."""
 
-    manager = CalibrationManager(
-        load_from_file=False, has_ms1=False, has_mobility=False
-    )
+    manager = CalibrationManager(has_ms1=False, has_mobility=False)
 
     precursor = manager.estimator_groups[CalibrationGroups.PRECURSOR]
     assert CalibrationEstimators.MZ not in precursor
     assert CalibrationEstimators.MOBILITY not in precursor
     assert CalibrationEstimators.RT in precursor
 
-    manager_full = CalibrationManager(load_from_file=False)
+    manager_full = CalibrationManager()
     precursor_full = manager_full.estimator_groups[CalibrationGroups.PRECURSOR]
     assert CalibrationEstimators.MZ in precursor_full
     assert CalibrationEstimators.MOBILITY in precursor_full

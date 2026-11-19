@@ -37,7 +37,6 @@ from alphadia.outputtransform.utils import (
     load_psm_files_from_folders,
     log_protein_fdr_summary,
     prepare_psm_dataframe,
-    read_df,
     write_table,
 )
 from alphadia.transferlearning.train import FinetuneManager
@@ -299,22 +298,6 @@ class SearchPlanOutput:
         log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
 
         return transferAccumulator.consensus_speclibase
-
-    def _load_precursor_table(self):
-        """Load precursor table from output folder.
-        Helper functions used by other builders.
-
-        Returns
-        -------
-
-        psm_df: pd.DataFrame
-            Precursor table
-        """
-
-        return read_df(
-            os.path.join(self.output_folder, SearchPlanFiles.PRECURSORS_FILE_STEM),
-            file_format=self.config["search_output"]["file_format"],
-        )
 
     def _build_precursor_table(
         self,
