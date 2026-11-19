@@ -88,6 +88,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
             "fwhm_rt": 2.75,
             "fwhm_mobility": 2,
             "score_cutoff": 50,
+            "rt_prior": None,
         },
     }
 

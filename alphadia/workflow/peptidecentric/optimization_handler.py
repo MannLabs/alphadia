@@ -464,7 +464,7 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         rt_distribution = self._true_match_rt_distribution(search)
         if rt_distribution is not None:
             self._optimization_manager.update(
-                rt_prior_scale=rt_distribution.scale, rt_prior_df=rt_distribution.df
+                rt_prior=(rt_distribution.scale, rt_distribution.df)
             )
 
     def _main_search_tolerances(

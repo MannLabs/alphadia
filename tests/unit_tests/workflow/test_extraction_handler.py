@@ -120,8 +120,7 @@ def test_select_candidates_passes_the_rt_prior_of_the_optimization_context(
                 fwhm_mobility=-1.0,
                 num_candidates=3,
                 score_cutoff=0.0,
-                rt_prior_scale=20.0,
-                rt_prior_df=5.0,
+                rt_prior=(20.0, 5.0),
             ),
             MagicMock(),
             MagicMock(),
@@ -135,8 +134,7 @@ def test_select_candidates_passes_the_rt_prior_of_the_optimization_context(
 
     # Then: the selection uses the RT prior
     selection_params = mock_selection.call_args.args[0]
-    assert selection_params.rt_prior_scale == 20.0
-    assert selection_params.rt_prior_df == 5.0
+    assert selection_params.rt_prior == (20.0, 5.0)
 
 
 def _fdr_handler(fit_predict):

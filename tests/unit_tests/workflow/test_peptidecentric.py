@@ -104,6 +104,7 @@ def _create_optimization_manager(
                 "fwhm_rt": 5.0,
                 "fwhm_mobility": 0.01,
                 "score_cutoff": 0.0,
+                "rt_prior": None,
             },
         }
     )
@@ -386,7 +387,7 @@ def test_searches_after_a_calibration_use_the_rt_prior_of_the_true_matches():
     process_batch = handler._process_batch.side_effect
 
     def search():
-        priors.append(optimization_manager.rt_prior_scale)
+        priors.append(optimization_manager.rt_prior)
         return process_batch()
 
     handler._process_batch.side_effect = search
@@ -398,9 +399,8 @@ def test_searches_after_a_calibration_use_the_rt_prior_of_the_true_matches():
         handler.search_parameter_optimization()
 
     # Then: only the first search is without the prior, and the main search keeps it
-    assert priors == [0.0, 20.0, 20.0]
-    assert optimization_manager.rt_prior_scale == 20.0
-    assert optimization_manager.rt_prior_df == 5.0
+    assert priors == [None, (20.0, 5.0), (20.0, 5.0)]
+    assert optimization_manager.rt_prior == (20.0, 5.0)
 
 
 def test_calibration_keeps_the_rt_prior_when_the_true_matches_cannot_be_fitted():
@@ -421,8 +421,7 @@ def test_calibration_keeps_the_rt_prior_when_the_true_matches_cannot_be_fitted()
         handler.search_parameter_optimization()
 
     # Then: the prior of the first calibration stays
-    assert optimization_manager.rt_prior_scale == 20.0
-    assert optimization_manager.rt_prior_df == 5.0
+    assert optimization_manager.rt_prior == (20.0, 5.0)
 
 
 def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance():

@@ -209,6 +209,7 @@ TEST_OPTIMIZATION_CONFIG = {
         "fwhm_rt": 5,
         "fwhm_mobility": 0.01,
         "score_cutoff": 50,
+        "rt_prior": None,
     },
 }
 
@@ -277,14 +278,13 @@ def test_optimization_manager_optimization_context_is_a_snapshot():
 def test_optimization_manager_rt_prior_is_off_until_set():
     # Given: an optimization manager with the test configuration
     optimization_manager = OptimizationManager(TEST_OPTIMIZATION_CONFIG)
-    assert optimization_manager.get_optimization_context().rt_prior_scale == 0.0
+    assert optimization_manager.get_optimization_context().rt_prior is None
 
     # When: a calibration sets the RT prior
-    optimization_manager.update(rt_prior_scale=20.0, rt_prior_df=5.0)
+    optimization_manager.update(rt_prior=(20.0, 5.0))
 
     # Then: the optimization context carries it to the selection
-    context = optimization_manager.get_optimization_context()
-    assert (context.rt_prior_scale, context.rt_prior_df) == (20.0, 5.0)
+    assert optimization_manager.get_optimization_context().rt_prior == (20.0, 5.0)
 
 
 def test_optimization_manager_rt_proportion():
