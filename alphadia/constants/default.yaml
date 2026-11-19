@@ -361,6 +361,9 @@ search_output:
   normalization_method: varmodel_directlfq
   # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True
+  # varmodel_directlfq: how strongly fragments with a poor XIC correlation in a run are down-weighted in that run.
+  # Higher values trade replicate precision for ratio accuracy; 0 turns the down-weighting off.
+  varmodel_quality_exponent: 1.5
 
   # Remove each run's retention-time dependent intensity drift before label-free quantification. The correction of each
   # run is centred on zero, so it does not change the run's overall intensity; that is left to the LFQ normalization.

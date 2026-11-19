@@ -28,6 +28,7 @@ def config():
             "precursor_level_lfq": True,
             "peptide_level_lfq": True,
             "min_k_fragments": 3,
+            "varmodel_quality_exponent": 0.0,
             "min_correlation": 0.5,
             "min_nonnan": 1,
             "num_samples_quadratic": 50,
