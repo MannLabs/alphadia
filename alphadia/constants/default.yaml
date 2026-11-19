@@ -338,10 +338,12 @@ search_output:
   # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True
 
-  # Remove intensity changes along the gradient that differ between runs, e.g. from a spray that weakens late in one run,
-  # so that they do not show up as fold changes. With varmodel_directlfq the correction follows the retention time and
-  # the peptide mass, with the other methods the retention time only. The overall intensity of a run is left to the LFQ
-  # normalization. Runs with too little overlap with the others are left uncorrected, with a warning.
+  # Correct intensity drifts along the gradient that differ between runs (e.g. a spray that weakens late in one run),
+  # so that they do not show up as fold changes.
+  # - varmodel_directlfq: corrected along the retention time and the peptide mass
+  # - directlfq, quantselect: corrected along the retention time only
+  # The overall intensity of a run stays unchanged; that is the job of the LFQ normalization.
+  # Runs that share too few peptides with the others are skipped, with a warning.
   intensity_drift_correction: True
 
 # configuration for the optimization manager
