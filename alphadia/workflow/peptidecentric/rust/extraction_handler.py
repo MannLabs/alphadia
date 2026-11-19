@@ -146,11 +146,17 @@ class RustExtractionHandler(ExtractionHandler):
 
         return parse_candidates(candidates, self._spectral_library, self._dia_data)
 
-    def _mobility_parameters(self) -> dict[str, float]:
-        """The mobility tolerance (1/K0) of selection, scoring and quantification; none without a mobility dimension."""
+    def _mobility_parameters(self, *, peak_window: bool = False) -> dict[str, float]:
+        """The mobility tolerance (1/K0) of selection, scoring and quantification, with `peak_window` also the window
+        around each candidate's apex mobility; none without a mobility dimension."""
         if not self._has_mobility:
             return {}
-        return {"mobility_tolerance": self._optimization_context.mobility_error}
+        params = {"mobility_tolerance": self._optimization_context.mobility_error}
+        if peak_window:
+            params["mobility_peak_tolerance"] = self._config["search"][
+                "mobility_peak_tolerance"
+            ]
+        return params
 
     def score_candidates(
         self,
@@ -235,7 +241,7 @@ class RustExtractionHandler(ExtractionHandler):
             "mass_tolerance": self._optimization_context.ms2_error,
             "feature_set": feature_set,
             "detection_features": detection_features,
-            **self._mobility_parameters(),
+            **self._mobility_parameters(peak_window=True),
         }
         if ms1_tolerance_ppm is not None:
             params["ms1_mass_tolerance"] = ms1_tolerance_ppm
@@ -316,7 +322,9 @@ class RustExtractionHandler(ExtractionHandler):
 
         # run quantification
         quant_params = QuantificationParameters()
-        quant_params.update(self._mobility_parameters())
+        quant_params.update(self._mobility_parameters(peak_window=True))
+        if self._config["search"]["quant_at_ms2_tolerance"]:
+            quant_params.update({"tolerance_ppm": self._optimization_context.ms2_error})
         if top_k_fragments is not None:
             quant_params.update({"top_k_fragments": top_k_fragments})
 

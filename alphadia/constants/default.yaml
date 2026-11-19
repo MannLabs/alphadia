@@ -217,6 +217,14 @@ search:
   # fragment channel's background hit rate (det_faint_hits, det_faint_miss)
   detection_features: True
 
+  # ion mobility data (rust backend only): half width in 1/K_0 of the window around each candidate's own apex mobility
+  # that scoring and quantification read its XICs from. The apex is the intensity-weighted mean mobility of the
+  # fragment peaks within the mobility tolerance around the library mobility. 0 reads the whole tolerance window.
+  mobility_peak_tolerance: 0.0
+
+  # quantify the fragments at the optimized MS2 tolerance instead of the backend's fixed default (rust backend only)
+  quant_at_ms2_tolerance: False
+
   # === python backend only ===
   # exclude fragments shared between multiple channels
   exclude_shared_ions: True
