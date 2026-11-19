@@ -8,6 +8,13 @@ from alphadia.fdr.utils import is_identification
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationGroups
 
+# When the calibration first reaches `optimization_lock_target` and resizes the lock, only the elution groups with a
+# candidate below this q-value stay in the lock for the later calibration rounds. They hold the identifications, so the
+# later rounds calibrate on the same precursors and search a much smaller lock. Pruning affects only the calibration;
+# the main search scores the whole library. With fragment competition (search.compete_for_fragments), the calibration
+# rounds keep candidates up to a q-value of 0.1, so a higher value prunes like 0.1.
+PRUNE_QVAL = 0.1
+
 
 class OptimizationLock:
     def __init__(self, library: SpecLibFlat, config: Config):
@@ -32,12 +39,9 @@ class OptimizationLock:
         self._precursor_target_count = config["calibration"]["optimization_lock_target"]
         self._batch_size = config["calibration"]["batch_size"]
 
-        # None when the lock is not pruned or was already pruned.
-        self.prune_qval: float | None = (
-            config["calibration"]["prune_lock_qval"]
-            if config["calibration"].get("prune_lock", False)
-            else None
-        )
+        # The q-value up to which the FDR of a calibration search reports its candidates for the pruning, see `_prune`.
+        # None once the lock was pruned or pruning was skipped.
+        self.prune_qval: float | None = PRUNE_QVAL
         # Positions in `_elution_group_order` that pruning removed from the lock.
         self._is_pruned = np.zeros(len(self._elution_group_order), dtype=bool)
         self._elution_groups_below_prune_qval = np.array([], dtype=int)
@@ -174,16 +178,35 @@ class OptimizationLock:
             precursor_df["qval"] < self.prune_qval, "elution_group_idx"
         ].unique()
 
-    def _prune(self) -> None:
+    def _prune(self) -> str:
         """Remove the elution groups of the lock without a candidate below `prune_qval` in the last search.
 
-        Targets and decoys share the elution group, so a kept target keeps its decoy and the reverse.
+        Targets and decoys share the elution group, so a kept target keeps its decoy and the reverse. Each elution group
+        holds at most one identification, so pruning is skipped when fewer elution groups than
+        `optimization_lock_target` would remain: the pruned lock could not hold the target, and the calibration goes on
+        with the whole lock.
+
+        Returns
+        -------
+        str
+            A summary of the pruning to log.
         """
+        self.prune_qval = None
         lock = slice(0, self.stop_idx)
-        self._is_pruned[lock] = ~np.isin(
+        is_kept = np.isin(
             self._elution_group_order[lock], self._elution_groups_below_prune_qval
         )
-        self.prune_qval = None
+        num_kept = int(is_kept.sum())
+        if num_kept < self._precursor_target_count:
+            return (
+                f"Did not prune the optimization lock: only {num_kept:,} of {self.stop_idx:,} elution groups have a "
+                f"candidate below q-value {PRUNE_QVAL}, fewer than the target of {self._precursor_target_count:,}."
+            )
+        self._is_pruned[lock] = ~is_kept
+        return (
+            f"Pruned the optimization lock: removed {self.num_pruned_elution_groups:,} of "
+            f"{self.stop_idx:,} elution groups."
+        )
 
     def update_with_calibration(self, calibration_manager):
         """Updates the batch library with the current calibrated values using the calibration manager.
@@ -242,8 +265,8 @@ class OptimizationLock:
     def resize(self, calibration_manager) -> str | None:
         """Resize the lock to the smallest batch of the plan that is expected to hold the target.
 
-        The next search covers the whole lock again. With `calibration.prune_lock`, the first resize also prunes the
-        lock, see `_prune`, and returns a summary of the pruning to log; otherwise it returns None.
+        The next search covers the whole lock again. The first resize also prunes the lock, see `_prune`, and returns
+        a summary of the pruning to log; later resizes return None.
 
         Parameters
         ----------
@@ -253,13 +276,7 @@ class OptimizationLock:
         self.decrease_batch_idx()
         self._feature_dfs = []
         self._fragment_dfs = []
-        prune_summary = None
-        if self.prune_qval is not None:
-            self._prune()
-            prune_summary = (
-                f"Pruned the optimization lock: removed {self.num_pruned_elution_groups:,} of "
-                f"{self.stop_idx:,} elution groups."
-            )
+        prune_summary = self._prune() if self.prune_qval is not None else None
         self.set_batch_dfs(self._elution_groups(0, self.stop_idx))
         self.update_with_calibration(calibration_manager)
         return prune_summary
