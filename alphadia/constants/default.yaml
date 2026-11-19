@@ -338,11 +338,13 @@ search_output:
   # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True
 
-  # Remove each run's retention-time dependent intensity drift before label-free quantification.
+  # Remove each run's retention-time dependent intensity drift from the variance-model precursor quantities,
+  # before the directLFQ normalization and rollup. Only applies when normalization_method is "varmodel_directlfq";
+  # with another method the flag is ignored and a warning is logged.
   # The correction curve of each run is centred on zero, so it only flattens how the intensity changes along the gradient.
   # It does not shift the overall intensity of a run; differences in overall run intensity are corrected by the LFQ normalization.
-  # The ion selection uses its own thresholds, the defaults of alphadia_search_rs.IntensityDriftCorrection
-  # (correlation >= 0.8, observed in >= 3 runs, >= 500 usable ions per run), not search_output.min_correlation.
+  # The precursor selection uses the defaults of alphadia_search_rs.IntensityDriftCorrection
+  # (observed in >= 3 runs, >= 500 usable precursors per run).
   intensity_drift_correction: True
 
 # configuration for the optimization manager

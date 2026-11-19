@@ -356,6 +356,14 @@ class TestQuantOutputBuilder:
         pd.testing.assert_frame_equal(annotated_df, expected_df)
 
 
+_DRIFT_CORRECTION_TARGET = "alphadia.outputtransform.quantification.quant_output_builder.correct_intensity_drift"
+
+
+def _double_run1(precursor_df, psm_df):
+    """Stand-in for the drift correction that makes the change visible downstream."""
+    return precursor_df.assign(run1=precursor_df["run1"] * 2)
+
+
 def _varmodel_feature_dfs():
     """Two precursors of PG001 and one of PG002, four fragments each, run2 at twice run1.
 
@@ -429,6 +437,7 @@ class TestVarModelQuantification:
                 "mod_sites": ["", "", ""],
                 "charge": [2, 2, 2],
                 "run": ["run1", "run1", "run2"],
+                "rt_observed": [100.0, 200.0, 300.0],
             }
         )
 
@@ -518,3 +527,118 @@ class TestVarModelQuantification:
             INTENSITY_LIBRARY_COLUMN
             not in builder.fragment_loader.constant_feature_columns
         )
+
+    def test_corrects_the_drift_of_the_precursor_table(
+        self, varmodel_psm_df, varmodel_config
+    ):
+        """Given the drift correction on, when quantified, then the corrected precursor table feeds directLFQ and the fragments stay unchanged."""
+        # Given
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
+        feature_dfs = _varmodel_feature_dfs()
+        intensity_copy = feature_dfs["intensity"].copy()
+
+        # When
+        with patch(_DRIFT_CORRECTION_TARGET, side_effect=_double_run1) as mock_drift:
+            level_dfs = builder._quantify_with_varmodel_precursors(
+                builder._create_quant_level_configs(), feature_dfs
+            )
+
+        # Then
+        mock_drift.assert_called_once()
+        precursor_table = mock_drift.call_args.args[0]
+        assert set(precursor_table["mod_seq_charge_hash"]) == {10, 20, 30}
+        pd.testing.assert_frame_equal(feature_dfs["intensity"], intensity_copy)
+        precursor_df = level_dfs[QuantificationLevelName.PRECURSOR]
+        np.testing.assert_allclose(
+            precursor_df["run2"] / precursor_df["run1"], 1.0, rtol=0.05
+        )
+
+    def test_skips_the_drift_correction_when_disabled(
+        self, varmodel_psm_df, varmodel_config
+    ):
+        """Given the drift correction off, when quantified, then it does not run."""
+        # Given
+        varmodel_config["search_output"]["intensity_drift_correction"] = False
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
+
+        # When
+        with patch(_DRIFT_CORRECTION_TARGET) as mock_drift:
+            builder._quantify_with_varmodel_precursors(
+                builder._create_quant_level_configs(), _varmodel_feature_dfs()
+            )
+
+        # Then
+        mock_drift.assert_not_called()
+
+
+class TestIntensityDriftCorrectionWithOtherMethods:
+    """Only the variance-model path corrects the intensity drift."""
+
+    @pytest.mark.parametrize(
+        ("normalization_method", "quantify_method"),
+        [
+            (NormalizationMethods.DIRECTLFQ, "direct_lfq"),
+            (NormalizationMethods.QUANTSELECT, "quantselect_lfq"),
+        ],
+    )
+    def test_runs_without_drift_correction(
+        self, psm_df, config, feature_dfs, normalization_method, quantify_method
+    ):
+        """Given directlfq or quantselect with the flag on, when built, then no drift correction runs."""
+        # Given
+        config["search_output"]["normalization_method"] = normalization_method
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        with (
+            patch.object(
+                builder.fragment_loader,
+                "accumulate_from_folders",
+                return_value=feature_dfs,
+            ),
+            patch.object(
+                builder.quant_builder,
+                "filter_frag_df",
+                return_value=(feature_dfs["intensity"], feature_dfs["correlation"]),
+            ),
+            patch.object(
+                builder.quant_builder, quantify_method, side_effect=lfq_side_effect
+            ),
+            patch(_DRIFT_CORRECTION_TARGET) as mock_drift,
+        ):
+            lfq_results, _ = builder.build(["folder1", "folder2"])
+
+        # Then
+        mock_drift.assert_not_called()
+        assert QuantificationLevelName.PROTEIN in lfq_results
+
+    @pytest.mark.parametrize(
+        ("normalization_method", "intensity_drift_correction", "should_warn"),
+        [
+            (NormalizationMethods.DIRECTLFQ, True, True),
+            (NormalizationMethods.QUANTSELECT, True, True),
+            (NormalizationMethods.DIRECTLFQ, False, False),
+            (NormalizationMethods.VARMODEL_DIRECTLFQ, True, False),
+        ],
+    )
+    def test_warns_only_when_the_flag_is_ignored(
+        self,
+        psm_df,
+        config,
+        normalization_method,
+        intensity_drift_correction,
+        should_warn,
+        caplog,
+    ):
+        """Given a method and the flag, when initialized, then a warning is logged only if the flag is on and the method is not varmodel_directlfq."""
+        # Given
+        config["search_output"]["normalization_method"] = normalization_method
+        config["search_output"]["intensity_drift_correction"] = (
+            intensity_drift_correction
+        )
+
+        # When
+        QuantOutputBuilder(psm_df, config)
+
+        # Then
+        assert ("intensity_drift_correction" in caplog.text) == should_warn

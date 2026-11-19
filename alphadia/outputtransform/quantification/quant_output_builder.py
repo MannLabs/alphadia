@@ -89,6 +89,16 @@ class QuantOutputBuilder:
         )
         self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
 
+        if (
+            config["search_output"]["intensity_drift_correction"]
+            and not self._is_varmodel()
+        ):
+            logger.warning(
+                "intensity_drift_correction applies only to normalization_method "
+                f"'{NormalizationMethods.VARMODEL_DIRECTLFQ}' and is ignored for "
+                f"'{config['search_output']['normalization_method']}'"
+            )
+
     def _is_varmodel(self) -> bool:
         return (
             self.config["search_output"]["normalization_method"]
@@ -119,13 +129,6 @@ class QuantOutputBuilder:
         if feature_dfs_dict is None or not feature_dfs_dict:
             logger.warning("No fragment data found, skipping quantification")
             return {}, self.psm_df
-
-        if self.config["search_output"]["intensity_drift_correction"]:
-            feature_dfs_dict["intensity"] = correct_intensity_drift(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                self._psm_no_decoys_df,
-            )
 
         quantlevel_configs = self._create_quant_level_configs()
         requested_configs = [c for c in quantlevel_configs if c.should_process]
@@ -325,6 +328,8 @@ class QuantOutputBuilder:
     ) -> dict[str, pd.DataFrame]:
         """Estimate the precursor quantities with the variance-model fit and roll them up with directLFQ.
 
+        The intensity drift correction, if enabled, runs on the precursor table after the fit,
+        so that the fit sees the measured intensities.
         All levels are rolled up from the same precursor table so that they share the precursor
         quantities; directLFQ's sample normalization does not depend on the grouping, so every
         level also gets the same shifts.
@@ -354,6 +359,8 @@ class QuantOutputBuilder:
         precursor_df = self.quant_builder.varmodel_precursor_table(
             filtered_intensity_df
         )
+        if self.config["search_output"]["intensity_drift_correction"]:
+            precursor_df = correct_intensity_drift(precursor_df, self._psm_no_decoys_df)
 
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
