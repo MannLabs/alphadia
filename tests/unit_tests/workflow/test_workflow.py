@@ -209,7 +209,6 @@ TEST_OPTIMIZATION_CONFIG = {
         "fwhm_rt": 5,
         "fwhm_mobility": 0.01,
         "score_cutoff": 50,
-        "rt_prior": None,
     },
 }
 

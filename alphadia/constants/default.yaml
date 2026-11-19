@@ -354,9 +354,6 @@ optimization_manager:
   fwhm_mobility: 0.01
   # minimum score threshold for candidate precursors
   score_cutoff: 0
-  # Student-t prior on the retention time deviation of a peak group in the selection
-  # null until the calibration fits it on the true matches
-  rt_prior: null
 
 # This section controls transfer learning
 # currently only the library is created with transfer learning

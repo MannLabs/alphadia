@@ -104,7 +104,6 @@ def _create_optimization_manager(
                 "fwhm_rt": 5.0,
                 "fwhm_mobility": 0.01,
                 "score_cutoff": 0.0,
-                "rt_prior": None,
             },
         }
     )

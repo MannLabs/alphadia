@@ -38,12 +38,7 @@ OPTIMIZATION_CONFIG = {
         "mobility_tolerance": 0.04,
         "num_candidates": 1,
     },
-    "optimization_manager": {
-        "fwhm_rt": 5,
-        "fwhm_mobility": 0.01,
-        "score_cutoff": 50,
-        "rt_prior": None,
-    },
+    "optimization_manager": {"fwhm_rt": 5, "fwhm_mobility": 0.01, "score_cutoff": 50},
 }
 
 

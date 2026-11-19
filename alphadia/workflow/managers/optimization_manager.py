@@ -48,7 +48,8 @@ class OptimizationManager(BaseManager):
             self.fwhm_rt = config["optimization_manager"]["fwhm_rt"]
             self.fwhm_mobility = config["optimization_manager"]["fwhm_mobility"]
             self.score_cutoff = config["optimization_manager"]["score_cutoff"]
-            self.rt_prior = config["optimization_manager"]["rt_prior"]
+            # No RT prior until a calibration has fitted the distribution of the true matches.
+            self.rt_prior = None
 
             for key in [
                 "ms1_error",
