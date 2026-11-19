@@ -542,9 +542,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         assert (
             x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
-        assert (
-            x.shape[1] == self.input_dim
-        ), "Input data must have the same number of features as the fitted classifier."
+        assert x.shape[1] == self.input_dim, (
+            "Input data must have the same number of features as the fitted classifier."
+        )
 
         assert self.network is not None, "Network must be initialized after fitting"
         return (self._predict_logit(x) > 0).astype(int)
@@ -570,9 +570,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         assert (
             x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
-        assert (
-            x.shape[1] == self.input_dim
-        ), "Input data must have the same number of features as the fitted classifier."
+        assert x.shape[1] == self.input_dim, (
+            "Input data must have the same number of features as the fitted classifier."
+        )
 
         assert self.network is not None, "Network must be initialized after fitting"
         logit = self._predict_logit(x).astype(np.float64)

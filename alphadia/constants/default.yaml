@@ -181,6 +181,11 @@ search:
   # whether to enable fragment competition during FDR control
   compete_for_fragments: True
 
+  # fragment competition on ion mobility data (rust backend): PSMs compete inside the window group that isolated
+  # them on the scan nearest their observed mobility, and only with PSMs of a similar mobility. Without it, fragment
+  # competition is skipped on ion mobility data.
+  mobility_fragment_competition: False
+
   # the number of most intense fragments to use in the selection
   top_k_fragments_selection: 12
 

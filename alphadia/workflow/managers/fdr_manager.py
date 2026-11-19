@@ -55,6 +55,7 @@ class FDRManager(BaseManager):
         classifier_base: Classifier,
         config: Config,
         dia_cycle: None | np.ndarray = None,
+        dia_mobility_values: None | np.ndarray = None,
         path: None | str = None,
         load_from_file: bool = True,
         random_state: int | None = None,
@@ -76,6 +77,9 @@ class FDRManager(BaseManager):
             The workflow configuration object
         dia_cycle: None | np.ndarray
             DIA cycle information, if applicable. If None, no DIA cycle information is used.
+        dia_mobility_values: None | np.ndarray
+            1/K0 of every scan of `dia_cycle` for fragment competition on ion mobility data; None skips fragment
+            competition there.
         path : str, optional
             Path to the manager pickle on disk.
         load_from_file : bool, optional
@@ -95,6 +99,7 @@ class FDRManager(BaseManager):
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
+        self._dia_mobility_values = dia_mobility_values
 
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
@@ -184,6 +189,7 @@ class FDRManager(BaseManager):
                 if self._compete_for_fragments
                 else None,
                 dia_cycle=self._dia_cycle,
+                dia_mobility_values=self._dia_mobility_values,
                 train_on_best_candidate=train_on_best_candidate,
                 figure_path=self.figure_path,
                 random_state=random_state,
@@ -209,6 +215,7 @@ class FDRManager(BaseManager):
                         if self._compete_for_fragments
                         else None,
                         dia_cycle=self._dia_cycle,
+                        dia_mobility_values=self._dia_mobility_values,
                         figure_path=self.figure_path,
                         random_state=random_state,
                     )

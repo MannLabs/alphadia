@@ -124,6 +124,10 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
                 random_state=self._random_state_fdr_classifier,
             ),
             dia_cycle=self.dia_data.cycle,
+            dia_mobility_values=np.asarray(self.dia_data.mobility_values)
+            if self.dia_data.has_mobility
+            and self.config["search"]["mobility_fragment_competition"]
+            else None,
             config=self.config,
             figure_path=self._figure_path,
             random_state=self._random_state_fdr_manager,

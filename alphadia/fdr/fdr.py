@@ -81,6 +81,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     df_fragments: pd.DataFrame | None = None,
     fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
     dia_cycle: np.ndarray | None = None,
+    dia_mobility_values: np.ndarray | None = None,
     train_on_best_candidate: bool = False,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
@@ -123,6 +124,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     dia_cycle : np.ndarray, default=None
         The DIA cycle. Required if df_fragments is provided.
+
+    dia_mobility_values : np.ndarray, default=None
+        The 1/K0 of every scan of `dia_cycle`. On ion mobility data (more than 2 scans per cycle), fragment
+        competition runs only if it is given, with mobility-resolved windows.
 
     train_on_best_candidate : bool, default=False
         Train the classifier only on the most target-like candidate of each precursor, as picked by a logistic
@@ -240,7 +245,9 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
-    if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
+    if dia_cycle is not None and (
+        dia_cycle.shape[2] <= max_dia_cycle_shape or dia_mobility_values is not None
+    ):
         # use a FDR of 10% as starting point
         # if there are no PSMs with a FDR < 10% use all PSMs
         start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
@@ -256,8 +263,13 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
                 raise ValueError(
                     "dia_cycle must be provided if df_fragments is provided"
                 )
+            mobility_kwargs = (
+                {"scan_mobility": dia_mobility_values}
+                if dia_cycle.shape[2] > max_dia_cycle_shape
+                else {}
+            )
             psm_df = compete_for_fragments(
-                psm_df.iloc[:start_idx], df_fragments, dia_cycle
+                psm_df.iloc[:start_idx], df_fragments, dia_cycle, **mobility_kwargs
             )
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
