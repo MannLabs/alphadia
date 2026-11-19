@@ -10,6 +10,10 @@ from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
 
 from alphadia.raw_data.dia_cycle import determine_dia_cycle
+from alphadia.raw_data.ms1_alignment import (
+    align_ms1_to_ms2_cycle,
+    aligned_cycle_positions,
+)
 from alphadia.search.python.jitclasses.alpharaw_jit import AlphaRawJIT
 
 DEFAULT_VALUE_NO_MOBILITY = 1e-6
@@ -35,6 +39,12 @@ class AlphaRaw(MSData_Base, ABC):
 
         self.has_mobility: bool = False
         self.has_ms1: bool = True
+        # MS1 scans that are not at a fixed position of the DIA cycle are aligned to it instead of dropped
+        # (search.ms1_features); see ms1_alignment.py
+        self.align_ms1: bool = False
+        # acquisition time of each spectrum of the DIA cycle as a fraction of the cycle, set only when the MS1 scans
+        # were aligned (their slot is not their acquisition time); None = the position in the cycle
+        self.cycle_positions: np.ndarray | None = None
         self._zeroth_frame: int = 0
         self._scan_max_index: int = 1
         self.mobility_values: np.ndarray[tuple[int], np.dtype[np.float32]] = np.array(
@@ -75,21 +85,33 @@ class AlphaRaw(MSData_Base, ABC):
     def _preprocess_raw_data(self):
         """Process the raw data to extract relevant information."""
 
+        aligned_ms1 = False
         if not self._is_ms1_dia():
-            logger.warning(
-                "The MS1 spectra in the raw file do not follow a DIA cycle.\n"
-                "AlphaDIA will therefore not be able to use the MS1 information.\n"
-                "While acquiring data, please make sure to use an integer loop count of 1 or 2 over time based loop count in seconds."
+            aligned = (
+                align_ms1_to_ms2_cycle(self.spectrum_df) if self.align_ms1 else None
             )
+            if aligned is None:
+                logger.warning(
+                    "The MS1 spectra in the raw file do not follow a DIA cycle.\n"
+                    "AlphaDIA will therefore not be able to use the MS1 information.\n"
+                    "While acquiring data, please make sure to use an integer loop count of 1 or 2 over time based loop count in seconds."
+                )
 
-            self.spectrum_df = self.spectrum_df[self.spectrum_df["ms_level"] > 1]
-            self.has_ms1 = False
+                self.spectrum_df = self.spectrum_df[self.spectrum_df["ms_level"] > 1]
+                self.has_ms1 = False
+            else:
+                self.spectrum_df = aligned
+                aligned_ms1 = True
 
         self.cycle, self._cycle_start, self._cycle_length = determine_dia_cycle(
             self.spectrum_df
         )
 
         self.spectrum_df = self.spectrum_df.iloc[self._cycle_start :]
+        if aligned_ms1:
+            self.cycle_positions = aligned_cycle_positions(
+                self.spectrum_df["ms_level"].to_numpy()[: self._cycle_length]
+            )
         self.rt_values = self.spectrum_df["rt"].values.astype(np.float32) * 60
 
         self._precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
@@ -148,8 +170,9 @@ class AlphaRaw(MSData_Base, ABC):
 class AlphaRawBase(AlphaRaw, MSData_Base):
     """Class holding pre-processed raw data in AlphaBase format."""
 
-    def __init__(self, raw_file_path: str):
+    def __init__(self, raw_file_path: str, align_ms1: bool = False):  # noqa: FBT001, FBT002
         super().__init__()
+        self.align_ms1 = align_ms1
         self.load_hdf(raw_file_path)
         self._preprocess_raw_data()
 
@@ -157,8 +180,9 @@ class AlphaRawBase(AlphaRaw, MSData_Base):
 class MzML(AlphaRaw, MzMLReader):
     """Class holding pre-processed MzML raw data."""
 
-    def __init__(self, raw_file_path: str):
+    def __init__(self, raw_file_path: str, align_ms1: bool = False):  # noqa: FBT001, FBT002
         super().__init__()
+        self.align_ms1 = align_ms1
         self.load_raw(raw_file_path)
         self._preprocess_raw_data()
 
@@ -166,8 +190,9 @@ class MzML(AlphaRaw, MzMLReader):
 class Sciex(AlphaRaw, SciexWiffData):
     """Class holding pre-processed Sciex raw data."""
 
-    def __init__(self, raw_file_path: str):
+    def __init__(self, raw_file_path: str, align_ms1: bool = False):  # noqa: FBT001, FBT002
         super().__init__()
+        self.align_ms1 = align_ms1
         self.load_raw(raw_file_path)
         self._preprocess_raw_data()
 
@@ -175,8 +200,14 @@ class Sciex(AlphaRaw, SciexWiffData):
 class Thermo(AlphaRaw, ThermoRawData):
     """Class holding pre-processed Thermo raw data."""
 
-    def __init__(self, raw_file_path: str, process_count: int = 10):
+    def __init__(
+        self,
+        raw_file_path: str,
+        process_count: int = 10,
+        align_ms1: bool = False,  # noqa: FBT001, FBT002
+    ):
         AlphaRaw.__init__(self)
         ThermoRawData.__init__(self, process_count=process_count)
+        self.align_ms1 = align_ms1
         self.load_raw(raw_file_path)
         self._preprocess_raw_data()

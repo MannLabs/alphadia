@@ -22,7 +22,7 @@ from alphadia.workflow.peptidecentric.rust.extraction_handler import (
     RustExtractionHandler,
 )
 from alphadia.workflow.peptidecentric.rust.mapper import (
-    INTERFERENCE_FEATURE_GROUPS,
+    OPTIONAL_FEATURE_GROUPS,
     get_classifier_feature_columns,
 )
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
@@ -92,7 +92,7 @@ def test_rust_classifier_feature_columns_follow_the_interference_flags(tmp_path)
     # given: a rust workflow with the window share switched on, and a backend that scores both interference groups
     workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
     workflow.config["search"]["window_signal_share_features"] = True
-    interference = [c for cols in INTERFERENCE_FEATURE_GROUPS.values() for c in cols]
+    interference = [c for cols in OPTIONAL_FEATURE_GROUPS.values() for c in cols]
 
     # when
     with patch(
@@ -104,7 +104,7 @@ def test_rust_classifier_feature_columns_follow_the_interference_flags(tmp_path)
     # then: the window share enters the classifier, the fitted spread does not
     assert columns == [
         "correlation_mean",
-        *INTERFERENCE_FEATURE_GROUPS["window_signal_share_features"],
+        *OPTIONAL_FEATURE_GROUPS["window_signal_share_features"],
     ]
 
 
@@ -134,6 +134,22 @@ def test_workflow_creates_extraction_handler_of_its_backend(
         extraction_handler._optimization_context
         == workflow.optimization_manager.get_optimization_context()
     )
+
+
+@pytest.mark.parametrize("raw_data_has_ms1", [True, False])
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_rust")
+def test_rust_workflow_tells_the_extraction_handler_whether_the_raw_file_has_ms1(
+    _, raw_data_has_ms1, tmp_path
+):
+    # given: a rust workflow whose raw file has, or has not, MS1 scans
+    workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
+    workflow._raw_data_has_ms1 = raw_data_has_ms1
+
+    # when
+    extraction_handler = workflow._create_extraction_handler(MagicMock())
+
+    # then
+    assert extraction_handler._raw_data_has_ms1 is raw_data_has_ms1
 
 
 @patch("alphadia.workflow.peptidecentric.optimization_handler.log_precursor_df")
@@ -217,7 +233,7 @@ def test_rust_workflow_converts_dia_data(
     # given
     workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
     dia_data = MagicMock(
-        name="dia_data", cycle=np.zeros((1, 4)), rt_values=np.arange(3)
+        name="dia_data", cycle=np.zeros((1, 4)), rt_values=np.arange(3), has_ms1=True
     )
     mock_dia_data_to_rust.return_value = MagicMock(
         cycle=dia_data.cycle, rt_values=dia_data.rt_values
@@ -230,6 +246,8 @@ def test_rust_workflow_converts_dia_data(
     mock_set_thread_count.assert_called_once_with(THREAD_COUNT)
     mock_dia_data_to_rust.assert_called_once_with(dia_data)
     assert prepared is mock_dia_data_to_rust.return_value
+    # the converted DIA data always reports no MS1, so the workflow keeps whether the raw file has MS1 scans
+    assert workflow._raw_data_has_ms1 is True
 
 
 def test_rust_workflow_rejects_timstof_data(tmp_path):
