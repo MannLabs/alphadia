@@ -82,11 +82,15 @@ class RustExtractionHandler(ExtractionHandler):
             spectral_library,
         )
 
+        self._has_mobility: bool = dia_data.has_mobility
         self._speclib_rust: SpecLibFlatRust = speclib_to_rust(
             spectral_library,
             rt_column=column_name_handler.get_rt_column(),
             precursor_mz_column=column_name_handler.get_precursor_mz_column(),
             fragment_mz_column=column_name_handler.get_fragment_mz_column(),
+            mobility_column=column_name_handler.get_mobility_column()
+            if self._has_mobility
+            else None,
         )
         self._raw_data_has_ms1 = raw_data_has_ms1
         # MS1 extraction tolerance (ppm) from the MS1 calibration pre-pass; None until the MS1 isotopes are set
@@ -132,6 +136,7 @@ class RustExtractionHandler(ExtractionHandler):
                 "mass_tolerance": self._optimization_context.ms2_error,
                 "rt_tolerance": self._optimization_context.rt_error,
                 "candidate_count": self._optimization_context.num_candidates,
+                **self._mobility_parameters(),
             }
         )
 
@@ -140,6 +145,12 @@ class RustExtractionHandler(ExtractionHandler):
         )
 
         return parse_candidates(candidates, self._spectral_library, self._dia_data)
+
+    def _mobility_parameters(self) -> dict[str, float]:
+        """The mobility tolerance (1/K0) of selection, scoring and quantification; none without a mobility dimension."""
+        if not self._has_mobility:
+            return {}
+        return {"mobility_tolerance": self._optimization_context.mobility_error}
 
     def score_candidates(
         self,
@@ -192,6 +203,7 @@ class RustExtractionHandler(ExtractionHandler):
             unscored_feature_groups=[
                 group for group, scored in scored_groups.items() if not scored
             ],
+            has_mobility=self._has_mobility,
         )
 
     def _scoring_parameters(
@@ -223,6 +235,7 @@ class RustExtractionHandler(ExtractionHandler):
             "mass_tolerance": self._optimization_context.ms2_error,
             "feature_set": feature_set,
             "detection_features": detection_features,
+            **self._mobility_parameters(),
         }
         if ms1_tolerance_ppm is not None:
             params["ms1_mass_tolerance"] = ms1_tolerance_ppm
@@ -303,6 +316,7 @@ class RustExtractionHandler(ExtractionHandler):
 
         # run quantification
         quant_params = QuantificationParameters()
+        quant_params.update(self._mobility_parameters())
         if top_k_fragments is not None:
             quant_params.update({"top_k_fragments": top_k_fragments})
 
@@ -322,8 +336,16 @@ class RustExtractionHandler(ExtractionHandler):
         if precursor_fdr_df is not None:
             # fwhm_rt is a scoring feature (not produced by quantification), so it is
             # carried over from the post-FDR precursors into the quantified output.
+            mobility_columns = (
+                [CalibCols.MOBILITY_OBSERVED, "fwhm_mobility"]
+                if self._has_mobility
+                else []
+            )
             precursor_df = precursor_df.merge(
-                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba", "fwhm_rt"]],
+                precursor_fdr_df[
+                    ["precursor_idx", "rank", "qval", "proba", "fwhm_rt"]
+                    + mobility_columns
+                ],
                 on=["precursor_idx", "rank"],
                 how="left",
             )
@@ -357,11 +379,13 @@ class RustExtractionHandler(ExtractionHandler):
             CalibCols.MZ_LIBRARY
         ]  # required for transfer library building
 
-        # dummy values required to satisfy some downstream calculations
-        features_or_precursor_df["fwhm_mobility"] = -1
-        features_or_precursor_df[CalibCols.MOBILITY_OBSERVED] = (
-            DEFAULT_VALUE_NO_MOBILITY
-        )
+        # dummy values required to satisfy some downstream calculations; with a mobility dimension, the scored
+        # mobility features carry them
+        if not self._has_mobility:
+            features_or_precursor_df["fwhm_mobility"] = -1
+            features_or_precursor_df[CalibCols.MOBILITY_OBSERVED] = (
+                DEFAULT_VALUE_NO_MOBILITY
+            )
 
         return features_or_precursor_df
 

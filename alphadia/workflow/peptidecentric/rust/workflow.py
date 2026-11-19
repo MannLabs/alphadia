@@ -5,7 +5,7 @@ import time
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import DIAData as DiaDataRust
-from alphadia_search_rs import FeatureSet
+from alphadia_search_rs import FeatureSet, TimsDIAData
 
 from alphadia.exceptions import GenericUserError
 from alphadia.raw_data import DiaData
@@ -70,11 +70,16 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
             raw_data_has_ms1=self._raw_data_has_ms1,
         )
 
-    def _convert_dia_data(self, dia_data: DiaData) -> DiaDataRust:
+    def _convert_dia_data(
+        self, dia_data: DiaData | TimsDIAData
+    ) -> DiaDataRust | TimsDIAData:
+        if isinstance(dia_data, TimsDIAData):
+            self._raw_data_has_ms1 = dia_data.has_ms1
+            return dia_data
         if isinstance(dia_data, TimsTOFTranspose):
             raise GenericUserError(
                 "NOT_SUPPORTED_BY_RUST",
-                "Rust backend does not support TimsTOF data yet. Please use extraction_backend='python'.",
+                "Rust backend reads timsTOF data from .d folders only. Please use extraction_backend='python'.",
             )
 
         time_start = time.time()

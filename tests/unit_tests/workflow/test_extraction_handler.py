@@ -45,7 +45,7 @@ def _create_handler(config, fdr_manager=None):
             fdr_manager or MagicMock(),
             MagicMock(),
             MagicMock(),
-            MagicMock(name="dia_data"),
+            MagicMock(name="dia_data", has_mobility=False),
             MagicMock(name="spectral_library"),
             raw_data_has_ms1=True,
         )
@@ -58,7 +58,10 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_rust):
     column_name_handler.get_rt_column.return_value = "rt_calibrated"
     column_name_handler.get_precursor_mz_column.return_value = "mz_calibrated"
     column_name_handler.get_fragment_mz_column.return_value = "mz_library"
+    column_name_handler.get_mobility_column.return_value = "mobility_calibrated"
     spectral_library = MagicMock(name="spectral_library")
+    dia_data = MagicMock(name="dia_data")
+    dia_data.has_mobility = True
 
     # When: the test creates the handler
     handler = RustExtractionHandler(
@@ -67,7 +70,7 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_rust):
         MagicMock(),
         MagicMock(),
         column_name_handler,
-        MagicMock(name="dia_data"),
+        dia_data,
         spectral_library,
         raw_data_has_ms1=True,
     )
@@ -78,6 +81,7 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_rust):
         rt_column="rt_calibrated",
         precursor_mz_column="mz_calibrated",
         fragment_mz_column="mz_library",
+        mobility_column="mobility_calibrated",
     )
     assert handler._speclib_rust is mock_speclib_to_rust.return_value
 
@@ -115,6 +119,7 @@ def test_score_candidates_returns_the_scored_features(
         mock_scoring.return_value.score.return_value,
         handler._spectral_library,
         unscored_feature_groups=["ms1_features", "detection_features"],
+        has_mobility=False,
     )
     assert features_df is mock_to_features_df.return_value
 
@@ -299,7 +304,7 @@ def _handler(
             MagicMock(),
             reporter or MagicMock(),
             column_name_handler,
-            MagicMock(name="dia_data"),
+            MagicMock(name="dia_data", has_mobility=False),
             SimpleNamespace(
                 precursor_df=_precursor_df() if precursor_df is None else precursor_df
             ),
@@ -363,7 +368,8 @@ def test_score_candidates_calibrates_ms1_once_on_target_candidates(
         FeatureSet.Full,
     ]
     assert mock_to_features_df.call_args.kwargs == {
-        "unscored_feature_groups": ["detection_features"]
+        "unscored_feature_groups": ["detection_features"],
+        "has_mobility": False,
     }
 
 
@@ -394,7 +400,8 @@ def test_calibration_rounds_and_runs_without_the_flags_score_no_ms1_or_detection
     assert "ms1_mass_tolerance" not in params
     assert params["detection_features"] is False
     assert mock_to_features_df.call_args.kwargs == {
-        "unscored_feature_groups": ["ms1_features", "detection_features"]
+        "unscored_feature_groups": ["ms1_features", "detection_features"],
+        "has_mobility": False,
     }
 
 
@@ -419,7 +426,8 @@ def test_score_candidates_asks_for_the_detection_features_in_the_final_round(
     mock_set_ms1_isotopes.assert_not_called()
     assert mock_scoring.call_args.args[0].params["detection_features"] is True
     assert mock_to_features_df.call_args.kwargs == {
-        "unscored_feature_groups": ["ms1_features"]
+        "unscored_feature_groups": ["ms1_features"],
+        "has_mobility": False,
     }
 
 

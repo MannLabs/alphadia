@@ -5,6 +5,7 @@ import os
 
 import h5py
 import numpy as np
+from alphadia_search_rs import TimsDIAData, set_num_threads
 
 from alphadia.constants.keys import ExtractionBackend
 from alphadia.exceptions import NotValidDiaDataError
@@ -86,7 +87,16 @@ class RawFileManager(BaseManager):
             and self._config["search"]["extraction_backend"] == ExtractionBackend.RUST
         )
 
-        if file_extension.lower() == ".d":
+        rust_backend = (
+            self._config["search"]["extraction_backend"] == ExtractionBackend.RUST
+        )
+        if file_extension.lower() == ".d" and rust_backend:
+            raw_data_type = "bruker"
+            # timsrust reads the run on the rust thread pool, which is sized on its first use
+            set_num_threads(self._config["general"]["thread_count"])
+            dia_data = TimsDIAData.from_bruker(dia_data_path)
+
+        elif file_extension.lower() == ".d":
             raw_data_type = "bruker"
             dia_data = TimsTOFTranspose(
                 dia_data_path,
@@ -159,10 +169,10 @@ class RawFileManager(BaseManager):
         rt_duration = self.stats["rt_limit_max"] - self.stats["rt_limit_min"]
 
         logger.info(
-            f"{'RT (min)':<20}: {self.stats['rt_limit_min']/60:.1f} - {self.stats['rt_limit_max']/60:.1f}"
+            f"{'RT (min)':<20}: {self.stats['rt_limit_min'] / 60:.1f} - {self.stats['rt_limit_max'] / 60:.1f}"
         )
         logger.info(f"{'RT duration (sec)':<20}: {rt_duration:.1f}")
-        logger.info(f"{'RT duration (min)':<20}: {rt_duration/60:.1f}")
+        logger.info(f"{'RT duration (min)':<20}: {rt_duration / 60:.1f}")
 
         logger.info(f"{'Cycle len (scans)':<20}: {self.stats['cycle_length']:.0f}")
         logger.info(f"{'Cycle len (sec)':<20}: {self.stats['cycle_duration']:.2f}")

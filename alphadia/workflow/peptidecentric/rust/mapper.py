@@ -75,13 +75,18 @@ def speclib_to_rust(
     rt_column: str,
     precursor_mz_column: str,
     fragment_mz_column: str,
+    mobility_column: str | None = None,
 ) -> "SpecLibFlatRust":  # noqa: F821
-    """Convert a spectral library to the alphadia-search-rs format."""
+    """Convert a spectral library to the alphadia-search-rs format.
+
+    With `mobility_column`, each precursor's XICs are restricted to the scans within the mobility tolerance of that
+    column's 1/K0 (data with an ion mobility dimension).
+    """
 
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
 
-    return SpecLibFlatRust.from_arrays(
+    speclib_rust = SpecLibFlatRust.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
         precursor_df["mz_library"].values.astype(np.float32),
         precursor_df[precursor_mz_column].values.astype(np.float32),
@@ -100,6 +105,12 @@ def speclib_to_rust(
         fragment_df["position"].values.astype(np.uint8),
         fragment_df["type"].values.astype(np.uint8),
     )
+    if mobility_column is not None:
+        speclib_rust.set_precursor_mobility(
+            precursor_df["precursor_idx"].values.astype(np.uint64),
+            precursor_df[mobility_column].values.astype(np.float32),
+        )
+    return speclib_rust
 
 
 def set_ms1_isotopes(
@@ -184,6 +195,24 @@ OPTIONAL_FEATURE_GROUPS = {
 }
 
 
+# The mobility block, scored in every round; its values are missing on data without an ion mobility dimension, so its
+# columns are dropped there (`to_features_df`).
+MOBILITY_FEATURES = (
+    "mobility_observed",
+    "mobility_error",
+    "mobility_fragment_sd",
+    "mobility_peak_sd",
+    "mobility_outer_frac",
+)
+
+# Scored, but not classifier features: the observed mobility is an absolute position and feeds the mobility
+# calibration only.
+NON_CLASSIFIER_FEATURES = ("mobility_observed",)
+
+# A Gaussian peak's full width at half maximum per standard deviation
+FWHM_PER_SD = 2.3548
+
+
 def get_enabled_feature_groups(search_config: dict) -> list[str]:
     """Get the optional feature groups whose `search.<group>` flag is set."""
     return [
@@ -212,9 +241,10 @@ def get_classifier_feature_columns(
     The full feature set; the FDR manager uses only the columns present, so calibration rounds use the core subset.
     The optional features are left out unless their group is in `feature_groups`.
     """
-    excluded = set(get_feature_group_columns(OPTIONAL_FEATURE_GROUPS)) - set(
-        get_feature_group_columns(feature_groups)
-    )
+    excluded = (
+        set(get_feature_group_columns(OPTIONAL_FEATURE_GROUPS))
+        - set(get_feature_group_columns(feature_groups))
+    ) | set(NON_CLASSIFIER_FEATURES)
     return [
         column
         for column in get_feature_names(FeatureSet.Full)
@@ -300,13 +330,17 @@ def to_features_df(
     spectral_library: SpecLibFlat,
     *,
     unscored_feature_groups: Collection[str] = (),
+    has_mobility: bool = False,
 ) -> pd.DataFrame:
     """Convert alphadia-search-rs candidate features into a DataFrame.
 
     The columns of the `unscored_feature_groups` (`OPTIONAL_FEATURE_GROUPS`) hold the missing values and are dropped,
-    so that the classifier never sees them, also when their flag is set but the file cannot score them.
+    so that the classifier never sees them, also when their flag is set but the file cannot score them. So are the
+    `MOBILITY_FEATURES` without `has_mobility`; with it, the mobility peak width is added as `fwhm_mobility`.
     """
     dropped = set(get_feature_group_columns(unscored_feature_groups))
+    if not has_mobility:
+        dropped |= set(MOBILITY_FEATURES)
     features_dict = {
         name: values
         for name, values in candidate_features.to_dict_arrays().items()
@@ -334,6 +368,8 @@ def to_features_df(
     # TODO change logic together with RustExtractionHandler.add_columns_from_library:
     # https://github.com/MannLabs/alphadia/blob/d12dd6b918f450e6e55447e1dd40335aedd31d6b/alphadia/workflow/peptidecentric/extraction_handler.py#L669-L671
     features_df[CalibCols.MZ_OBSERVED] = features_df[CalibCols.MZ_LIBRARY]
+    if has_mobility:
+        features_df["fwhm_mobility"] = FWHM_PER_SD * features_df["mobility_peak_sd"]
 
     return features_df
 
