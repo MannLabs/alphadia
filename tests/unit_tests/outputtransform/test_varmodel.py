@@ -5,7 +5,7 @@ import pandas as pd
 
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
-    QuantBuilder,
+    varmodel_precursor_table,
 )
 
 # the fit itself is tested in alphadia_search_rs (src/varmodel_quantification/tests.rs), these tests
@@ -44,7 +44,7 @@ def test_precursor_table_has_one_sorted_row_per_precursor_with_its_runs():
     intensity_df = _fragment_table(intensity_library, precursor, intensity)
 
     # When
-    precursor_df = QuantBuilder(pd.DataFrame()).varmodel_precursor_table(intensity_df)
+    precursor_df = varmodel_precursor_table(intensity_df)
 
     # Then
     assert precursor_df["mod_seq_charge_hash"].tolist() == [10, 20]
@@ -65,9 +65,7 @@ def test_fragments_without_library_intensity_are_ignored_with_a_warning(caplog):
 
     # When
     with caplog.at_level(logging.WARNING):
-        precursor_df = QuantBuilder(pd.DataFrame()).varmodel_precursor_table(
-            intensity_df
-        )
+        precursor_df = varmodel_precursor_table(intensity_df)
 
     # Then
     assert any(
