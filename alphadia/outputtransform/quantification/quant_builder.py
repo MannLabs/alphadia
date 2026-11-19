@@ -31,7 +31,6 @@ FRAGMENT_METADATA_COLUMNS = [
 
 PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
-VARMODEL_MISSING_CENSORED = "censored"
 # censoring and quality weights estimate their noise curve from fragments seen in several runs; with fewer runs there
 # are no ratios to protect and the plain fit is used
 MIN_RUNS_FOR_EXTENDED_FIT = 2
@@ -273,7 +272,7 @@ class QuantBuilder:
     def varmodel_precursor_table(
         self,
         intensity_df: pd.DataFrame,
-        correlation_df: pd.DataFrame | None = None,
+        correlation_df: pd.DataFrame,
         quality_exponent: float = 0.0,
     ) -> pd.DataFrame:
         """Estimate the precursor quantities with the variance-model fit.
@@ -286,10 +285,11 @@ class QuantBuilder:
         ----------
         intensity_df: pd.DataFrame
             Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash, intensity_library
-        correlation_df: pd.DataFrame | None
-            XIC correlations aligned row by row with intensity_df; needed when quality_exponent > 0
+        correlation_df: pd.DataFrame
+            XIC correlations aligned row by row with intensity_df; missing values count as 0
         quality_exponent: float
-            > 0 multiplies each fragment value's variance by exp(quality_exponent * (1 - sqrt(correlation)))
+            > 0 multiplies each fragment value's variance by exp(quality_exponent * (1 - sqrt(correlation))), with at
+            least two runs
 
         Returns
         -------
@@ -313,22 +313,20 @@ class QuantBuilder:
         )
         intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
 
-        options = {}
-        if len(run_columns) >= MIN_RUNS_FOR_EXTENDED_FIT:
-            options = {
-                "missing_fragments": VARMODEL_MISSING_CENSORED,
-                "quality_exponent": quality_exponent,
-            }
-            if quality_exponent > 0:
-                options["correlation"] = np.ascontiguousarray(
-                    correlation_df[run_columns].to_numpy(dtype=np.float32).T
-                )
+        correlation = np.clip(
+            np.nan_to_num(correlation_df[run_columns].to_numpy(dtype=np.float32)),
+            0.0,
+            1.0,
+        )
+        extended = len(run_columns) >= MIN_RUNS_FOR_EXTENDED_FIT
         result = VarModelQuantification().fit(
             np.ascontiguousarray(intensity.T),
             intensity_library,
             fragment_precursor_index.astype(np.uintp),
             len(precursor_hashes),
-            **options,
+            np.ascontiguousarray(correlation.T),
+            censored=extended,
+            quality_exponent=quality_exponent if extended else 0.0,
         )
         logger.info(
             f"Variance-model fit: residual scale {result['residual_scale']:.3f} log2, "
