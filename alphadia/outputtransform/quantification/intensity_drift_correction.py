@@ -34,10 +34,10 @@ _PRECURSOR_REQUIRED_PSM_COLUMNS = [
 _FRAGMENT_DRIFT = "RT dependent"
 _PRECURSOR_DRIFT = "RT and precursor mass dependent"
 
-# keys of the summary returned by IntensityDriftCorrection.correct and PrecursorDriftCorrection.correct
+# fields of the summary returned by IntensityDriftCorrection.correct and PrecursorDriftCorrection.correct
 _SUMMARY_CORRECTED = "corrected"
 _SUMMARY_MAX_ABS_CORRECTION = "max_abs_correction"
-_SUMMARY_N_STRATA = "n_strata"
+_SUMMARY_N_MASS_BINS = "n_mass_bins"
 _SUMMARY_REFERENCE_RUNS = "reference_runs"
 
 # a single run has nothing to be corrected against, so it is not worth a warning
@@ -110,7 +110,7 @@ def correct_precursor_intensity_drift(
     Parameters
     ----------
     precursor_df : pd.DataFrame
-        Linear precursor quantities, one row per precursor, with mod_seq_charge_hash, the other
+        Linear precursor intensities, one row per precursor, with mod_seq_charge_hash, the other
         quantification level columns and one column per run. 0 or NaN marks a missing value.
     psm_df : pd.DataFrame
         PSM table with mod_seq_charge_hash, run, rt_observed, mz_library and charge. Of several
@@ -187,7 +187,7 @@ def _rt_by_run(
     rt = np.full((len(run_columns), len(unique_keys)), np.nan, dtype=dtype)
     psm_run_codes = pd.Index(run_columns).get_indexer(psm_df[_RUN_COLUMN])
     psm_key_codes = pd.Index(unique_keys).get_indexer(psm_df[key_column].to_numpy())
-    # psms of runs or keys outside the quantity table have no cell
+    # psms of runs or keys outside the intensity table have no cell
     found_mask = (psm_run_codes >= 0) & (psm_key_codes >= 0)
     rt[psm_run_codes[found_mask], psm_key_codes[found_mask]] = psm_df[
         CalibCols.RT_OBSERVED
@@ -201,9 +201,9 @@ def _log_summary(
     """Log how many runs were corrected, and warn about the runs left uncorrected."""
     corrected_mask = summary[_SUMMARY_CORRECTED]
     max_abs_correction = summary[_SUMMARY_MAX_ABS_CORRECTION]
-    strata = (
-        f" in {summary[_SUMMARY_N_STRATA]} mass strata"
-        if _SUMMARY_N_STRATA in summary
+    mass_bins = (
+        f" in {summary[_SUMMARY_N_MASS_BINS]} mass bins"
+        if _SUMMARY_N_MASS_BINS in summary
         else ""
     )
     reference = (
@@ -213,7 +213,7 @@ def _log_summary(
     )
     logger.info(
         f"Corrected the {drift_name} intensity drift of {corrected_mask.sum()} of "
-        f"{len(run_columns)} runs{strata}{reference}, largest correction {max_abs_correction.max(initial=0.0):.3f} log2"
+        f"{len(run_columns)} runs{mass_bins}{reference}, largest correction {max_abs_correction.max(initial=0.0):.3f} log2"
     )
     uncorrected_runs = [
         run

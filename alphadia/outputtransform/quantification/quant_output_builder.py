@@ -295,7 +295,7 @@ class QuantOutputBuilder:
         quantlevel_configs: list[LFQOutputConfig],
         feature_dfs_dict: dict[str, pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
-        """Remove the fragment intensity drift if enabled, filter fragments per level and estimate the level quantities with directLFQ.
+        """Remove the fragment intensity drift if enabled, filter fragments per level and estimate the level intensities with directLFQ.
 
         Parameters
         ----------
@@ -337,11 +337,11 @@ class QuantOutputBuilder:
         quantlevel_configs: list[LFQOutputConfig],
         feature_dfs_dict: dict[str, pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
-        """Estimate the precursor quantities with the variance-model fit, remove their intensity drift if enabled and roll them up with directLFQ.
+        """Estimate the precursor intensities with the variance-model fit, remove their intensity drift if enabled and roll them up with directLFQ.
 
         The drift is corrected on the precursor table, along the retention time and the neutral
         precursor mass, not on the fragments. All levels are rolled up from the same precursor
-        table so that they share the precursor quantities; directLFQ's sample normalization does
+        table so that they share the precursor intensities; directLFQ's sample normalization does
         not depend on the grouping, so every level also gets the same shifts.
 
         Parameters
