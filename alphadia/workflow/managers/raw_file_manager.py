@@ -6,6 +6,7 @@ import os
 import h5py
 import numpy as np
 
+from alphadia.constants.keys import ExtractionBackend
 from alphadia.exceptions import NotValidDiaDataError
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import (
@@ -82,7 +83,7 @@ class RawFileManager(BaseManager):
         # the MS1 features (rust backend only) need the MS1 scans, also those acquired on their own clock
         align_ms1 = (
             self._config["search"]["ms1_features"]
-            and self._config["search"]["extraction_backend"] == "rust"
+            and self._config["search"]["extraction_backend"] == ExtractionBackend.RUST
         )
 
         if file_extension.lower() == ".d":

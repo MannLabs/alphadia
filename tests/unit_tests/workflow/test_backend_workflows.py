@@ -22,7 +22,7 @@ from alphadia.workflow.peptidecentric.rust.extraction_handler import (
     RustExtractionHandler,
 )
 from alphadia.workflow.peptidecentric.rust.mapper import (
-    INTERFERENCE_FEATURE_GROUPS,
+    OPTIONAL_FEATURE_GROUPS,
     get_classifier_feature_columns,
 )
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
@@ -92,7 +92,7 @@ def test_rust_classifier_feature_columns_follow_the_interference_flags(tmp_path)
     # given: a rust workflow with the window share switched on, and a backend that scores both interference groups
     workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
     workflow.config["search"]["window_signal_share_features"] = True
-    interference = [c for cols in INTERFERENCE_FEATURE_GROUPS.values() for c in cols]
+    interference = [c for cols in OPTIONAL_FEATURE_GROUPS.values() for c in cols]
 
     # when
     with patch(
@@ -104,7 +104,7 @@ def test_rust_classifier_feature_columns_follow_the_interference_flags(tmp_path)
     # then: the window share enters the classifier, the fitted spread does not
     assert columns == [
         "correlation_mean",
-        *INTERFERENCE_FEATURE_GROUPS["window_signal_share_features"],
+        *OPTIONAL_FEATURE_GROUPS["window_signal_share_features"],
     ]
 
 

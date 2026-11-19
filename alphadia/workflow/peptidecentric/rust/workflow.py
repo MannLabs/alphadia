@@ -17,7 +17,7 @@ from alphadia.workflow.peptidecentric.rust.extraction_handler import (
 from alphadia.workflow.peptidecentric.rust.mapper import (
     dia_data_to_rust,
     get_classifier_feature_columns,
-    get_interference_feature_groups,
+    get_enabled_feature_groups,
     set_thread_count,
 )
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
@@ -40,7 +40,7 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
 
     def _classifier_feature_columns(self) -> list[str]:
         return get_classifier_feature_columns(
-            get_interference_feature_groups(self.config["search"])
+            get_enabled_feature_groups(self.config["search"])
         )
 
     def _create_extraction_handler(

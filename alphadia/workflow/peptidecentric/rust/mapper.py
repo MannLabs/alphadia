@@ -16,31 +16,12 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatRust
 
+from alphadia.calibration.ms1_calibration import Ms1Calibration
 from alphadia.constants.keys import CalibCols
 from alphadia.raw_data import DiaData
-from alphadia.workflow.peptidecentric.rust.ms1_calibration import Ms1Calibration
 
 # library isotope abundances (alphabase IsotopeGenerator) scored against the MS1 isotope XICs
 MS1_ISOTOPE_COLUMNS = ["i_0", "i_1", "i_2", "i_3"]
-# The MS1 block of `FeatureSet.Full` (search.ms1_features), in its column order
-MS1_FEATURES = (
-    "ms1_signal_at_apex",
-    "ms1_isotope_correlation",
-    "ms1_isotope_cosine",
-    "ms1_m_minus_1_frac",
-    "ms1_log_intensity",
-    "ms1_iso_m1_err",
-    "ms1_m0_accurate_share",
-    "ms1_m1_accurate_share",
-    "ms1_fine_shape",
-    "ms1_fine_iso_corr",
-)
-# The detection block of `FeatureSet.Full` (search.detection_features), in its column order
-DETECTION_FEATURES = (
-    "shadow_lib_share",
-    "det_faint_hits",
-    "det_faint_miss",
-)
 
 
 def set_thread_count(thread_count: int) -> None:
@@ -81,10 +62,9 @@ def dia_data_to_rust(dia_data: DiaData) -> "DiaDataRust":  # noqa: F821
         peak_df["intensity"].values.astype(np.float32),
         dia_data.cycle.astype(np.float32),
     )
-    cycle_positions = getattr(dia_data, "cycle_positions", None)
-    if cycle_positions is not None:
+    if dia_data.cycle_positions is not None:
         dia_data_rust.set_cycle_positions(
-            np.asarray(cycle_positions, np.float32).tolist()
+            np.asarray(dia_data.cycle_positions, np.float32).tolist()
         )
     return dia_data_rust
 
@@ -165,9 +145,9 @@ def get_feature_names(feature_set: FeatureSet) -> list[str]:
 # identifications by less than 1 %. It is still scored, because the precursor output reports it as the peak width.
 FINAL_ROUND_EXCLUDED_FEATURES = ("fwhm_rt",)
 
-# The interference features by the `search.<flag>` that adds them to the classifier. They are in FeatureSet.Full only,
+# The optional features by the `search.<flag>` that adds them to the classifier. They are in FeatureSet.Full only,
 # so they only exist in the final round and never enter the calibration fits.
-INTERFERENCE_FEATURE_GROUPS = {
+OPTIONAL_FEATURE_GROUPS = {
     # |fitted - library| of the unit-sum fragment intensities, each fragment XIC fitted to the median elution profile
     "fitted_spread_features": (
         "fit_intensity_abs_diff_mean",
@@ -181,36 +161,60 @@ INTERFERENCE_FEATURE_GROUPS = {
         "apex_window_signal_frac_rank",
         "apex_window_signal_frac_zscore",
     ),
+    # the MS1 isotope XICs of the precursor against the fragment elution profile and the library isotope abundances;
+    # scored only if the flag is set and the raw file and the library allow it (RustExtractionHandler)
+    "ms1_features": (
+        "ms1_signal_at_apex",
+        "ms1_isotope_correlation",
+        "ms1_isotope_cosine",
+        "ms1_m_minus_1_frac",
+        "ms1_log_intensity",
+        "ms1_iso_m1_err",
+        "ms1_m0_accurate_share",
+        "ms1_m1_accurate_share",
+        "ms1_fine_shape",
+        "ms1_fine_iso_corr",
+    ),
+    # fragment detection at the apex scan, for one-scan peaks at low input; scored only if the flag is set
+    "detection_features": (
+        "shadow_lib_share",
+        "det_faint_hits",
+        "det_faint_miss",
+    ),
 }
 
 
-def get_interference_feature_groups(search_config: dict) -> list[str]:
-    """Get the interference feature groups whose `search.<group>` flag is set."""
+def get_enabled_feature_groups(search_config: dict) -> list[str]:
+    """Get the optional feature groups whose `search.<group>` flag is set."""
     return [
-        group
-        for group in INTERFERENCE_FEATURE_GROUPS
-        if search_config.get(group, False)
+        group for group in OPTIONAL_FEATURE_GROUPS if search_config.get(group, False)
+    ]
+
+
+def get_feature_group_columns(feature_groups: Collection[str]) -> list[str]:
+    """Get the feature columns of the optional `feature_groups`."""
+    unknown_groups = set(feature_groups) - set(OPTIONAL_FEATURE_GROUPS)
+    if unknown_groups:
+        raise ValueError(f"Unknown optional feature groups: {unknown_groups}")
+    return [
+        column
+        for group in OPTIONAL_FEATURE_GROUPS
+        if group in feature_groups
+        for column in OPTIONAL_FEATURE_GROUPS[group]
     ]
 
 
 def get_classifier_feature_columns(
-    interference_feature_groups: Collection[str] = (),
+    feature_groups: Collection[str] = (),
 ) -> list[str]:
     """Get the feature columns the FDR classifier is trained on.
 
     The full feature set; the FDR manager uses only the columns present, so calibration rounds use the core subset.
-    The interference features are left out unless their group is in `interference_feature_groups`.
+    The optional features are left out unless their group is in `feature_groups`.
     """
-    unknown_groups = set(interference_feature_groups) - set(INTERFERENCE_FEATURE_GROUPS)
-    if unknown_groups:
-        raise ValueError(f"Unknown interference feature groups: {unknown_groups}")
-
-    excluded = {
-        column
-        for group, columns in INTERFERENCE_FEATURE_GROUPS.items()
-        if group not in interference_feature_groups
-        for column in columns
-    }
+    excluded = set(get_feature_group_columns(OPTIONAL_FEATURE_GROUPS)) - set(
+        get_feature_group_columns(feature_groups)
+    )
     return [
         column
         for column in get_feature_names(FeatureSet.Full)
@@ -295,20 +299,14 @@ def to_features_df(
     candidate_features: CandidateFeatureCollection,
     spectral_library: SpecLibFlat,
     *,
-    ms1_scored: bool = False,
-    detection_scored: bool = False,
+    unscored_feature_groups: Collection[str] = (),
 ) -> pd.DataFrame:
     """Convert alphadia-search-rs candidate features into a DataFrame.
 
-    The MS1 columns (`MS1_FEATURES`) are kept only if `ms1_scored`, the detection columns (`DETECTION_FEATURES`)
-    only if `detection_scored`: otherwise they hold the missing values and are dropped, so that the classifier
-    never sees them.
+    The columns of the `unscored_feature_groups` (`OPTIONAL_FEATURE_GROUPS`) hold the missing values and are dropped,
+    so that the classifier never sees them, also when their flag is set but the file cannot score them.
     """
-    dropped = set()
-    if not ms1_scored:
-        dropped.update(MS1_FEATURES)
-    if not detection_scored:
-        dropped.update(DETECTION_FEATURES)
+    dropped = set(get_feature_group_columns(unscored_feature_groups))
     features_dict = {
         name: values
         for name, values in candidate_features.to_dict_arrays().items()

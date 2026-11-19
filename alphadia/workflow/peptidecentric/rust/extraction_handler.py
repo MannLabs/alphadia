@@ -16,6 +16,12 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatRust
 
+from alphadia.calibration.ms1_calibration import (
+    MS1_PREPASS_TOLERANCE_PPM,
+    Ms1Calibration,
+    Ms1PrepassMatches,
+    fit_ms1_calibration,
+)
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
@@ -35,16 +41,11 @@ from alphadia.workflow.peptidecentric.rust.mapper import (
     speclib_to_rust,
     to_features_df,
 )
-from alphadia.workflow.peptidecentric.rust.ms1_calibration import (
-    Ms1Calibration,
-    fit_ms1_calibration,
-)
 
 # alphadia-search-rs never calibrates the precursor m/z, so before the MS1 features are scored (search.ms1_features,
 # final round only), a pre-pass extracts the MS1 of the best-scoring target candidates at a wide tolerance and fits the
-# MS1 mass calibration on them (ms1_calibration.py).
+# MS1 mass calibration on them (alphadia/calibration/ms1_calibration.py).
 MS1_PREPASS_CANDIDATES = 10_000
-MS1_PREPASS_TOLERANCE_PPM = 15.0
 
 
 class RustExtractionHandler(ExtractionHandler):
@@ -82,8 +83,13 @@ class RustExtractionHandler(ExtractionHandler):
         self._ms1_scorable: bool | None = None
 
     def _can_score_ms1(self) -> bool:
-        """Return whether the MS1 features can be scored: the raw file has MS1 scans and the library the isotope
-        abundances. Otherwise log why search.ms1_features is skipped."""
+        """Check whether the MS1 features can be scored, and log why search.ms1_features is skipped if not.
+
+        Returns
+        -------
+        bool
+            Whether the raw file has MS1 scans and the library the isotope abundances (`MS1_ISOTOPE_COLUMNS`).
+        """
         if not self._column_name_handler.dia_data_has_ms1:
             reason = "the raw file has no MS1 scans"
         elif MS1_ISOTOPE_COLUMNS[0] not in self._spectral_library.precursor_df.columns:
@@ -164,29 +170,50 @@ class RustExtractionHandler(ExtractionHandler):
             )
         ).score(self._dia_data, self._speclib_rust, candidates)
 
+        scored_groups = {
+            "ms1_features": score_ms1,
+            "detection_features": score_detection,
+        }
         return to_features_df(
             candidate_features,
             self._spectral_library,
-            ms1_scored=score_ms1,
-            detection_scored=score_detection,
+            unscored_feature_groups=[
+                group for group, scored in scored_groups.items() if not scored
+            ],
         )
 
     def _scoring_parameters(
         self,
         feature_set: FeatureSet,
         *,
+        detection_features: bool,
         ms1_tolerance_ppm: float | None = None,
-        detection_features: bool = False,
     ) -> ScoringParameters:
+        """Get the scoring parameters of alphadia-search-rs.
+
+        Parameters
+        ----------
+        feature_set : FeatureSet
+            Feature set to score.
+        detection_features : bool
+            Whether to score the detection features. Always passed on, so that the default of the installed
+            alphadia-search-rs release does not matter.
+        ms1_tolerance_ppm : float | None, default=None
+            MS1 extraction tolerance (ppm); the MS1 features are scored only if it is given.
+
+        Returns
+        -------
+        ScoringParameters
+            Parameters for `PeakGroupScoring`.
+        """
         params = {
             "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
             "mass_tolerance": self._optimization_context.ms2_error,
             "feature_set": feature_set,
+            "detection_features": detection_features,
         }
         if ms1_tolerance_ppm is not None:
             params["ms1_mass_tolerance"] = ms1_tolerance_ppm
-        if detection_features:
-            params["detection_features"] = True
         scoring_params = ScoringParameters()
         scoring_params.update(params)
         return scoring_params
@@ -213,7 +240,9 @@ class RustExtractionHandler(ExtractionHandler):
             (candidates_df["decoy"] == 0) & (candidates_df["rank"] == 0)
         ].nlargest(MS1_PREPASS_CANDIDATES, "score")
         prepass_params = self._scoring_parameters(
-            FeatureSet.Calibration, ms1_tolerance_ppm=MS1_PREPASS_TOLERANCE_PPM
+            FeatureSet.Calibration,
+            detection_features=False,
+            ms1_tolerance_ppm=MS1_PREPASS_TOLERANCE_PPM,
         )
         prepass = PeakGroupScoring(prepass_params).score_ms1_calibration(
             self._dia_data,
@@ -223,12 +252,16 @@ class RustExtractionHandler(ExtractionHandler):
         library = precursor_df.set_index("precursor_idx")
         prepass_idx = prepass["precursor_idx"]
         calibration = fit_ms1_calibration(
-            library[precursor_mz_column].reindex(prepass_idx).to_numpy(np.float64),
-            library[rt_column].reindex(prepass_idx).to_numpy(np.float64),
-            prepass["ms1_ppm_signed"],
-            prepass["ms1_n_isotopes"],
-            prepass["ms1_log_m0_apex"],
-            prepass["ms1_iso_cosine"],
+            Ms1PrepassMatches(
+                mz=library[precursor_mz_column]
+                .reindex(prepass_idx)
+                .to_numpy(np.float64),
+                rt=library[rt_column].reindex(prepass_idx).to_numpy(np.float64),
+                ppm_signed=prepass["ms1_ppm_signed"],
+                n_isotopes=prepass["ms1_n_isotopes"],
+                log_m0_apex=prepass["ms1_log_m0_apex"],
+                iso_cosine=prepass["ms1_iso_cosine"],
+            )
         )
         self._reporter.log_string(
             f"MS1 calibration from the pre-pass on the {len(best)} best target candidates "
