@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
 import pandas as pd
 from alphabase.peptide import precursor
 
@@ -143,6 +144,9 @@ def merge_quant_levels_to_psm(
 ) -> pd.DataFrame:
     """Merge quantification results from all levels back to the precursor table.
 
+    The quantities are estimated from the targets only. Decoys carry the hashes of their
+    targets, so they are excluded from the merge and keep no quantities.
+
     Parameters
     ----------
     psm_df : pd.DataFrame
@@ -168,7 +172,11 @@ def merge_quant_levels_to_psm(
         melted_df = lfq_df.melt(
             id_vars=config.quant_level, var_name="run", value_name=intensity_column
         )
-        psm_df = psm_df.merge(melted_df, on=[config.quant_level, "run"], how="left")
+        # the dtype of the decoy column varies, a zero of the same dtype matches the targets only
+        melted_df["decoy"] = np.zeros(len(melted_df), dtype=psm_df["decoy"].dtype)
+        psm_df = psm_df.merge(
+            melted_df, on=[config.quant_level, "run", "decoy"], how="left"
+        )
 
     return psm_df
 

@@ -226,6 +226,43 @@ class TestQuantOutputBuilder:
             == "PEPTIDE"
         )
 
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+    )
+    def test_build_does_not_give_decoys_the_quantities_of_their_target(
+        self, mock_accumulate, mock_filter, mock_direct_lfq, psm_df, config, feature_dfs
+    ):
+        """Given a decoy with the hashes and run of a target, when build is called, then only the target row gets the quantities."""
+        # Given: the decoy shares the precursor, peptide and protein keys of target 0 in run1
+        psm_df.loc[4, ["mod_seq_hash", "mod_seq_charge_hash"]] = [1, 10]
+        mock_accumulate.return_value = feature_dfs
+        mock_filter.return_value = (
+            feature_dfs["intensity"],
+            feature_dfs["correlation"],
+        )
+        mock_direct_lfq.side_effect = lfq_side_effect
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        _, psm_df_with_quant = builder.build(["folder1", "folder2"])
+
+        # Then
+        lfq_intensity_columns = [
+            "precursor_lfq_intensity",
+            "peptide_lfq_intensity",
+            "pg_lfq_intensity",
+        ]
+        target_row = psm_df_with_quant[psm_df_with_quant["precursor_idx"] == 0]
+        decoy_row = psm_df_with_quant[psm_df_with_quant["precursor_idx"] == 4]
+        assert target_row[lfq_intensity_columns].notna().all(axis=None)
+        assert decoy_row[lfq_intensity_columns].isna().all(axis=None)
+
     @patch("alphadia.outputtransform.utils.write_df")
     def test_save_results_writes_non_empty_results(self, mock_write_df, psm_df, config):
         """Given LFQ results with data, when save_results is called, then writes files to disk."""
