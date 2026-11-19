@@ -1,14 +1,16 @@
 import logging
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
+from alphadia.outputtransform.quantification import quant_builder
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     QuantBuilder,
 )
 
-# the fit itself is tested in alphadia_search_rs (src/varmodel_quantification/tests.rs), these tests
+# the fit itself is tested in alphadia_search_rs (src/varmodel_quantification/tests*.rs), these tests
 # cover the conversion of the fragment matrices to the precursor table
 
 RUNS = ["run1", "run2", "run3"]
@@ -76,3 +78,70 @@ def test_fragments_without_library_intensity_are_ignored_with_a_warning(caplog):
     np.testing.assert_allclose(
         precursor_df.loc[0, "run2"] / precursor_df.loc[0, "run1"], 2.0, rtol=1e-4
     )
+
+
+def _fit_options(intensity_df, **kwargs):
+    """Keyword options the precursor table passes to the backend fit, and its intensity and correlation arrays."""
+    n_precursors = intensity_df["precursor_idx"].nunique()
+    n_runs = len([c for c in RUNS if c in intensity_df])
+    fit_result = {
+        "quantity": np.zeros((n_runs, n_precursors)),
+        "residual_scale": 0.0,
+        "loss_scale": 0.0,
+        "offset_shrinkage": 0.0,
+    }
+    with patch.object(quant_builder, "VarModelQuantification") as backend:
+        backend.return_value.fit.return_value = fit_result
+        QuantBuilder(pd.DataFrame()).varmodel_precursor_table(intensity_df, **kwargs)
+    args, options = backend.return_value.fit.call_args
+    return args[0], options
+
+
+def test_several_runs_censor_missing_fragments_and_pass_the_correlation_by_run():
+    # Given two runs with per-cell correlations that differ by run and fragment
+    intensity_library = np.array([1.0, 0.5, 0.25])
+    intensity = np.array([[100.0, 200.0], [50.0, 0.0], [25.0, 50.0]])
+    intensity_df = _fragment_table(intensity_library, np.zeros(3, dtype=int), intensity)
+    correlation_df = intensity_df.assign(run1=[0.9, 0.8, 0.7], run2=[0.6, 0.5, 0.4])
+
+    # When
+    fit_intensity, options = _fit_options(
+        intensity_df, correlation_df=correlation_df, quality_exponent=1.5
+    )
+
+    # Then the correlation is laid out like the intensity, one row per run
+    assert options["missing_fragments"] == "censored"
+    assert options["quality_exponent"] == 1.5
+    assert options["correlation"].shape == fit_intensity.shape
+    np.testing.assert_allclose(
+        options["correlation"], [[0.9, 0.8, 0.7], [0.6, 0.5, 0.4]], rtol=1e-6
+    )
+
+
+def test_quality_exponent_zero_passes_no_correlation():
+    # Given
+    intensity_library = np.array([1.0, 0.5])
+    intensity = np.array([[100.0, 200.0], [50.0, 100.0]])
+    intensity_df = _fragment_table(intensity_library, np.zeros(2, dtype=int), intensity)
+
+    # When
+    _, options = _fit_options(intensity_df, quality_exponent=0.0)
+
+    # Then
+    assert options["missing_fragments"] == "censored"
+    assert "correlation" not in options
+
+
+def test_a_single_run_uses_the_plain_fit():
+    # Given one run, where there are no run ratios to protect
+    intensity_library = np.array([1.0, 0.5])
+    intensity = np.array([[100.0], [50.0]])
+    intensity_df = _fragment_table(intensity_library, np.zeros(2, dtype=int), intensity)
+
+    # When
+    _, options = _fit_options(
+        intensity_df, correlation_df=intensity_df.assign(run1=0.9), quality_exponent=1.5
+    )
+
+    # Then
+    assert options == {}

@@ -354,9 +354,6 @@ class QuantOutputBuilder:
 
         precursor_df = self.quant_builder.varmodel_precursor_table(
             filtered_intensity_df,
-            missing_fragments=self.config["search_output"][
-                "varmodel_missing_fragments"
-            ],
             correlation_df=filtered_correlation_df,
             quality_exponent=self.config["search_output"]["varmodel_quality_exponent"],
         )

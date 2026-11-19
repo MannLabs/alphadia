@@ -31,7 +31,6 @@ FRAGMENT_METADATA_COLUMNS = [
 
 PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
-VARMODEL_MISSING_DROP = "drop"
 VARMODEL_MISSING_CENSORED = "censored"
 # censoring and quality weights estimate their noise curve from fragments seen in several runs; with fewer runs there
 # are no ratios to protect and the plain fit is used
@@ -274,26 +273,23 @@ class QuantBuilder:
     def varmodel_precursor_table(
         self,
         intensity_df: pd.DataFrame,
-        missing_fragments: str = VARMODEL_MISSING_DROP,
         correlation_df: pd.DataFrame | None = None,
         quality_exponent: float = 0.0,
     ) -> pd.DataFrame:
         """Estimate the precursor quantities with the variance-model fit.
 
-        Every precursor becomes one ion. The model, including censored missing fragments and quality weights, is
-        documented in `alphadia_search_rs.VarModelQuantification`.
+        Every precursor becomes one ion. With at least two runs, a fragment missing in a run where its precursor is
+        quantified is treated as below that run's detection limit. The model, including censored missing fragments
+        and quality weights, is documented in `alphadia_search_rs.VarModelQuantification`.
 
         Parameters
         ----------
         intensity_df: pd.DataFrame
             Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash, intensity_library
-        missing_fragments: str
-            "drop" (missing fragments are left out) or "censored"
         correlation_df: pd.DataFrame | None
             XIC correlations aligned row by row with intensity_df; needed when quality_exponent > 0
         quality_exponent: float
-            > 0 multiplies each fragment value's variance by exp(quality_exponent * (1 - sqrt(correlation))), for
-            "drop" and "censored" alike
+            > 0 multiplies each fragment value's variance by exp(quality_exponent * (1 - sqrt(correlation)))
 
         Returns
         -------
@@ -320,7 +316,7 @@ class QuantBuilder:
         options = {}
         if len(run_columns) >= MIN_RUNS_FOR_EXTENDED_FIT:
             options = {
-                "missing_fragments": missing_fragments,
+                "missing_fragments": VARMODEL_MISSING_CENSORED,
                 "quality_exponent": quality_exponent,
             }
             if quality_exponent > 0:
