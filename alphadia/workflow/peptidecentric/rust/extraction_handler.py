@@ -60,7 +60,18 @@ class RustExtractionHandler(ExtractionHandler):
         column_name_handler: ColumnNameHandler,
         dia_data: DiaDataRust,
         spectral_library: SpecLibFlat,
+        *,
+        raw_data_has_ms1: bool,
     ):
+        """Initialize the handler.
+
+        Parameters
+        ----------
+        raw_data_has_ms1 : bool
+            Whether the raw file has MS1 scans. `dia_data.has_ms1` cannot tell: alphadia-search-rs always reports False.
+
+        See superclass documentation for the other parameters.
+        """
         super().__init__(
             config,
             optimization_context,
@@ -77,6 +88,7 @@ class RustExtractionHandler(ExtractionHandler):
             precursor_mz_column=column_name_handler.get_precursor_mz_column(),
             fragment_mz_column=column_name_handler.get_fragment_mz_column(),
         )
+        self._raw_data_has_ms1 = raw_data_has_ms1
         # MS1 extraction tolerance (ppm) from the MS1 calibration pre-pass; None until the MS1 isotopes are set
         self._ms1_tolerance_ppm: float | None = None
         # whether the final round can score the MS1 features, see `_can_score_ms1`; None until the final round asks
@@ -90,7 +102,7 @@ class RustExtractionHandler(ExtractionHandler):
         bool
             Whether the raw file has MS1 scans and the library the isotope abundances (`MS1_ISOTOPE_COLUMNS`).
         """
-        if not self._column_name_handler.dia_data_has_ms1:
+        if not self._raw_data_has_ms1:
             reason = "the raw file has no MS1 scans"
         elif MS1_ISOTOPE_COLUMNS[0] not in self._spectral_library.precursor_df.columns:
             reason = (

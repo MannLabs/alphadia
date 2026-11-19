@@ -47,6 +47,7 @@ def _create_handler(config, fdr_manager=None):
             MagicMock(),
             MagicMock(name="dia_data"),
             MagicMock(name="spectral_library"),
+            raw_data_has_ms1=True,
         )
 
 
@@ -68,6 +69,7 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_rust):
         column_name_handler,
         MagicMock(name="dia_data"),
         spectral_library,
+        raw_data_has_ms1=True,
     )
 
     # Then: the handler converts the library with these columns and keeps the result
@@ -290,7 +292,6 @@ def _handler(
     column_name_handler = MagicMock(name="column_name_handler")
     column_name_handler.get_precursor_mz_column.return_value = "mz_library"
     column_name_handler.get_rt_column.return_value = "rt"
-    column_name_handler.dia_data_has_ms1 = has_ms1
     with patch(f"{HANDLER}.speclib_to_rust", return_value=MagicMock()):
         return RustExtractionHandler(
             config,
@@ -302,6 +303,7 @@ def _handler(
             SimpleNamespace(
                 precursor_df=_precursor_df() if precursor_df is None else precursor_df
             ),
+            raw_data_has_ms1=has_ms1,
         )
 
 
