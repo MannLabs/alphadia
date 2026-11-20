@@ -248,6 +248,10 @@ search:
   # mobility tolerance window separately and keeps each cycle's best. 1 scores the whole window at once.
   mobility_selection_bins: 1
 
+  # ion mobility data (rust backend only): precursors of charge 3 and above search this many times the mobility
+  # tolerance; the library predicts their mobility less well
+  mobility_tolerance_high_charge_factor: 1.0
+
   # quantify the fragments at the optimized MS2 tolerance instead of the backend's fixed default (rust backend only)
   quant_at_ms2_tolerance: False
 

@@ -65,7 +65,7 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_rust):
 
     # When: the test creates the handler
     handler = RustExtractionHandler(
-        {},
+        {"search": {"mobility_tolerance_high_charge_factor": 1.8}},
         OPTIMIZATION_CONTEXT,
         MagicMock(),
         MagicMock(),
@@ -82,6 +82,7 @@ def test_converts_the_library_once_at_construction(mock_speclib_to_rust):
         precursor_mz_column="mz_calibrated",
         fragment_mz_column="mz_library",
         mobility_column="mobility_calibrated",
+        high_charge_mobility_tolerance_factor=1.8,
     )
     assert handler._speclib_rust is mock_speclib_to_rust.return_value
 

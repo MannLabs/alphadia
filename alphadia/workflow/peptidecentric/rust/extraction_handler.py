@@ -91,6 +91,11 @@ class RustExtractionHandler(ExtractionHandler):
             mobility_column=column_name_handler.get_mobility_column()
             if self._has_mobility
             else None,
+            high_charge_mobility_tolerance_factor=config["search"][
+                "mobility_tolerance_high_charge_factor"
+            ]
+            if self._has_mobility
+            else 1.0,
         )
         self._raw_data_has_ms1 = raw_data_has_ms1
         # the best candidate of each precursor with its proba and q-value from the last FDR, before the cut

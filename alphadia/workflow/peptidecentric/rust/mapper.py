@@ -69,6 +69,10 @@ def dia_data_to_rust(dia_data: DiaData) -> "DiaDataRust":  # noqa: F821
     return dia_data_rust
 
 
+# the library mobility of these charge states is predicted less well (their peptides adopt several conformations)
+HIGH_CHARGE = 3
+
+
 def speclib_to_rust(
     speclib: SpecLibFlat,
     *,
@@ -76,11 +80,13 @@ def speclib_to_rust(
     precursor_mz_column: str,
     fragment_mz_column: str,
     mobility_column: str | None = None,
+    high_charge_mobility_tolerance_factor: float = 1.0,
 ) -> "SpecLibFlatRust":  # noqa: F821
     """Convert a spectral library to the alphadia-search-rs format.
 
     With `mobility_column`, each precursor's XICs are restricted to the scans within the mobility tolerance of that
-    column's 1/K0 (data with an ion mobility dimension).
+    column's 1/K0 (data with an ion mobility dimension). Precursors of charge `HIGH_CHARGE` and above search
+    `high_charge_mobility_tolerance_factor` times that tolerance.
     """
 
     precursor_df = speclib.precursor_df
@@ -110,6 +116,12 @@ def speclib_to_rust(
             precursor_df["precursor_idx"].values.astype(np.uint64),
             precursor_df[mobility_column].values.astype(np.float32),
         )
+        if high_charge_mobility_tolerance_factor != 1.0:
+            high = precursor_df[precursor_df["charge"] >= HIGH_CHARGE]
+            speclib_rust.set_precursor_mobility_tolerance_scale(
+                high["precursor_idx"].values.astype(np.uint64),
+                np.full(len(high), high_charge_mobility_tolerance_factor, np.float32),
+            )
     return speclib_rust
 
 
