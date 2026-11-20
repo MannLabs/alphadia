@@ -8,9 +8,9 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.calibration.tolerance import (
+    TrueMatchDistribution,
     main_search_rt_tolerance,
     posterior_error_probability,
-    true_match_interval,
 )
 from alphadia.constants.keys import CalibrationPhase, SearchTolerance
 from alphadia.constants.settings import (
@@ -465,8 +465,19 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
             if (target := self._target_tolerance(name)) is not None
         }
         if self._target_tolerance(SearchTolerance.RT_ERROR) is None:
+            rt_distribution = self._true_match_rt_distribution(search)
+            interval = (
+                None
+                if rt_distribution is None
+                else rt_distribution.interval(CalibrationLoop.TOLERANCE_QUANTILE)
+            )
+            if interval is not None:
+                self._reporter.log_string(
+                    f"RT interval of the true matches: {interval:.2f} (searched {rt_distribution.window:.2f}).",
+                    verbosity="progress",
+                )
             tolerances[SearchTolerance.RT_ERROR] = main_search_rt_tolerance(
-                self._true_match_rt_interval(search),
+                interval,
                 tolerances[SearchTolerance.RT_ERROR],
                 self._cycle_duration(),
             )
@@ -509,14 +520,14 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         cycle_length = self._dia_data.cycle.shape[1]
         return float(np.diff(self._dia_data.rt_values[::cycle_length]).mean())
 
-    def _true_match_rt_interval(
+    def _true_match_rt_distribution(
         self, search: LockSearch[ExtractionHandlerT]
-    ) -> float | None:
-        """Estimate the RT interval that holds `TOLERANCE_QUANTILE` of the true matches of `search`.
+    ) -> TrueMatchDistribution | None:
+        """Fit the RT residuals of the true matches of `search`, see `TrueMatchDistribution.fit`.
 
         The calibration rounds search wider than the residuals of the true matches, so the last search shows their
-        tail. Its candidates are weighted by their posterior error probability, see `true_match_interval`. Returns
-        None when the estimator is not fitted or the search holds too few likely true matches.
+        tail. Its candidates are weighted by their posterior error probability. Returns None when the estimator is not
+        fitted or the search holds too few likely true matches.
         """
         estimator = self._calibration_manager.get_estimator(
             CalibrationGroups.PRECURSOR, CalibrationEstimators.RT
@@ -524,7 +535,6 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         if not estimator.is_fitted:
             return None
         precursor_df = search.precursor_df
-        searched_tolerance = search.rt_tolerance
         # The residuals use the latest calibration, which was fitted on this search, while the search was centred on
         # the calibration before it. Both converged, so the shift is small against the searched tolerance of 3 times the interval.
         residuals = estimator.calc_deviation(precursor_df)[:, 2]
@@ -533,18 +543,9 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         pep = posterior_error_probability(
             1 - precursor_df["proba"].to_numpy(), is_decoy
         )
-        interval = true_match_interval(
-            residuals[~is_decoy],
-            pep[~is_decoy],
-            searched_tolerance,
-            CalibrationLoop.TOLERANCE_QUANTILE,
+        return TrueMatchDistribution.fit(
+            residuals[~is_decoy], pep[~is_decoy], search.rt_tolerance
         )
-        if interval is not None:
-            self._reporter.log_string(
-                f"RT interval of the true matches: {interval:.2f} (searched {searched_tolerance:.2f}).",
-                verbosity="progress",
-            )
-        return interval
 
     def _refit_classifier(self, search: LockSearch[ExtractionHandlerT]) -> pd.DataFrame:
         """Perform FDR on `search` again, with the classifier trained further."""
