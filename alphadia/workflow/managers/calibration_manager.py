@@ -37,8 +37,6 @@ PPM_TRANSFORM = 1e6
 class CalibrationManager(BaseManager):
     def __init__(
         self,
-        path: None | str = None,
-        load_from_file: bool = True,
         has_ms1: bool = True,
         has_mobility: bool = True,
         **kwargs,
@@ -53,12 +51,6 @@ class CalibrationManager(BaseManager):
 
         Parameters
         ----------
-        path : str, default=None
-            Path where the current parameter set is saved to and loaded from.
-
-        load_from_file : bool, default=True
-            If True, the manager will be loaded from file if it exists.
-
         has_ms1 : bool, default=True
             If True, an MS1 (precursor mz) estimator is included in the precursor group.
 
@@ -70,14 +62,13 @@ class CalibrationManager(BaseManager):
 
         """
 
-        super().__init__(path=path, load_from_file=load_from_file, **kwargs)
+        super().__init__(load_from_file=False, **kwargs)
 
         self._has_mobility = has_mobility
         self._has_ms1 = has_ms1
 
-        if not self.is_loaded_from_file:
-            self.all_fitted = False
-            self.estimator_groups: EstimatorGroups = self._build_estimator_groups()
+        self.all_fitted = False
+        self.estimator_groups: EstimatorGroups = self._build_estimator_groups()
 
     @property
     def estimator_groups(self) -> EstimatorGroups:

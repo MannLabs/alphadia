@@ -1,15 +1,12 @@
 import logging
-import os
 
+import numpy as np
 import pandas as pd
 
 from alphadia.constants.keys import (
-    INTERNAL_TO_OUTPUT_MAPPING,
     NormalizationMethods,
     QuantificationLevelKey,
     QuantificationLevelName,
-    SearchPlanFiles,
-    TableFormats,
 )
 from alphadia.outputtransform.quantification.fragment_accumulator import (
     FragmentQuantLoader,
@@ -19,23 +16,64 @@ from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_precursor_intensity_drift,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
+    DEFAULT_FEATURE_COLUMNS,
     INTENSITY_LIBRARY_COLUMN,
     LFQOutputConfig,
-    QuantBuilder,
+    direct_lfq,
+    filter_frag_df,
+    quantselect_lfq,
+    varmodel_precursor_table,
 )
-from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
 
 # a precursor is already the robust estimate over its fragments, so a single one suffices
 MIN_PRECURSORS_PER_RUN = 1
 
+QUANT_LEVEL_CONFIGS: dict[str, LFQOutputConfig] = {
+    QuantificationLevelName.PRECURSOR: LFQOutputConfig(
+        quant_level=QuantificationLevelKey.PRECURSOR,
+        level_name=QuantificationLevelName.PRECURSOR,
+        intensity_column="precursor_lfq_intensity",
+        aggregation_components=[
+            QuantificationLevelKey.PROTEIN,
+            "sequence",
+            "mods",
+            "mod_sites",
+            "charge",
+        ],
+    ),
+    QuantificationLevelName.PEPTIDE: LFQOutputConfig(
+        quant_level=QuantificationLevelKey.PEPTIDE,
+        level_name=QuantificationLevelName.PEPTIDE,
+        intensity_column="peptide_lfq_intensity",
+        aggregation_components=[
+            QuantificationLevelKey.PROTEIN,
+            "sequence",
+            "mods",
+            "mod_sites",
+        ],
+    ),
+    QuantificationLevelName.PROTEIN: LFQOutputConfig(
+        quant_level=QuantificationLevelKey.PROTEIN,
+        level_name=QuantificationLevelName.PROTEIN,
+        intensity_column="pg_lfq_intensity",
+        aggregation_components=[QuantificationLevelKey.PROTEIN],
+    ),
+}
+
+# the protein level is always quantified, the others can be switched off
+LEVEL_ENABLED_CONFIG_KEYS = {
+    QuantificationLevelName.PRECURSOR: "precursor_level_lfq",
+    QuantificationLevelName.PEPTIDE: "peptide_level_lfq",
+}
+
 
 class QuantOutputBuilder:
     """Build quantification outputs at multiple levels (precursor, peptide, protein).
 
     This class orchestrates the accumulation of fragment data, filtering by quality,
-    and label-free quantification using directLFQ at different aggregation levels.
+    and label-free quantification at different aggregation levels.
 
     Parameters
     ----------
@@ -56,7 +94,6 @@ class QuantOutputBuilder:
         "cardinality",
         "position",
     ]
-    DEFAULT_COLUMNS = ["intensity", "correlation"]
 
     def __init__(self, psm_df: pd.DataFrame, config: dict):
         """Initialize the QuantOutputBuilder.
@@ -71,29 +108,25 @@ class QuantOutputBuilder:
         self.psm_df = psm_df
         self.config = config
         self._psm_no_decoys_df = psm_df[psm_df["decoy"] == 0]
+        self._normalization_method = config["search_output"][
+            "normalization_method"
+        ].lower()
 
-        if (
-            config["search_output"]["normalization_method"]
-            == NormalizationMethods.QUANTSELECT
-        ):
-            columns = self.QUANTSELECT_COLUMNS
-        else:
-            columns = self.DEFAULT_COLUMNS
+        columns = (
+            self.QUANTSELECT_COLUMNS
+            if self._normalization_method == NormalizationMethods.QUANTSELECT
+            else DEFAULT_FEATURE_COLUMNS
+        )
         constant_feature_columns = (
-            [INTENSITY_LIBRARY_COLUMN] if self._is_varmodel() else []
+            [INTENSITY_LIBRARY_COLUMN]
+            if self._normalization_method == NormalizationMethods.VARMODEL_DIRECTLFQ
+            else []
         )
 
         self.fragment_loader = FragmentQuantLoader(
             self._psm_no_decoys_df,
             columns=columns,
             constant_feature_columns=constant_feature_columns,
-        )
-        self.quant_builder = QuantBuilder(self._psm_no_decoys_df, columns=columns)
-
-    def _is_varmodel(self) -> bool:
-        return (
-            self.config["search_output"]["normalization_method"]
-            == NormalizationMethods.VARMODEL_DIRECTLFQ
         )
 
     def build(
@@ -110,30 +143,22 @@ class QuantOutputBuilder:
         -------
         tuple[dict[str, pd.DataFrame], pd.DataFrame]
             Tuple containing:
-            - Dictionary with quantification results for each level
-            - Updated PSM dataframe with merged quantification data
+            - Annotated quantification table by level name, for every requested level
+            - PSM dataframe with the quantities of every level merged in
         """
         logger.info("Performing label free quantification")
 
         feature_dfs_dict = self.fragment_loader.accumulate_from_folders(folder_list)
 
-        if feature_dfs_dict is None or not feature_dfs_dict:
-            logger.warning("No fragment data found, skipping quantification")
-            return {}, self.psm_df
-
-        quantlevel_configs = self._create_quant_level_configs()
-        requested_configs = [c for c in quantlevel_configs if c.should_process]
+        requested_configs = self._requested_quant_level_configs()
 
         # TODO cover the QuantSelect branch with a build-level test: every requested
         #  level is routed to quantselect_lfq and the directLFQ fragment filter is skipped
-        if (
-            self.config["search_output"]["normalization_method"]
-            == NormalizationMethods.QUANTSELECT
-        ):
+        if self._normalization_method == NormalizationMethods.QUANTSELECT:
             level_dfs = self._quantify_with_quantselect(
                 requested_configs, feature_dfs_dict
             )
-        elif self._is_varmodel():
+        elif self._normalization_method == NormalizationMethods.VARMODEL_DIRECTLFQ:
             level_dfs = self._quantify_with_varmodel_precursors(
                 requested_configs, feature_dfs_dict
             )
@@ -142,24 +167,15 @@ class QuantOutputBuilder:
                 requested_configs, feature_dfs_dict
             )
 
-        lfq_results = {}
-        for quantlevel_config in requested_configs:
-            lfq_df = level_dfs.get(quantlevel_config.level_name)
-            if lfq_df is None or lfq_df.empty:
-                logger.warning(
-                    f"No quantities for the {quantlevel_config.level_name} level, skipping"
-                )
-                continue
-            # decoys carry the precursor and peptide hashes of their targets, so they could annotate a target's row
-            lfq_results[quantlevel_config.level_name] = self._annotate_quant_df(
-                lfq_df, self._psm_no_decoys_df, quantlevel_config
+        # decoys carry the precursor and peptide hashes of their targets, so they could annotate a target's row
+        lfq_results = {
+            level_name: _annotate_quant_df(
+                lfq_df, self._psm_no_decoys_df, QUANT_LEVEL_CONFIGS[level_name]
             )
+            for level_name, lfq_df in level_dfs.items()
+        }
 
-        psm_df_with_quant = merge_quant_levels_to_psm(
-            self.psm_df, lfq_results, quantlevel_configs
-        )
-
-        return lfq_results, psm_df_with_quant
+        return lfq_results, merge_quant_levels_to_psm(self.psm_df, level_dfs)
 
     def _is_drift_corrected(self) -> bool:
         return self.config["search_output"]["intensity_drift_correction"]
@@ -179,83 +195,14 @@ class QuantOutputBuilder:
             ),
         }
 
-    def _create_quant_level_configs(self) -> list[LFQOutputConfig]:
-        """Create quantification level configurations based on settings.
-
-        Uses output keys for intensity columns to ensure consistent
-        output column naming in user-facing files.
-
-        Returns
-        -------
-        list[LFQOutputConfig]
-            List of quantification level configurations
-        """
+    def _requested_quant_level_configs(self) -> list[LFQOutputConfig]:
+        """Quantification levels switched on in the config."""
         return [
-            LFQOutputConfig(
-                quant_level=QuantificationLevelKey.PRECURSOR,
-                level_name=QuantificationLevelName.PRECURSOR,
-                intensity_column="precursor_lfq_intensity",
-                aggregation_components=[
-                    QuantificationLevelName.PROTEIN,
-                    "sequence",
-                    "mods",
-                    "mod_sites",
-                    "charge",
-                ],
-                should_process=self.config["search_output"]["precursor_level_lfq"],
-            ),
-            LFQOutputConfig(
-                quant_level=QuantificationLevelKey.PEPTIDE,
-                level_name=QuantificationLevelName.PEPTIDE,
-                intensity_column="peptide_lfq_intensity",
-                aggregation_components=[
-                    QuantificationLevelName.PROTEIN,
-                    "sequence",
-                    "mods",
-                    "mod_sites",
-                ],
-                should_process=self.config["search_output"]["peptide_level_lfq"],
-            ),
-            LFQOutputConfig(
-                quant_level=QuantificationLevelKey.PROTEIN,
-                level_name=QuantificationLevelName.PROTEIN,
-                intensity_column="pg_lfq_intensity",
-                aggregation_components=[
-                    QuantificationLevelName.PROTEIN,
-                ],
-                should_process=True,
-            ),
+            level_config
+            for level_name, level_config in QUANT_LEVEL_CONFIGS.items()
+            if level_name not in LEVEL_ENABLED_CONFIG_KEYS
+            or self.config["search_output"][LEVEL_ENABLED_CONFIG_KEYS[level_name]]
         ]
-
-    def _annotate_quant_df(
-        self,
-        lfq_df: pd.DataFrame,
-        psm_df: pd.DataFrame,
-        config: LFQOutputConfig,
-    ) -> pd.DataFrame:
-        """Annotate quantification results with metadata from PSM dataframe.
-
-        Parameters
-        ----------
-        lfq_df : pd.DataFrame
-            Quantification results dataframe
-        psm_df : pd.DataFrame
-            PSM dataframe containing metadata
-        config : LFQOutputConfig
-            Configuration specifying grouping and aggregation columns
-
-        Returns
-        -------
-        pd.DataFrame
-            Annotated quantification dataframe
-        """
-        if config.level_name == QuantificationLevelName.PROTEIN:
-            return lfq_df
-
-        annotate_df = psm_df.groupby(config.quant_level, as_index=False).agg(
-            {c: "first" for c in config.aggregation_components}
-        )
-        return lfq_df.merge(annotate_df, on=config.quant_level, how="left")
 
     def _quantify_with_quantselect(
         self,
@@ -282,11 +229,10 @@ class QuantOutputBuilder:
             logger.info(
                 f"Performing label free quantification on the {quantlevel_config.level_name} level"
             )
-            level_dfs[quantlevel_config.level_name] = (
-                self.quant_builder.quantselect_lfq(
-                    feature_dfs_dict=feature_dfs_dict,
-                    lfq_config=quantlevel_config,
-                )
+            level_dfs[quantlevel_config.level_name] = quantselect_lfq(
+                psm_df=self._psm_no_decoys_df,
+                feature_dfs_dict=feature_dfs_dict,
+                lfq_config=quantlevel_config,
             )
         return level_dfs
 
@@ -307,7 +253,7 @@ class QuantOutputBuilder:
         Returns
         -------
         dict[str, pd.DataFrame]
-            Quantification results by level name, levels without fragments are absent
+            Quantification results by level name
         """
         feature_dfs_dict = self._drift_corrected_fragments(feature_dfs_dict)
         level_dfs = {}
@@ -315,17 +261,10 @@ class QuantOutputBuilder:
             logger.info(
                 f"Performing label free quantification on the {quantlevel_config.level_name} level"
             )
-            filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                top_n=self.config["search_output"]["min_k_fragments"],
-                min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=quantlevel_config.quant_level,
+            filtered_intensity_df = self._filter_fragments(
+                feature_dfs_dict, quantlevel_config.quant_level
             )
-            if len(filtered_intensity_df) == 0:
-                continue
-
-            level_dfs[quantlevel_config.level_name] = self.quant_builder.direct_lfq(
+            level_dfs[quantlevel_config.level_name] = direct_lfq(
                 intensity_df=filtered_intensity_df,
                 lfq_config=quantlevel_config,
                 config=self.config,
@@ -354,20 +293,10 @@ class QuantOutputBuilder:
         Returns
         -------
         dict[str, pd.DataFrame]
-            Quantification results by level name, empty without fragments
+            Quantification results by level name
         """
-        filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
-            feature_dfs_dict["intensity"],
-            feature_dfs_dict["correlation"],
-            top_n=self.config["search_output"]["min_k_fragments"],
-            min_correlation=self.config["search_output"]["min_correlation"],
-            group_column=QuantificationLevelKey.PRECURSOR,
-        )
-        if len(filtered_intensity_df) == 0:
-            return {}
-
-        precursor_df = self.quant_builder.varmodel_precursor_table(
-            filtered_intensity_df
+        precursor_df = varmodel_precursor_table(
+            self._filter_fragments(feature_dfs_dict, QuantificationLevelKey.PRECURSOR)
         )
         if self._is_drift_corrected():
             precursor_df = correct_precursor_intensity_drift(
@@ -379,7 +308,7 @@ class QuantOutputBuilder:
             logger.info(
                 f"Performing label free quantification on the {quantlevel_config.level_name} level"
             )
-            level_dfs[quantlevel_config.level_name] = self.quant_builder.direct_lfq(
+            level_dfs[quantlevel_config.level_name] = direct_lfq(
                 intensity_df=precursor_df,
                 lfq_config=quantlevel_config,
                 config=self.config,
@@ -387,59 +316,82 @@ class QuantOutputBuilder:
             )
         return level_dfs
 
-    def _apply_output_names(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Convert internal column names to output names for output.
+    def _filter_fragments(
+        self, feature_dfs_dict: dict[str, pd.DataFrame], group_column: str
+    ) -> pd.DataFrame:
+        """Fragment intensities that pass the correlation filter within each group."""
+        return filter_frag_df(
+            feature_dfs_dict["intensity"],
+            feature_dfs_dict["correlation"],
+            min_correlation=self.config["search_output"]["min_correlation"],
+            top_n=self.config["search_output"]["min_k_fragments"],
+            group_column=group_column,
+        )
 
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Dataframe with internal column names
 
-        Returns
-        -------
-        pd.DataFrame
-            Dataframe with output column names applied
-        """
-        return df.rename(columns=INTERNAL_TO_OUTPUT_MAPPING)
+def _annotate_quant_df(
+    lfq_df: pd.DataFrame,
+    psm_df: pd.DataFrame,
+    config: LFQOutputConfig,
+) -> pd.DataFrame:
+    """Annotate quantification results with metadata from PSM dataframe.
 
-    def save_results(
-        self,
-        lfq_results: dict[str, pd.DataFrame],
-        output_folder: str,
-        file_format: str = TableFormats.PARQUET,
-    ) -> None:
-        """Save quantification results to disk with output column names.
+    Parameters
+    ----------
+    lfq_df : pd.DataFrame
+        Quantification results dataframe
+    psm_df : pd.DataFrame
+        PSM dataframe containing metadata
+    config : LFQOutputConfig
+        Configuration specifying grouping and aggregation columns
 
-        Parameters
-        ----------
-        lfq_results : dict[str, pd.DataFrame]
-            Dictionary with quantification results for each level
-        output_folder : str
-            Output folder path
-        file_format : str, default='parquet'
-            File format for output files
-        """
-        from alphadia.outputtransform.utils import write_df
+    Returns
+    -------
+    pd.DataFrame
+        Annotated quantification dataframe
+    """
+    if config.level_name == QuantificationLevelName.PROTEIN:
+        return lfq_df
 
-        quantlevel_configs = self._create_quant_level_configs()
+    annotate_df = psm_df.groupby(config.quant_level, as_index=False).agg(
+        {c: "first" for c in config.aggregation_components}
+    )
+    return lfq_df.merge(annotate_df, on=config.quant_level, how="left")
 
-        for config in quantlevel_configs:
-            if not config.should_process:
-                continue
 
-            lfq_df = lfq_results.get(config.level_name)
-            if lfq_df is None or lfq_df.empty:
-                continue
+def merge_quant_levels_to_psm(
+    psm_df: pd.DataFrame,
+    level_dfs: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
+    """Merge quantification results from all levels back to the precursor table.
 
-            logger.info(f"Writing {config.level_name} output to disk")
+    The quantities are estimated from the targets only. Decoys carry the hashes of their
+    targets, so they are excluded from the merge and keep no quantities.
 
-            lfq_df_output = self._apply_output_names(lfq_df)
+    Parameters
+    ----------
+    psm_df : pd.DataFrame
+        Precursor table to merge quantification data into
+    level_dfs : dict[str, pd.DataFrame]
+        Quantification table by level name, with the quant level column and one column per run
 
-            write_df(
-                lfq_df_output,
-                os.path.join(
-                    output_folder,
-                    f"{config.level_name}{SearchPlanFiles.QUANT_MATRIX_SUFFIX}",
-                ),
-                file_format=file_format,
-            )
+    Returns
+    -------
+    pd.DataFrame
+        Updated precursor table with merged quantification data
+    """
+    for level_name, lfq_df in level_dfs.items():
+        level_config = QUANT_LEVEL_CONFIGS[level_name]
+
+        melted_df = lfq_df.melt(
+            id_vars=level_config.quant_level,
+            var_name="run",
+            value_name=level_config.intensity_column,
+        )
+        # the dtype of the decoy column varies, a zero of the same dtype matches the targets only
+        melted_df["decoy"] = np.zeros(len(melted_df), dtype=psm_df["decoy"].dtype)
+        psm_df = psm_df.merge(
+            melted_df, on=[level_config.quant_level, "run", "decoy"], how="left"
+        )
+
+    return psm_df

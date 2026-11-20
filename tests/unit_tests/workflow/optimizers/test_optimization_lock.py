@@ -240,3 +240,113 @@ def test_optlock_grow_searches_the_whole_larger_lock_again():
     assert optlock._feature_dfs == []
     assert optlock._fragment_dfs == []
     assert calibration_manager.predict.call_count == 2
+
+
+PRUNE_OPTLOCK_CONFIG = {
+    "calibration": {
+        "batch_size": 1000,
+        "optimization_lock_target": 200,
+    }
+}
+
+
+def _reach_target(optlock: OptimizationLock, kept: np.ndarray) -> None:
+    """Extract the first two batches and give the elution groups `kept` a q-value below 0.1, the others 0.5."""
+    lock = optlock._elution_group_order[: optlock.batch_plan[1][1]]
+    optlock.batch_idx = 1
+    optlock.update_with_extraction(
+        pd.DataFrame({"elution_group_idx": lock}), pd.DataFrame()
+    )
+    precursor_df = pd.DataFrame(
+        {
+            "elution_group_idx": lock,
+            "qval": np.where(np.isin(lock, kept), 0.0, 0.5),
+            "decoy": 0,
+        }
+    )
+    optlock.update_with_fdr(precursor_df)
+    optlock.record_prune_candidates(precursor_df)
+
+
+def test_resize_prunes_the_elution_groups_above_the_prune_qval():
+    """Test that the first resize keeps only the elution groups with a candidate below PRUNE_QVAL."""
+    # Given: a lock that reached its target with 300 elution groups below the prune q-value
+    optlock = OptimizationLock(_create_test_library(), PRUNE_OPTLOCK_CONFIG)
+    kept = optlock._elution_group_order[:3000:10]
+    _reach_target(optlock, kept)
+
+    # When: the converge phase resizes the lock
+    optlock.resize(MagicMock())
+
+    # Then: the lock holds only the kept elution groups up to the resized stop, and pruning is done
+    stop_idx = optlock.stop_idx
+    expected = set(kept) & set(optlock._elution_group_order[:stop_idx])
+    assert set(optlock.batch_library._precursor_df["elution_group_idx"]) == expected
+    assert optlock.num_pruned_elution_groups == stop_idx - len(expected)
+    assert optlock.prune_qval is None
+
+
+def test_pruned_elution_groups_count_in_the_lock_size():
+    """Test that the pruned elution groups count as extracted, so the identification rate compares with earlier rounds."""
+    # Given: a pruned lock
+    optlock = OptimizationLock(_create_test_library(), PRUNE_OPTLOCK_CONFIG)
+    kept = optlock._elution_group_order[:3000:10]
+    _reach_target(optlock, kept)
+    optlock.resize(MagicMock())
+
+    # When: the pruned lock is extracted
+    optlock.update_with_extraction(
+        pd.DataFrame(
+            {
+                "elution_group_idx": optlock.batch_library._precursor_df[
+                    "elution_group_idx"
+                ]
+            }
+        ),
+        pd.DataFrame(),
+    )
+
+    # Then: the lock size is the whole resized lock
+    assert optlock.total_elution_groups == optlock.stop_idx
+
+
+def test_lock_is_pruned_only_once():
+    """Test that a later resize or grow does not prune again and keeps the pruned elution groups out."""
+    # Given: a pruned lock
+    optlock = OptimizationLock(_create_test_library(), PRUNE_OPTLOCK_CONFIG)
+    kept = optlock._elution_group_order[:3000:10]
+    _reach_target(optlock, kept)
+    optlock.resize(MagicMock())
+    num_pruned = optlock.num_pruned_elution_groups
+
+    # When: a later search records other q-values and the lock grows
+    optlock.record_prune_candidates(pd.DataFrame({"elution_group_idx": [], "qval": []}))
+    optlock.has_target_num_precursors = False
+    optlock.grow(MagicMock())
+
+    # Then: the earlier pruned elution groups stay out, the new batch is complete
+    lock = optlock._elution_group_order[: optlock.stop_idx]
+    pruned = set(lock[optlock._is_pruned[: optlock.stop_idx]])
+    assert optlock.num_pruned_elution_groups == num_pruned
+    assert not pruned & set(optlock.batch_library._precursor_df["elution_group_idx"])
+    assert len(pruned) + optlock.batch_library._precursor_df[
+        "elution_group_idx"
+    ].nunique() == len(lock)
+
+
+def test_resize_does_not_prune_when_too_few_elution_groups_would_remain():
+    """Test that the lock is not pruned when fewer elution groups than the target have a candidate below PRUNE_QVAL."""
+    # Given: a lock that reached its target with only 100 elution groups below the prune q-value (target 200)
+    optlock = OptimizationLock(_create_test_library(), PRUNE_OPTLOCK_CONFIG)
+    _reach_target(optlock, optlock._elution_group_order[:1000:10])
+
+    # When: the lock is resized
+    summary = optlock.resize(MagicMock())
+
+    # Then: nothing is pruned, the whole lock is searched and pruning is not tried again
+    assert summary.startswith("Did not prune the optimization lock")
+    assert optlock.num_pruned_elution_groups == 0
+    assert set(optlock.batch_library._precursor_df["elution_group_idx"]) == set(
+        optlock._elution_group_order[: optlock.stop_idx]
+    )
+    assert optlock.prune_qval is None
