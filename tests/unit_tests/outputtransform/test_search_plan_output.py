@@ -18,11 +18,7 @@ from alphadia.constants.keys import (
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
-from alphadia.outputtransform.quantification.quant_output_builder import (
-    LFQOutputConfig,
-)
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
-from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.timing_manager import TimingManager
@@ -214,118 +210,6 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
         ProteinGroupOutputCols.INTENSITY,
     ]
     assert all((col in psm_df.columns) == lfq_enabled for col in lfq_intensity_columns)
-
-
-def test_merge_quant_levels_to_psm_handles_empty_lfq():
-    """Test merge_quant_levels_to_psm with empty LFQ results."""
-    # given
-    psm_df = pd.DataFrame(
-        {"mod_seq_charge_hash": ["A1"], "run": ["run1"], "decoy": [0]}
-    )
-    lfq_results = {"precursor": pd.DataFrame()}
-    configs = [
-        LFQOutputConfig(
-            "mod_seq_charge_hash",
-            "precursor",
-            "precursor.intensity",
-            ["pg", "sequence", "mods", "charge"],
-        )
-    ]
-
-    # when
-    result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
-
-    # then
-    expected = pd.DataFrame(
-        {"mod_seq_charge_hash": ["A1"], "run": ["run1"], "decoy": [0]}
-    )
-    pd.testing.assert_frame_equal(result, expected)
-
-
-def test_merge_quant_levels_to_psm_merges_all_levels():
-    """Test merge_quant_levels_to_psm with all three quantification levels."""
-    # given
-    psm_df = pd.DataFrame(
-        {
-            "mod_seq_charge_hash": ["A1"],
-            "mod_seq_hash": ["A"],
-            "pg": ["PG1"],
-            "run": ["run1"],
-            "decoy": [0],
-        }
-    )
-    lfq_results = {
-        "precursor": pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run1": [100.0]}),
-        "peptide": pd.DataFrame({"mod_seq_hash": ["A"], "run1": [400.0]}),
-        "pg": pd.DataFrame({"pg": ["PG1"], "run1": [700.0]}),
-    }
-    configs = [
-        LFQOutputConfig(
-            "mod_seq_charge_hash",
-            "precursor",
-            "precursor.intensity",
-            ["pg", "sequence", "mods", "charge"],
-        ),
-        LFQOutputConfig(
-            "mod_seq_hash", "peptide", "peptide.intensity", ["pg", "sequence", "mods"]
-        ),
-        LFQOutputConfig("pg", "pg", "pg.intensity", ["pg"]),
-    ]
-
-    # when
-    result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
-
-    # then
-    expected = pd.DataFrame(
-        {
-            "mod_seq_charge_hash": ["A1"],
-            "mod_seq_hash": ["A"],
-            "pg": ["PG1"],
-            "run": ["run1"],
-            "decoy": [0],
-            "precursor.intensity": [100.0],
-            "peptide.intensity": [400.0],
-            "pg.intensity": [700.0],
-        }
-    )
-    pd.testing.assert_frame_equal(result, expected)
-
-
-@pytest.mark.parametrize("decoy_dtype", [int, bool])
-def test_merge_quant_levels_to_psm_keeps_decoys_unquantified(decoy_dtype):
-    """Test merge_quant_levels_to_psm does not give a decoy the quantities of a target with the same keys."""
-    # given
-    psm_df = pd.DataFrame(
-        {
-            "mod_seq_charge_hash": ["A1", "A1"],
-            "pg": ["PG1", "PG1"],
-            "run": ["run1", "run1"],
-            "decoy": np.array([0, 1], dtype=decoy_dtype),
-        }
-    )
-    lfq_results = {
-        "precursor": pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run1": [100.0]}),
-        "pg": pd.DataFrame({"pg": ["PG1"], "run1": [700.0]}),
-    }
-    configs = [
-        LFQOutputConfig(
-            "mod_seq_charge_hash",
-            "precursor",
-            "precursor.intensity",
-            ["pg", "sequence", "mods", "charge"],
-        ),
-        LFQOutputConfig("pg", "pg", "pg.intensity", ["pg"]),
-    ]
-
-    # when
-    result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
-
-    # then
-    assert result.loc[0, ["precursor.intensity", "pg.intensity"]].tolist() == [
-        100.0,
-        700.0,
-    ]
-    assert result.loc[1, ["precursor.intensity", "pg.intensity"]].isna().all()
 
 
 def test_build_stat_df_returns_stats_without_writing(tmp_path):
