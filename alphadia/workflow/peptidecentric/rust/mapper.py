@@ -186,6 +186,15 @@ OPTIONAL_FEATURE_GROUPS = {
         "ms1_fine_shape",
         "ms1_fine_iso_corr",
     ),
+    # the RT x mobility peak of the fragments (ion mobility data only): each fragment's patch of apex cycles x scans
+    # against the consensus of the others, mobilogram apex agreement, signal share inside the joint peak, peak width
+    "mobility_profile_features": (
+        "mob2d_corr_mean",
+        "mob2d_coherent_share",
+        "mob2d_apex_sd",
+        "mob2d_peak_share",
+        "mob2d_fwhm",
+    ),
     # fragment detection at the apex scan, for one-scan peaks at low input; scored only if the flag is set
     "detection_features": (
         "shadow_lib_share",
@@ -340,7 +349,9 @@ def to_features_df(
     """
     dropped = set(get_feature_group_columns(unscored_feature_groups))
     if not has_mobility:
-        dropped |= set(MOBILITY_FEATURES)
+        dropped |= set(MOBILITY_FEATURES) | set(
+            OPTIONAL_FEATURE_GROUPS["mobility_profile_features"]
+        )
     features_dict = {
         name: values
         for name, values in candidate_features.to_dict_arrays().items()

@@ -232,6 +232,10 @@ search:
   # At 1 it is truncated by the search window, and so are the residuals the mobility tolerance is optimized on.
   mobility_observation_widening: 1.0
 
+  # ion mobility data (rust backend only): RT x mobility peak features for the final-round classifier, from each
+  # fragment's patch of apex cycles x scans of the mobility window (mob2d_* columns)
+  mobility_profile_features: False
+
   # quantify the fragments at the optimized MS2 tolerance instead of the backend's fixed default (rust backend only)
   quant_at_ms2_tolerance: False
 
