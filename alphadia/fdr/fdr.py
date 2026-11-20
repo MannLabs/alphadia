@@ -170,9 +170,11 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     if random_state is not None:
         logger.info(f"Using random state {random_state} for FDR calculation")
 
-    psm_df = psm_df.take(np.concatenate([target_rows, decoy_rows]))
-    X = psm_df[available_columns].to_numpy()
-    y = np.concatenate([np.zeros(n_target), np.ones(n_decoy)])
+    # a full copy of the PSM table only when rows are dropped: it is the largest object of the search
+    rows = np.flatnonzero(complete)
+    psm_df = psm_df.take(rows) if len(rows) < len(psm_df) else psm_df.copy(deep=False)
+    X = psm_df[available_columns].to_numpy(dtype=np.float32)
+    y = decoy_mask[rows].astype(np.float64)
 
     try:
         idxs_train, idxs_test = train_test_split_indices(
