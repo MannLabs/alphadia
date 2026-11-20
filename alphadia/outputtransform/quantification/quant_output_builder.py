@@ -13,6 +13,7 @@ from alphadia.outputtransform.quantification.fragment_accumulator import (
 )
 from alphadia.outputtransform.quantification.intensity_drift_correction import (
     correct_intensity_drift,
+    correct_precursor_intensity_drift,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
     DEFAULT_FEATURE_COLUMNS,
@@ -149,13 +150,6 @@ class QuantOutputBuilder:
 
         feature_dfs_dict = self.fragment_loader.accumulate_from_folders(folder_list)
 
-        if self.config["search_output"]["intensity_drift_correction"]:
-            feature_dfs_dict["intensity"] = correct_intensity_drift(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                self._psm_no_decoys_df,
-            )
-
         requested_configs = self._requested_quant_level_configs()
 
         # TODO cover the QuantSelect branch with a build-level test: every requested
@@ -183,6 +177,24 @@ class QuantOutputBuilder:
 
         return lfq_results, merge_quant_levels_to_psm(self.psm_df, level_dfs)
 
+    def _is_drift_corrected(self) -> bool:
+        return self.config["search_output"]["intensity_drift_correction"]
+
+    def _drift_corrected_fragments(
+        self, feature_dfs_dict: dict[str, pd.DataFrame]
+    ) -> dict[str, pd.DataFrame]:
+        """Return `feature_dfs_dict` with the intensity drift removed from the fragment intensities if enabled."""
+        if not self._is_drift_corrected():
+            return feature_dfs_dict
+        return {
+            **feature_dfs_dict,
+            "intensity": correct_intensity_drift(
+                feature_dfs_dict["intensity"],
+                feature_dfs_dict["correlation"],
+                self._psm_no_decoys_df,
+            ),
+        }
+
     def _requested_quant_level_configs(self) -> list[LFQOutputConfig]:
         """Quantification levels switched on in the config."""
         return [
@@ -197,7 +209,7 @@ class QuantOutputBuilder:
         quantlevel_configs: list[LFQOutputConfig],
         feature_dfs_dict: dict[str, pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
-        """Quantify every requested level with QuantSelect.
+        """Remove the fragment intensity drift if enabled and quantify every requested level with QuantSelect.
 
         Parameters
         ----------
@@ -211,6 +223,7 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name
         """
+        feature_dfs_dict = self._drift_corrected_fragments(feature_dfs_dict)
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
             logger.info(
@@ -228,7 +241,7 @@ class QuantOutputBuilder:
         quantlevel_configs: list[LFQOutputConfig],
         feature_dfs_dict: dict[str, pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
-        """Filter fragments per level and estimate the level quantities with directLFQ.
+        """Remove the fragment intensity drift if enabled, filter fragments per level and estimate the level intensities with directLFQ.
 
         Parameters
         ----------
@@ -242,6 +255,7 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name
         """
+        feature_dfs_dict = self._drift_corrected_fragments(feature_dfs_dict)
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
             logger.info(
@@ -262,11 +276,12 @@ class QuantOutputBuilder:
         quantlevel_configs: list[LFQOutputConfig],
         feature_dfs_dict: dict[str, pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
-        """Estimate the precursor quantities with the variance-model fit and roll them up with directLFQ.
+        """Estimate the precursor intensities with the variance-model fit, remove their intensity drift if enabled and roll them up with directLFQ.
 
-        All levels are rolled up from the same precursor table so that they share the precursor
-        quantities; directLFQ's sample normalization does not depend on the grouping, so every
-        level also gets the same shifts.
+        The drift is corrected on the precursor table, along the retention time and the neutral
+        precursor mass, not on the fragments. All levels are rolled up from the same precursor
+        table so that they share the precursor intensities; directLFQ's sample normalization does
+        not depend on the grouping, so every level also gets the same shifts.
 
         Parameters
         ----------
@@ -291,6 +306,10 @@ class QuantOutputBuilder:
                 "fragment_censoring_correction"
             ],
         )
+        if self._is_drift_corrected():
+            precursor_df = correct_precursor_intensity_drift(
+                precursor_df, self._psm_no_decoys_df
+            )
 
         level_dfs = {}
         for quantlevel_config in quantlevel_configs:
