@@ -102,13 +102,13 @@ def test_get_classifier_feature_columns_without_the_block_in_rust():
     assert columns == CORE_COLUMNS
 
 
-def test_get_classifier_feature_columns_with_all_flags_adds_the_20_columns(
+def test_get_classifier_feature_columns_with_all_flags_adds_the_25_columns(
     full_feature_names,
 ):
     # given / when
     columns = get_classifier_feature_columns(list(OPTIONAL_FEATURE_GROUPS))
 
-    # then: 4 fitted spread, 3 window share, 10 MS1 and 3 detection columns
+    # then: 4 fitted spread, 3 window share, 10 MS1, 5 mobility profile and 3 detection columns
     assert columns == FULL_WITH_OPTIONAL
     assert [
         len(OPTIONAL_FEATURE_GROUPS[group]) for group in OPTIONAL_FEATURE_GROUPS
@@ -116,6 +116,7 @@ def test_get_classifier_feature_columns_with_all_flags_adds_the_20_columns(
         4,
         3,
         10,
+        5,
         3,
     ]
 
@@ -243,9 +244,11 @@ def test_to_features_df_drops_the_unscored_groups(unscored_feature_groups):
         unscored_feature_groups=unscored_feature_groups,
     )
 
-    # then
+    # then: without a mobility dimension, the mobility profile columns are dropped as well
     for group, columns in OPTIONAL_FEATURE_GROUPS.items():
-        dropped = group in unscored_feature_groups
+        dropped = (
+            group in unscored_feature_groups or group == "mobility_profile_features"
+        )
         assert all((column not in features_df.columns) == dropped for column in columns)
     assert "score" in features_df.columns
 
