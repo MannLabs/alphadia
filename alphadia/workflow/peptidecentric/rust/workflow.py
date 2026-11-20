@@ -1,5 +1,6 @@
 """Peptide-centric workflow on the Rust (alphadia-search-rs) extraction backend."""
 
+import os
 import time
 
 import pandas as pd
@@ -29,6 +30,28 @@ from alphadia.workflow.peptidecentric.utils import (
     log_precursor_df,
     use_timing_manager,
 )
+
+
+FEATURE_MATRIX_FILE_NAME = "feature_matrix.parquet"
+FDR_BEST_FILE_NAME = "fdr_best.parquet"
+LIBRARY_PRECURSORS_FILE_NAME = "library_precursors.parquet"
+FDR_BEST_COLUMNS = ["precursor_idx", "rank", "decoy", "proba", "qval"]
+LIBRARY_PRECURSOR_COLUMNS = [
+    "precursor_idx",
+    "elution_group_idx",
+    "decoy",
+    "sequence",
+    "mods",
+    "mod_sites",
+    "charge",
+    "proteins",
+    "genes",
+    "mz_library",
+    "rt_library",
+    "rt_calibrated",
+    "mobility_library",
+    "mobility_calibrated",
+]
 
 
 class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
@@ -100,6 +123,17 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
 
         return dia_data_rust
 
+    def _save_feature_matrix(
+        self, features_df: pd.DataFrame, fdr_df: pd.DataFrame
+    ) -> None:
+        """Write the scored candidates, the best candidate per precursor before the FDR cut and the library precursors."""
+        features_df.to_parquet(os.path.join(self.path, FEATURE_MATRIX_FILE_NAME))
+        fdr_df[FDR_BEST_COLUMNS].to_parquet(os.path.join(self.path, FDR_BEST_FILE_NAME))
+        library_df = self.spectral_library.precursor_df
+        library_df[
+            [column for column in LIBRARY_PRECURSOR_COLUMNS if column in library_df]
+        ].to_parquet(os.path.join(self.path, LIBRARY_PRECURSORS_FILE_NAME))
+
     @use_timing_manager("extraction")
     def extraction(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         extraction_handler = self._create_extraction_handler(self.spectral_library)
@@ -121,6 +155,11 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
                 train_on_best_candidate=True,
             )
         )
+
+        if self.config["fdr"]["save_feature_matrix"]:
+            self._save_feature_matrix(
+                precursor_w_features_df, extraction_handler.unfiltered_fdr_df
+            )
 
         precursor_df, fragments_df = extraction_handler.quantify_candidates(
             candidates_fdr_df, precursor_fdr_df

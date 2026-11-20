@@ -93,6 +93,8 @@ class RustExtractionHandler(ExtractionHandler):
             else None,
         )
         self._raw_data_has_ms1 = raw_data_has_ms1
+        # the best candidate of each precursor with its proba and q-value from the last FDR, before the cut
+        self.unfiltered_fdr_df: pd.DataFrame | None = None
         # MS1 extraction tolerance (ppm) from the MS1 calibration pre-pass; None until the MS1 isotopes are set
         self._ms1_tolerance_ppm: float | None = None
         # whether the final round can score the MS1 features, see `_can_score_ms1`; None until the final round asks
@@ -455,6 +457,7 @@ class RustExtractionHandler(ExtractionHandler):
             excluded_columns=FINAL_ROUND_EXCLUDED_FEATURES if final_round else (),
             train_on_best_candidate=train_on_best_candidate,
         )
+        self.unfiltered_fdr_df = precursor_fdr_df
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
         ]

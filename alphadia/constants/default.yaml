@@ -341,6 +341,11 @@ fdr:
 
 
   # === advanced settings ===
+  # rust backend: write the final round's scored candidates (feature_matrix.parquet), the best candidate of each
+  # precursor with its proba and q-value before the FDR cut (fdr_best.parquet) and the library precursors
+  # (library_precursors.parquet) to each raw file's folder, for offline analyses
+  save_feature_matrix: False
+
   # whether to enable competitive scoring during FDR control
   competitive_scoring: true
   # whether to keep decoy PSMs in the final output
