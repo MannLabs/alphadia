@@ -1,14 +1,16 @@
 import logging
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
+from alphadia.outputtransform.quantification import quant_builder
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     varmodel_precursor_table,
 )
 
-# the fit itself is tested in alphadia_search_rs (src/varmodel_quantification/tests.rs), these tests
+# the fit itself is tested in alphadia_search_rs (src/varmodel_quantification/tests*.rs), these tests
 # cover the conversion of the fragment matrices to the precursor table
 
 RUNS = ["run1", "run2", "run3"]
@@ -23,6 +25,12 @@ def _fragment_table(intensity_library, precursor, intensity):
     intensity_df["mod_seq_charge_hash"] = precursor
     intensity_df[INTENSITY_LIBRARY_COLUMN] = intensity_library
     return intensity_df
+
+
+def _correlation_table(intensity_df, correlation=1.0):
+    return intensity_df.assign(
+        **{run: correlation for run in RUNS if run in intensity_df}
+    )
 
 
 def test_precursor_table_has_one_sorted_row_per_precursor_with_its_runs():
@@ -44,7 +52,11 @@ def test_precursor_table_has_one_sorted_row_per_precursor_with_its_runs():
     intensity_df = _fragment_table(intensity_library, precursor, intensity)
 
     # When
-    precursor_df = varmodel_precursor_table(intensity_df)
+    precursor_df = varmodel_precursor_table(
+        intensity_df,
+        _correlation_table(intensity_df),
+        fragment_censoring_correction=False,
+    )
 
     # Then
     assert precursor_df["mod_seq_charge_hash"].tolist() == [10, 20]
@@ -65,7 +77,11 @@ def test_fragments_without_library_intensity_are_ignored_with_a_warning(caplog):
 
     # When
     with caplog.at_level(logging.WARNING):
-        precursor_df = varmodel_precursor_table(intensity_df)
+        precursor_df = varmodel_precursor_table(
+            intensity_df,
+            _correlation_table(intensity_df),
+            fragment_censoring_correction=False,
+        )
 
     # Then
     assert any(
@@ -74,3 +90,79 @@ def test_fragments_without_library_intensity_are_ignored_with_a_warning(caplog):
     np.testing.assert_allclose(
         precursor_df.loc[0, "run2"] / precursor_df.loc[0, "run1"], 2.0, rtol=1e-4
     )
+
+
+def _fit_call(intensity_df, correlation_df, fragment_censoring_correction):
+    """Positional arguments and keyword options the precursor table passes to the backend fit."""
+    n_precursors = intensity_df["precursor_idx"].nunique()
+    n_runs = len([c for c in RUNS if c in intensity_df])
+    fit_result = {
+        "quantity": np.zeros((n_runs, n_precursors)),
+        "residual_scale": 0.0,
+        "loss_scale": 0.0,
+        "offset_shrinkage": 0.0,
+    }
+    with patch.object(quant_builder, "VarModelQuantification") as backend:
+        backend.return_value.fit.return_value = fit_result
+        varmodel_precursor_table(
+            intensity_df,
+            correlation_df,
+            fragment_censoring_correction=fragment_censoring_correction,
+        )
+    return backend.return_value.fit.call_args
+
+
+def test_several_runs_correct_censoring_and_pass_the_correlation_by_run():
+    # Given two runs with per-cell correlations that differ by run and fragment, one missing and one out of range
+    intensity_library = np.array([1.0, 0.5, 0.25])
+    intensity = np.array([[100.0, 200.0], [50.0, 0.0], [25.0, 50.0]])
+    intensity_df = _fragment_table(intensity_library, np.zeros(3, dtype=int), intensity)
+    correlation_df = intensity_df.assign(run1=[0.9, np.nan, 0.7], run2=[0.6, 0.5, -0.1])
+
+    # When
+    args, options = _fit_call(
+        intensity_df, correlation_df, fragment_censoring_correction=True
+    )
+
+    # Then the correlation is laid out like the intensity, one row per run, within [0, 1]
+    intensity_arg, correlation_arg = args[0], args[4]
+    assert options == {"fragment_censoring_correction": True}
+    assert correlation_arg.shape == intensity_arg.shape
+    assert correlation_arg.flags["C_CONTIGUOUS"]
+    np.testing.assert_allclose(
+        correlation_arg, [[0.9, 0.0, 0.7], [0.6, 0.5, 0.0]], rtol=1e-6
+    )
+
+
+def test_without_the_fragment_censoring_correction_the_plain_fit_is_used():
+    # Given two runs
+    intensity_library = np.array([1.0, 0.5])
+    intensity = np.array([[100.0, 200.0], [50.0, 100.0]])
+    intensity_df = _fragment_table(intensity_library, np.zeros(2, dtype=int), intensity)
+
+    # When
+    _, options = _fit_call(
+        intensity_df,
+        _correlation_table(intensity_df, 0.9),
+        fragment_censoring_correction=False,
+    )
+
+    # Then
+    assert options == {"fragment_censoring_correction": False}
+
+
+def test_a_single_run_uses_the_plain_fit():
+    # Given one run, where there are no run ratios to protect
+    intensity_library = np.array([1.0, 0.5])
+    intensity = np.array([[100.0], [50.0]])
+    intensity_df = _fragment_table(intensity_library, np.zeros(2, dtype=int), intensity)
+
+    # When
+    _, options = _fit_call(
+        intensity_df,
+        _correlation_table(intensity_df, 0.9),
+        fragment_censoring_correction=True,
+    )
+
+    # Then
+    assert options == {"fragment_censoring_correction": False}

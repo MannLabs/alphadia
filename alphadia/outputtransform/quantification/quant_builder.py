@@ -34,6 +34,10 @@ PRECURSOR_IDX_MASK = 0xFFFFFFFF
 # per-run fragment features accumulated for directLFQ and the variance model
 DEFAULT_FEATURE_COLUMNS = ["intensity", "correlation"]
 
+# the fragment censoring correction estimates its dropout curves and quality weights from fragments seen in several
+# runs; with fewer runs there are no ratios to protect and the plain fit is used
+MIN_RUNS_FOR_FRAGMENT_CENSORING_CORRECTION = 2
+
 # fragment columns consumed by `_ion_hash`, in the order of its signature
 ION_HASH_COLUMNS = [PRECURSOR_IDX_COLUMN, "number", "type", "charge", "loss_type"]
 
@@ -248,16 +252,25 @@ def direct_lfq(
     return protein_df
 
 
-def varmodel_precursor_table(intensity_df: pd.DataFrame) -> pd.DataFrame:
+def varmodel_precursor_table(
+    intensity_df: pd.DataFrame,
+    correlation_df: pd.DataFrame,
+    fragment_censoring_correction: bool,
+) -> pd.DataFrame:
     """Estimate the precursor quantities with the variance-model fit.
 
-    Every precursor becomes one ion. The model is documented in
+    Every precursor becomes one ion. The model, including the fragment censoring correction, is documented in
     `alphadia_search_rs.VarModelQuantification`.
 
     Parameters
     ----------
     intensity_df: pd.DataFrame
         Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash, intensity_library
+    correlation_df: pd.DataFrame
+        XIC correlations aligned row by row with intensity_df; missing values count as 0
+    fragment_censoring_correction: bool
+        With at least two runs, a fragment missing in a run where its precursor is quantified counts as below that
+        run's detection limit instead of being dropped, and fragment values are weighted by their XIC correlation
 
     Returns
     -------
@@ -280,18 +293,32 @@ def varmodel_precursor_table(intensity_df: pd.DataFrame) -> pd.DataFrame:
         intensity_df[precursor_column], sort=True
     )
     intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
+    correlation = np.clip(
+        np.nan_to_num(correlation_df[run_columns].to_numpy(dtype=np.float32)),
+        0.0,
+        1.0,
+    )
 
     result = VarModelQuantification().fit(
         np.ascontiguousarray(intensity.T),
         intensity_library,
         fragment_precursor_index.astype(np.uintp),
         len(precursor_hashes),
+        np.ascontiguousarray(correlation.T),
+        fragment_censoring_correction=fragment_censoring_correction
+        and len(run_columns) >= MIN_RUNS_FOR_FRAGMENT_CENSORING_CORRECTION,
     )
     logger.info(
         f"Variance-model fit: residual scale {result['residual_scale']:.3f} log2, "
         f"loss scale {result['loss_scale']:.2f}, "
         f"offset shrinkage {result['offset_shrinkage']:.2f}"
     )
+    if "detection_limit" in result:
+        logger.info(
+            f"Fragment censoring correction: detection limit {np.round(result['detection_limit'], 2)} log2, width "
+            f"{np.round(result['dropout_width'], 2)}, abundance-independent dropout "
+            f"{np.round(result['dropout_plateau'], 4)}"
+        )
 
     # the sorted groupby rows line up with the sorted precursor_hashes of the fit
     precursor_df = (

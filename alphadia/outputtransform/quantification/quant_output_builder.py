@@ -280,8 +280,16 @@ class QuantOutputBuilder:
         dict[str, pd.DataFrame]
             Quantification results by level name
         """
+        intensity_df = self._filter_fragments(
+            feature_dfs_dict, QuantificationLevelKey.PRECURSOR
+        )
+        # the accumulated feature matrices share their rows, so the filter's index selects the same fragments
         precursor_df = varmodel_precursor_table(
-            self._filter_fragments(feature_dfs_dict, QuantificationLevelKey.PRECURSOR)
+            intensity_df,
+            feature_dfs_dict["correlation"].loc[intensity_df.index],
+            fragment_censoring_correction=self.config["search_output"][
+                "fragment_censoring_correction"
+            ],
         )
 
         level_dfs = {}
