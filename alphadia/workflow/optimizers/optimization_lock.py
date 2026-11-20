@@ -4,8 +4,16 @@ from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.exceptions import NoOptimizationLockTargetError
+from alphadia.fdr.utils import is_identification
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationGroups
+
+# When the calibration first reaches `optimization_lock_target` and resizes the lock, only the elution groups with a
+# candidate below this q-value stay in the lock for the later calibration rounds. They hold the identifications, so the
+# later rounds calibrate on the same precursors and search a much smaller lock. Pruning affects only the calibration;
+# the main search scores the whole library. With fragment competition (search.compete_for_fragments), the calibration
+# rounds keep candidates up to a q-value of 0.1, so a higher value prunes like 0.1.
+PRUNE_QVAL = 0.1
 
 
 class OptimizationLock:
@@ -22,7 +30,6 @@ class OptimizationLock:
         """
         self._library = library
 
-        self.previously_calibrated = False
         self.has_target_num_precursors = False
 
         self._elution_group_order = library._precursor_df["elution_group_idx"].unique()
@@ -32,17 +39,20 @@ class OptimizationLock:
         self._precursor_target_count = config["calibration"]["optimization_lock_target"]
         self._batch_size = config["calibration"]["batch_size"]
 
+        # The q-value up to which the FDR of a calibration search reports its candidates for the pruning, see `_prune`.
+        # None once the lock was pruned or pruning was skipped.
+        self.prune_qval: float | None = PRUNE_QVAL
+        # Positions in `_elution_group_order` that pruning removed from the lock.
+        self._is_pruned = np.zeros(len(self._elution_group_order), dtype=bool)
+        self._elution_groups_below_prune_qval = np.array([], dtype=int)
+
         self.batch_idx = 0
         self.batch_plan = self._get_batch_plan(
-            len(self._elution_group_order),
-            self._batch_size,
-            # TODO remove unused fixed_start_idx functionality
+            len(self._elution_group_order), self._batch_size
         )
 
-        eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
-
         self.batch_library: SpecLibFlat | None = None
-        self.set_batch_dfs(eg_idxes)
+        self.set_batch_dfs(self._elution_groups(self.start_idx, self.stop_idx))
 
         self._feature_dfs = []
         self._fragment_dfs = []
@@ -60,7 +70,7 @@ class OptimizationLock:
         if self.has_target_num_precursors:
             return 0
         elif self.batch_idx >= len(self.batch_plan):
-            raise NoOptimizationLockTargetError()  # This should never be triggered since introduction of the BaseOptimizer.proceed_with_insufficient_precursors method and associated code, and could be removed.
+            raise NoOptimizationLockTargetError()
         else:
             return self.batch_plan[self.batch_idx][0]
 
@@ -68,10 +78,19 @@ class OptimizationLock:
     def stop_idx(self) -> int:
         return self.batch_plan[self.batch_idx][1]
 
+    @property
+    def num_pruned_elution_groups(self) -> int:
+        """Return the number of elution groups of the lock that pruning removed."""
+        return int(self._is_pruned[: self.stop_idx].sum())
+
+    def _elution_groups(self, start_idx: int, stop_idx: int) -> np.ndarray:
+        """Return the elution groups between two positions of the lock order, without the pruned ones."""
+        return self._elution_group_order[start_idx:stop_idx][
+            ~self._is_pruned[start_idx:stop_idx]
+        ]
+
     @staticmethod
-    def _get_batch_plan(
-        num_items: int, batch_size: int, *, fixed_start_idx: bool = False
-    ) -> list[tuple[int, int]]:
+    def _get_batch_plan(num_items: int, batch_size: int) -> list[tuple[int, int]]:
         """Gets an exponential batch plan based on num_items and batch_size.
 
         The batch plan is a list of tuples, where each tuple contains the start and stop index of the elution groups to use for each step in the optimization lock.
@@ -82,8 +101,6 @@ class OptimizationLock:
             The total number of items to create a batch plan for.
         batch_size: int
             The batch size to use for each step in the optimization lock.
-        fixed_start_idx: bool
-            If True, the start index of each batch is fixed to 0, otherwise the start index is the stop index of the previous batch.
 
         returns
         -------
@@ -102,8 +119,7 @@ class OptimizationLock:
             stop_idx = min(stop_idx + n_batches * batch_size, num_items)
             plan.append((start_idx, stop_idx))
             step += 1
-            if not fixed_start_idx:
-                start_idx = stop_idx
+            start_idx = stop_idx
 
         return plan
 
@@ -127,7 +143,12 @@ class OptimizationLock:
         self._feature_dfs += [feature_df]
         self._fragment_dfs += [fragment_df]
 
-        self.total_elution_groups = self.features_df["elution_group_idx"].nunique()
+        # A pruned elution group stays in the lock as extracted without an identification, so the identification rate
+        # of a round compares with the rounds before pruning.
+        self.total_elution_groups = (
+            self.features_df["elution_group_idx"].nunique()
+            + self.num_pruned_elution_groups
+        )
 
     def update_with_fdr(self, precursor_df: pd.DataFrame):
         """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization.
@@ -138,11 +159,53 @@ class OptimizationLock:
             The precursor dataframe for the current batch of the optimization lock (from workflow.perform_fdr).
         """
 
-        self._precursor_at_fdr_count = np.sum(
-            (precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)
-        )
+        self._precursor_at_fdr_count = np.sum(is_identification(precursor_df))
         self.has_target_num_precursors = (
             self._precursor_at_fdr_count >= self._precursor_target_count
+        )
+
+    def record_prune_candidates(self, precursor_df: pd.DataFrame) -> None:
+        """Remember the elution groups with a candidate below `prune_qval`, which the next pruning keeps.
+
+        Parameters
+        ----------
+        precursor_df: pd.DataFrame
+            The precursor dataframe after FDR, with the q-values up to at least `prune_qval`.
+        """
+        if self.prune_qval is None:
+            return
+        self._elution_groups_below_prune_qval = precursor_df.loc[
+            precursor_df["qval"] < self.prune_qval, "elution_group_idx"
+        ].unique()
+
+    def _prune(self) -> str:
+        """Remove the elution groups of the lock without a candidate below `prune_qval` in the last search.
+
+        Targets and decoys share the elution group, so a kept target keeps its decoy and the reverse. Each elution group
+        holds at most one identification, so pruning is skipped when fewer elution groups than
+        `optimization_lock_target` would remain: the pruned lock could not hold the target, and the calibration goes on
+        with the whole lock.
+
+        Returns
+        -------
+        str
+            A summary of the pruning to log.
+        """
+        self.prune_qval = None
+        lock = slice(0, self.stop_idx)
+        is_kept = np.isin(
+            self._elution_group_order[lock], self._elution_groups_below_prune_qval
+        )
+        num_kept = int(is_kept.sum())
+        if num_kept < self._precursor_target_count:
+            return (
+                f"Did not prune the optimization lock: only {num_kept:,} of {self.stop_idx:,} elution groups have a "
+                f"candidate below q-value {PRUNE_QVAL}, fewer than the target of {self._precursor_target_count:,}."
+            )
+        self._is_pruned[lock] = ~is_kept
+        return (
+            f"Pruned the optimization lock: removed {self.num_pruned_elution_groups:,} of "
+            f"{self.stop_idx:,} elution groups."
         )
 
     def update_with_calibration(self, calibration_manager):
@@ -186,34 +249,53 @@ class OptimizationLock:
         # get index of smallest value >= 0
         self.batch_idx = np.where(batch_plan_diff >= 0)[0][0]
 
-    def update(self):
-        """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
-        If the target has been reached, the feature and fragment dataframes are reset
+    def extend(self, calibration_manager=None) -> None:
+        """Add the next batch of the plan to the lock and keep the batches extracted so far.
+
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager | None
+            Calibrates the new batch like the earlier batches. None when no calibration exists yet.
         """
-        if self.has_target_num_precursors:
-            self.decrease_batch_idx()
-            self._feature_dfs = []
-            self._fragment_dfs = []
+        self.increase_batch_idx()
+        self.set_batch_dfs(self._elution_groups(self.start_idx, self.stop_idx))
+        if calibration_manager is not None:
+            self.update_with_calibration(calibration_manager)
 
-        else:
-            self.increase_batch_idx()
+    def resize(self, calibration_manager) -> str | None:
+        """Resize the lock to the smallest batch of the plan that is expected to hold the target.
 
-        eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
-        self.set_batch_dfs(eg_idxes)
+        The next search covers the whole lock again. The first resize also prunes the lock, see `_prune`, and returns
+        a summary of the pruning to log; later resizes return None.
 
-    def reset_after_convergence(self, calibration_manager):
-        """Resets the optimization lock after all optimizers in a given round of optimization have converged.
-
-        Parameter
-        ---------
+        Parameters
+        ----------
         calibration_manager: CalibrationManager
-            The calibration manager object from the PeptideCentricWorkflow object.
-
+            Calibrates the resized lock.
         """
-        self.has_target_num_precursors = True
+        self.decrease_batch_idx()
         self._feature_dfs = []
         self._fragment_dfs = []
-        self.set_batch_dfs()
+        prune_summary = self._prune() if self.prune_qval is not None else None
+        self.set_batch_dfs(self._elution_groups(0, self.stop_idx))
+        self.update_with_calibration(calibration_manager)
+        return prune_summary
+
+    def grow(self, calibration_manager) -> None:
+        """Add the next batch of the plan. The next search covers the whole lock again with the current calibration.
+
+        A warm-up calibration changes the tolerances. The features of the earlier batches used the old tolerances, so
+        the lock drops them and extracts again from its first elution group.
+
+        Parameters
+        ----------
+        calibration_manager: CalibrationManager
+            Calibrates the grown lock.
+        """
+        self.increase_batch_idx()
+        self._feature_dfs = []
+        self._fragment_dfs = []
+        self.set_batch_dfs(self._elution_groups(0, self.stop_idx))
         self.update_with_calibration(calibration_manager)
 
     def set_batch_dfs(self, eg_idxes: None | np.ndarray = None):
@@ -223,10 +305,10 @@ class OptimizationLock:
         Parameters
         ----------
         eg_idxes: None | np.ndarray
-            The elution group indexes to use for the next round of optimization. If None, the eg_idxes for the current self.start_idx and self.stop_idx are used.
+            The elution group indexes to use for the next round of optimization. If None, the eg_idxes for the current self.start_idx and self.stop_idx are used, without the pruned ones.
         """
         if eg_idxes is None:
-            eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
+            eg_idxes = self._elution_groups(self.start_idx, self.stop_idx)
         self.batch_library = SpecLibFlat()
         # TODO using batch_library.precursor_df (no underscore) here will trigger the setter method, which will additionally call refine_precursor_df()
         self.batch_library._precursor_df, (self.batch_library._fragment_df,) = (

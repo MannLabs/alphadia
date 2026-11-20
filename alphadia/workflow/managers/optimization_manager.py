@@ -8,13 +8,17 @@ from alphadia.workflow.managers.base import BaseManager
 logger = logging.getLogger()
 
 
+def rt_tolerance_in_seconds(rt_tolerance: float, gradient_length: float) -> float:
+    """Return an RT tolerance in seconds. The config defines an RT tolerance of 1 or less as a share of the gradient."""
+    return rt_tolerance if rt_tolerance > 1 else rt_tolerance * gradient_length
+
+
 class OptimizationManager(BaseManager):
     ms1_error: float
     ms2_error: float
     rt_error: float
     mobility_error: float
     num_candidates: int
-    classifier_version: int
     fwhm_rt: float
     fwhm_mobility: float
     score_cutoff: float
@@ -33,11 +37,8 @@ class OptimizationManager(BaseManager):
             self.ms1_error = config["search_initial"]["ms1_tolerance"]
             self.ms2_error = config["search_initial"]["ms2_tolerance"]
 
-            initial_rt_tolerance = config["search_initial"]["rt_tolerance"]
-            self.rt_error = (
-                initial_rt_tolerance
-                if initial_rt_tolerance > 1
-                else initial_rt_tolerance * gradient_length
+            self.rt_error = rt_tolerance_in_seconds(
+                config["search_initial"]["rt_tolerance"], gradient_length
             )
             self.mobility_error = config["search_initial"]["mobility_tolerance"]
 
@@ -46,8 +47,6 @@ class OptimizationManager(BaseManager):
             self.fwhm_rt = config["optimization_manager"]["fwhm_rt"]
             self.fwhm_mobility = config["optimization_manager"]["fwhm_mobility"]
             self.score_cutoff = config["optimization_manager"]["score_cutoff"]
-
-            self.classifier_version = -1
 
             for key in [
                 "ms1_error",
@@ -58,7 +57,6 @@ class OptimizationManager(BaseManager):
                 "fwhm_rt",
                 "fwhm_mobility",
                 "score_cutoff",
-                "classifier_version",
             ]:
                 self.reporter.log_string(
                     f"initial parameter: {key} = {self.__dict__[key]}"
@@ -72,7 +70,6 @@ class OptimizationManager(BaseManager):
         rt_error: float | None = None,
         mobility_error: float | None = None,
         num_candidates: int | None = None,
-        classifier_version: int | None = None,
         fwhm_rt: float | None = None,
         fwhm_mobility: float | None = None,
         score_cutoff: float | None = None,
@@ -100,11 +97,6 @@ class OptimizationManager(BaseManager):
         if num_candidates is not None:
             _add_update_log("num_candidates", self.num_candidates, num_candidates)
             self.num_candidates = num_candidates
-        if classifier_version is not None:
-            _add_update_log(
-                "classifier_version", self.classifier_version, classifier_version
-            )
-            self.classifier_version = classifier_version
         if fwhm_rt is not None:
             _add_update_log("fwhm_rt", self.fwhm_rt, fwhm_rt)
             self.fwhm_rt = fwhm_rt
@@ -119,6 +111,10 @@ class OptimizationManager(BaseManager):
             self.reporter.log_string(
                 f"Updating optimization_manager: {log}", verbosity="info"
             )
+
+    def tolerances(self, names: list[str]) -> dict[str, float]:
+        """Return the tolerances of the given `SearchTolerance` names."""
+        return {name: getattr(self, name) for name in names}
 
     def get_optimization_context(self) -> OptimizationContext:
         """Snapshot of the current optimization context, which later updates of this manager do not change."""

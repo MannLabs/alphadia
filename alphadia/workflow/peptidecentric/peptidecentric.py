@@ -84,7 +84,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
 
         self._timing_manager: TimingManager = TimingManager(
             path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
-            load_from_file=self.config["general"]["reuse_calibration"],
+            load_from_file=False,
         )
 
         if random_state is not None:
@@ -183,7 +183,12 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
             self._figure_path,
         )
 
-        optimization_handler.search_parameter_optimization()
+        result = optimization_handler.search_parameter_optimization()
+        # Calibration scores only the best peak group of each precursor. The main search scores the configured number.
+        self.optimization_manager.update(
+            **result.tolerances,
+            num_candidates=self.config["search"]["target_num_candidates"],
+        )
 
         self._save_managers()
 

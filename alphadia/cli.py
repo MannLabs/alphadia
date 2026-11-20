@@ -193,8 +193,7 @@ def _get_raw_path_list_from_args_and_config(
         Command-line arguments containing file and directory
         paths, as well as a regex pattern for filtering.
     config : dict
-        Configuration dictionary that may include a list of raw paths
-        and a directory to search for files.
+        Configuration dictionary that may include a list of raw paths.
 
     Returns
     -------
@@ -203,12 +202,6 @@ def _get_raw_path_list_from_args_and_config(
 
     raw_path_list = list(config.get(ConfigKeys.RAW_PATHS, []))
     raw_path_list += list(args.file)
-
-    if (config_directory := config.get("directory")) is not None:
-        config_directory = expand_path(config_directory)
-        raw_path_list += [
-            os.path.join(config_directory, f) for f in os.listdir(config_directory)
-        ]
 
     for directory in args.directory:
         directory = expand_path(directory)

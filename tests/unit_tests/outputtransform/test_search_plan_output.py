@@ -18,11 +18,7 @@ from alphadia.constants.keys import (
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
-from alphadia.outputtransform.quantification.quant_output_builder import (
-    LFQOutputConfig,
-)
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
-from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.timing_manager import TimingManager
@@ -68,7 +64,7 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
             "precursor_level_lfq": True,
             "peptide_level_lfq": True,
             "min_k_fragments": 3,
-            "varmodel_quality_exponent": 0.0,
+            "fragment_censoring_correction": False,
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
@@ -217,75 +213,6 @@ def test_search_plan_output_integration(normalization_method, tmp_path):
     assert all((col in psm_df.columns) == lfq_enabled for col in lfq_intensity_columns)
 
 
-def test_merge_quant_levels_to_psm_handles_empty_lfq():
-    """Test merge_quant_levels_to_psm with empty LFQ results."""
-    # given
-    psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
-    lfq_results = {"precursor": pd.DataFrame()}
-    configs = [
-        LFQOutputConfig(
-            "mod_seq_charge_hash",
-            "precursor",
-            "precursor.intensity",
-            ["pg", "sequence", "mods", "charge"],
-        )
-    ]
-
-    # when
-    result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
-
-    # then
-    expected = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
-    pd.testing.assert_frame_equal(result, expected)
-
-
-def test_merge_quant_levels_to_psm_merges_all_levels():
-    """Test merge_quant_levels_to_psm with all three quantification levels."""
-    # given
-    psm_df = pd.DataFrame(
-        {
-            "mod_seq_charge_hash": ["A1"],
-            "mod_seq_hash": ["A"],
-            "pg": ["PG1"],
-            "run": ["run1"],
-        }
-    )
-    lfq_results = {
-        "precursor": pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run1": [100.0]}),
-        "peptide": pd.DataFrame({"mod_seq_hash": ["A"], "run1": [400.0]}),
-        "pg": pd.DataFrame({"pg": ["PG1"], "run1": [700.0]}),
-    }
-    configs = [
-        LFQOutputConfig(
-            "mod_seq_charge_hash",
-            "precursor",
-            "precursor.intensity",
-            ["pg", "sequence", "mods", "charge"],
-        ),
-        LFQOutputConfig(
-            "mod_seq_hash", "peptide", "peptide.intensity", ["pg", "sequence", "mods"]
-        ),
-        LFQOutputConfig("pg", "pg", "pg.intensity", ["pg"]),
-    ]
-
-    # when
-    result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
-
-    # then
-    expected = pd.DataFrame(
-        {
-            "mod_seq_charge_hash": ["A1"],
-            "mod_seq_hash": ["A"],
-            "pg": ["PG1"],
-            "run": ["run1"],
-            "precursor.intensity": [100.0],
-            "peptide.intensity": [400.0],
-            "pg.intensity": [700.0],
-        }
-    )
-    pd.testing.assert_frame_equal(result, expected)
-
-
 def test_build_stat_df_returns_stats_without_writing(tmp_path):
     # given
     config = {
@@ -307,3 +234,41 @@ def test_build_stat_df_returns_stats_without_writing(tmp_path):
     # then
     assert stat_df[StatSearchCols.PRECURSORS].tolist() == [1]
     assert not (tmp_path / SearchPlanFiles.STAT_FILE_NAME).exists()
+
+
+def test_build_precursor_table_takes_the_protein_q_values_of_an_mbr_library(tmp_path):
+    """Test the protein groups take their q-values from a library with the column pg_qval, groups outside it fail."""
+    # given
+    config = {
+        "general": {"thread_count": 1, "save_figures": False},
+        "fdr": {
+            "fdr": 0.01,
+            "inference_strategy": InferenceStrategy.LIBRARY,
+            "group_level": "proteins",
+            "keep_decoys": False,
+        },
+    }
+    raw_folder = tmp_path / "run_0"
+    raw_folder.mkdir()
+    mock_precursor_df(n_precursor=100, with_decoy=False).assign(run="run_0").to_parquet(
+        raw_folder / "psm.parquet", index=False
+    )
+    library_pg_qval = {"APROT": 0.002, "CPROT": 0.005}
+    library_precursor_df = pd.DataFrame(
+        {
+            "proteins": list(library_pg_qval),
+            "decoy": [0, 0],
+            "pg_qval": list(library_pg_qval.values()),
+        }
+    )
+
+    # when
+    psm_df = SearchPlanOutput(config, str(tmp_path))._build_precursor_table(
+        [str(raw_folder)], library_precursor_df
+    )
+
+    # then
+    assert set(psm_df["pg"]) == set(library_pg_qval)
+    np.testing.assert_array_equal(
+        psm_df["pg_qval"].to_numpy(), psm_df["pg"].map(library_pg_qval).to_numpy()
+    )

@@ -7,9 +7,11 @@ import pandas as pd
 import pytest
 from alphadia_search_rs import FeatureSet
 
+from alphadia.constants.keys import SearchTolerance
 from alphadia.exceptions import GenericUserError
 from alphadia.raw_data.bruker import TimsTOFTranspose
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.peptidecentric.optimization_handler import CalibrationResult
 from alphadia.workflow.peptidecentric.python.extraction_handler import (
     PythonExtractionHandler,
 )
@@ -44,11 +46,11 @@ def _create_workflow(workflow_class, tmp_path):
     config = {
         "general": {
             "save_figures": False,
-            "reuse_calibration": False,
             "thread_count": THREAD_COUNT,
         },
         "output_directory": str(tmp_path),
         "search": {
+            "target_num_candidates": 3,
             "top_k_fragments_selection": 12,
             "exclude_shared_ions": True,
             "quant_window": 3,
@@ -136,6 +138,7 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
     optlock = mock_optlock_cls.return_value
     optlock.features_df = pd.DataFrame({"precursor_idx": [1]})
     optlock.fragments_df = fragments_df
+    optlock.prune_qval = None
     calls = MagicMock()
     calls.attach_mock(optlock.update_with_extraction, "update_with_extraction")
     calls.attach_mock(
@@ -154,7 +157,7 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
     )
 
     # when
-    precursor_df = handler._process_batch()
+    search = handler._process_batch()
 
     # then
     create_extraction_handler.assert_called_once_with(optlock.batch_library)
@@ -170,7 +173,7 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
         candidates_df
     )
     optlock.update_with_fdr.assert_called_once_with(precursor_fdr_df)
-    pd.testing.assert_frame_equal(precursor_df, precursor_fdr_df)
+    pd.testing.assert_frame_equal(search.precursor_df, precursor_fdr_df)
 
 
 def test_python_workflow_keeps_dia_data(tmp_path):
@@ -224,3 +227,61 @@ def test_rust_workflow_does_not_support_multiplexing(tmp_path):
     # when / then
     with pytest.raises(NotImplementedError):
         workflow.requantify(MagicMock())
+
+
+def test_search_parameter_optimization_applies_the_calibration_result(tmp_path):
+    """Test that the workflow applies the tolerances that the calibration returns."""
+    # Given: a workflow whose calibration returns an MS2 tolerance of 9
+    workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
+    workflow._fdr_manager = MagicMock()
+    workflow._spectral_library = MagicMock()
+    result = CalibrationResult({SearchTolerance.MS2_ERROR: 9.0})
+
+    # When: the workflow runs the search parameter optimization
+    with (
+        patch.object(
+            RustPeptideCentricWorkflow, "OPTIMIZATION_HANDLER_CLASS"
+        ) as handler,
+        patch.object(RustPeptideCentricWorkflow, "_save_managers"),
+    ):
+        handler.return_value.search_parameter_optimization.return_value = result
+        workflow.search_parameter_optimization()
+
+    # Then: the optimization manager holds the result for the main search
+    assert workflow.optimization_manager.ms2_error == 9.0
+
+
+@patch("alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock")
+def test_rust_fdr_records_prune_candidates_and_returns_identifications(
+    mock_optlock_cls,
+):
+    """Test that with a pending pruning the rust FDR asks for q-values up to the prune q-value, gives them to the lock
+    and returns only the precursors up to fdr.fdr."""
+    # given
+    optlock = mock_optlock_cls.return_value
+    optlock.prune_qval = 0.1
+    extraction_handler = MagicMock()
+    precursor_df = pd.DataFrame({"precursor_idx": [1, 2, 3], "qval": [0.0, 0.05, 0.09]})
+    extraction_handler.perform_fdr_and_filter_candidates.return_value = (
+        None,
+        precursor_df,
+    )
+    handler = RustOptimizationHandler(
+        {"fdr": {"fdr": 0.01}},
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        create_extraction_handler=MagicMock(),
+    )
+
+    # when
+    result = handler._perform_fdr(extraction_handler, MagicMock())
+
+    # then
+    call = extraction_handler.perform_fdr_and_filter_candidates.call_args
+    assert call.kwargs["max_qval"] == 0.1
+    optlock.record_prune_candidates.assert_called_once_with(precursor_df)
+    assert result["precursor_idx"].tolist() == [1]

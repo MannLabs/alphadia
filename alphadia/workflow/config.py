@@ -7,7 +7,6 @@ Lists are always overwritten completely.
 On demand, the current config can be visualized in a tree-like structure.
 """
 
-import json
 import logging
 from collections import UserDict, defaultdict
 from copy import deepcopy
@@ -48,17 +47,9 @@ class Config(UserDict):
         with open(path) as f:
             self.data = yaml.safe_load(f)
 
-    def from_json(self, path: str) -> None:
-        with open(path) as f:
-            self.data = json.load(f)
-
     def to_yaml(self, path: str) -> None:
         with open(path, "w") as f:
             yaml.dump(_convert_numpy_types(self.data), f, sort_keys=False)
-
-    def to_json(self, path: str) -> None:
-        with open(path, "w") as f:
-            json.dump(self.data, f)
 
     def __setitem__(self, key: str, item: Any):
         """Forbid settings keys directly.
@@ -178,8 +169,28 @@ class Config(UserDict):
 # Note: if multiple levels have been removed, multiple entries are needed, e.g. ["removed_key_level1, removed_key_level1.removed_key_level2"]
 TOLERATED_KEYS = [
     # supported until 2.4.0:
+    "general.reuse_calibration",
     "search.use_idf_features",
     "search.candidate_context_features",
+    "calibration.min_steps",
+    "calibration.max_skips",
+    "optimization",
+    "optimization.order_of_optimization",
+    *[
+        f"optimization.{error}{setting}"
+        for error in ["ms1_error", "ms2_error", "rt_error", "mobility_error"]
+        for setting in [
+            "",
+            ".targeted_update_percentile_range",
+            ".targeted_update_factor",
+            ".automatic_update_percentile_range",
+            ".automatic_update_factor",
+            ".try_narrower_values",
+            ".maximal_decrease",
+            ".favour_narrower_optimum",
+            ".maximum_decrease_from_maximum",
+        ]
+    ],
     # supported until 2.2.0:
     "search_output.save_fragment_quant_matrix",
     # supported until 2.0.2:

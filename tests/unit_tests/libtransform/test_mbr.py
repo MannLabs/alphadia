@@ -161,6 +161,8 @@ class TestMbrLibraryBuilder:
                 "elution_group_idx": [0, 0, 1, 2],
                 "decoy": [0, 1, 0, 0],
                 "qval": [0.001, 0.005, 0.002, 0.5],
+                "pg_qval": [0.001, 0.001, 0.001, 0.001],
+                "run": ["run_a", "run_a", "run_b", "run_b"],
                 "rt_observed": [10.0, 11.0, 20.0, 30.0],
                 "pg": ["PG_A", "PG_A", "PG_B", "PG_C"],
                 "mod_seq_charge_hash": [
@@ -195,6 +197,42 @@ class TestMbrLibraryBuilder:
         ).reset_index(drop=True)
         np.testing.assert_array_equal(df_no_decoy["elution_group_idx"].values, [0, 1])
         np.testing.assert_array_equal(df_no_decoy["decoy"].values, [0, 0])
+
+    def test_precursors_carry_the_q_value_of_their_protein_group(
+        self, base_library, psm_df
+    ):
+        """Test each precursor gets the q-value of its own protein group, a decoy that of the decoy group."""
+        # given
+        psm_df["pg_qval"] = [0.001, 0.004, 0.002, 0.001]
+
+        # when
+        result = MbrLibraryBuilder(fdr=0.01, keep_decoys=True)(psm_df, base_library)
+
+        # then: the decoy group of PG_B did not pass
+        df = result.precursor_df.sort_values(["elution_group_idx", "decoy"])
+        np.testing.assert_array_equal(
+            df["pg_qval"].values, [0.001, 0.004, 0.002, np.nan]
+        )
+
+    def test_rt_is_the_mean_over_the_runs(self, base_library, psm_df):
+        """Test a precursor identified in several runs gets the mean of its observed RTs, not the median."""
+        # given: precursor 0 also identified in run_b and run_c
+        psm_df = pd.concat(
+            [
+                psm_df,
+                psm_df.iloc[[0, 0]].assign(
+                    run=["run_b", "run_c"], rt_observed=[12.0, 20.0]
+                ),
+            ],
+            ignore_index=True,
+        )
+
+        # when
+        result = MbrLibraryBuilder(fdr=0.01, keep_decoys=False)(psm_df, base_library)
+
+        # then
+        df = result.precursor_df.sort_values("elution_group_idx")
+        np.testing.assert_allclose(df["rt"].values, [14.0, 20.0])
 
     def test_decoy_type_is_passed_to_decoy_generator(self, base_library, psm_df):
         """Test that the configured decoy_type is used for MBR decoy generation."""
@@ -247,6 +285,8 @@ class TestMbrLibraryBuilder:
                 "elution_group_idx": [0, 1],
                 "decoy": [0, 1],
                 "qval": [0.001, 0.005],
+                "pg_qval": [0.001, 0.001],
+                "run": ["run_a", "run_a"],
                 "rt_observed": [10.0, 20.0],
                 "pg": ["PG_A", "PG_B"],
                 "mod_seq_charge_hash": [lib_hashes[0], -1],
@@ -280,3 +320,16 @@ class TestMbrLibraryBuilder:
         np.testing.assert_array_equal(df_exclude["decoy"].values, [0])
         assert df_exclude["rt"].values[0] == 10.0
         assert df_exclude["genes"].values[0] == "PG_A"
+
+    def test_protein_groups_above_fdr_are_excluded(self, base_library, psm_df):
+        """Test a group whose protein group only passed above the MBR library FDR stays out."""
+        # given
+        psm_df.loc[psm_df["elution_group_idx"] == 1, "pg_qval"] = 0.05
+
+        # when
+        result = MbrLibraryBuilder(fdr=0.01, keep_decoys=False)(psm_df, base_library)
+
+        # then
+        np.testing.assert_array_equal(
+            result.precursor_df["elution_group_idx"].values, [0]
+        )

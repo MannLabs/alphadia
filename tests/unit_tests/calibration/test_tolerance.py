@@ -1,0 +1,187 @@
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import numpy as np
+import pytest
+from scipy import stats
+
+from alphadia.calibration.tolerance import (
+    TrueMatchDistribution,
+    main_search_rt_tolerance,
+    posterior_error_probability,
+)
+
+
+def true_match_interval(residuals, pep, window, quantile):
+    """The interval of the fitted distribution, or None without a fit."""
+    distribution = TrueMatchDistribution.fit(residuals, pep, window)
+    return None if distribution is None else distribution.interval(quantile)
+
+
+def _scores(rng, n_targets, n_decoys):
+    """Classifier probabilities: true targets score high, decoys and false targets score low."""
+    true_targets = rng.beta(8, 1, n_targets)
+    decoys = rng.beta(1, 3, n_decoys)
+    return np.concatenate([true_targets, decoys]), np.concatenate(
+        [np.zeros(n_targets, bool), np.ones(n_decoys, bool)]
+    )
+
+
+def test_posterior_error_probability_falls_with_the_score():
+    """Test that the PEP lies in [0, 1], is high where decoys score and falls as the score rises."""
+    # Given: targets that score high and decoys that score low
+    rng = np.random.default_rng(0)
+    score, is_decoy = _scores(rng, 2000, 200)
+
+    # When: the PEP is estimated
+    pep = posterior_error_probability(score, is_decoy)
+
+    # Then: it lies in [0, 1] and never rises with the score
+    assert np.all((pep >= 0) & (pep <= 1))
+    order = np.argsort(score)
+    assert np.all(np.diff(pep[order]) <= 1e-12)
+    assert pep[order][-1] < 0.01
+    assert pep[order][0] > 0.5
+
+
+def test_posterior_error_probability_is_zero_without_decoys():
+    """Test that a set without decoys gives no evidence of false matches."""
+    # Given: only targets
+    score = np.linspace(0.1, 0.9, 50)
+
+    # When: the PEP is estimated
+    pep = posterior_error_probability(score, np.zeros(50, bool))
+
+    # Then: every target is taken as a true match
+    assert np.all(pep == 0)
+
+
+def _residuals(rng, n, sigma, nu, window):
+    """|residuals| and PEPs of n candidates: half have PEP 0.05, half 0.9, and each is a true match with probability
+    1 - PEP. True matches follow a Student-t cut at the window, false matches are uniform in the window."""
+    pep = np.where(rng.random(n) < 0.5, 0.05, 0.9)
+    is_true = rng.random(n) > pep
+    distribution = stats.t(nu, scale=sigma)
+    upper = distribution.cdf(window)
+    residuals = rng.uniform(0, window, n)
+    residuals[is_true] = np.abs(
+        distribution.ppf(rng.uniform(1 - upper, upper, is_true.sum()))
+    )
+    return residuals, pep
+
+
+@pytest.mark.parametrize("n", [600, 6000])
+def test_true_match_interval_recovers_the_interval_of_the_true_matches(n):
+    """Test that the interval follows the true matches and ignores the uniform false matches."""
+    # Given: true matches with a 99% interval of 4.03 * 20 s, mixed with false matches spread over a 300 s window
+    rng = np.random.default_rng(1)
+    residuals, pep = _residuals(rng, n, sigma=20, nu=5, window=300)
+    expected = stats.t(5, scale=20).ppf(0.995)
+
+    # When: the 99% interval of the true matches is estimated
+    interval = true_match_interval(residuals, pep, window=300, quantile=0.99)
+
+    # Then: it is within 20% of the interval of the true matches
+    assert interval == pytest.approx(expected, rel=0.2)
+
+
+def test_true_match_interval_does_not_shrink_with_the_window():
+    """Test that a window that cuts the tail of the true matches does not shrink the interval estimate."""
+    # Given: the candidates of the previous test, searched in a window 1.5 times the 99% interval of the true matches
+    rng = np.random.default_rng(2)
+    expected = stats.t(5, scale=20).ppf(0.995)
+    residuals, pep = _residuals(rng, 6000, sigma=20, nu=5, window=120)
+
+    # When: the 99% interval is estimated within that window
+    interval = true_match_interval(residuals, pep, window=120, quantile=0.99)
+
+    # Then: the estimate keeps the interval of the full distribution
+    assert interval == pytest.approx(expected, rel=0.2)
+
+
+def test_true_match_interval_needs_true_matches():
+    """Test that no interval is estimated without residuals that are likely true matches."""
+    # Given: two residuals that are almost surely false matches
+    # When / Then: the estimate returns None
+    assert (
+        true_match_interval(np.array([10.0, 50.0]), np.array([1.0, 1.0]), 100, 0.99)
+        is None
+    )
+
+
+def test_true_match_interval_is_none_beyond_the_searched_window():
+    """Test that no interval is estimated when the true matches fill the window, so that their tail is not seen."""
+    # Given: likely true matches spread evenly up to the window edge
+    rng = np.random.default_rng(3)
+    residuals = rng.uniform(0, 8, 2000)
+    pep = np.full(2000, 0.01)
+
+    # When: the 99% interval is estimated
+    interval = true_match_interval(residuals, pep, window=8, quantile=0.99)
+
+    # Then: the estimate returns None instead of an interval wider than the searched window
+    assert interval is None
+
+
+@pytest.mark.parametrize(
+    ("interval", "loop_tolerance", "cycle_duration", "expected"),
+    [
+        (55.0, 210.0, 2.0, 55.0),
+        (None, 210.0, 2.0, 210.0),
+        (5.0, 210.0, 2.0, 20.0),
+        (None, 3.0, 2.0, 20.0),
+    ],
+    ids=["interval", "no interval", "interval below bound", "loop below bound"],
+)
+def test_main_search_rt_tolerance(interval, loop_tolerance, cycle_duration, expected):
+    """Test that the main search takes the true match interval, falls back to the loop tolerance and spans at least
+    `MIN_RT_TOLERANCE_CYCLES` DIA cycles."""
+    # Given: a true match interval, the tolerance of the loop and a DIA cycle of 2 s
+
+    # When: the RT tolerance of the main search is chosen
+    tolerance = main_search_rt_tolerance(interval, loop_tolerance, cycle_duration)
+
+    # Then: it is the interval, else the loop tolerance, and at least 10 cycles
+    assert tolerance == pytest.approx(expected)
+
+
+def test_true_match_interval_is_none_when_the_fit_fails():
+    """Test that a failed likelihood fit gives no interval instead of an unconverged one."""
+    # Given: residuals of true matches and a likelihood fit that does not converge
+    rng = np.random.default_rng(0)
+    residuals = rng.normal(0, 10, 500)
+    failed_fit = SimpleNamespace(success=False, x=np.log([10.0, 5.0]))
+
+    # When: the interval is estimated
+    with patch(
+        "alphadia.calibration.tolerance.optimize.minimize", return_value=failed_fit
+    ):
+        interval = true_match_interval(residuals, np.zeros(500), 100.0, 0.99)
+
+    # Then: there is no interval
+    assert interval is None
+
+
+def test_fit_true_match_distribution_recovers_scale_and_degrees_of_freedom():
+    """Test that the fit returns the scale and degrees of freedom of the Student-t of the true matches."""
+    # Given: candidates whose true matches follow a Student-t with scale 20 s and 5 degrees of freedom
+    rng = np.random.default_rng(4)
+    residuals, pep = _residuals(rng, 20000, sigma=20, nu=5, window=300)
+
+    # When: the distribution of the true matches is fitted
+    distribution = TrueMatchDistribution.fit(residuals, pep, window=300)
+
+    # Then: both parameters and the window it was fitted in are kept
+    assert distribution.scale == pytest.approx(20, rel=0.1)
+    assert distribution.df == pytest.approx(5, rel=0.3)
+    assert distribution.window == 300
+
+
+def test_true_match_distribution_interval_is_the_central_interval_of_its_t_distribution():
+    """Test that the interval is the central interval of the Student-t, and None beyond the fitted window."""
+    # Given: a distribution with scale 20 s and 5 degrees of freedom, fitted in a 300 s window
+    distribution = TrueMatchDistribution(scale=20.0, df=5.0, window=300.0)
+
+    # When / Then: the 99% interval is the 99.5% quantile, and an interval wider than the window is None
+    assert distribution.interval(0.99) == pytest.approx(stats.t(5).ppf(0.995) * 20)
+    assert TrueMatchDistribution(scale=20.0, df=5.0, window=50.0).interval(0.99) is None

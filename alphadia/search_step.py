@@ -246,10 +246,6 @@ class SearchStep:
         """Dict with all configuration parameters for the extraction."""
         return self._config
 
-    @config.setter
-    def config(self, config: Config) -> None:
-        self._config = config
-
     @property
     def spectral_library(self) -> SpecLibFlat:
         """Flattened Spectral Library."""
@@ -608,7 +604,7 @@ class SearchStep:
             finally:
                 if workflow and workflow.reporter:
                     workflow.reporter.log_string(f"Finished workflow for {raw_name}")
-                    workflow.reporter.context.__exit__(None, None, None)
+                    workflow.reporter.__exit__(None, None, None)
                 del workflow
 
         try:
@@ -623,7 +619,11 @@ class SearchStep:
                 base_spec_lib = None
 
             output = SearchPlanOutput(self.config, self.output_folder)
-            output.build(workflow_folder_list, base_spec_lib)
+            output.build(
+                workflow_folder_list,
+                base_spec_lib,
+                self.spectral_library.precursor_df,
+            )
 
         except Exception as e:
             _log_exception_event(e)

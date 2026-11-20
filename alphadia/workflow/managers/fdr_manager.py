@@ -1,16 +1,12 @@
 import logging
-import os
-from collections import defaultdict
 from collections.abc import Callable, Collection
 from copy import deepcopy
 from typing import Literal
 
 import numpy as np
 import pandas as pd
-import torch
 import xxhash
 
-import alphadia
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
 from alphadia.workflow.config import Config
@@ -59,12 +55,14 @@ class FDRManager(BaseManager):
         classifier_base: Classifier,
         config: Config,
         dia_cycle: None | np.ndarray = None,
-        path: None | str = None,
-        load_from_file: bool = True,
         random_state: int | None = None,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
+
+        The manager keeps one classifier per set of feature columns. Each fit on the same feature columns continues
+        training that classifier, so the calibration rounds of a raw file train one classifier further. A fit on other
+        feature columns starts from a copy of `classifier_base`.
 
         Parameters
         ----------
@@ -76,22 +74,15 @@ class FDRManager(BaseManager):
             The workflow configuration object
         dia_cycle: None | np.ndarray
             DIA cycle information, if applicable. If None, no DIA cycle information is used.
-        path : str, optional
-            Path to the manager pickle on disk.
-        load_from_file : bool, optional
-            If True, the manager will be loaded from file if it exists.
         random_state: int, optional
             Random state for reproducibility.
         """
-        super().__init__(path=path, load_from_file=load_from_file, **kwargs)
+        super().__init__(load_from_file=False, **kwargs)
 
-        if not self.is_loaded_from_file:
-            self.feature_columns = feature_columns
-            self.classifier_store = defaultdict(list)
-            self.classifier_base = classifier_base
+        self.feature_columns = feature_columns
+        self.classifier_base = classifier_base
 
-        self._current_version = -1
-        self.load_classifier_store()
+        self._classifiers: dict[str, Classifier] = {}
 
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
@@ -108,7 +99,6 @@ class FDRManager(BaseManager):
         competitive: bool,
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
-        version: int = -1,
         fragment_provider: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
         excluded_columns: Collection[str] = (),
         train_on_best_candidate: bool = False,
@@ -127,8 +117,6 @@ class FDRManager(BaseManager):
             Dataframe containing the fragments to use for the classifier. If None, no fragments are used.
         decoy_channel: int
             Channel to use for decoy competition if decoy_strategy is "channel". Defaults to -1, which means no decoy channel is used.
-        version: int
-            Version of the classifier to use. If -1, uses the latest version. Defaults to -1.
         fragment_provider: None | Callable[[pd.DataFrame], pd.DataFrame]
             Returns the fragments of the PSMs it is given, for fragment competition when `df_fragments` is not
             available up front. Only used with decoy_strategy "precursor".
@@ -137,10 +125,6 @@ class FDRManager(BaseManager):
         train_on_best_candidate: bool
             Train the classifier only on the most target-like candidate of each precursor. Only used with
             decoy_strategy "precursor".
-
-        Notes
-        -----
-            The classifier_hash must be identical for every call of fit_predict for self._current_version to give the right index in self.classifier_store.
         """
         available_columns = list(
             set(features_df.columns)
@@ -167,7 +151,7 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"Decoy channel: {decoy_channel}")
         self.reporter.log_string(f"competitive: {competitive}")
 
-        classifier = self.get_classifier(available_columns, version)
+        classifier = self._classifier(available_columns)
         random_state = (
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
         )
@@ -247,11 +231,6 @@ class FDRManager(BaseManager):
         else:
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
-        self._current_version += 1
-        self.classifier_store[column_hash(available_columns)].append(classifier)
-
-        self.save()
-
         return psm_df
 
     def _check_valid_input(
@@ -290,88 +269,12 @@ class FDRManager(BaseManager):
         ):
             raise ValueError(f"decoy_channel {decoy_channel} not found in features_df")
 
-    def save_classifier_store(
-        self, path: None | str = None, version: int = -1
-    ):  # TODO: unused?
-        """Saves the classifier store to disk.
+    def _classifier(self, available_columns: list[str]) -> Classifier:
+        """Return the classifier of these feature columns, which a fit trains further in place.
 
-        Parameters
-        ----------
-        path: None | str
-            Where to save the classifier. Saves to alphadia/constants/classifier if None.
-        version: int
-            Version of the classifier to save. Takes the last classifier if -1 (default)
-
-        """
-        if path is None:
-            path = os.path.join(
-                os.path.dirname(alphadia.__file__), "constants", "classifier"
-            )
-
-        logger.info(f"Saving classifier store to {path}")
-
-        for classifier_hash, classifier_list in self.classifier_store.items():
-            torch.save(
-                classifier_list[version].to_state_dict(),
-                os.path.join(path, f"{classifier_hash}.pth"),
-            )
-
-    def load_classifier_store(self, path: None | str = None):
-        """Loads the classifier store from disk.
-
-        Parameters
-        ----------
-        path: None | str
-            Location of the classifier to load. Loads from alphadia/constants/classifier if None.
-
-        """
-        if path is None:
-            path = os.path.join(
-                os.path.dirname(alphadia.__file__), "constants", "classifier"
-            )
-
-        logger.info(f"Loading classifier store from {path}")
-
-        for file in os.listdir(path):
-            if file.endswith(".pth"):
-                classifier_hash = file.split(".")[0]
-
-                if classifier_hash not in self.classifier_store:
-                    state_dict = torch.load(
-                        os.path.join(path, file), weights_only=False
-                    )
-                    # classifiers saved with the former two-output softmax head do not fit the
-                    # one-logit network
-                    if state_dict.get("output_dim", 1) != 1:
-                        logger.info(f"Skipping {file}: saved with a two-output head")
-                        continue
-                    classifier = deepcopy(self.classifier_base)
-                    classifier.from_state_dict(state_dict)
-                    self.classifier_store[classifier_hash].append(classifier)
-
-    def get_classifier(self, available_columns: list, version: int = -1) -> Classifier:
-        """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
-
-        Parameters
-        ----------
-        available_columns: list
-            List of feature columns
-        version: int
-            Version of the classifier to get
-
-        Returns
-        ----------
-        object
-            Classifier object
-
+        The first fit on a set of feature columns starts from a copy of `classifier_base`.
         """
         classifier_hash = column_hash(available_columns)
-        if classifier_hash in self.classifier_store:
-            classifier = self.classifier_store[classifier_hash][version]
-        else:
-            classifier = self.classifier_base
-        return deepcopy(classifier)
-
-    @property
-    def current_version(self):
-        return self._current_version
+        if classifier_hash not in self._classifiers:
+            self._classifiers[classifier_hash] = deepcopy(self.classifier_base)
+        return self._classifiers[classifier_hash]

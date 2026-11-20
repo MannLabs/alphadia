@@ -29,10 +29,11 @@ class PythonOptimizationHandler(OptimizationHandler[PythonExtractionHandler]):
     def _perform_fdr(
         self, extraction_handler: PythonExtractionHandler, batch: ExtractedBatch
     ) -> pd.DataFrame:
-        return self._fdr_manager.fit_predict(
+        precursor_df = self._fdr_manager.fit_predict(
             self._optlock.features_df,
             decoy_strategy=get_decoy_strategy(self._config),
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=self._optlock.fragments_df,
-            version=self._optimization_manager.classifier_version,
         )
+        self._optlock.record_prune_candidates(precursor_df)
+        return precursor_df

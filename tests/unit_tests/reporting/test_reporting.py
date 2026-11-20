@@ -5,12 +5,9 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-import numpy as np
 import pytest
 from conftest import random_tempfolder
-from matplotlib import pyplot as plt
 
-from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.reporting import reporting
 
 
@@ -48,32 +45,9 @@ def test_backend():
     backend.log_event("start_extraction", None)
     backend.log_metric("accuracy", 0.9)
     backend.log_string("test")
-    backend.log_figure("scatter", None)
-    backend.log_data("test", None)
 
 
 test_backend()
-
-
-def test_figure_backend():
-    reporting.__is_initiated__ = False
-
-    tempfolder = random_tempfolder()
-
-    figure_backend = reporting.FigureBackend(path=tempfolder)
-
-    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-    ax.scatter(np.random.rand(10), np.random.rand(10))
-
-    figure_backend.log_figure("scatter", fig)
-    plt.close(fig)
-
-    assert os.path.exists(os.path.join(tempfolder, FIGURES_FOLDER_NAME, "scatter.png"))
-    os.remove(os.path.join(tempfolder, FIGURES_FOLDER_NAME, "scatter.png"))
-    time.sleep(1)
-
-
-test_figure_backend()
 
 
 def test_jsonl_backend():
@@ -127,27 +101,19 @@ def test_pipeline():
         backends=[
             reporting.LogBackend(path=tempfolder),
             reporting.JSONLBackend(path=tempfolder),
-            reporting.FigureBackend(path=tempfolder),
         ]
     )
 
-    with pipeline.context:
+    with pipeline:
         pipeline.log_event("start_extraction", None)
         pipeline.log_metric("accuracy", 0.9)
         pipeline.log_string("test")
 
-        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-        ax.scatter(np.random.rand(10), np.random.rand(10))
-        pipeline.log_figure("scatter", fig)
-        plt.close(fig)
-
     assert os.path.exists(os.path.join(tempfolder, "log.txt"))
     assert os.path.exists(os.path.join(tempfolder, "events.jsonl"))
-    assert os.path.exists(os.path.join(tempfolder, "figures", "scatter.png"))
 
     os.remove(os.path.join(tempfolder, "log.txt"))
     os.remove(os.path.join(tempfolder, "events.jsonl"))
-    os.remove(os.path.join(tempfolder, "figures", "scatter.png"))
 
     # sleep 1 second to ensure that the file has been deleted
     time.sleep(1)

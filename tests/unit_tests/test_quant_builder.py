@@ -7,20 +7,11 @@ import pandas as pd
 import pytest
 
 from alphadia.constants.keys import NormalizationMethods
-from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
-
-
-@pytest.fixture
-def psm_df():
-    """PSM dataframe for quantification."""
-    return pd.DataFrame(
-        {
-            "precursor_idx": [0, 1, 2],
-            "pg": ["PG001", "PG002", "PG003"],
-            "mod_seq_hash": [1, 2, 3],
-            "mod_seq_charge_hash": [10, 20, 30],
-        }
-    )
+from alphadia.outputtransform.quantification.quant_builder import (
+    direct_lfq,
+    filter_frag_df,
+    quantselect_lfq,
+)
 
 
 @pytest.fixture
@@ -417,15 +408,14 @@ def psm_file():
 class TestFilterFragDf:
     """Test fragment filtering by quality."""
 
-    def test_filters_by_top_n_per_group(self, filtering_data, psm_df):
+    def test_filters_by_top_n_per_group(self, filtering_data):
         """Given fragments from multiple groups, when filtered by top N, then keeps top N per group."""
         # Given
         intensity_df, quality_df = filtering_data
-        builder = QuantBuilder(psm_df)
 
         # When
-        filtered_intensity, _ = builder.filter_frag_df(
-            intensity_df, quality_df, min_correlation=0.5, top_n=2
+        filtered_intensity = filter_frag_df(
+            intensity_df, quality_df, min_correlation=0.5, top_n=2, group_column="pg"
         )
 
         # Then
@@ -439,15 +429,14 @@ class TestFilterFragDf:
         assert len(pg001_ions) == 2
         assert len(pg002_ions) == 2
 
-    def test_filters_by_min_correlation(self, filtering_data, psm_df):
+    def test_filters_by_min_correlation(self, filtering_data):
         """Given fragments with varying quality, when filtered by correlation, then keeps high-quality fragments."""
         # Given
         intensity_df, quality_df = filtering_data
-        builder = QuantBuilder(psm_df)
 
         # When
-        filtered_intensity, filtered_quality = builder.filter_frag_df(
-            intensity_df, quality_df, min_correlation=0.6, top_n=1
+        filtered_intensity = filter_frag_df(
+            intensity_df, quality_df, min_correlation=0.6, top_n=1, group_column="pg"
         )
 
         # Then - Should keep top 1 OR above 0.6
@@ -461,16 +450,13 @@ class TestFilterFragDf:
             ("mod_seq_hash", [1, 2]),
         ],
     )
-    def test_respects_group_column(
-        self, filtering_data, psm_df, group_column, expected_groups
-    ):
+    def test_respects_group_column(self, filtering_data, group_column, expected_groups):
         """Given custom group column, when filtered, then groups by specified column."""
         # Given
         intensity_df, quality_df = filtering_data
-        builder = QuantBuilder(psm_df)
 
         # When
-        filtered_intensity, _ = builder.filter_frag_df(
+        filtered_intensity = filter_frag_df(
             intensity_df,
             quality_df,
             min_correlation=2.0,
@@ -482,7 +468,7 @@ class TestFilterFragDf:
         groups = filtered_intensity[group_column].unique()
         assert set(groups) == set(expected_groups)
 
-    def test_handles_empty_input(self, psm_df):
+    def test_handles_empty_input(self):
         """Given empty dataframes, when filtered, then returns empty dataframes."""
         # Given
         empty_intensity = pd.DataFrame(
@@ -496,17 +482,32 @@ class TestFilterFragDf:
             ]
         )
         empty_quality = empty_intensity.copy()
-        builder = QuantBuilder(psm_df)
 
         # When
-        filtered_intensity, filtered_quality = builder.filter_frag_df(
-            empty_intensity, empty_quality, min_correlation=0.5, top_n=3
+        filtered_intensity = filter_frag_df(
+            empty_intensity,
+            empty_quality,
+            min_correlation=0.5,
+            top_n=3,
+            group_column="pg",
         )
 
         # Then
         assert len(filtered_intensity) == 0
-        assert "total" in filtered_quality.columns
-        assert "rank" in filtered_quality.columns
+
+    def test_leaves_the_correlation_input_unchanged(self, filtering_data):
+        """Given fragment correlations, when filtered, then the correlation dataframe is not modified."""
+        # Given
+        intensity_df, quality_df = filtering_data
+        quality_before = quality_df.copy()
+
+        # When
+        filter_frag_df(
+            intensity_df, quality_df, min_correlation=0.5, top_n=2, group_column="pg"
+        )
+
+        # Then
+        pd.testing.assert_frame_equal(quality_df, quality_before)
 
 
 class TestLfq:
@@ -554,17 +555,16 @@ class TestLfq:
             }
 
     def test_performs_quantification(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+        self, lfq_data, lfq_config, search_config, mock_directlfq
     ):
         """Given filtered intensity data, when direct_lfq is run, then returns protein quantification."""
         # Given
         filtered_intensity_df = lfq_data["intensity"]
-        builder = QuantBuilder(psm_df)
         lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
         config = search_config
 
         # When
-        result_df = builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        result_df = direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         assert isinstance(result_df, pd.DataFrame)
@@ -572,17 +572,16 @@ class TestLfq:
         assert len(result_df) == 2
 
     def test_configures_directlfq(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+        self, lfq_data, lfq_config, search_config, mock_directlfq
     ):
         """Given LFQ parameters, when run, then configures directLFQ correctly."""
         # Given
         filtered_intensity_df = lfq_data["intensity"]
-        builder = QuantBuilder(psm_df)
         lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
         config = search_config
 
         # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         mock_config = mock_directlfq["config"]
@@ -594,7 +593,6 @@ class TestLfq:
     def test_respects_normalization_flag(
         self,
         lfq_data,
-        psm_df,
         lfq_config,
         search_config,
         mock_directlfq,
@@ -603,12 +601,11 @@ class TestLfq:
         """Given normalization flag, when LFQ is run, then applies normalization conditionally."""
         # Given
         filtered_intensity_df = lfq_data["intensity"]
-        builder = QuantBuilder(psm_df)
         config = search_config
         config["search_output"]["normalize_directlfq"] = normalize_directlfq
 
         # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config("pg"), config)
+        direct_lfq(filtered_intensity_df, lfq_config("pg"), config)
 
         # Then
         mock_norm = mock_directlfq["norm"]
@@ -621,7 +618,6 @@ class TestLfq:
     def test_min_nonan_overrides_the_config(
         self,
         lfq_data,
-        psm_df,
         lfq_config,
         search_config,
         mock_directlfq,
@@ -630,10 +626,9 @@ class TestLfq:
     ):
         # Given
         search_config["search_output"]["min_nonnan"] = 3
-        builder = QuantBuilder(psm_df)
 
         # When
-        builder.direct_lfq(
+        direct_lfq(
             lfq_data["intensity"], lfq_config("pg"), search_config, min_nonan=min_nonan
         )
 
@@ -643,33 +638,31 @@ class TestLfq:
         assert call_kwargs["min_nonan"] == expected
 
     def test_returns_empty_frame_when_nothing_was_observed(
-        self, lfq_data, psm_df, lfq_config, search_config
+        self, lfq_data, lfq_config, search_config
     ):
         """Given fragments with zero intensity everywhere, when LFQ is run, then an empty frame is returned instead of failing inside directLFQ."""
         # Given
         unobserved_df = lfq_data["intensity"].copy()
         unobserved_df[["run1", "run2", "run3"]] = 0.0
-        builder = QuantBuilder(psm_df)
 
         # When
-        result_df = builder.direct_lfq(unobserved_df, lfq_config("pg"), search_config)
+        result_df = direct_lfq(unobserved_df, lfq_config("pg"), search_config)
 
         # Then
         assert result_df.empty
         assert list(result_df.columns) == ["pg", "run1", "run2", "run3"]
 
     def test_handles_custom_group_column(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+        self, lfq_data, lfq_config, search_config, mock_directlfq
     ):
         """Given custom group column, when LFQ is run, then groups by specified column."""
         # Given
         filtered_intensity_df = lfq_data["intensity"]
-        builder = QuantBuilder(psm_df)
         lfq_config = lfq_config("mod_seq_hash", NormalizationMethods.DIRECTLFQ)
         config = search_config
 
         # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         mock_config = mock_directlfq["config"]
@@ -694,11 +687,12 @@ class TestLfq:
         """Test that quantselect_lfq performs basic label-free quantification with quantselect."""
         # given
         feature_dfs_dict = ms2_features
-        builder = QuantBuilder(psm_file.assign(**{"precursor.decoy": 0}))
         lfq_config = lfq_config("pg", NormalizationMethods.QUANTSELECT)
 
         # when
-        result_df = builder.quantselect_lfq(feature_dfs_dict, lfq_config)
+        result_df = quantselect_lfq(
+            psm_file.assign(**{"precursor.decoy": 0}), feature_dfs_dict, lfq_config
+        )
         # then
         assert isinstance(result_df, pd.DataFrame)
         assert len(result_df) == 2  # Three protein groups

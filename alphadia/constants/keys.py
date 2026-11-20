@@ -136,10 +136,31 @@ class FeatureTransform(metaclass=ConstantsClass):
     QUANTILE = "quantile"
 
 
+class SearchTolerance(metaclass=ConstantsClass):
+    """Names of the search tolerances. Each name is also an attribute of `OptimizationManager`."""
+
+    MS2_ERROR = "ms2_error"
+    MS1_ERROR = "ms1_error"
+    RT_ERROR = "rt_error"
+    MOBILITY_ERROR = "mobility_error"
+
+
+class CalibrationPhase(metaclass=ConstantsClass):
+    """Phases of the calibration loop, see `OptimizationHandler.search_parameter_optimization`."""
+
+    # Too few identifications to calibrate. Extend the lock by the next batch.
+    EXPAND = "expand"
+    # Calibrate with a limit on the shrink of the tolerances. Grow the lock until it holds its target.
+    WARM_UP = "warm-up"
+    # Calibrate on a lock that holds its target until the tolerances converge.
+    CONVERGE = "converge"
+
+
 class DecoyType(metaclass=ConstantsClass):
     """String constants for decoy generation schemes."""
 
     DIANN = "diann"
+    DIANN_INNER = "diann_inner"
     PSEUDO_REVERSE = "pseudo_reverse"
 
 

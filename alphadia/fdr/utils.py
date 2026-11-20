@@ -5,51 +5,21 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 
+from alphadia.constants.settings import CalibrationLoop
 from alphadia.exceptions import TooFewPSMError
 
 logger = logging.getLogger()
 
 
-def train_test_split_(
-    X: np.ndarray,
-    y: np.ndarray,
-    *,
-    exception: type[Exception] = TooFewPSMError,
-    **kwargs,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Wrapper around `sklearn.model_selection.train_test_split` to handle exceptions.
-
-    Parameters
-    ----------
-    X : np.ndarray
-        The input features.
-    y : np.ndarray
-        The target values.
-    exception : type[Exception], default=TooFewPSMError
-        The exception to raise if train_test_split fails.
-
-    **kwargs
-        Additional arguments passed to sklearn's train_test_split.
-
-    Returns
-    -------
-    X_train, X_test, y_train, y_test, indices_train, indices_test : np.ndarray
-        The split data, including the indices.
-
-    """
-    try:
-        indices = np.arange(len(X))
-
-        X_train, X_test, y_train, y_test, indices_train, indices_test = (
-            train_test_split(X, y, indices, **kwargs)
-        )
-    except ValueError as e:
-        raise exception(str(e)) from e
-    else:
-        return X_train, X_test, y_train, y_test, indices_train, indices_test
+def is_identification(precursor_df: pd.DataFrame) -> pd.Series:
+    """Return whether each precursor is an identification, a target below `IDENTIFICATION_FDR`."""
+    return (precursor_df["qval"] < CalibrationLoop.IDENTIFICATION_FDR) & (
+        precursor_df["decoy"] == 0
+    )
 
 
 def train_test_split_indices(
@@ -58,7 +28,7 @@ def train_test_split_indices(
     exception: type[Exception] = TooFewPSMError,
     **kwargs,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Row indices of the split `train_test_split_` makes for `n_samples` rows with the same arguments.
+    """Row indices of a `sklearn.model_selection.train_test_split` of `n_samples` rows.
 
     Parameters
     ----------

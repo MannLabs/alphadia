@@ -117,17 +117,15 @@ class TestFragmentQuantLoaderAccumulate:
             assert get_run_columns(df) == ["run1", "run2"]
             assert sorted(df["intensity_library"]) == [0.125, 0.25, 0.5, 1.0]
 
-    def test_accumulate_empty_iterator(self, psm_df):
-        """Test accumulate returns None for empty iterator."""
+    def test_accumulate_empty_iterator_raises(self, psm_df):
+        """Test accumulate raises for an empty iterator."""
         # given
         loader = FragmentQuantLoader(psm_df)
         df_iterable = iter([])
 
-        # when
-        result = loader.accumulate(df_iterable)
-
-        # then
-        assert result is None
+        # when / then
+        with pytest.raises(ValueError, match="No fragment data"):
+            loader.accumulate(df_iterable)
 
     def test_accumulate_fills_missing_values(self, psm_df, fragment_df):
         """Test accumulate fills missing values with zeros."""
@@ -216,36 +214,32 @@ class TestFragmentQuantLoaderAccumulateFromFolders:
         assert result["intensity"].shape[0] == 3
 
     @patch("os.path.exists")
-    def test_accumulate_from_folders_missing_files(self, mock_exists, psm_df):
-        """Test accumulate_from_folders returns None for missing files."""
+    def test_accumulate_from_folders_missing_file_raises(self, mock_exists, psm_df):
+        """Test accumulate_from_folders raises on a missing file instead of skipping the run."""
         # given
         mock_exists.return_value = False
         loader = FragmentQuantLoader(psm_df)
 
-        # when
-        result = loader.accumulate_from_folders(["missing_folder"])
-
-        # then
-        assert result is None
+        # when / then
+        with pytest.raises(FileNotFoundError, match="missing_folder"):
+            loader.accumulate_from_folders(["missing_folder"])
 
     @patch("pyarrow.parquet.read_schema")
     @patch("os.path.exists")
     @patch("pandas.read_parquet")
-    def test_accumulate_from_folders_read_errors(
+    def test_accumulate_from_folders_read_error_raises(
         self, mock_read_parquet, mock_exists, mock_read_schema, psm_df, fragment_df
     ):
-        """Test accumulate_from_folders handles read errors gracefully."""
+        """Test accumulate_from_folders raises on a read error instead of skipping the run."""
         # given
         mock_exists.return_value = True
         mock_read_schema.return_value = Mock(names=list(fragment_df.columns))
-        mock_read_parquet.side_effect = Exception("Read error")
+        mock_read_parquet.side_effect = OSError("Read error")
         loader = FragmentQuantLoader(psm_df)
 
-        # when
-        result = loader.accumulate_from_folders(["error_folder"])
-
-        # then
-        assert result is None
+        # when / then
+        with pytest.raises(OSError, match="Read error"):
+            loader.accumulate_from_folders(["error_folder"])
 
     @patch("pyarrow.parquet.read_schema")
     @patch("os.path.exists")

@@ -31,9 +31,12 @@ FRAGMENT_METADATA_COLUMNS = [
 
 PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
-# censoring and quality weights estimate their noise curve from fragments seen in several runs; with fewer runs there
-# are no ratios to protect and the plain fit is used
-MIN_RUNS_FOR_EXTENDED_FIT = 2
+# per-run fragment features accumulated for directLFQ and the variance model
+DEFAULT_FEATURE_COLUMNS = ["intensity", "correlation"]
+
+# the fragment censoring correction estimates its dropout curves and quality weights from fragments seen in several
+# runs; with fewer runs there are no ratios to protect and the plain fit is used
+MIN_RUNS_FOR_FRAGMENT_CENSORING_CORRECTION = 2
 
 # fragment columns consumed by `_ion_hash`, in the order of its signature
 ION_HASH_COLUMNS = [PRECURSOR_IDX_COLUMN, "number", "type", "charge", "loss_type"]
@@ -58,16 +61,13 @@ class LFQOutputConfig:
         Name of the intensity column in the output
     aggregation_components : list[str]
         Columns which are shared within a group by quant level.
-        e.g. if the quant level is precursr, all rows will have the same pg, sequence, mods, mod_sites and charge.
-    should_process : bool, default=True
-        Whether to process this quantification level
+        e.g. if the quant level is precursor, all rows will have the same pg, sequence, mods, mod_sites and charge.
     """
 
     quant_level: str
     level_name: str
     intensity_column: str
     aggregation_components: list[str]
-    should_process: bool = True
 
 
 # explicit signature: a uint64 precursor_idx would make numba promote the hash
@@ -158,288 +158,266 @@ def prepare_df(
     return df[[PRECURSOR_IDX_COLUMN, ION_COLUMN] + columns]
 
 
-class QuantBuilder:
-    """Build quantification results through filtering and label-free quantification.
+def filter_frag_df(
+    intensity_df: pd.DataFrame,
+    correlation_df: pd.DataFrame,
+    *,
+    min_correlation: float,
+    top_n: int,
+    group_column: str,
+) -> pd.DataFrame:
+    """Filter fragment intensities by cross-run correlation.
 
-    This class focuses on fragment quality filtering and directLFQ-based
-    protein quantification. Fragment data accumulation is handled by
-    FragmentQuantLoader.
+    Keeps fragments that meet either of these criteria:
+    - Among top N fragments per group (by mean correlation across runs)
+    - Mean correlation above min_correlation threshold
 
     Parameters
     ----------
-    psm_df : pd.DataFrame
-        PSM dataframe with precursor information
-    columns : list[str] | None, default=None
-        Columns to use for quantification. Defaults to ["intensity", "correlation"]
+    intensity_df : pd.DataFrame
+        Fragment intensity data with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+    correlation_df : pd.DataFrame
+        Fragment correlation data with the same rows and structure as intensity_df
+    min_correlation : float
+        Minimum mean correlation to keep fragment (if not in top N)
+    top_n : int
+        Number of top fragments to keep per group
+    group_column : str
+        Column to group fragments by (pg, mod_seq_hash, mod_seq_charge_hash)
+
+    Returns
+    -------
+    pd.DataFrame
+        Rows of intensity_df that pass the filter
     """
+    logger.info("Filtering fragments by correlation")
 
-    def __init__(self, psm_df: pd.DataFrame, columns: list[str] | None = None):
-        self.psm_df = psm_df
-        self.columns = ["intensity", "correlation"] if columns is None else columns
+    run_columns = get_run_columns(intensity_df)
 
-    def filter_frag_df(
-        self,
-        intensity_df: pd.DataFrame,
-        correlation_df: pd.DataFrame,
-        min_correlation: float = 0.5,
-        top_n: int = 3,
-        group_column: str = "pg",
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Filter fragment data by cross-run correlation.
+    mean_correlation = pd.Series(
+        np.mean(correlation_df[run_columns].values, axis=1),
+        index=correlation_df.index,
+    )
+    rank = mean_correlation.groupby(correlation_df[group_column]).rank(
+        ascending=False, method="first"
+    )
+    mask = (rank.values <= top_n) | (mean_correlation.values > min_correlation)
+    return intensity_df[mask]
 
-        Keeps fragments that meet either of these criteria:
-        - Among top N fragments per group (by mean correlation across runs)
-        - Mean correlation above min_correlation threshold
 
-        Parameters
-        ----------
-        intensity_df : pd.DataFrame
-            Fragment intensity data with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
-        correlation_df : pd.DataFrame
-            Fragment correlation data with same structure as intensity_df
-        min_correlation : float, default=0.5
-            Minimum mean correlation to keep fragment (if not in top N)
-        top_n : int, default=3
-            Number of top fragments to keep per group
-        group_column : str, default='pg'
-            Column to group fragments by (pg, mod_seq_hash, mod_seq_charge_hash)
+def direct_lfq(
+    intensity_df: pd.DataFrame,
+    lfq_config: LFQOutputConfig,
+    config: Config,
+    min_nonan: int | None = None,
+) -> pd.DataFrame:
+    """Perform label-free quantification using directLFQ.
 
-        Returns
-        -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            Filtered intensity and correlation dataframes
-        """
-        logger.info("Filtering fragments by correlation")
+    Parameters
+    ----------
+    intensity_df: pd.DataFrame
+        Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+    lfq_config: LFQOutputConfig
+        Configuration for this quantification level
+    config: Config
+        Global configuration object
+    min_nonan: int | None
+        Minimum number of ions per group and run, if None, `search_output.min_nonnan` is taken
 
-        run_columns = get_run_columns(intensity_df)
+    Returns
+    -------
+    pd.DataFrame
+        Protein/peptide quantification results with columns: group_column, run1, run2, ...
+    """
+    logger.info("Performing label-free quantification with directLFQ")
 
-        correlation_df["total"] = np.mean(correlation_df[run_columns].values, axis=1)
-        correlation_df["rank"] = correlation_df.groupby(group_column)["total"].rank(
-            ascending=False, method="first"
+    lfq_df = _prepare_ion_table(intensity_df, lfq_config.quant_level)
+    # directLFQ's normalization divides by the number of ions, so an empty ion
+    # table must return before it runs.
+    if lfq_df.empty:
+        return pd.DataFrame(
+            columns=[lfq_config.quant_level, *get_run_columns(intensity_df)]
         )
-        mask = (correlation_df["rank"].values <= top_n) | (
-            correlation_df["total"].values > min_correlation
+    if config["search_output"]["normalize_directlfq"]:
+        lfq_df = _normalize_ion_table(lfq_df, config)
+
+    protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
+        lfq_df,
+        min_nonan=config["search_output"]["min_nonnan"]
+        if min_nonan is None
+        else min_nonan,
+        num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
+        num_cores=config["general"]["thread_count"],
+    )
+    return protein_df
+
+
+def varmodel_precursor_table(
+    intensity_df: pd.DataFrame,
+    correlation_df: pd.DataFrame,
+    fragment_censoring_correction: bool,
+) -> pd.DataFrame:
+    """Estimate the precursor quantities with the variance-model fit.
+
+    Every precursor becomes one ion. The model, including the fragment censoring correction, is documented in
+    `alphadia_search_rs.VarModelQuantification`.
+
+    Parameters
+    ----------
+    intensity_df: pd.DataFrame
+        Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash, intensity_library
+    correlation_df: pd.DataFrame
+        XIC correlations aligned row by row with intensity_df; missing values count as 0
+    fragment_censoring_correction: bool
+        With at least two runs, a fragment missing in a run where its precursor is quantified counts as below that
+        run's detection limit instead of being dropped, and fragment values are weighted by their XIC correlation
+
+    Returns
+    -------
+    pd.DataFrame
+        Precursor table with columns: ion, pg, mod_seq_hash, mod_seq_charge_hash, run1, run2, ...
+        where ion is the precursor key and missing quantities are 0
+    """
+    precursor_column = QuantificationLevelKey.PRECURSOR
+    run_columns = get_run_columns(intensity_df)
+
+    intensity_library = np.nan_to_num(
+        intensity_df[INTENSITY_LIBRARY_COLUMN].to_numpy(dtype=np.float32)
+    )
+    n_without_library = int((intensity_library <= 0).sum())
+    if n_without_library:
+        logger.warning(
+            f"{n_without_library:,} fragment ions without library intensity are ignored"
         )
-        return intensity_df[mask], correlation_df[mask]
+    fragment_precursor_index, precursor_hashes = pd.factorize(
+        intensity_df[precursor_column], sort=True
+    )
+    intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
+    correlation = np.clip(
+        np.nan_to_num(correlation_df[run_columns].to_numpy(dtype=np.float32)),
+        0.0,
+        1.0,
+    )
 
-    def direct_lfq(
-        self,
-        intensity_df: pd.DataFrame,
-        lfq_config: LFQOutputConfig,
-        config: Config,
-        min_nonan: int | None = None,
-    ) -> pd.DataFrame:
-        """Perform label-free quantification using directLFQ.
-
-        Parameters
-        ----------
-        intensity_df: pd.DataFrame
-            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
-        lfq_config: LFQOutputConfig
-            Configuration for this quantification level
-        config: Config
-            Global configuration object
-        min_nonan: int | None
-            Minimum number of ions per group and run, if None, `search_output.min_nonnan` is taken
-
-        Returns
-        -------
-        pd.DataFrame
-            Protein/peptide quantification results with columns: group_column, run1, run2, ...
-        """
-        logger.info("Performing label-free quantification with directLFQ")
-
-        lfq_df = self._prepare_ion_table(intensity_df, lfq_config.quant_level)
-        # directLFQ's normalization divides by the number of ions, so an empty ion
-        # table must return before it runs.
-        if lfq_df.empty:
-            return pd.DataFrame(
-                columns=[lfq_config.quant_level, *get_run_columns(intensity_df)]
-            )
-        if config["search_output"]["normalize_directlfq"]:
-            lfq_df = self._normalize_ion_table(lfq_df, config)
-
-        protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
-            lfq_df,
-            min_nonan=config["search_output"]["min_nonnan"]
-            if min_nonan is None
-            else min_nonan,
-            num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
-            num_cores=config["general"]["thread_count"],
-        )
-        return protein_df
-
-    def varmodel_precursor_table(
-        self,
-        intensity_df: pd.DataFrame,
-        correlation_df: pd.DataFrame,
-        quality_exponent: float = 0.0,
-    ) -> pd.DataFrame:
-        """Estimate the precursor quantities with the variance-model fit.
-
-        Every precursor becomes one ion. With at least two runs, a fragment missing in a run where its precursor is
-        quantified is treated as below that run's detection limit. The model, including censored missing fragments
-        and quality weights, is documented in `alphadia_search_rs.VarModelQuantification`.
-
-        Parameters
-        ----------
-        intensity_df: pd.DataFrame
-            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash, intensity_library
-        correlation_df: pd.DataFrame
-            XIC correlations aligned row by row with intensity_df; missing values count as 0
-        quality_exponent: float
-            > 0 multiplies each fragment value's variance by exp(quality_exponent * (1 - sqrt(correlation))), with at
-            least two runs
-
-        Returns
-        -------
-        pd.DataFrame
-            Precursor table with columns: ion, pg, mod_seq_hash, mod_seq_charge_hash, run1, run2, ...
-            where ion is the precursor key and missing quantities are 0
-        """
-        precursor_column = QuantificationLevelKey.PRECURSOR
-        run_columns = get_run_columns(intensity_df)
-
-        intensity_library = np.nan_to_num(
-            intensity_df[INTENSITY_LIBRARY_COLUMN].to_numpy(dtype=np.float32)
-        )
-        n_without_library = int((intensity_library <= 0).sum())
-        if n_without_library:
-            logger.warning(
-                f"{n_without_library:,} fragment ions without library intensity are ignored"
-            )
-        fragment_precursor_index, precursor_hashes = pd.factorize(
-            intensity_df[precursor_column], sort=True
-        )
-        intensity = np.nan_to_num(intensity_df[run_columns].to_numpy(dtype=np.float32))
-
-        correlation = np.clip(
-            np.nan_to_num(correlation_df[run_columns].to_numpy(dtype=np.float32)),
-            0.0,
-            1.0,
-        )
-        extended = len(run_columns) >= MIN_RUNS_FOR_EXTENDED_FIT
-        result = VarModelQuantification().fit(
-            np.ascontiguousarray(intensity.T),
-            intensity_library,
-            fragment_precursor_index.astype(np.uintp),
-            len(precursor_hashes),
-            np.ascontiguousarray(correlation.T),
-            censored=extended,
-            quality_exponent=quality_exponent if extended else 0.0,
-        )
+    result = VarModelQuantification().fit(
+        np.ascontiguousarray(intensity.T),
+        intensity_library,
+        fragment_precursor_index.astype(np.uintp),
+        len(precursor_hashes),
+        np.ascontiguousarray(correlation.T),
+        fragment_censoring_correction=fragment_censoring_correction
+        and len(run_columns) >= MIN_RUNS_FOR_FRAGMENT_CENSORING_CORRECTION,
+    )
+    logger.info(
+        f"Variance-model fit: residual scale {result['residual_scale']:.3f} log2, "
+        f"loss scale {result['loss_scale']:.2f}, "
+        f"offset shrinkage {result['offset_shrinkage']:.2f}"
+    )
+    if "detection_limit" in result:
         logger.info(
-            f"Variance-model fit: residual scale {result['residual_scale']:.3f} log2, "
-            f"loss scale {result['loss_scale']:.2f}, "
-            f"offset shrinkage {result['offset_shrinkage']:.2f}"
+            f"Fragment censoring correction: detection limit {np.round(result['detection_limit'], 2)} log2, width "
+            f"{np.round(result['dropout_width'], 2)}, abundance-independent dropout "
+            f"{np.round(result['dropout_plateau'], 4)}"
         )
-        if "detection_limit" in result:
-            logger.info(
-                f"Censored variance model: detection limit {np.round(result['detection_limit'], 2)} log2, width "
-                f"{np.round(result['dropout_width'], 2)}, abundance-independent dropout "
-                f"{np.round(result['dropout_plateau'], 4)}"
-            )
-        quantity = result["quantity"].T
 
-        # the sorted groupby rows line up with the sorted precursor_hashes of the fit
-        precursor_df = (
-            intensity_df.groupby(precursor_column)[
-                [QuantificationLevelKey.PROTEIN, QuantificationLevelKey.PEPTIDE]
-            ]
-            .first()
-            .reset_index()
-        )
-        precursor_df.insert(0, ION_COLUMN, precursor_hashes)
-        precursor_df[run_columns] = np.nan_to_num(np.power(2.0, quantity))
-        return precursor_df
-
-    def _prepare_ion_table(
-        self, intensity_df: pd.DataFrame, quant_level: str
-    ) -> pd.DataFrame:
-        """Build the log2 ion table directLFQ operates on.
-
-        Parameters
-        ----------
-        intensity_df: pd.DataFrame
-            Ion table with an ion column, the quant_level column and one column per run.
-            Other metadata columns are dropped.
-        quant_level: str
-            Column to group ions by (pg, mod_seq_hash, mod_seq_charge_hash)
-
-        Returns
-        -------
-        pd.DataFrame
-            Log2 intensities indexed by (quant_level, ion) with one column per run.
-            Missing values are NaN and ions missing in every run are dropped.
-        """
-        # directLFQ treats every column except the group and ion id as a sample
-        columns_to_drop = [
-            c
-            for c in intensity_df.columns
-            if c in FRAGMENT_METADATA_COLUMNS and c not in (ION_COLUMN, quant_level)
+    # the sorted groupby rows line up with the sorted precursor_hashes of the fit
+    precursor_df = (
+        intensity_df.groupby(precursor_column)[
+            [QuantificationLevelKey.PROTEIN, QuantificationLevelKey.PEPTIDE]
         ]
-        intensity_df = intensity_df.drop(columns=columns_to_drop)
+        .first()
+        .reset_index()
+    )
+    precursor_df.insert(0, ION_COLUMN, precursor_hashes)
+    precursor_df[run_columns] = np.nan_to_num(np.power(2.0, result["quantity"].T))
+    return precursor_df
 
-        lfqconfig.set_global_protein_and_ion_id(
-            protein_id=quant_level, quant_id=ION_COLUMN
-        )
-        lfqconfig.set_compile_normalized_ion_table(compile_normalized_ion_table=False)
-        lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()
-        lfqconfig.set_log_processed_proteins(log_processed_proteins=True)
 
-        intensity_df.sort_values(by=quant_level, inplace=True, ignore_index=True)
+def quantselect_lfq(
+    psm_df: pd.DataFrame,
+    feature_dfs_dict: dict[str, pd.DataFrame],
+    lfq_config: LFQOutputConfig,
+) -> pd.DataFrame:
+    """Perform label-free quantification using QuantSelect.
 
-        lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
-        return lfqutils.remove_allnan_rows_input_df(lfq_df)
+    Parameters
+    ----------
+    psm_df: pd.DataFrame
+        Target PSMs the fragments belong to
+    feature_dfs_dict: dict[str, pd.DataFrame]
+        Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
+    lfq_config: LFQOutputConfig
+        Configuration for this quantification level
 
-    def _normalize_ion_table(
-        self, lfq_df: pd.DataFrame, config: Config
-    ) -> pd.DataFrame:
-        """Apply directLFQ sample normalization to a log2 ion table.
+    Returns
+    -------
+    pd.DataFrame
+        Protein/peptide quantification results with columns: group_column, run1, run2, ...
+    """
+    logger.info("Performing label-free quantification with QuantSelect")
 
-        Parameters
-        ----------
-        lfq_df: pd.DataFrame
-            Log2 ion table as returned by _prepare_ion_table
-        config: Config
-            Global configuration object
+    return run_quantselect(
+        seed=42,
+        psm_df=psm_df,
+        feature_dfs_dict=feature_dfs_dict,
+        lfq_config=lfq_config,
+    )
 
-        Returns
-        -------
-        pd.DataFrame
-            Ion table with per-sample shifts removed
-        """
-        logger.info("Applying directLFQ normalization")
-        return lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
-            lfq_df,
-            num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
-            selected_proteins_file=None,
-        ).complete_dataframe
 
-    def quantselect_lfq(
-        self,
-        feature_dfs_dict: dict[str, pd.DataFrame],
-        lfq_config: LFQOutputConfig,
-    ) -> pd.DataFrame:
-        """Perform label-free quantification using QuantSelect.
+def _prepare_ion_table(intensity_df: pd.DataFrame, quant_level: str) -> pd.DataFrame:
+    """Build the log2 ion table directLFQ operates on.
 
-        Parameters
-        ----------
-        feature_dfs_dict: dict[str, pd.DataFrame]
-            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
-        lfq_config: LFQOutputConfig
-            Configuration for this quantification level
+    Parameters
+    ----------
+    intensity_df: pd.DataFrame
+        Ion table with an ion column, the quant_level column and one column per run.
+        Other metadata columns are dropped.
+    quant_level: str
+        Column to group ions by (pg, mod_seq_hash, mod_seq_charge_hash)
 
-        Returns
-        -------
-        pd.DataFrame
-            Protein/peptide quantification results with columns: group_column, run1, run2, ...
-        """
-        logger.info("Performing label-free quantification with QuantSelect")
+    Returns
+    -------
+    pd.DataFrame
+        Log2 intensities indexed by (quant_level, ion) with one column per run.
+        Missing values are NaN and ions missing in every run are dropped.
+    """
+    # directLFQ treats every column except the group and ion id as a sample
+    columns_to_drop = [
+        c
+        for c in intensity_df.columns
+        if c in FRAGMENT_METADATA_COLUMNS and c not in (ION_COLUMN, quant_level)
+    ]
+    intensity_df = intensity_df.drop(columns=columns_to_drop)
 
-        return run_quantselect(
-            seed=42,
-            psm_df=self.psm_df,
-            feature_dfs_dict=feature_dfs_dict,
-            lfq_config=lfq_config,
-        )
+    lfqconfig.set_global_protein_and_ion_id(protein_id=quant_level, quant_id=ION_COLUMN)
+    lfqconfig.set_compile_normalized_ion_table(compile_normalized_ion_table=False)
+    lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()
+    lfqconfig.set_log_processed_proteins(log_processed_proteins=True)
+
+    intensity_df.sort_values(by=quant_level, inplace=True, ignore_index=True)
+
+    lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
+    return lfqutils.remove_allnan_rows_input_df(lfq_df)
+
+
+def _normalize_ion_table(lfq_df: pd.DataFrame, config: Config) -> pd.DataFrame:
+    """Apply directLFQ sample normalization to a log2 ion table.
+
+    Parameters
+    ----------
+    lfq_df: pd.DataFrame
+        Log2 ion table as returned by _prepare_ion_table
+    config: Config
+        Global configuration object
+
+    Returns
+    -------
+    pd.DataFrame
+        Ion table with per-sample shifts removed
+    """
+    logger.info("Applying directLFQ normalization")
+    return lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
+        lfq_df,
+        num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
+        selected_proteins_file=None,
+    ).complete_dataframe
