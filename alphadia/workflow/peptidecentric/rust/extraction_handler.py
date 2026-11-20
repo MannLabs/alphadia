@@ -140,6 +140,9 @@ class RustExtractionHandler(ExtractionHandler):
                 "candidate_count": self._optimization_context.num_candidates,
                 "rt_prior_sigma": self._optimization_context.rt_error
                 * self._config["search"]["rt_prior_sigma_fraction"],
+                "mobility_selection_bins": self._config["search"][
+                    "mobility_selection_bins"
+                ],
                 **self._mobility_parameters(),
             }
         )

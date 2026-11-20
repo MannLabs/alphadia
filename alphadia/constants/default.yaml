@@ -240,6 +240,10 @@ search:
   # their RT distance to the calibrated library RT, with sd = this fraction of the RT tolerance. 0 ranks by score only.
   rt_prior_sigma_fraction: 0.0
 
+  # ion mobility data (rust backend only): candidate selection scores this many overlapping mobility sub-windows of the
+  # mobility tolerance window separately and keeps each cycle's best. 1 scores the whole window at once.
+  mobility_selection_bins: 1
+
   # quantify the fragments at the optimized MS2 tolerance instead of the backend's fixed default (rust backend only)
   quant_at_ms2_tolerance: False
 
