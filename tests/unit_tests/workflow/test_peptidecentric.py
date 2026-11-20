@@ -374,14 +374,16 @@ def test_calibration_keeps_its_calibration_when_a_refit_finds_no_more_identifica
 
 
 def test_searches_after_a_calibration_use_the_rt_prior_of_the_true_matches():
-    """Test that the first search has no RT prior and every search after a calibration selects with the RT prior
-    fitted on the true matches of the search before it."""
-    # Given: three rounds and true matches whose RT distribution has a scale of 20 s and 5 degrees of freedom
+    """Test that the first search has no RT prior, a calibration sets it from the true matches, and a calibration
+    whose true matches cannot be fitted keeps the RT prior of the calibration before."""
+    # Given: three rounds, and true matches that can be fitted only in the first round
     handler, optimization_manager = _create_calibration_loop_handler(
         identifications_per_round=[20, 40, 41],
         rt_residual_intervals=[100.0, 70.0, 68.0],
     )
-    handler._true_match_rt_distribution.return_value = _rt_distribution(55.0)
+    handler._true_match_rt_distribution.side_effect = [_rt_distribution(55.0)] + [
+        None
+    ] * 10
     priors = []
     process_batch = handler._process_batch.side_effect
 
@@ -399,27 +401,6 @@ def test_searches_after_a_calibration_use_the_rt_prior_of_the_true_matches():
 
     # Then: only the first search is without the prior, and the main search keeps it
     assert priors == [None, (20.0, 5.0), (20.0, 5.0)]
-    assert optimization_manager.rt_prior == (20.0, 5.0)
-
-
-def test_calibration_keeps_the_rt_prior_when_the_true_matches_cannot_be_fitted():
-    """Test that a calibration whose search gives no RT distribution keeps the RT prior of the calibration before."""
-    # Given: an RT distribution for the first search only
-    handler, optimization_manager = _create_calibration_loop_handler(
-        identifications_per_round=[20, 40, 41],
-        rt_residual_intervals=[100.0, 70.0, 68.0],
-    )
-    handler._true_match_rt_distribution.side_effect = [_rt_distribution(55.0)] + [
-        None
-    ] * 10
-
-    # When: the handler runs the calibration loop
-    with patch(
-        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
-    ):
-        handler.search_parameter_optimization()
-
-    # Then: the prior of the first calibration stays
     assert optimization_manager.rt_prior == (20.0, 5.0)
 
 

@@ -267,18 +267,6 @@ def test_optimization_manager_optimization_context_is_a_snapshot():
     assert optimization_manager.get_optimization_context().ms2_error == 3.0
 
 
-def test_optimization_manager_rt_prior_is_off_until_set():
-    # Given: an optimization manager with the test configuration
-    optimization_manager = OptimizationManager(TEST_OPTIMIZATION_CONFIG)
-    assert optimization_manager.get_optimization_context().rt_prior is None
-
-    # When: a calibration sets the RT prior
-    optimization_manager.update(rt_prior=(20.0, 5.0))
-
-    # Then: the optimization context carries it to the selection
-    assert optimization_manager.get_optimization_context().rt_prior == (20.0, 5.0)
-
-
 def test_optimization_manager_rt_proportion():
     TEST_OPTIMIZATION_CONFIG_PROPORTION = deepcopy(TEST_OPTIMIZATION_CONFIG)
     TEST_OPTIMIZATION_CONFIG_PROPORTION["search_initial"]["rt_tolerance"] = 0.5
