@@ -55,8 +55,6 @@ class FDRManager(BaseManager):
         classifier_base: Classifier,
         config: Config,
         dia_cycle: None | np.ndarray = None,
-        path: None | str = None,
-        load_from_file: bool = True,
         random_state: int | None = None,
         **kwargs,
     ):
@@ -76,20 +74,14 @@ class FDRManager(BaseManager):
             The workflow configuration object
         dia_cycle: None | np.ndarray
             DIA cycle information, if applicable. If None, no DIA cycle information is used.
-        path : str, optional
-            Path to the manager pickle on disk.
-        load_from_file : bool, optional
-            If True, the manager will be loaded from file if it exists.
         random_state: int, optional
             Random state for reproducibility.
         """
-        super().__init__(path=path, load_from_file=load_from_file, **kwargs)
+        super().__init__(load_from_file=False, **kwargs)
 
-        if not self.is_loaded_from_file:
-            self.feature_columns = feature_columns
-            self.classifier_base = classifier_base
+        self.feature_columns = feature_columns
+        self.classifier_base = classifier_base
 
-        # Classifiers are not reused across runs, so a manager loaded from file also starts without one.
         self._classifiers: dict[str, Classifier] = {}
 
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
@@ -238,8 +230,6 @@ class FDRManager(BaseManager):
             psm_df.loc[psm_df["channel"] == decoy_channel, "decoy"] = 1
         else:
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
-
-        self.save()
 
         return psm_df
 

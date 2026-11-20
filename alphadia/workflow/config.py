@@ -7,7 +7,6 @@ Lists are always overwritten completely.
 On demand, the current config can be visualized in a tree-like structure.
 """
 
-import json
 import logging
 from collections import UserDict, defaultdict
 from copy import deepcopy
@@ -48,17 +47,9 @@ class Config(UserDict):
         with open(path) as f:
             self.data = yaml.safe_load(f)
 
-    def from_json(self, path: str) -> None:
-        with open(path) as f:
-            self.data = json.load(f)
-
     def to_yaml(self, path: str) -> None:
         with open(path, "w") as f:
             yaml.dump(_convert_numpy_types(self.data), f, sort_keys=False)
-
-    def to_json(self, path: str) -> None:
-        with open(path, "w") as f:
-            json.dump(self.data, f)
 
     def __setitem__(self, key: str, item: Any):
         """Forbid settings keys directly.

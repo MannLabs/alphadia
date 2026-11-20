@@ -37,7 +37,6 @@ class WorkflowBase(ABC):
     CALIBRATION_STATS_FILE_NAME = "calibration.stats.json"
     OPTIMIZATION_MANAGER_PKL_NAME = "optimization_manager.pkl"
     TIMING_MANAGER_PKL_NAME = "timing_manager.pkl"
-    FDR_MANAGER_PKL_NAME = "fdr_manager.pkl"
 
     def __init__(
         self,
@@ -98,10 +97,9 @@ class WorkflowBase(ABC):
             backends=[
                 reporting.LogBackend(),
                 reporting.JSONLBackend(path=self.path),
-                reporting.FigureBackend(path=self.path),
             ]
         )
-        self.reporter.context.__enter__()
+        self.reporter.__enter__()
         self.reporter.log_event("section_start", {"name": "Initialize Workflow"})
 
         # load the raw data
@@ -127,7 +125,6 @@ class WorkflowBase(ABC):
         self._spectral_library: SpecLibFlat = spectral_library.copy()
 
         self._calibration_manager = CalibrationManager(
-            load_from_file=False,
             has_ms1=self._dia_data.has_ms1,
             has_mobility=self._dia_data.has_mobility,
             reporter=self.reporter,
