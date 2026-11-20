@@ -22,12 +22,13 @@ class PeakParameters:
 
 
 def peak_parameters(
-    identifications: pd.DataFrame, memory_saving: bool
+    identifications: pd.DataFrame, memory_saving: bool, cutoff_scale: float = 1.0
 ) -> PeakParameters:
     """Return the median peak widths of the identifications and the minimum peak group score.
 
     The score cutoff is a factor times a low percentile of the peak group scores of the identifications, see
-    `PeakGroupScoreCutoff`. `memory_saving` takes the higher cutoff of `search.optimized_peak_group_score`.
+    `PeakGroupScoreCutoff`, scaled by `cutoff_scale`. `memory_saving` takes the higher cutoff of
+    `search.optimized_peak_group_score`.
     """
     if memory_saving:
         factor = PeakGroupScoreCutoff.MEMORY_SAVING_FACTOR
@@ -38,7 +39,9 @@ def peak_parameters(
     return PeakParameters(
         fwhm_rt=identifications["fwhm_rt"].median(),
         fwhm_mobility=identifications["fwhm_mobility"].median(),
-        score_cutoff=factor * np.percentile(identifications["score"], percentile),
+        score_cutoff=cutoff_scale
+        * factor
+        * np.percentile(identifications["score"], percentile),
     )
 
 
@@ -82,7 +85,9 @@ class RecalibrationHandler:
             figure_path=self._figure_path,
         )
         parameters = peak_parameters(
-            identifications, self._config["search"]["optimized_peak_group_score"]
+            identifications,
+            self._config["search"]["optimized_peak_group_score"],
+            self._config["search"]["peak_group_score_cutoff_scale"],
         )
         self._reporter.log_string(f"Using score_cutoff {parameters.score_cutoff}")
         return parameters

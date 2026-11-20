@@ -198,6 +198,10 @@ search:
   # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
   optimized_peak_group_score: False
 
+  # scales the minimum peak group score candidates need to be scored (a low percentile of the calibration
+  # identifications' scores); below 1 more faint candidates reach scoring
+  peak_group_score_cutoff_scale: 1.0
+
   # interference features for the final-round FDR classifier (rust backend only; never used in the calibration
   # rounds). They ask whether the fragment evidence a candidate claims is its own.
   # fitted spread: each fragment XIC is fitted to the candidate's median elution profile; mean, std and max of
