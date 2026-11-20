@@ -153,9 +153,8 @@ class RustExtractionHandler(ExtractionHandler):
             return {}
         params = {"mobility_tolerance": self._optimization_context.mobility_error}
         if peak_window:
-            params["mobility_peak_tolerance"] = self._config["search"][
-                "mobility_peak_tolerance"
-            ]
+            for key in ("mobility_peak_tolerance", "mobility_observation_widening"):
+                params[key] = self._config["search"][key]
         return params
 
     def score_candidates(

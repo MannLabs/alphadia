@@ -227,6 +227,11 @@ search:
   # fragment peaks within the mobility tolerance around the library mobility. 0 reads the whole tolerance window.
   mobility_peak_tolerance: 0.0
 
+  # ion mobility data (rust backend only): the observed apex mobility (mobility calibration, mobility features,
+  # mobility_peak_tolerance) is read in a window this many times the mobility tolerance around the library mobility.
+  # At 1 it is truncated by the search window, and so are the residuals the mobility tolerance is optimized on.
+  mobility_observation_widening: 1.0
+
   # quantify the fragments at the optimized MS2 tolerance instead of the backend's fixed default (rust backend only)
   quant_at_ms2_tolerance: False
 
