@@ -10,12 +10,15 @@ from alphadia.constants.keys import (
 from alphadia.outputtransform.quantification import (
     QuantificationLevelName,
     QuantOutputBuilder,
+    quant_builder,
 )
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
 )
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
+    _annotate_quant_df,
+    merge_quant_levels_to_psm,
 )
 
 
@@ -28,6 +31,7 @@ def config():
             "precursor_level_lfq": True,
             "peptide_level_lfq": True,
             "min_k_fragments": 3,
+            "fragment_censoring_correction": False,
             "min_correlation": 0.5,
             "min_nonnan": 1,
             "num_samples_quadratic": 50,
@@ -88,6 +92,39 @@ def feature_dfs():
     }
 
 
+@pytest.fixture
+def varmodel_config(config):
+    """Configuration of the variance-model path."""
+    config["search_output"]["normalization_method"] = (
+        NormalizationMethods.VARMODEL_DIRECTLFQ
+    )
+    config["search_output"]["normalize_directlfq"] = False
+    config["search_output"]["min_k_fragments"] = 4
+    config["search_output"]["min_nonnan"] = 3
+    return config
+
+
+@pytest.fixture
+def varmodel_psm_df():
+    """PSM dataframe of the precursors of `_varmodel_feature_dfs`."""
+    return pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2],
+            "decoy": [0, 0, 0],
+            "pg": ["PG001", "PG001", "PG002"],
+            "mod_seq_hash": [1, 2, 3],
+            "mod_seq_charge_hash": [10, 20, 30],
+            "sequence": ["PEPTIDE", "SEQUENCE", "PROTEIN"],
+            "mods": ["", "", ""],
+            "mod_sites": ["", "", ""],
+            "charge": [2, 2, 2],
+            "run": ["run1", "run1", "run2"],
+            "rt_observed": [100.0, 200.0, 300.0],
+            "mz_library": [500.0, 600.0, 700.0],
+        }
+    )
+
+
 def lfq_side_effect(*args, **kwargs):
     # Extract the lfq_config instance from kwargs (it's passed as a keyword argument)
     lfq_config = kwargs.get("lfq_config")
@@ -116,29 +153,9 @@ class TestQuantOutputBuilder:
         assert len(builder.fragment_loader.psm_df) == 4
         assert all(builder.fragment_loader.psm_df["decoy"] == 0)
 
+    @patch("alphadia.outputtransform.quantification.quant_output_builder.direct_lfq")
     @patch(
-        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
-    )
-    def test_build_returns_empty_when_no_fragments(
-        self, mock_accumulate, psm_df, config
-    ):
-        """Given no fragment data, when build is called, then returns empty results."""
-        # Given
-        mock_accumulate.return_value = None
-        builder = QuantOutputBuilder(psm_df, config)
-
-        # When
-        lfq_results, result_psm_df = builder.build(["folder1", "folder2"])
-
-        # Then
-        assert lfq_results == {}
-        pd.testing.assert_frame_equal(result_psm_df, psm_df)
-
-    @patch(
-        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
-    )
-    @patch(
-        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
+        "alphadia.outputtransform.quantification.quant_output_builder.filter_frag_df"
     )
     @patch(
         "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
@@ -149,10 +166,7 @@ class TestQuantOutputBuilder:
         """Given all three quantification levels enabled, when build is called, then all levels return output with correct annotations."""
         # Given
         mock_accumulate.return_value = feature_dfs
-        mock_filter.return_value = (
-            feature_dfs["intensity"],
-            feature_dfs["correlation"],
-        )
+        mock_filter.return_value = feature_dfs["intensity"]
         mock_direct_lfq.side_effect = lfq_side_effect
         builder = QuantOutputBuilder(psm_df, config)
 
@@ -183,11 +197,9 @@ class TestQuantOutputBuilder:
             col not in protein_result.columns for col in ["sequence", "mods", "charge"]
         )
 
+    @patch("alphadia.outputtransform.quantification.quant_output_builder.direct_lfq")
     @patch(
-        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
-    )
-    @patch(
-        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
+        "alphadia.outputtransform.quantification.quant_output_builder.filter_frag_df"
     )
     @patch(
         "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
@@ -202,10 +214,7 @@ class TestQuantOutputBuilder:
         )
         psm_df = pd.concat([decoy_row, psm_df.iloc[:4]], ignore_index=True)
         mock_accumulate.return_value = feature_dfs
-        mock_filter.return_value = (
-            feature_dfs["intensity"],
-            feature_dfs["correlation"],
-        )
+        mock_filter.return_value = feature_dfs["intensity"]
         mock_direct_lfq.side_effect = lfq_side_effect
         builder = QuantOutputBuilder(psm_df, config)
 
@@ -226,42 +235,37 @@ class TestQuantOutputBuilder:
             == "PEPTIDE"
         )
 
-    @patch("alphadia.outputtransform.utils.write_df")
-    def test_save_results_writes_non_empty_results(self, mock_write_df, psm_df, config):
-        """Given LFQ results with data, when save_results is called, then writes files to disk."""
-        # Given
-        lfq_results = {
-            QuantificationLevelName.PRECURSOR: pd.DataFrame(
-                {"mod_seq_charge_hash": [10], "run1": [1000.0]}
-            ),
-            QuantificationLevelName.PROTEIN: pd.DataFrame(
-                {"pg": ["PG001"], "run1": [5000.0]}
-            ),
-        }
+    @patch("alphadia.outputtransform.quantification.quant_output_builder.direct_lfq")
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.filter_frag_df"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+    )
+    def test_build_does_not_give_decoys_the_quantities_of_their_target(
+        self, mock_accumulate, mock_filter, mock_direct_lfq, psm_df, config, feature_dfs
+    ):
+        """Given a decoy with the hashes and run of a target, when build is called, then only the target row gets the quantities."""
+        # Given: the decoy shares the precursor, peptide and protein keys of target 0 in run1
+        psm_df.loc[4, ["mod_seq_hash", "mod_seq_charge_hash"]] = [1, 10]
+        mock_accumulate.return_value = feature_dfs
+        mock_filter.return_value = feature_dfs["intensity"]
+        mock_direct_lfq.side_effect = lfq_side_effect
         builder = QuantOutputBuilder(psm_df, config)
 
         # When
-        builder.save_results(lfq_results, "/output", file_format="parquet")
+        _, psm_df_with_quant = builder.build(["folder1", "folder2"])
 
         # Then
-        assert mock_write_df.call_count == 2
-
-    @patch("alphadia.outputtransform.utils.write_df")
-    def test_save_results_skips_empty_results(self, mock_write_df, psm_df, config):
-        """Given LFQ results with empty dataframes, when save_results is called, then skips empty results."""
-        # Given
-        lfq_results = {
-            QuantificationLevelName.PROTEIN: pd.DataFrame(
-                {"pg": ["PG001"], "run1": [5000.0]}
-            ),
-        }
-        builder = QuantOutputBuilder(psm_df, config)
-
-        # When
-        builder.save_results(lfq_results, "/output", file_format="parquet")
-
-        # Then
-        assert mock_write_df.call_count == 1
+        lfq_intensity_columns = [
+            "precursor_lfq_intensity",
+            "peptide_lfq_intensity",
+            "pg_lfq_intensity",
+        ]
+        target_row = psm_df_with_quant[psm_df_with_quant["precursor_idx"] == 0]
+        decoy_row = psm_df_with_quant[psm_df_with_quant["precursor_idx"] == 4]
+        assert target_row[lfq_intensity_columns].notna().all(axis=None)
+        assert decoy_row[lfq_intensity_columns].isna().all(axis=None)
 
     def test_annotate_precursor(self, psm_df, config):
         """Given precursor-level LFQ dataframe, when annotated, then adds pg, sequence, mods, mod_sites, and charge."""
@@ -275,10 +279,9 @@ class TestQuantOutputBuilder:
             intensity_column="precursor_lfq_intensity",
             aggregation_components=["pg", "sequence", "mods", "mod_sites", "charge"],
         )
-        builder = QuantOutputBuilder(psm_df, config)
 
         # When
-        annotated_df = builder._annotate_quant_df(lfq_df, psm_df, precursor_config)
+        annotated_df = _annotate_quant_df(lfq_df, psm_df, precursor_config)
 
         # Then
         expected_df = pd.DataFrame(
@@ -306,10 +309,9 @@ class TestQuantOutputBuilder:
             intensity_column="peptide_lfq_intensity",
             aggregation_components=["pg", "sequence", "mods", "mod_sites"],
         )
-        builder = QuantOutputBuilder(psm_df, config)
 
         # When
-        annotated_df = builder._annotate_quant_df(lfq_df, psm_df, peptide_config)
+        annotated_df = _annotate_quant_df(lfq_df, psm_df, peptide_config)
 
         # Then
         expected_df = pd.DataFrame(
@@ -340,10 +342,9 @@ class TestQuantOutputBuilder:
             intensity_column="pg_lfq_intensity",
             aggregation_components=[QuantificationLevelName.PROTEIN],
         )
-        builder = QuantOutputBuilder(psm_df, config)
 
         # When
-        annotated_df = builder._annotate_quant_df(lfq_df, psm_df, pg_config)
+        annotated_df = _annotate_quant_df(lfq_df, psm_df, pg_config)
 
         # Then - dataframe should be completely unchanged
         expected_df = pd.DataFrame(
@@ -354,6 +355,71 @@ class TestQuantOutputBuilder:
             }
         )
         pd.testing.assert_frame_equal(annotated_df, expected_df)
+
+
+class TestMergeQuantLevelsToPsm:
+    """Quantities of every level are merged onto the target PSMs."""
+
+    @pytest.fixture
+    def level_dfs(self):
+        return {
+            QuantificationLevelName.PRECURSOR: pd.DataFrame(
+                {"mod_seq_charge_hash": ["A1"], "run1": [100.0]}
+            ),
+            QuantificationLevelName.PEPTIDE: pd.DataFrame(
+                {"mod_seq_hash": ["A"], "run1": [400.0]}
+            ),
+            QuantificationLevelName.PROTEIN: pd.DataFrame(
+                {"pg": ["PG1"], "run1": [700.0]}
+            ),
+        }
+
+    def test_merges_all_levels(self, level_dfs):
+        """Given quantities on all levels, when merged, then the target gets one intensity column per level."""
+        # Given
+        psm_df = pd.DataFrame(
+            {
+                "mod_seq_charge_hash": ["A1"],
+                "mod_seq_hash": ["A"],
+                "pg": ["PG1"],
+                "run": ["run1"],
+                "decoy": [0],
+            }
+        )
+
+        # When
+        result = merge_quant_levels_to_psm(psm_df, level_dfs)
+
+        # Then
+        expected = psm_df.assign(
+            precursor_lfq_intensity=[100.0],
+            peptide_lfq_intensity=[400.0],
+            pg_lfq_intensity=[700.0],
+        )
+        pd.testing.assert_frame_equal(result, expected)
+
+    @pytest.mark.parametrize("decoy_dtype", [int, bool])
+    def test_decoys_keep_no_quantities(self, level_dfs, decoy_dtype):
+        """Given a decoy with the keys of a target, when merged, then only the target gets quantities."""
+        # Given
+        psm_df = pd.DataFrame(
+            {
+                "mod_seq_charge_hash": ["A1", "A1"],
+                "mod_seq_hash": ["A", "A"],
+                "pg": ["PG1", "PG1"],
+                "run": ["run1", "run1"],
+                "decoy": np.array([0, 1], dtype=decoy_dtype),
+            }
+        )
+
+        # When
+        result = merge_quant_levels_to_psm(psm_df, level_dfs)
+
+        # Then
+        assert result.loc[0, "precursor_lfq_intensity"] == 100.0
+        assert (
+            result.loc[1, ["precursor_lfq_intensity", "pg_lfq_intensity"]].isna().all()
+        )
 
 
 def _varmodel_feature_dfs():
@@ -405,33 +471,6 @@ def _varmodel_feature_dfs():
 class TestVarModelQuantification:
     """The variance-model precursor quantities feed directLFQ on every level."""
 
-    @pytest.fixture
-    def varmodel_config(self, config):
-        config["search_output"]["normalization_method"] = (
-            NormalizationMethods.VARMODEL_DIRECTLFQ
-        )
-        config["search_output"]["normalize_directlfq"] = False
-        config["search_output"]["min_k_fragments"] = 4
-        config["search_output"]["min_nonnan"] = 3
-        return config
-
-    @pytest.fixture
-    def varmodel_psm_df(self):
-        return pd.DataFrame(
-            {
-                "precursor_idx": [0, 1, 2],
-                "decoy": [0, 0, 0],
-                "pg": ["PG001", "PG001", "PG002"],
-                "mod_seq_hash": [1, 2, 3],
-                "mod_seq_charge_hash": [10, 20, 30],
-                "sequence": ["PEPTIDE", "SEQUENCE", "PROTEIN"],
-                "mods": ["", "", ""],
-                "mod_sites": ["", "", ""],
-                "charge": [2, 2, 2],
-                "run": ["run1", "run1", "run2"],
-            }
-        )
-
     def test_loads_the_library_intensity(self, varmodel_psm_df, varmodel_config):
         # Given / When
         builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
@@ -447,7 +486,7 @@ class TestVarModelQuantification:
     ):
         # Given
         builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
-        quantlevel_configs = builder._create_quant_level_configs()
+        quantlevel_configs = builder._requested_quant_level_configs()
 
         # When
         level_dfs = builder._quantify_with_varmodel_precursors(
@@ -482,13 +521,12 @@ class TestVarModelQuantification:
         builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
 
         # When
-        with patch.object(
-            builder.quant_builder,
-            "_normalize_ion_table",
-            wraps=builder.quant_builder._normalize_ion_table,
+        with patch(
+            "alphadia.outputtransform.quantification.quant_builder._normalize_ion_table",
+            wraps=quant_builder._normalize_ion_table,
         ) as spy_normalize:
             level_dfs = builder._quantify_with_varmodel_precursors(
-                builder._create_quant_level_configs(), _varmodel_feature_dfs()
+                builder._requested_quant_level_configs(), _varmodel_feature_dfs()
             )
 
         # Then directLFQ normalizes per level, the ion table being the same precursors each time
@@ -504,11 +542,11 @@ class TestVarModelQuantification:
         builder = QuantOutputBuilder(varmodel_psm_df, config)
 
         # When
-        with patch.object(
-            builder.quant_builder, "varmodel_precursor_table"
+        with patch(
+            "alphadia.outputtransform.quantification.quant_output_builder.varmodel_precursor_table"
         ) as mock_varmodel:
             builder._quantify_with_directlfq(
-                builder._create_quant_level_configs(), _varmodel_feature_dfs()
+                builder._requested_quant_level_configs(), _varmodel_feature_dfs()
             )
 
         # Then
@@ -518,3 +556,150 @@ class TestVarModelQuantification:
             INTENSITY_LIBRARY_COLUMN
             not in builder.fragment_loader.constant_feature_columns
         )
+
+
+DRIFT_MODULE = "alphadia.outputtransform.quantification.quant_output_builder"
+ACCUMULATE = "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+
+
+def _passthrough_precursor_drift(precursor_df, psm_df):
+    return precursor_df
+
+
+def _passthrough_fragment_drift(intensity_df, correlation_df, psm_df):
+    return intensity_df
+
+
+class TestIntensityDriftCorrectionPath:
+    """One drift correction per quantification path: precursors for the variance model, fragments otherwise."""
+
+    @patch(
+        f"{DRIFT_MODULE}.correct_precursor_intensity_drift",
+        side_effect=_passthrough_precursor_drift,
+    )
+    @patch(
+        f"{DRIFT_MODULE}.correct_intensity_drift",
+        side_effect=_passthrough_fragment_drift,
+    )
+    @patch(ACCUMULATE)
+    def test_varmodel_corrects_the_precursor_table_and_not_the_fragments(
+        self,
+        mock_accumulate,
+        mock_fragment_drift,
+        mock_precursor_drift,
+        varmodel_psm_df,
+        varmodel_config,
+    ):
+        """Given the variance-model path, when built, then only the varmodel precursor table is drift corrected."""
+        # Given
+        mock_accumulate.return_value = _varmodel_feature_dfs()
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
+
+        # When
+        lfq_results, _ = builder.build(["folder1"])
+
+        # Then
+        mock_fragment_drift.assert_not_called()
+        mock_precursor_drift.assert_called_once()
+        precursor_df, psm_df = mock_precursor_drift.call_args.args
+        assert set(precursor_df["mod_seq_charge_hash"]) == {10, 20, 30}
+        assert {"run1", "run2"} <= set(precursor_df.columns)
+        assert (psm_df["decoy"] == 0).all()
+        assert QuantificationLevelName.PROTEIN in lfq_results
+
+    @patch(
+        f"{DRIFT_MODULE}.correct_precursor_intensity_drift",
+        side_effect=_passthrough_precursor_drift,
+    )
+    @patch(
+        f"{DRIFT_MODULE}.correct_intensity_drift",
+        side_effect=_passthrough_fragment_drift,
+    )
+    @patch(f"{DRIFT_MODULE}.direct_lfq")
+    @patch(f"{DRIFT_MODULE}.filter_frag_df")
+    @patch(ACCUMULATE)
+    def test_directlfq_corrects_the_fragments_and_not_a_precursor_table(
+        self,
+        mock_accumulate,
+        mock_filter,
+        mock_direct_lfq,
+        mock_fragment_drift,
+        mock_precursor_drift,
+        psm_df,
+        config,
+        feature_dfs,
+    ):
+        """Given the plain directLFQ path, when built, then only the fragment intensities are drift corrected."""
+        # Given
+        mock_accumulate.return_value = feature_dfs
+        mock_filter.return_value = feature_dfs["intensity"]
+        mock_direct_lfq.side_effect = lfq_side_effect
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        builder.build(["folder1"])
+
+        # Then
+        mock_fragment_drift.assert_called_once()
+        mock_precursor_drift.assert_not_called()
+
+    @patch(f"{DRIFT_MODULE}.correct_precursor_intensity_drift")
+    @patch(f"{DRIFT_MODULE}.correct_intensity_drift")
+    @patch(ACCUMULATE)
+    def test_no_correction_when_disabled(
+        self,
+        mock_accumulate,
+        mock_fragment_drift,
+        mock_precursor_drift,
+        varmodel_psm_df,
+        varmodel_config,
+    ):
+        """Given the drift correction switched off, when built, then neither correction runs."""
+        # Given
+        varmodel_config["search_output"]["intensity_drift_correction"] = False
+        mock_accumulate.return_value = _varmodel_feature_dfs()
+        builder = QuantOutputBuilder(varmodel_psm_df, varmodel_config)
+
+        # When
+        builder.build(["folder1"])
+
+        # Then
+        mock_fragment_drift.assert_not_called()
+        mock_precursor_drift.assert_not_called()
+
+    @patch(
+        f"{DRIFT_MODULE}.correct_precursor_intensity_drift",
+        side_effect=_passthrough_precursor_drift,
+    )
+    @patch(
+        f"{DRIFT_MODULE}.correct_intensity_drift",
+        side_effect=_passthrough_fragment_drift,
+    )
+    @patch(f"{DRIFT_MODULE}.quantselect_lfq")
+    @patch(ACCUMULATE)
+    def test_quantselect_corrects_the_fragments_once(
+        self,
+        mock_accumulate,
+        mock_quantselect,
+        mock_fragment_drift,
+        mock_precursor_drift,
+        psm_df,
+        config,
+        feature_dfs,
+    ):
+        """Given the QuantSelect path, when built, then the fragment intensities are drift corrected once for all levels."""
+        # Given
+        config["search_output"]["normalization_method"] = (
+            NormalizationMethods.QUANTSELECT
+        )
+        mock_accumulate.return_value = feature_dfs
+        mock_quantselect.side_effect = lfq_side_effect
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # When
+        builder.build(["folder1"])
+
+        # Then
+        mock_fragment_drift.assert_called_once()
+        mock_precursor_drift.assert_not_called()
+        assert mock_quantselect.call_count == 3

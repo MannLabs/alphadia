@@ -209,6 +209,7 @@ class RustExtractionHandler(ExtractionHandler):
         df_fragments: pd.DataFrame | None = None,
         final_round: bool = False,
         train_on_best_candidate: bool = False,
+        max_qval: float | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -228,6 +229,8 @@ class RustExtractionHandler(ExtractionHandler):
             Whether this is the FDR of the final search, which leaves `FINAL_ROUND_EXCLUDED_FEATURES` out.
         train_on_best_candidate : bool, optional
             Train the classifier only on the most target-like candidate of each precursor.
+        max_qval : float, optional
+            Keep the precursors up to this q-value instead of `fdr.fdr`.
 
         Returns
         -------
@@ -262,7 +265,8 @@ class RustExtractionHandler(ExtractionHandler):
             train_on_best_candidate=train_on_best_candidate,
         )
         precursor_fdr_df = precursor_fdr_df[
-            precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
+            precursor_fdr_df["qval"]
+            <= (self._config["fdr"]["fdr"] if max_qval is None else max_qval)
         ]
 
         # filter2: candidates by precursors

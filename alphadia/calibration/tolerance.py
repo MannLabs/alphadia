@@ -12,6 +12,12 @@ from alphadia.constants.settings import CalibrationLoop
 PEP_MODEL_INVERSE_REGULARISATION = 1e6
 # Start of the degrees of freedom of the t distribution, between the heavy tail of df=1 and the near normal of df>30.
 INITIAL_DEGREES_OF_FREEDOM = 5.0
+# Lower bound of the start of the scale, as a share of the window, so that its logarithm stays finite.
+MIN_INITIAL_SCALE_SHARE_OF_WINDOW = 1e-6
+# Bounds the PEP away from 0 and 1, so that every candidate keeps a share of both the true and the false density.
+PEP_EPSILON = 1e-6
+# Added to the likelihood of each residual, so that its logarithm stays finite when both densities underflow to zero.
+LIKELIHOOD_EPSILON = 1e-300
 
 
 def posterior_error_probability(score: np.ndarray, is_decoy: np.ndarray) -> np.ndarray:
@@ -90,7 +96,7 @@ class TrueMatchDistribution:
 
         """
         residuals = np.abs(np.asarray(residuals, dtype=np.float64))
-        pep = np.clip(np.asarray(pep, dtype=np.float64), 1e-6, 1 - 1e-6)
+        pep = np.clip(np.asarray(pep, dtype=np.float64), PEP_EPSILON, 1 - PEP_EPSILON)
         inside = residuals < window
         residuals, pep = residuals[inside], pep[inside]
         if np.sum(1 - pep) < CalibrationLoop.MIN_EXPECTED_TRUE_MATCHES:
@@ -102,7 +108,9 @@ class TrueMatchDistribution:
             true_density = (
                 2 * distribution.pdf(residuals) / (2 * distribution.cdf(window) - 1)
             )
-            return -np.sum(np.log((1 - pep) * true_density + pep / window + 1e-300))
+            return -np.sum(
+                np.log((1 - pep) * true_density + pep / window + LIKELIHOOD_EPSILON)
+            )
 
         order = np.argsort(residuals)
         cumulative_weight = np.cumsum(1 - pep[order])
@@ -110,7 +118,10 @@ class TrueMatchDistribution:
             np.searchsorted(cumulative_weight, cumulative_weight[-1] / 2)
         ]
         start = np.log(
-            [max(weighted_median, window * 1e-6), INITIAL_DEGREES_OF_FREEDOM]
+            [
+                max(weighted_median, window * MIN_INITIAL_SCALE_SHARE_OF_WINDOW),
+                INITIAL_DEGREES_OF_FREEDOM,
+            ]
         )
         fit = optimize.minimize(negative_log_likelihood, start, method="Nelder-Mead")
         if not fit.success:

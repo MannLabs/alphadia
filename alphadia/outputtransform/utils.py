@@ -136,43 +136,6 @@ def write_table(df: pd.DataFrame, file_path: str) -> None:
         )
 
 
-def merge_quant_levels_to_psm(
-    psm_df: pd.DataFrame,
-    lfq_results: dict[str, pd.DataFrame],
-    quantlevel_configs: list,
-) -> pd.DataFrame:
-    """Merge quantification results from all levels back to the precursor table.
-
-    Parameters
-    ----------
-    psm_df : pd.DataFrame
-        Precursor table to merge quantification data into
-    lfq_results : dict[str, pd.DataFrame]
-        Dictionary containing quantification results for each level
-    quantlevel_configs : list
-        List of LFQOutputConfig objects defining quantification levels
-
-    Returns
-    -------
-    pd.DataFrame
-        Updated precursor table with merged quantification data
-    """
-    for config in quantlevel_configs:
-        lfq_df = lfq_results.get(config.level_name)
-
-        if lfq_df is None or lfq_df.empty:
-            continue
-
-        intensity_column = config.intensity_column
-
-        melted_df = lfq_df.melt(
-            id_vars=config.quant_level, var_name="run", value_name=intensity_column
-        )
-        psm_df = psm_df.merge(melted_df, on=[config.quant_level, "run"], how="left")
-
-    return psm_df
-
-
 def log_protein_fdr_summary(psm_df: pd.DataFrame) -> None:
     """Log summary statistics for protein FDR results.
 
