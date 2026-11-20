@@ -373,6 +373,37 @@ def test_calibration_keeps_its_calibration_when_a_refit_finds_no_more_identifica
     assert len(last_call.args[0]) == 41
 
 
+def test_searches_after_a_calibration_use_the_rt_prior_of_the_true_matches():
+    """Test that the first search has no RT prior, a calibration sets it from the true matches, and a calibration
+    whose true matches cannot be fitted keeps the RT prior of the calibration before."""
+    # Given: three rounds, and true matches that can be fitted only in the first round
+    handler, optimization_manager = _create_calibration_loop_handler(
+        identifications_per_round=[20, 40, 41],
+        rt_residual_intervals=[100.0, 70.0, 68.0],
+    )
+    handler._true_match_rt_distribution.side_effect = [_rt_distribution(55.0)] + [
+        None
+    ] * 10
+    priors = []
+    process_batch = handler._process_batch.side_effect
+
+    def search():
+        priors.append(optimization_manager.rt_prior)
+        return process_batch()
+
+    handler._process_batch.side_effect = search
+
+    # When: the handler runs the calibration loop
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.RecalibrationHandler"
+    ):
+        handler.search_parameter_optimization()
+
+    # Then: only the first search is without the prior, and the main search keeps it
+    assert priors == [None, (20.0, 5.0), (20.0, 5.0)]
+    assert optimization_manager.rt_prior == (20.0, 5.0)
+
+
 def test_main_search_takes_the_true_match_interval_of_an_automatic_rt_tolerance():
     """Test that an automatic RT tolerance is set from the true matches of the last calibration round."""
     # Given: tolerances that settle on the third round, and true matches whose 99% RT interval is 55 s

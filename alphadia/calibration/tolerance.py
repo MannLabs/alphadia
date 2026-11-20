@@ -60,7 +60,8 @@ class TrueMatchDistribution:
 
     A true match deviates from its calibrated prediction by a Student-t with `scale` and `df` degrees of freedom,
     centred on zero. It is fitted on a search with tolerance `window`, which shows the true matches only within the
-    window. The calibration uses it for the tolerance of the main search, see `interval`.
+    window. The calibration fits it after each calibration and uses it for the tolerance of the main search, see
+    `interval`, and as a prior of the selection score, see `OptimizationContext.rt_prior`.
     """
 
     scale: float

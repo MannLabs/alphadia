@@ -279,8 +279,9 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         In every case, the main search uses the tolerances of the best checkpoint and the latest calibration. An automatic RT tolerance holds `TOLERANCE_QUANTILE` of the true matches of the last search,
         weighted by the classifier, see `_main_search_tolerances`.
 
-        Each calibration applies its peak parameters to the optimization manager, see `_calibrate`. Returns the
-        tolerances of the main search, which the caller applies.
+        Each calibration applies its peak parameters and the RT prior of its search to the optimization manager, see
+        `_calibrate`. Searches before the first calibration have no RT prior. Returns the tolerances of the main
+        search, which the caller applies.
         """
         log_string = self._reporter.log_string
         max_calibrations = self._config["calibration"]["max_steps"]
@@ -362,7 +363,10 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 continue
 
             self._calibrate(
-                recalibration_handler, precursor_df_filtered, fragments_df_filtered
+                recalibration_handler,
+                search,
+                precursor_df_filtered,
+                fragments_df_filtered,
             )
             n_calibrations += 1
             next_tolerances = self._propose_tolerances(
@@ -396,7 +400,10 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
                 if refit is not None:
                     search = refit.search
                     self._calibrate(
-                        recalibration_handler, refit.identifications, refit.fragments
+                        recalibration_handler,
+                        refit.search,
+                        refit.identifications,
+                        refit.fragments,
                     )
                     refit_checkpoint = CalibrationCheckpoint(
                         identification_rate=len(refit.identifications)
@@ -439,16 +446,27 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
     def _calibrate(
         self,
         recalibration_handler: RecalibrationHandler,
+        search: LockSearch[ExtractionHandlerT],
         identifications: pd.DataFrame,
         fragments: pd.DataFrame,
     ) -> None:
-        """Calibrate on the identifications and apply their peak parameters, which the next search selects with."""
+        """Calibrate on the identifications of `search` and apply the parameters that the next search selects with.
+
+        These are the peak parameters of the identifications and the RT prior: the distribution of the RT residuals of
+        the true matches of the search, see `_true_match_rt_distribution`. When that distribution cannot be fitted, the
+        RT prior of the calibration before stays.
+        """
         parameters = recalibration_handler.recalibrate(identifications, fragments)
         self._optimization_manager.update(
             fwhm_rt=parameters.fwhm_rt,
             fwhm_mobility=parameters.fwhm_mobility,
             score_cutoff=parameters.score_cutoff,
         )
+        rt_distribution = self._true_match_rt_distribution(search)
+        if rt_distribution is not None:
+            self._optimization_manager.update(
+                rt_prior=(rt_distribution.scale, rt_distribution.df)
+            )
 
     def _main_search_tolerances(
         self, checkpoint: CalibrationCheckpoint, search: LockSearch[ExtractionHandlerT]
@@ -526,8 +544,8 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
     ) -> TrueMatchDistribution | None:
         """Fit the RT residuals of the true matches of `search`, see `TrueMatchDistribution.fit`.
 
-        The calibration rounds search wider than the residuals of the true matches, so the last search shows their
-        tail. Its candidates are weighted by their posterior error probability. Returns None when the estimator is not
+        The calibration rounds search wider than the residuals of the true matches, so the search shows their tail.
+        Its candidates are weighted by their posterior error probability. Returns None when the estimator is not
         fitted or the search holds too few likely true matches.
         """
         estimator = self._calibration_manager.get_estimator(
@@ -536,8 +554,9 @@ class OptimizationHandler(ABC, Generic[ExtractionHandlerT]):
         if not estimator.is_fitted:
             return None
         precursor_df = search.precursor_df
-        # The residuals use the latest calibration, which was fitted on this search, while the search was centred on
-        # the calibration before it. Both converged, so the shift is small against the searched tolerance of 3 times the interval.
+        # The residuals use the calibration just fitted on this search, while the search was centred on the
+        # calibration before it. After a few rounds both agree, so the shift is small against the searched tolerance
+        # of 3 times the interval.
         residuals = estimator.calc_deviation(precursor_df)[:, 2]
         is_decoy = precursor_df["decoy"].to_numpy() == 1
         # The classifier probability `proba` is the probability of a decoy.
