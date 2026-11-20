@@ -138,6 +138,8 @@ class RustExtractionHandler(ExtractionHandler):
                 "mass_tolerance": self._optimization_context.ms2_error,
                 "rt_tolerance": self._optimization_context.rt_error,
                 "candidate_count": self._optimization_context.num_candidates,
+                "rt_prior_sigma": self._optimization_context.rt_error
+                * self._config["search"]["rt_prior_sigma_fraction"],
                 **self._mobility_parameters(),
             }
         )
