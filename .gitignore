@@ -13,6 +13,10 @@ __pycache__/
 
 # C extensions
 *.so
+*.pyd
+
+# Rust
+rust/target/
 
 # Distribution / packaging
 .Python

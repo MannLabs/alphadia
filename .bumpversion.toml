@@ -62,3 +62,13 @@ filename = "./release/macos/distribution.xml"
 
 [[tool.bumpversion.files]]
 filename = "./release/windows/alphadia_innoinstaller.iss"
+
+[[tool.bumpversion.files]]
+filename = "./rust/Cargo.toml"
+search = "[package]\nname = \"alphadia-rs\"\nversion = \"{current_version}\""
+replace = "[package]\nname = \"alphadia-rs\"\nversion = \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "./rust/Cargo.lock"
+search = "[[package]]\nname = \"alphadia-rs\"\nversion = \"{current_version}\""
+replace = "[[package]]\nname = \"alphadia-rs\"\nversion = \"{new_version}\""
