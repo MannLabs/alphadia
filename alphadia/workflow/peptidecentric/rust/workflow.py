@@ -31,7 +31,6 @@ from alphadia.workflow.peptidecentric.utils import (
     use_timing_manager,
 )
 
-
 FEATURE_MATRIX_FILE_NAME = "feature_matrix.parquet"
 FDR_BEST_FILE_NAME = "fdr_best.parquet"
 LIBRARY_PRECURSORS_FILE_NAME = "library_precursors.parquet"
