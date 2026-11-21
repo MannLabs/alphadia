@@ -199,13 +199,15 @@ OPTIONAL_FEATURE_GROUPS = {
         "ms1_fine_iso_corr",
     ),
     # the RT x mobility peak of the fragments (ion mobility data only): each fragment's patch of apex cycles x scans
-    # against the consensus of the others, mobilogram apex agreement, signal share inside the joint peak, peak width
+    # against the consensus of the others, mobilogram apex agreement, signal share inside the joint peak, peak width,
+    # and the fragments seen at the apex beyond their flank background
     "mobility_profile_features": (
         "mob2d_corr_mean",
         "mob2d_coherent_share",
         "mob2d_apex_sd",
         "mob2d_peak_share",
         "mob2d_fwhm",
+        "mob2d_hit_excess",
     ),
     # fragment detection at the apex scan, for one-scan peaks at low input; scored only if the flag is set
     "detection_features": (
