@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import yaml
 
+from alphadia.constants.keys import DecoyType
 from alphadia.exceptions import KeyAddedConfigError, TypeMismatchConfigError
 from alphadia.workflow.config import Config
 
@@ -321,6 +322,21 @@ def test_config_update_default_config():
     config_1.update([config_2], do_print=True)
 
     assert config_1 == config_2
+
+
+def test_default_config_uses_diann_decoys():
+    """Test that the default decoy type is diann."""
+    # Given: the default config file
+    default_config_path = os.path.join(
+        os.path.dirname(__file__), "../../../alphadia/constants/default.yaml"
+    )
+
+    # When: the default config is loaded
+    default_config = Config(name="default")
+    default_config.from_yaml(default_config_path)
+
+    # Then: the decoy type is diann
+    assert default_config["fdr"]["decoy_type"] == DecoyType.DIANN
 
 
 def test_config_update_none_values():
