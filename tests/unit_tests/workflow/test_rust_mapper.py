@@ -102,13 +102,13 @@ def test_get_classifier_feature_columns_without_the_block_in_rust():
     assert columns == CORE_COLUMNS
 
 
-def test_get_classifier_feature_columns_with_all_flags_adds_the_25_columns(
+def test_get_classifier_feature_columns_with_all_flags_adds_the_26_columns(
     full_feature_names,
 ):
     # given / when
     columns = get_classifier_feature_columns(list(OPTIONAL_FEATURE_GROUPS))
 
-    # then: 4 fitted spread, 3 window share, 10 MS1, 5 mobility profile and 3 detection columns
+    # then: 4 fitted spread, 3 window share, 10 MS1, 6 mobility profile and 3 detection columns
     assert columns == FULL_WITH_OPTIONAL
     assert [
         len(OPTIONAL_FEATURE_GROUPS[group]) for group in OPTIONAL_FEATURE_GROUPS
@@ -116,7 +116,7 @@ def test_get_classifier_feature_columns_with_all_flags_adds_the_25_columns(
         4,
         3,
         10,
-        5,
+        6,
         3,
     ]
 
