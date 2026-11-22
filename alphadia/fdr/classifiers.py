@@ -372,7 +372,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             return None
 
         return QuantileTransformer(
-            n_quantiles=_N_QUANTILES, output_distribution="normal", subsample=None
+            n_quantiles=_N_QUANTILES,
+            output_distribution="normal",
+            subsample=100_000,
+            random_state=int(self._np_rng.integers(0, 1_000_000)),
         ).fit(x)
 
     def _transform_features(self, x: np.ndarray) -> np.ndarray:
