@@ -65,12 +65,6 @@ def speclib_to_rust(
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
 
-    precursor_charge = (
-        precursor_df["charge"].values.astype(np.uint8)
-        if "charge" in precursor_df.columns
-        else None
-    )
-
     return SpecLibFlatRust.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
         precursor_df["mz_library"].values.astype(np.float32),
@@ -89,7 +83,6 @@ def speclib_to_rust(
         fragment_df["number"].values.astype(np.uint8),
         fragment_df["position"].values.astype(np.uint8),
         fragment_df["type"].values.astype(np.uint8),
-        precursor_charge=precursor_charge,
     )
 
 
