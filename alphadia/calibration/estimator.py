@@ -98,6 +98,11 @@ class CalibrationEstimator:
         """Return True when the last fit succeeded. The Rust estimator holds this state. A failed fit leaves it unfitted."""
         return self._calibration_estimator.is_fitted
 
+    @property
+    def rust_estimator(self) -> _RustCalibrationEstimator:
+        """The Rust estimator, for the calibration of the Rust spectral library."""
+        return self._calibration_estimator
+
     def __repr__(self) -> str:
         """Return a string representation of the Calibration object."""
         return f"<Calibration {self.name}, is_fitted: {self.is_fitted}>"

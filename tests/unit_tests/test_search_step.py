@@ -15,6 +15,7 @@ from alphadia.workflow.config import Config
 from alphadia.workflow.peptidecentric.python.workflow import (
     PythonPeptideCentricWorkflow,
 )
+from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
 
 QUANT_FILE_NAMES = ("psm.parquet", "frag.parquet")
 RAW_PATHS = ["/raw_files/raw1.raw"]
@@ -482,8 +483,9 @@ def test_expands_reuse_quant_from_paths(tmp_path, monkeypatch):
     ]
 
 
+@patch("alphadia.search_step.library_speclib_to_rust")
 @patch("alphadia.search_step.SearchPlanOutput")
-def test_run_creates_no_workflow_for_reused_folder(mock_output_cls, tmp_path):
+def test_run_creates_no_workflow_for_reused_folder(mock_output_cls, _, tmp_path):
     """Test that a reused quant folder is passed on as-is and never gets a workflow (which would write to it)."""
     reused_folder = _create_quant_folder(tmp_path / "previous_run" / "quant", "raw1")
     mock_workflow_cls = MagicMock()
@@ -593,3 +595,79 @@ def test_is_rust_backend(backend, expected):
 
     # when / then
     assert SearchStep._is_rust_backend(config, []) is expected
+
+
+@patch("alphadia.search_step.library_speclib_to_rust")
+@patch("alphadia.search_step.SearchPlanOutput")
+def test_run_passes_the_rust_library_to_the_rust_workflow(
+    _, mock_library_speclib_to_rust, tmp_path
+):
+    """Test that the Rust backend converts the in-memory library once and gives it to each workflow."""
+    # given: a step with the Rust backend and a library in memory
+    step = SearchStep(
+        str(tmp_path / "output"),
+        config={
+            "raw_paths": ["/raw_files/raw1.raw", "/raw_files/raw2.raw"],
+            "search": {"extraction_backend": "rust"},
+            "general": {"save_mbr_library": False},
+        },
+    )
+    step.spectral_library = MagicMock()
+    mock_workflow = MagicMock(spec=RustPeptideCentricWorkflow)
+    mock_workflow.path = str(tmp_path / "output" / "quant" / "raw")
+    mock_workflow.instance_name = "raw"
+    mock_workflow.reporter = MagicMock()
+    mock_workflow.extraction.return_value = (MagicMock(), MagicMock())
+
+    # when
+    with patch.dict(
+        "alphadia.search_step.WORKFLOW_CLASSES",
+        {ExtractionBackend.RUST: MagicMock(return_value=mock_workflow)},
+    ):
+        step.run()
+
+    # then: the library is converted once and each workflow loads it with the Rust library
+    mock_library_speclib_to_rust.assert_called_once_with(step.spectral_library)
+    assert mock_workflow.load.call_count == 2
+    for load_call in mock_workflow.load.call_args_list:
+        assert load_call.args[1] is step.spectral_library
+        assert (
+            load_call.kwargs["spectral_library_rust"]
+            is mock_library_speclib_to_rust.return_value
+        )
+
+
+@pytest.mark.parametrize(
+    ("backend", "expect_rust_library"), [("rust", True), ("python", False)]
+)
+@patch("alphadia.search_step.LogFlatLibraryStats")
+@patch("alphadia.search_step.SpecLibFlat")
+@patch("alphadia.search_step.SpecLibFlatRust")
+def test_load_library_reads_flat_library_in_rust_only_for_rust_backend(
+    mock_speclib_rust_cls, _, __, backend, expect_rust_library, tmp_path
+):
+    """Test that a flat library file is read into the Rust library only for the Rust backend."""
+    # given: a step with a flat input library
+    step = SearchStep(
+        str(tmp_path / "output"),
+        config={
+            "library_path": "/libraries/speclib_flat.hdf",
+            "search": {"extraction_backend": backend},
+            "general": {"input_library_type": "flat", "save_mbr_library": False},
+        },
+    )
+
+    # when
+    step.load_library()
+
+    # then
+    if expect_rust_library:
+        mock_speclib_rust_cls.from_hdf.assert_called_once_with(
+            "/libraries/speclib_flat.hdf"
+        )
+        assert (
+            step._spectral_library_rust is mock_speclib_rust_cls.from_hdf.return_value
+        )
+    else:
+        mock_speclib_rust_cls.from_hdf.assert_not_called()
+        assert step._spectral_library_rust is None

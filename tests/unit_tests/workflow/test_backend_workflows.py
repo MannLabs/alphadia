@@ -93,7 +93,7 @@ def test_classifier_feature_columns_match_backend(
         (RustPeptideCentricWorkflow, RustExtractionHandler),
     ],
 )
-@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_rust")
+@patch("alphadia.workflow.peptidecentric.rust.workflow.calibrated_speclib_to_rust")
 def test_workflow_creates_extraction_handler_of_its_backend(
     _, workflow_class, extraction_handler_class, tmp_path
 ):
@@ -285,3 +285,80 @@ def test_rust_fdr_records_prune_candidates_and_returns_identifications(
     assert call.kwargs["max_qval"] == 0.1
     optlock.record_prune_candidates.assert_called_once_with(precursor_df)
     assert result["precursor_idx"].tolist() == [1]
+
+
+@patch("alphadia.workflow.peptidecentric.rust.workflow.calibrated_speclib_to_rust")
+def test_rust_workflow_takes_the_extraction_library_from_the_run_library(
+    mock_calibrated_speclib_to_rust, tmp_path
+):
+    # Given: a Rust workflow with the Rust library of its raw file
+    workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
+    workflow._spectral_library_rust = MagicMock(name="run_speclib_rust")
+    spectral_library = MagicMock(name="spectral_library")
+
+    # When: the workflow creates an extraction handler for a part of the library
+    extraction_handler = workflow._create_extraction_handler(spectral_library)
+
+    # Then: the handler gets these precursors from the run library, with the current calibration
+    args = mock_calibrated_speclib_to_rust.call_args.args
+    assert args[0] is workflow._spectral_library_rust
+    assert args[1] is spectral_library
+    assert args[2] is workflow.calibration_manager
+    assert (
+        extraction_handler._speclib_rust is mock_calibrated_speclib_to_rust.return_value
+    )
+
+
+@patch("alphadia.workflow.peptidecentric.rust.workflow.calibrated_speclib_to_rust")
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_rust")
+def test_rust_workflow_converts_the_requantification_library(
+    mock_speclib_to_rust, mock_calibrated_speclib_to_rust, tmp_path
+):
+    # Given: a Rust workflow and a library that is not a part of the searched library
+    workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
+    workflow._spectral_library_rust = MagicMock(name="run_speclib_rust")
+    spectral_library = MagicMock(name="transfer_candidates")
+
+    # When: the workflow creates the extraction handler for the requantification
+    extraction_handler = workflow._create_requantification_extraction_handler(
+        spectral_library
+    )
+
+    # Then: the handler converts the library and does not use the run library
+    mock_calibrated_speclib_to_rust.assert_not_called()
+    assert mock_speclib_to_rust.call_args.args[0] is spectral_library
+    assert extraction_handler._speclib_rust is mock_speclib_to_rust.return_value
+
+
+@patch("alphadia.workflow.peptidecentric.rust.workflow.run_speclib_to_rust")
+@patch("alphadia.workflow.peptidecentric.rust.workflow.library_speclib_to_rust")
+@patch("alphadia.workflow.peptidecentric.peptidecentric.PeptideCentricWorkflow.load")
+@pytest.mark.parametrize("given_rust_library", [True, False])
+def test_rust_workflow_load_prepares_the_rust_library_for_the_run(
+    _,
+    mock_library_speclib_to_rust,
+    mock_run_speclib_to_rust,
+    given_rust_library,
+    tmp_path,
+):
+    # Given: a Rust workflow, a spectral library and, optionally, the library in the Rust format
+    workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
+    spectral_library = MagicMock(name="spectral_library")
+    spectral_library_rust = (
+        MagicMock(name="speclib_rust") if given_rust_library else None
+    )
+
+    # When
+    workflow.load(
+        "raw1.raw", spectral_library, spectral_library_rust=spectral_library_rust
+    )
+
+    # Then: the workflow prepares the given Rust library, or the converted library, for the DIA data
+    if given_rust_library:
+        mock_library_speclib_to_rust.assert_not_called()
+        expected_source = spectral_library_rust
+    else:
+        mock_library_speclib_to_rust.assert_called_once_with(spectral_library)
+        expected_source = mock_library_speclib_to_rust.return_value
+    mock_run_speclib_to_rust.assert_called_once_with(expected_source, workflow.dia_data)
+    assert workflow._spectral_library_rust is mock_run_speclib_to_rust.return_value

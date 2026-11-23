@@ -11,6 +11,7 @@ import torch
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import SpecLibFlat as SpecLibFlatRust
 
 from alphadia import __version__ as alphadia_version
 from alphadia.constants.keys import (
@@ -57,6 +58,7 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 from alphadia.workflow.peptidecentric.python.workflow import (
     PythonPeptideCentricWorkflow,
 )
+from alphadia.workflow.peptidecentric.rust.mapper import library_speclib_to_rust
 from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
 
 SPECLIB_FILE_NAME = "speclib.hdf"
@@ -130,6 +132,8 @@ class SearchStep:
         self.fasta_path_list = self._config[ConfigKeys.FASTA_PATHS]
 
         self.spectral_library: SpecLibFlat | None = None
+        # The spectral library in the alphadia-search-rs format, only for the Rust extraction backend
+        self._spectral_library_rust: SpecLibFlatRust | None = None
 
         self._init_alphabase()
 
@@ -216,6 +220,10 @@ class SearchStep:
         config = Config()
         config.from_yaml(default_config_path)
         return config
+
+    def _uses_rust_backend(self) -> bool:
+        """Decide if this search step uses the 'rust' extraction backend."""
+        return self.config["search"]["extraction_backend"] == ExtractionBackend.RUST
 
     @staticmethod
     def _is_rust_backend(config: Config, config_updates: list[Config]) -> bool:
@@ -316,6 +324,12 @@ class SearchStep:
             speclib_flat.load_hdf(self.library_path)
             LogFlatLibraryStats()(speclib_flat)
             self.spectral_library = speclib_flat
+
+            if self._uses_rust_backend():
+                logger.progress("Loading library (type: flat) for alphadia-search-rs..")
+                self._spectral_library_rust = SpecLibFlatRust.from_hdf(
+                    self.library_path
+                )
             return
 
         else:
@@ -547,6 +561,10 @@ class SearchStep:
             logger.progress("Loading spectral library")
             self.load_library()
 
+        if self._uses_rust_backend() and self._spectral_library_rust is None:
+            logger.progress("Converting spectral library for alphadia-search-rs")
+            self._spectral_library_rust = library_speclib_to_rust(self.spectral_library)
+
         if not self.raw_path_list:
             logger.warning("No raw files provided, nothing to search.")
             return []
@@ -643,7 +661,12 @@ class SearchStep:
         """Process a single raw file, storing the results on disk."""
         workflow.timing_manager.set_start_time("total")
 
-        workflow.load(dia_path, speclib)
+        if isinstance(workflow, RustPeptideCentricWorkflow):
+            workflow.load(
+                dia_path, speclib, spectral_library_rust=self._spectral_library_rust
+            )
+        else:
+            workflow.load(dia_path, speclib)
 
         workflow.search_parameter_optimization()
 
