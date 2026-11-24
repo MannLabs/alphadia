@@ -1,7 +1,6 @@
 import logging
 import os
 import sys
-import time
 from collections.abc import Generator
 from copy import deepcopy
 from pathlib import Path
@@ -60,7 +59,7 @@ from alphadia.workflow.peptidecentric.python.workflow import (
     PythonPeptideCentricWorkflow,
 )
 from alphadia.workflow.peptidecentric.rust.library_loader import (
-    LibraryStringColumns,
+    LibraryStrings,
     load_flat_library,
 )
 from alphadia.workflow.peptidecentric.rust.mapper import library_speclib_to_rust
@@ -139,8 +138,8 @@ class SearchStep:
         self.spectral_library: SpecLibFlat | None = None
         # The spectral library in the alphadia-search-rs format, only for the Rust extraction backend
         self._spectral_library_rust: SpecLibFlatRust | None = None
-        # Reader of the string columns of the library, which are only added to the PSMs. Only for the Rust backend.
-        self._library_string_columns: LibraryStringColumns | None = None
+        # Reader of the string columns of the library, which are only added to the output. Only for the Rust backend.
+        self._library_strings: LibraryStrings | None = None
 
         self._init_alphabase()
 
@@ -333,7 +332,7 @@ class SearchStep:
                 (
                     self.spectral_library,
                     self._spectral_library_rust,
-                    self._library_string_columns,
+                    self._library_strings,
                 ) = load_flat_library(self.library_path)
                 return
 
@@ -653,6 +652,7 @@ class SearchStep:
                 workflow_folder_list,
                 base_spec_lib,
                 self.spectral_library.precursor_df,
+                library_strings=self._library_strings,
             )
 
         except Exception as e:
@@ -684,12 +684,8 @@ class SearchStep:
 
         psm_df, frag_df = workflow.extraction()
 
-        if self._library_string_columns is not None:
-            time_start = time.time()
-            psm_df = self._library_string_columns.add_to(psm_df)
-            workflow.reporter.log_string(
-                f"Reading the library string columns of {len(psm_df):,} PSMs took {time.time() - time_start:.1f} s"
-            )
+        if self._library_strings is not None:
+            psm_df = self._library_strings.add_key(psm_df)
 
         if self.config["multiplexing"]["enabled"]:
             psm_df = workflow.requantify(psm_df)

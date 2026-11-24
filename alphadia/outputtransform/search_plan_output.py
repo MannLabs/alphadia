@@ -91,6 +91,7 @@ class SearchPlanOutput:
         folder_list: list[str],
         base_spec_lib: base.SpecLibBase | None,
         library_precursor_df: pd.DataFrame | None = None,
+        library_strings: "LibraryStrings | None" = None,  # noqa: F821
     ):
         """Build output from a list of search outputs.
 
@@ -115,11 +116,17 @@ class SearchPlanOutput:
             Precursor table of the searched library. If it has the column `pg_qval` (an MBR library), the protein
             groups take their q-values from it instead of from a protein FDR.
 
+        library_strings: LibraryStrings, optional
+            Reader of the string columns of the library. If given, the PSMs have only the key mod_seq_charge_hash
+            and the string columns are added from the library file.
+
         """
         logger.progress("Processing search outputs")
         # the decoys stay in until the precursor table is written: the MBR library takes the first search's accepted
         # decoys whether the outputs keep decoys or not
-        psm_df = self._build_precursor_table(folder_list, library_precursor_df)
+        psm_df = self._build_precursor_table(
+            folder_list, library_precursor_df, library_strings
+        )
 
         # every output is written as soon as it is built, so a later failure does not
         # discard the outputs already on disk
@@ -309,6 +316,7 @@ class SearchPlanOutput:
         self,
         folder_list: list[str],
         library_precursor_df: pd.DataFrame | None = None,
+        library_strings: "LibraryStrings | None" = None,  # noqa: F821
     ) -> pd.DataFrame:
         """Build precursor table from a list of search outputs
 
@@ -339,6 +347,9 @@ class SearchPlanOutput:
 
         if len(psm_df) == 0:
             raise NoPSMFoundError()
+
+        if library_strings is not None:
+            psm_df = library_strings.add_strings(psm_df)
 
         logger.info("Performing protein inference")
 
