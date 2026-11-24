@@ -112,30 +112,6 @@ def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:
         )
 
     reporter.log_string("", verbosity="progress")
-    if "proteins" not in precursor_df.columns:
-        # a library loaded by alphadia-search-rs has no protein column during the search
-        return
-
-    reporter.log_string("Protein Summary:", verbosity="progress")
-
-    for channel in precursor_df["channel"].unique():
-        fdr_counts = {
-            threshold: precursor_df[
-                (precursor_df["qval"] < threshold)
-                & (precursor_df["decoy"] == 0)
-                & (precursor_df["channel"] == channel)
-            ]["proteins"].nunique()
-            for threshold in [0.05, 0.01, 0.001]
-        }
-        reporter.log_string(
-            f"Channel {channel:>3}:\t "
-            + "; ".join(
-                f"{threshold:.3f} FDR: {fdr_counts[threshold]:>5,}"
-                for threshold, fdr_count in fdr_counts.items()
-            ),
-            verbosity="progress",
-        )
-
     reporter.log_string(
         "=========================================================================",
         verbosity="progress",

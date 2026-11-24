@@ -35,24 +35,15 @@ QUANT_LEVEL_CONFIGS: dict[str, LFQOutputConfig] = {
         quant_level=QuantificationLevelKey.PRECURSOR,
         level_name=QuantificationLevelName.PRECURSOR,
         intensity_column="precursor_lfq_intensity",
-        aggregation_components=[
-            QuantificationLevelKey.PROTEIN,
-            "sequence",
-            "mods",
-            "mod_sites",
-            "charge",
-        ],
+        # the matrix has only the key of the level; the annotations are in the precursor table
+        aggregation_components=[],
     ),
     QuantificationLevelName.PEPTIDE: LFQOutputConfig(
         quant_level=QuantificationLevelKey.PEPTIDE,
         level_name=QuantificationLevelName.PEPTIDE,
         intensity_column="peptide_lfq_intensity",
-        aggregation_components=[
-            QuantificationLevelKey.PROTEIN,
-            "sequence",
-            "mods",
-            "mod_sites",
-        ],
+        # the matrix has only the key of the level; the annotations are in the precursor table
+        aggregation_components=[],
     ),
     QuantificationLevelName.PROTEIN: LFQOutputConfig(
         quant_level=QuantificationLevelKey.PROTEIN,
@@ -358,7 +349,10 @@ def _annotate_quant_df(
     pd.DataFrame
         Annotated quantification dataframe
     """
-    if config.level_name == QuantificationLevelName.PROTEIN:
+    if (
+        config.level_name == QuantificationLevelName.PROTEIN
+        or not config.aggregation_components
+    ):
         return lfq_df
 
     annotate_df = psm_df.groupby(config.quant_level, as_index=False).agg(
