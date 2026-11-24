@@ -6,10 +6,12 @@ Ideally the CLI module should have as little logic as possible so that the searc
 # ruff: noqa: E402 # Module level import not at top of file
 
 import argparse
+import gc
 import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 
 import yaml
@@ -241,6 +243,21 @@ def _print_vendor_format_support() -> None:
         print(f"{vendor} support: {status}")
 
 
+def _freeze_objects_for_exit() -> None:
+    """Exclude all objects that are alive at the end of the search from the garbage collection.
+
+    At exit, the shutdown of pythonnet (the .NET runtime for Thermo raw files) runs full garbage collections
+    over all live objects, which took about 30 s after a search. The process ends anyway, so these objects
+    need no collection.
+    """
+    time_start = time.time()
+    num_objects = len(gc.get_objects())
+    gc.freeze()
+    logger.info(
+        f"Excluded {num_objects:,} objects from the garbage collection at exit in {time.time() - time_start:.1f} s"
+    )
+
+
 def run(*args, **kwargs):
     args, unknown = parser.parse_known_args()
 
@@ -309,6 +326,7 @@ def run(*args, **kwargs):
 
     try:
         SearchPlan(output_directory, user_config, cli_params_config).run_plan()
+        _freeze_objects_for_exit()
 
     except Exception as e:
         if isinstance(e, CustomError):
