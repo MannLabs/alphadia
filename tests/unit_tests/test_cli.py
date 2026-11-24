@@ -3,11 +3,19 @@
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
+import pytest
 import yaml
 
 from alphadia.cli import _get_config_from_args, _get_from_args_or_config, run
 
 # TODO add tests for _get_raw_path_list_from_args_and_config
+
+
+@pytest.fixture(autouse=True)
+def mock_gc_freeze():
+    # A real freeze in the test process keeps the objects of all later tests from the garbage collection.
+    with patch("alphadia.cli.gc.freeze") as mock_freeze:
+        yield mock_freeze
 
 
 def test_get_config_from_args_nothing_provided():
@@ -208,3 +216,61 @@ def test_cli_minimal_args_all_none(mock_parse_known_args):
     mock_search_plan.return_value.run_plan.assert_called_once()
 
     mock_reporting.init_logging.assert_called_once_with(expected_output)
+
+
+def _run_cli_with_search_plan(mock_parse_known_args, mock_search_plan):
+    mock_parse_known_args.return_value = (
+        MagicMock(
+            config=None,
+            version=None,
+            check=None,
+            output="/output",
+            fasta=None,
+            library=None,
+            quant_dir=None,
+            config_dict=[],
+            file=[],
+            directory=[],
+            regex=".*",
+        ),
+        [],
+    )
+    with patch.dict(
+        "sys.modules",
+        {
+            "alphadia.search_plan": MagicMock(SearchPlan=mock_search_plan),
+            "alphadia.reporting": MagicMock(reporting=MagicMock()),
+        },
+    ):
+        return run()
+
+
+@patch("alphadia.cli.parser.parse_known_args")
+def test_cli_excludes_live_objects_from_garbage_collection_after_search(
+    mock_parse_known_args, mock_gc_freeze
+):
+    # Given: a search plan that completes
+    completed_search_plan = MagicMock()
+
+    # When: the CLI runs the search
+    _run_cli_with_search_plan(mock_parse_known_args, completed_search_plan)
+
+    # Then: the live objects are excluded from the garbage collection after the search
+    completed_search_plan.return_value.run_plan.assert_called_once()
+    mock_gc_freeze.assert_called_once()
+
+
+@patch("alphadia.cli.parser.parse_known_args")
+def test_cli_excludes_live_objects_from_garbage_collection_after_failed_search(
+    mock_parse_known_args, mock_gc_freeze
+):
+    # Given: a search plan that fails
+    failed_search_plan = MagicMock()
+    failed_search_plan.return_value.run_plan.side_effect = RuntimeError("failed")
+
+    # When: the CLI runs the search
+    exit_code = _run_cli_with_search_plan(mock_parse_known_args, failed_search_plan)
+
+    # Then: the CLI returns an error code and the live objects are excluded from the garbage collection
+    assert exit_code is not None
+    mock_gc_freeze.assert_called_once()
