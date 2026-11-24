@@ -254,12 +254,17 @@ def to_features_df(
     features_df = features_df.merge(
         spectral_library.precursor_df[
             [
-                "precursor_idx",
-                "decoy",
-                "elution_group_idx",
-                "channel",
-                "proteins",
-                CalibCols.MZ_LIBRARY,
+                c
+                for c in [
+                    "precursor_idx",
+                    "decoy",
+                    "elution_group_idx",
+                    "channel",
+                    "proteins",
+                    CalibCols.MZ_LIBRARY,
+                ]
+                # the string columns of a library loaded by alphadia-search-rs are added after the calibration
+                if c in spectral_library.precursor_df.columns
             ]
         ],
         on="precursor_idx",

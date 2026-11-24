@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import time
 from collections.abc import Generator
 from copy import deepcopy
 from pathlib import Path
@@ -57,6 +58,11 @@ from alphadia.workflow.config import (
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 from alphadia.workflow.peptidecentric.python.workflow import (
     PythonPeptideCentricWorkflow,
+)
+from alphadia.workflow.peptidecentric.rust.library_loader import (
+    DeferredPrecursorColumns,
+    add_deferred_columns,
+    load_flat_library,
 )
 from alphadia.workflow.peptidecentric.rust.mapper import library_speclib_to_rust
 from alphadia.workflow.peptidecentric.rust.workflow import RustPeptideCentricWorkflow
@@ -134,6 +140,8 @@ class SearchStep:
         self.spectral_library: SpecLibFlat | None = None
         # The spectral library in the alphadia-search-rs format, only for the Rust extraction backend
         self._spectral_library_rust: SpecLibFlatRust | None = None
+        # String columns of the library that are read in the background, only for the Rust extraction backend
+        self._deferred_precursor_columns: DeferredPrecursorColumns | None = None
 
         self._init_alphabase()
 
@@ -319,17 +327,22 @@ class SearchStep:
                     "Settings general.save_mbr_library = 'True' and general.input_library_type = 'flat' are incompatible.",
                 )
 
+            if self._uses_rust_backend():
+                logger.progress(
+                    "Loading library (type: flat) from disk with alphadia-search-rs.."
+                )
+                (
+                    self.spectral_library,
+                    self._spectral_library_rust,
+                    self._deferred_precursor_columns,
+                ) = load_flat_library(self.library_path)
+                return
+
             logger.progress("Loading library (type: flat) from disk..")
             speclib_flat = SpecLibFlat()
             speclib_flat.load_hdf(self.library_path)
             LogFlatLibraryStats()(speclib_flat)
             self.spectral_library = speclib_flat
-
-            if self._uses_rust_backend():
-                logger.progress("Loading library (type: flat) for alphadia-search-rs..")
-                self._spectral_library_rust = SpecLibFlatRust.from_hdf(
-                    self.library_path
-                )
             return
 
         else:
@@ -668,6 +681,8 @@ class SearchStep:
         else:
             workflow.load(dia_path, speclib)
 
+        self._add_deferred_precursor_columns(workflow)
+
         workflow.search_parameter_optimization()
 
         psm_df, frag_df = workflow.extraction()
@@ -695,6 +710,28 @@ class SearchStep:
 
         workflow.timing_manager.set_end_time("total")
         workflow.timing_manager.save()
+
+    def _add_deferred_precursor_columns(self, workflow: PeptideCentricWorkflow) -> None:
+        """Add the deferred string columns to the library of the step and of `workflow`.
+
+        They are read in the background while the workflow loads the raw file.
+        """
+        if self._deferred_precursor_columns is None:
+            return
+        time_start = time.time()
+        deferred_df = self._deferred_precursor_columns.get()
+        for spectral_library in (self.spectral_library, workflow.spectral_library):
+            spectral_library._precursor_df = add_deferred_columns(
+                spectral_library._precursor_df, deferred_df
+            )
+            unfiltered = getattr(spectral_library, "precursor_df_unfiltered", None)
+            if unfiltered is not None:
+                spectral_library.precursor_df_unfiltered = add_deferred_columns(
+                    unfiltered, deferred_df
+                )
+        workflow.reporter.log_string(
+            f"Adding the deferred precursor columns took {time.time() - time_start:.1f} s"
+        )
 
     def _clean(self):
         if not self.config["general"]["save_library"]:

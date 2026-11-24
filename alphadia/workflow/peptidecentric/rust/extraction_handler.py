@@ -19,7 +19,10 @@ from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
 from alphadia.reporting.reporting import Pipeline
-from alphadia.search.python.scoring.scoring import CandidateScoring
+from alphadia.search.python.scoring.scoring import (
+    DEFAULT_PRECURSOR_COLUMNS,
+    CandidateScoring,
+)
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
@@ -197,6 +200,12 @@ class RustExtractionHandler(ExtractionHandler):
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
+            # the string columns of a library loaded by alphadia-search-rs are added after the calibration
+            precursor_df_columns=[
+                c
+                for c in DEFAULT_PRECURSOR_COLUMNS
+                if c in self._spectral_library.precursor_df.columns
+            ],
         )
 
         features_or_precursor_df[CalibCols.MZ_OBSERVED] = features_or_precursor_df[
