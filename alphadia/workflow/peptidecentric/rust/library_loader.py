@@ -1,14 +1,14 @@
 """Load a flat spectral library from HDF with alphadia-search-rs, for the Rust extraction backend.
 
-The numeric columns and the Rust library are read at once. The string columns (sequence, modifications, proteins)
-are read in a background thread, because the search needs them only for the final extraction.
+The search reads only the numeric columns. The string columns (sequence, modifications, proteins) are read
+at the end of the search of a raw file, only for the precursors of its PSMs.
 """
 
 import logging
-import threading
 import time
 
 import h5py
+import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatRust
@@ -19,82 +19,66 @@ logger = logging.getLogger()
 PRECURSOR_GROUP = "library/precursor_df"
 FRAGMENT_GROUP = "library/fragment_df"
 
-# String columns that the search reads only for the final extraction and the output.
-DEFERRED_PRECURSOR_COLUMNS = ["sequence", "mods", "mod_sites", "proteins", "genes"]
-# String columns that the search does not use.
+# String columns that are added to the PSMs.
+STRING_PRECURSOR_COLUMNS = ["sequence", "mods", "mod_sites", "proteins", "genes"]
+# Columns that are added to the PSMs from the library file: the string columns and the precursor key.
+PSM_LIBRARY_COLUMNS = [*STRING_PRECURSOR_COLUMNS, "mod_seq_charge_hash"]
+# String columns that are not read.
 SKIPPED_PRECURSOR_COLUMNS = ["instrument", "protein_idxes"]
 
 
-class DeferredPrecursorColumns:
-    """Read precursor columns of a library file in a background thread.
+class LibraryStringColumns:
+    """Read the string columns of the precursors of a library file, only for given precursors."""
 
-    The HDF read in alphadia-search-rs releases the GIL, so the search continues while the thread reads.
-    """
-
-    def __init__(self, library_path: str, columns: list[str]) -> None:
+    def __init__(self, library_path: str, precursor_idx: np.ndarray) -> None:
         self._library_path = library_path
-        self._columns = columns
-        self._result: pd.DataFrame | None = None
-        self._error: BaseException | None = None
-        self._thread = threading.Thread(
-            target=self._read, name="deferred-precursor-columns", daemon=True
+        # the precursor_idx of each row of the file
+        self._precursor_idx = precursor_idx
+        self._is_row_number = np.array_equal(
+            precursor_idx, np.arange(len(precursor_idx))
         )
-        self._thread.start()
+        if not self._is_row_number and np.any(np.diff(precursor_idx) <= 0):
+            raise ValueError("The precursor_idx of the library file is not sorted")
 
-    def _read(self) -> None:
-        try:
-            time_start = time.time()
-            columns = read_hdf_columns(
-                self._library_path, PRECURSOR_GROUP, ["precursor_idx", *self._columns]
-            )
-            precursor_idx = columns.pop("precursor_idx")
-            self._result = pd.DataFrame(
-                columns, index=pd.Index(precursor_idx, name="precursor_idx"), copy=False
-            )
-            logger.info(
-                f"Reading the precursor columns {self._columns} took {time.time() - time_start:.1f} s"
-            )
-        except BaseException as e:  # noqa: BLE001 the error is raised again in `get`
-            self._error = e
-
-    def get(self) -> pd.DataFrame:
-        """Wait for the read and return the columns, indexed by precursor_idx."""
-        time_start = time.time()
-        self._thread.join()
-        waited = time.time() - time_start
-        if waited > 0.1:
-            logger.info(f"Waited {waited:.1f} s for the deferred precursor columns")
-        if self._error is not None:
-            raise self._error
-        return self._result
-
-
-def add_deferred_columns(
-    precursor_df: pd.DataFrame, deferred_df: pd.DataFrame
-) -> pd.DataFrame:
-    """Add the columns of `deferred_df` that `precursor_df` does not have, matched by precursor_idx."""
-    missing = [c for c in deferred_df.columns if c not in precursor_df.columns]
-    if not missing:
-        return precursor_df
-    values = deferred_df[missing].reindex(precursor_df["precursor_idx"].to_numpy())
-    precursor_df = precursor_df.copy(deep=False)
-    for column in missing:
-        precursor_df[column] = values[column].to_numpy()
-    return precursor_df
+    def add_to(
+        self, df: pd.DataFrame, columns: list[str] = PSM_LIBRARY_COLUMNS
+    ) -> pd.DataFrame:
+        """Add `columns` of the precursors of `df` to `df`, matched by precursor_idx."""
+        missing = [c for c in columns if c not in df.columns]
+        if not missing:
+            return df
+        precursor_idx = df["precursor_idx"].to_numpy(dtype=np.int64)
+        unique_idx, inverse = np.unique(precursor_idx, return_inverse=True)
+        if self._is_row_number:
+            rows = unique_idx
+        else:
+            rows = np.searchsorted(self._precursor_idx, unique_idx)
+        if len(rows) and (
+            rows[-1] >= len(self._precursor_idx)
+            or not np.array_equal(self._precursor_idx[rows], unique_idx)
+        ):
+            raise ValueError("Precursors of the PSMs are not in the library file")
+        values = read_hdf_columns(
+            self._library_path, PRECURSOR_GROUP, missing, rows.astype(np.uint64)
+        )
+        df = df.copy(deep=False)
+        for column in missing:
+            df[column] = values[column][inverse]
+        return df
 
 
 def load_flat_library(
     library_path: str,
-) -> tuple[SpecLibFlat, SpecLibFlatRust, DeferredPrecursorColumns]:
+) -> tuple[SpecLibFlat, SpecLibFlatRust, LibraryStringColumns]:
     """Load the flat library in `library_path`.
 
-    Returns the alphabase library without the deferred string columns, the alphadia-search-rs library
-    and the reader of the deferred columns.
+    Returns the alphabase library without the string columns, the alphadia-search-rs library
+    and the reader of the string columns.
     """
     time_start = time.time()
     with h5py.File(library_path, "r") as hdf:
         column_names = list(hdf[PRECURSOR_GROUP].keys())
-    not_read = set(DEFERRED_PRECURSOR_COLUMNS + SKIPPED_PRECURSOR_COLUMNS)
+    not_read = set(STRING_PRECURSOR_COLUMNS + SKIPPED_PRECURSOR_COLUMNS)
     precursor_df = pd.DataFrame(
         read_hdf_columns(
             library_path,
@@ -116,11 +100,12 @@ def load_flat_library(
         f"Reading the alphadia-search-rs library took {time.time() - time_start:.1f} s"
     )
 
-    # start after the other reads: the HDF5 library serialises reads of all threads
-    deferred = DeferredPrecursorColumns(library_path, DEFERRED_PRECURSOR_COLUMNS)
+    string_columns = LibraryStringColumns(
+        library_path, precursor_df["precursor_idx"].to_numpy()
+    )
 
     spectral_library = SpecLibFlat()
     spectral_library._precursor_df = precursor_df
     spectral_library._fragment_df = fragment_df
     spectral_library._protein_df = pd.DataFrame()
-    return spectral_library, spectral_library_rust, deferred
+    return spectral_library, spectral_library_rust, string_columns

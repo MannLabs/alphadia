@@ -112,6 +112,10 @@ def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:
         )
 
     reporter.log_string("", verbosity="progress")
+    if "proteins" not in precursor_df.columns:
+        # a library loaded by alphadia-search-rs has no protein column during the search
+        return
+
     reporter.log_string("Protein Summary:", verbosity="progress")
 
     for channel in precursor_df["channel"].unique():
