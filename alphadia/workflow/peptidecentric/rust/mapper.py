@@ -170,6 +170,8 @@ FINAL_ROUND_EXCLUDED_FEATURES = ("fwhm_rt",)
 
 # The optional features by the `search.<flag>` that adds them to the classifier. They are in FeatureSet.Full only,
 # so they only exist in the final round and never enter the calibration fits.
+SYMBOLIC_FEATURE_PREFIX = "sym_"
+
 OPTIONAL_FEATURE_GROUPS = {
     # |fitted - library| of the unit-sum fragment intensities, each fragment XIC fitted to the median elution profile
     "fitted_spread_features": (
@@ -214,6 +216,12 @@ OPTIONAL_FEATURE_GROUPS = {
         "shadow_lib_share",
         "det_faint_hits",
         "det_faint_miss",
+    ),
+    # the outputs of the rust package's learned feature network (all its columns carry this prefix)
+    "symbolic_features": tuple(
+        name
+        for name in get_feature_names(FeatureSet.Full)
+        if name.startswith(SYMBOLIC_FEATURE_PREFIX)
     ),
 }
 

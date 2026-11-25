@@ -118,7 +118,7 @@ def test_several_runs_censor_and_pass_the_correlation_by_run():
 
     # Then the correlation is laid out like the intensity, one row per run, within [0, 1]
     intensity_arg, correlation_arg = args[0], args[4]
-    assert options == {"censored": True, "quality_exponent": 1.5}
+    assert options == {"fragment_censoring_correction": True}
     assert correlation_arg.shape == intensity_arg.shape
     assert correlation_arg.flags["C_CONTIGUOUS"]
     np.testing.assert_allclose(
@@ -138,4 +138,4 @@ def test_a_single_run_uses_the_plain_fit():
     )
 
     # Then
-    assert options == {"censored": False, "quality_exponent": 0.0}
+    assert options == {"fragment_censoring_correction": False}

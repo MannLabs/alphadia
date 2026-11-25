@@ -325,8 +325,8 @@ class QuantBuilder:
             fragment_precursor_index.astype(np.uintp),
             len(precursor_hashes),
             np.ascontiguousarray(correlation.T),
-            censored=extended,
-            quality_exponent=quality_exponent if extended else 0.0,
+            # the rust package fixes the quality exponent of the censoring correction (1.5)
+            fragment_censoring_correction=extended and quality_exponent > 0,
         )
         logger.info(
             f"Variance-model fit: residual scale {result['residual_scale']:.3f} log2, "

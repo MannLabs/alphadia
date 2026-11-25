@@ -102,23 +102,27 @@ def test_get_classifier_feature_columns_without_the_block_in_rust():
     assert columns == CORE_COLUMNS
 
 
-def test_get_classifier_feature_columns_with_all_flags_adds_the_26_columns(
+def test_get_classifier_feature_columns_with_all_flags_adds_the_optional_columns(
     full_feature_names,
 ):
     # given / when
     columns = get_classifier_feature_columns(list(OPTIONAL_FEATURE_GROUPS))
 
-    # then: 4 fitted spread, 3 window share, 10 MS1, 6 mobility profile and 3 detection columns
+    # then: 4 fitted spread, 3 window share, 10 MS1, 6 mobility profile, 3 detection and the learned network columns
     assert columns == FULL_WITH_OPTIONAL
     assert [
         len(OPTIONAL_FEATURE_GROUPS[group]) for group in OPTIONAL_FEATURE_GROUPS
-    ] == [
+    ][:-1] == [
         4,
         3,
         10,
         6,
         3,
     ]
+    assert all(
+        column.startswith("sym_")
+        for column in OPTIONAL_FEATURE_GROUPS["symbolic_features"]
+    )
 
 
 @pytest.mark.parametrize("group", list(OPTIONAL_FEATURE_GROUPS))
