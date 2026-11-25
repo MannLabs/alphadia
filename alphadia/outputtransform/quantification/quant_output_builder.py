@@ -14,9 +14,6 @@ from alphadia.constants.keys import (
 from alphadia.outputtransform.quantification.fragment_accumulator import (
     FragmentQuantLoader,
 )
-from alphadia.outputtransform.quantification.intensity_drift_correction import (
-    correct_intensity_drift,
-)
 from alphadia.outputtransform.quantification.quant_builder import (
     INTENSITY_LIBRARY_COLUMN,
     LFQOutputConfig,
@@ -119,13 +116,6 @@ class QuantOutputBuilder:
         if feature_dfs_dict is None or not feature_dfs_dict:
             logger.warning("No fragment data found, skipping quantification")
             return {}, self.psm_df
-
-        if self.config["search_output"]["intensity_drift_correction"]:
-            feature_dfs_dict["intensity"] = correct_intensity_drift(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                self._psm_no_decoys_df,
-            )
 
         quantlevel_configs = self._create_quant_level_configs()
         requested_configs = [c for c in quantlevel_configs if c.should_process]

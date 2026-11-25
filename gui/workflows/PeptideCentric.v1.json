@@ -601,13 +601,6 @@
                     "default": true,
                     "description": "Apply directLFQ normalization. Only applies when 'varmodel_directlfq' or 'directlfq' is selected as the LFQ method.",
                     "type": "boolean"
-                },
-                {
-                    "id": "intensity_drift_correction",
-                    "name": "Intensity drift correction",
-                    "default": true,
-                    "description": "Remove each run's retention-time dependent intensity drift before label-free quantification. Each run's correction curve is centred on zero, so it only flattens how the intensity changes along the gradient and does not shift the overall intensity of a run. Differences in overall run intensity are corrected by the label-free quantification normalization.",
-                    "type": "boolean"
                 }
             ]
         },
