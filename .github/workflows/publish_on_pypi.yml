@@ -11,7 +11,7 @@ on:
 
 jobs:
   publish_on_pypi:
-    uses: MannLabs/alphashared/.github/workflows/publish_on_pypi.yml@v1
+    uses: MannLabs/alphashared/.github/workflows/publish_on_pypi.yml@platform-wheels  # TODO: back to @v1 once released in alphashared
     with:
       # see the documentation of the workflow for more information on the parameters
       package_name: alphadia
