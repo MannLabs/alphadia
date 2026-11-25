@@ -16,6 +16,12 @@ from alphadia_search_rs import SpecLibFlat as SpecLibFlatRust
 
 from alphadia.constants.keys import CalibCols
 from alphadia.raw_data import DiaData
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationEstimators,
+    CalibrationGroups,
+    CalibrationManager,
+)
+from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
 def set_thread_count(thread_count: int) -> None:
@@ -84,6 +90,73 @@ def speclib_to_rust(
         fragment_df["position"].values.astype(np.uint8),
         fragment_df["type"].values.astype(np.uint8),
     )
+
+
+def library_speclib_to_rust(speclib: SpecLibFlat) -> "SpecLibFlatRust":  # noqa: F821
+    """Convert a spectral library to the alphadia-search-rs format, with the library values as search values.
+
+    The result is the same as `SpecLibFlatRust.from_hdf` of the flat library file.
+    """
+    return speclib_to_rust(
+        speclib,
+        rt_column=CalibCols.RT_LIBRARY,
+        precursor_mz_column=CalibCols.MZ_LIBRARY,
+        fragment_mz_column=CalibCols.MZ_LIBRARY,
+    )
+
+
+def run_speclib_to_rust(
+    speclib_rust: "SpecLibFlatRust",  # noqa: F821
+    dia_data: DiaDataRust,
+) -> "SpecLibFlatRust":  # noqa: F821
+    """Get a copy of `speclib_rust` for the search of `dia_data`.
+
+    In the copy, the library RT is scaled to the RT range of `dia_data` and the precursors outside the
+    m/z range of the DIA cycle are removed, as `init_spectral_library` does for the Python library.
+    """
+    run_speclib_rust = speclib_rust.copy()
+    run_speclib_rust.init_for_run(dia_data)
+    return run_speclib_rust
+
+
+def calibrated_speclib_to_rust(
+    run_speclib_rust: "SpecLibFlatRust",  # noqa: F821
+    spectral_library: SpecLibFlat,
+    calibration_manager: CalibrationManager,
+    column_name_handler: ColumnNameHandler,
+) -> "SpecLibFlatRust":  # noqa: F821
+    """Get the precursors of `spectral_library` from `run_speclib_rust`, with the search values of the current calibration.
+
+    The result is the same as `speclib_to_rust` of `spectral_library` with the columns of `column_name_handler`:
+    a calibrated column is used only if `column_name_handler` selects it.
+    """
+
+    def estimator_if(is_calibrated: bool, group: str, name: str):  # noqa: FBT001
+        if not is_calibrated:
+            return None
+        return calibration_manager.get_estimator(group, name).rust_estimator
+
+    speclib_rust = run_speclib_rust.subset(
+        spectral_library.precursor_df["precursor_idx"].to_numpy(dtype=np.uint64)
+    )
+    speclib_rust.calibrate(
+        rt=estimator_if(
+            column_name_handler.get_rt_column() == CalibCols.RT_CALIBRATED,
+            CalibrationGroups.PRECURSOR,
+            CalibrationEstimators.RT,
+        ),
+        precursor_mz=estimator_if(
+            column_name_handler.get_precursor_mz_column() == CalibCols.MZ_CALIBRATED,
+            CalibrationGroups.PRECURSOR,
+            CalibrationEstimators.MZ,
+        ),
+        fragment_mz=estimator_if(
+            column_name_handler.get_fragment_mz_column() == CalibCols.MZ_CALIBRATED,
+            CalibrationGroups.FRAGMENT,
+            CalibrationEstimators.MZ,
+        ),
+    )
+    return speclib_rust
 
 
 def get_feature_names(feature_set: FeatureSet) -> list[str]:

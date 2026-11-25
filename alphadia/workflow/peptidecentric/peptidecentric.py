@@ -147,6 +147,12 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
     ) -> ExtractionHandler:
         """Create an extraction handler of this backend for the given spectral library and the current calibration state."""
 
+    def _create_requantification_extraction_handler(
+        self, spectral_library: SpecLibFlat
+    ) -> ExtractionHandler:
+        """Create an extraction handler for a library that is not a part of the searched library, e.g. the transfer library candidates."""
+        return self._create_extraction_handler(spectral_library)
+
     def _create_column_name_handler(self) -> ColumnNameHandler:
         return ColumnNameHandler(
             self.calibration_manager,
@@ -231,7 +237,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
             self.config,
             self.calibration_manager,
             self.reporter,
-            self._create_extraction_handler,
+            self._create_requantification_extraction_handler,
         )
 
         return requantification_handler.requantify(psm_df)

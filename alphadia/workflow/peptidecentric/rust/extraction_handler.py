@@ -46,7 +46,14 @@ class RustExtractionHandler(ExtractionHandler):
         column_name_handler: ColumnNameHandler,
         dia_data: DiaDataRust,
         spectral_library: SpecLibFlat,
+        spectral_library_rust: SpecLibFlatRust | None = None,
     ):
+        """Initialize the handler.
+
+        `spectral_library_rust` is `spectral_library` in the alphadia-search-rs format, with the search values of the
+        current calibration. If it is None, the handler converts `spectral_library` with the columns of
+        `column_name_handler`.
+        """
         super().__init__(
             config,
             optimization_context,
@@ -57,12 +64,14 @@ class RustExtractionHandler(ExtractionHandler):
             spectral_library,
         )
 
-        self._speclib_rust: SpecLibFlatRust = speclib_to_rust(
-            spectral_library,
-            rt_column=column_name_handler.get_rt_column(),
-            precursor_mz_column=column_name_handler.get_precursor_mz_column(),
-            fragment_mz_column=column_name_handler.get_fragment_mz_column(),
-        )
+        if spectral_library_rust is None:
+            spectral_library_rust = speclib_to_rust(
+                spectral_library,
+                rt_column=column_name_handler.get_rt_column(),
+                precursor_mz_column=column_name_handler.get_precursor_mz_column(),
+                fragment_mz_column=column_name_handler.get_fragment_mz_column(),
+            )
+        self._speclib_rust: SpecLibFlatRust = spectral_library_rust
 
     def _select_candidates(self) -> pd.DataFrame:
         """Select candidates using the Rust backend.
