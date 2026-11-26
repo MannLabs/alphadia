@@ -211,9 +211,15 @@ def test_unknown_feature_transform_raises():
 
 
 def test_hyperparameter_tuning_fits_small_data():
-    # Given: hyperparameter tuning. For few rows, the tuning makes the batch size smaller.
+    # Given: hyperparameter tuning and a constant learning rate. For few rows, the tuning makes the
+    # batch size smaller. The tuned rate is small, so with a cosine decay, 5 epochs on 3000 rows
+    # train too little.
     x, y = _separable_data(3000)
-    classifier = _classifier(experimental_hyperparameter_tuning=True)
+    classifier = _classifier(
+        experimental_hyperparameter_tuning=True,
+        lr_schedule="constant",
+        weight_averaging=False,
+    )
 
     # When: fitting
     classifier.fit(x, y)
@@ -255,6 +261,14 @@ def test_configure_training_keeps_unset_values_and_rejects_unknown_schedule():
         classifier.configure_training(lr_schedule="linear")
 
 
+def test_training_is_smoothed_by_default():
+    # When: creating a classifier without training options
+    classifier = _classifier()
+
+    # Then: it trains with the cosine schedule and weight averaging
+    assert (classifier.lr_schedule, classifier.weight_averaging) == ("cosine", True)
+
+
 def test_state_dict_carries_the_training_configuration():
     # Given: a classifier with smoothing
     source = _classifier(lr_schedule="cosine", weight_averaging=True)
@@ -271,7 +285,7 @@ def test_mid_rank_ties_centres_a_feature_that_is_mostly_zero():
     # Given: a feature that is 0 (its minimum) in 90 % of the rows
     x, _ = _data_with_a_mostly_zero_feature()
     x = x.astype(np.float32)
-    clamped, mid_ranked = _classifier(), _classifier(mid_rank_ties=True)
+    clamped, mid_ranked = _classifier(mid_rank_ties=False), _classifier()
 
     # When: the feature is transformed with the same quantiles, with and without mid-ranked ties
     quantiles = clamped._fit_feature_transform(x, seed=0)
@@ -285,7 +299,7 @@ def test_mid_rank_ties_centres_a_feature_that_is_mostly_zero():
 
 
 @pytest.mark.parametrize(
-    "options", [{"mid_rank_ties": True}, {"input_batch_norm": True}]
+    "options", [{"mid_rank_ties": False}, {"input_batch_norm": True}]
 )
 def test_options_survive_the_state_dict(options):
     # Given: a classifier fitted with an option other than the default, on a feature with tied

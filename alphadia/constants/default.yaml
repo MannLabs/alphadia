@@ -318,9 +318,9 @@ fdr:
   # predict with the network weights averaged over the minibatches of the last epoch instead of the weights after
   # the last minibatch
   weight_averaging: true
-  # implementation of the FDR classifier: "torch" or "rust" (alphadia-search-rs).
+  # implementation of the FDR classifier: "rust" (alphadia-search-rs) or "torch".
   # "rust" trains the same network without batch norm and dropout, and is many times faster.
-  classifier_backend: torch
+  classifier_backend: rust
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

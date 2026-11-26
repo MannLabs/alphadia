@@ -447,7 +447,7 @@ def test_fdr_manager_applies_the_configured_training_to_every_fit(fdr_config, ex
 @pytest.mark.parametrize(
     ("backend_kwargs", "expected_class"),
     [
-        ({}, BinaryClassifierLegacyNewBatching),
+        ({}, RustMLPClassifier),
         ({"classifier_backend": FdrClassifierBackend.RUST}, RustMLPClassifier),
         (
             {"classifier_backend": FdrClassifierBackend.TORCH},
@@ -464,7 +464,7 @@ def test_get_classifier_base_creates_the_classifier_of_the_backend(
         feature_transform=FeatureTransform.QUANTILE, **backend_kwargs
     )
 
-    # Then: it is the classifier of the backend (torch by default), and it applies the transform
+    # Then: it is the classifier of the backend (Rust by default), and it applies the transform
     assert isinstance(classifier, expected_class)
     assert classifier.feature_transform == FeatureTransform.QUANTILE
 

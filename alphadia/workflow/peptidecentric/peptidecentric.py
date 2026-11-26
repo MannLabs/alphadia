@@ -32,7 +32,7 @@ def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool = False,
     feature_transform: str = FeatureTransform.NONE,
     random_state: int | None = None,
-    classifier_backend: str = FdrClassifierBackend.TORCH,
+    classifier_backend: str = FdrClassifierBackend.RUST,
 ) -> Classifier:
     """Creates and returns a classifier base instance.
 
@@ -49,8 +49,8 @@ def _get_classifier_base(
         Random state for reproducibility. Default is None.
 
     classifier_backend : str, optional
-        Implementation of the classifier: "torch" (default) for the torch network, or "rust" for
-        the classifier computed in alphadia-search-rs.
+        Implementation of the classifier: "rust" (default) for the classifier computed in
+        alphadia-search-rs, or "torch" for the torch network.
 
     Returns
     -------
