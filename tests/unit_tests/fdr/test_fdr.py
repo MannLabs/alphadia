@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from sklearn.preprocessing import QuantileTransformer
 
 from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr import fdr
@@ -380,10 +381,10 @@ def test_fit_feature_transform_falls_back_to_raw_features_for_few_rows():
     x, _ = gen_data_np(n_samples=100)
 
     # When: the transform is fitted
-    transformer = classifier._fit_feature_transform(x)
+    quantiles = classifier._fit_feature_transform(x)
 
-    # Then: no transformer is fitted, so the raw features are used
-    assert transformer is None
+    # Then: no quantiles are fitted, so the raw features are used
+    assert quantiles is None
 
 
 def test_classifier_raises_for_unknown_transform():
@@ -399,7 +400,7 @@ def test_quantile_transform_state_dict_round_trip():
         batch_size=100, feature_transform=FeatureTransform.QUANTILE
     )
     classifier.fit(x, y)
-    assert classifier._quantile_transformer is not None
+    assert classifier._quantiles is not None
 
     # When: the state dict is round tripped through a new classifier
     new_classifier = BinaryClassifierLegacyNewBatching()
@@ -407,6 +408,38 @@ def test_quantile_transform_state_dict_round_trip():
 
     # Then: the predictions are identical
     assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
+
+
+def test_quantile_transform_matches_sklearn():
+    # Given: heavy-tailed data (normal features and one log-normal feature) and a classifier with
+    # the quantile transform
+    x = np.random.default_rng(0).normal(size=(3000, 10))
+    x[:, -1] = np.exp(x[:, -1])
+    classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+
+    # When: the quantile transform is fitted and applied
+    classifier._quantiles = classifier._fit_feature_transform(x)
+    transformed = classifier._transform_features(x)
+
+    # Then: the features agree with sklearn's QuantileTransformer
+    expected = QuantileTransformer(
+        n_quantiles=1001, output_distribution="normal", subsample=None
+    ).fit_transform(x.astype(np.float32))
+    assert np.abs(transformed - expected).mean() < 1e-3
+    assert np.abs(transformed - expected).max() < 0.05
+
+
+def test_from_state_dict_rejects_a_stored_sklearn_quantile_transformer():
+    # Given: a state dict that holds a sklearn quantile transformer
+    state_dict = BinaryClassifierLegacyNewBatching().to_state_dict()
+    del state_dict["_quantiles"]
+    state_dict["_quantile_transformer"] = QuantileTransformer()
+
+    # When / Then: loading the state dict raises
+    with pytest.raises(ValueError, match="sklearn quantile transformer"):
+        BinaryClassifierLegacyNewBatching().from_state_dict(state_dict)
 
 
 # one isolation window from 400 to 600 m/z, no mobility
