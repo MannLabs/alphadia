@@ -97,6 +97,39 @@ def _group_and_parsimony(
     return ids, groups
 
 
+def _group_decoy_class(
+    unique_psm_df: pd.DataFrame,
+    genes_or_proteins: str,
+    group: bool,
+    return_parsimony_groups: bool,
+) -> pd.DataFrame:
+    """Perform parsimony and optional heuristic grouping within a single decoy class."""
+    grouped_df = unique_psm_df.copy()
+    grouped_df["pg_master"], grouped_df["pg"] = _group_and_parsimony(
+        grouped_df["precursor_idx"].values,
+        grouped_df[genes_or_proteins].values,
+        return_parsimony_groups,
+    )
+
+    # heuristic grouping: from each initial precursor's protein ID set, filter out proteins that
+    # are never master proteins within this decoy class
+    if group:
+        # select all master protein groups, which are the first in the semicolon separated list
+        allowed_pg = grouped_df["pg"].str.split(";", expand=True)[0].unique()
+        allowed_set_pg = set(allowed_pg)
+
+        def filter_allowed_pg(pg):
+            pg_set = set(pg.split(";")) & allowed_set_pg
+            pg_list = list(pg_set)
+            pg_list.sort()
+
+            return ";".join(pg_list)
+
+        grouped_df["pg"] = grouped_df[genes_or_proteins].apply(filter_allowed_pg)
+
+    return grouped_df[["precursor_idx", "pg_master", "pg"]]
+
+
 def perform_grouping(
     psm_df: pd.DataFrame,
     genes_or_proteins: str = "proteins",
@@ -136,59 +169,34 @@ def perform_grouping(
         unique_mask, ["precursor_idx", genes_or_proteins, decoy_column]
     ]
 
-    # greedy set cover on all proteins if there is only one decoy class
+    # group each decoy class independently so master proteins from targets and decoys
+    # never leak into each other's heuristic protein groups
     unique_decoys = unique_psm_df[decoy_column].unique()
     if len(unique_decoys) == 1:
-        unique_psm_df[decoy_column] = -1
-        unique_psm_df["pg_master"], unique_psm_df["pg"] = _group_and_parsimony(
-            unique_psm_df["precursor_idx"].values,
-            unique_psm_df[genes_or_proteins].values,
+        unique_psm_df = _group_decoy_class(
+            unique_psm_df,
+            genes_or_proteins,
+            group,
             return_parsimony_groups,
         )
-        unique_psm_df = unique_psm_df[
-            ["precursor_idx", "pg_master", "pg", genes_or_proteins]
-        ]
     else:
         # handle case with multiple decoy classes
         target_mask = unique_psm_df[decoy_column] == 0
         decoy_mask = unique_psm_df[decoy_column] == 1
 
-        # greedy set cover on targets
-        target_df = unique_psm_df[target_mask].copy()
-        target_df["pg_master"], target_df["pg"] = _group_and_parsimony(
-            target_df["precursor_idx"].values,
-            target_df[genes_or_proteins].values,
+        target_df = _group_decoy_class(
+            unique_psm_df[target_mask],
+            genes_or_proteins,
+            group,
+            return_parsimony_groups,
+        )
+        decoy_df = _group_decoy_class(
+            unique_psm_df[decoy_mask],
+            genes_or_proteins,
+            group,
             return_parsimony_groups,
         )
 
-        # greedy set cover on decoys
-        decoy_df = unique_psm_df[decoy_mask].copy()
-        decoy_df["pg_master"], decoy_df["pg"] = _group_and_parsimony(
-            decoy_df["precursor_idx"].values,
-            decoy_df[genes_or_proteins].values,
-            return_parsimony_groups,
-        )
-
-        unique_psm_df = pd.concat([target_df, decoy_df])[
-            ["precursor_idx", "pg_master", "pg", genes_or_proteins]
-        ]
-
-    # heuristic grouping: from each initial precursor's protein ID set, filter out proteins that
-    # are never master proteins
-    if group:
-        # select all master protein groups, which are the first in the semicolon separated list
-        allowed_pg = unique_psm_df["pg"].str.split(";", expand=True)[0].unique()
-        allowed_set_pg = set(allowed_pg)
-
-        def filter_allowed_pg(pg):
-            pg_set = set(pg.split(";")) & allowed_set_pg
-            pg_list = list(pg_set)
-            pg_list.sort()
-
-            return ";".join(pg_list)
-
-        unique_psm_df["pg"] = unique_psm_df[genes_or_proteins].apply(filter_allowed_pg)
-
-    unique_psm_df.drop(columns=[genes_or_proteins], inplace=True)
+        unique_psm_df = pd.concat([target_df, decoy_df])
 
     return psm_df.merge(unique_psm_df, on="precursor_idx", how="left")

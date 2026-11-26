@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 from alphadia.outputtransform import grouping
+from alphadia.outputtransform.protein_fdr import perform_protein_fdr
 
 
 # helper function to construct test cases
@@ -196,3 +197,165 @@ def test_grouping_fuzz(expected_time: int = 10):
 
     _ = grouping.perform_grouping(simulated_psm_data, genes_or_proteins="proteins")
     assert True  # TODO fix this test
+
+
+def test_heuristic_grouping_no_decoy_to_target_leakage():
+    """Decoy master proteins must not leak into target heuristic protein groups."""
+    psm_df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2, 3],
+            "proteins": ["P1", "P1;P2", "P2"],
+            "decoy": [0, 0, 1],
+        }
+    )
+
+    combined = grouping.perform_grouping(
+        psm_df.copy(), genes_or_proteins="proteins", group=True
+    )
+    targets_only = grouping.perform_grouping(
+        psm_df[psm_df["decoy"] == 0].copy(), genes_or_proteins="proteins", group=True
+    )
+
+    combined_targets = combined[combined["decoy"] == 0].reset_index(drop=True)
+    pd.testing.assert_frame_equal(combined_targets, targets_only.reset_index(drop=True))
+    assert combined_targets["pg"].tolist() == ["P1", "P1"]
+
+
+def test_heuristic_grouping_no_target_to_decoy_leakage():
+    """Target master proteins must not leak into decoy heuristic protein groups."""
+    psm_df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 4, 5],
+            "proteins": ["P1", "P3", "P3;P1"],
+            "decoy": [0, 1, 1],
+        }
+    )
+
+    combined = grouping.perform_grouping(
+        psm_df.copy(), genes_or_proteins="proteins", group=True
+    )
+    decoys_only = grouping.perform_grouping(
+        psm_df[psm_df["decoy"] == 1].copy(), genes_or_proteins="proteins", group=True
+    )
+
+    combined_decoys = combined[combined["decoy"] == 1].reset_index(drop=True)
+    pd.testing.assert_frame_equal(combined_decoys, decoys_only.reset_index(drop=True))
+    assert combined_decoys["pg"].tolist() == ["P3", "P3"]
+
+
+@pytest.mark.parametrize("genes_or_proteins", ["proteins", "genes"])
+@pytest.mark.parametrize("return_parsimony_groups", [False, True])
+def test_heuristic_grouping_target_decoy_independence(
+    genes_or_proteins: str, return_parsimony_groups: bool
+):
+    """Heuristic grouping on targets+decoys must match grouping each class alone."""
+    psm_df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2, 3, 4, 5],
+            genes_or_proteins: ["A", "A;B", "B", "C", "C;A"],
+            "decoy": [0, 0, 1, 1, 1],
+        }
+    )
+
+    combined = grouping.perform_grouping(
+        psm_df.copy(),
+        genes_or_proteins=genes_or_proteins,
+        group=True,
+        return_parsimony_groups=return_parsimony_groups,
+    )
+    targets_only = grouping.perform_grouping(
+        psm_df[psm_df["decoy"] == 0].copy(),
+        genes_or_proteins=genes_or_proteins,
+        group=True,
+        return_parsimony_groups=return_parsimony_groups,
+    )
+    decoys_only = grouping.perform_grouping(
+        psm_df[psm_df["decoy"] == 1].copy(),
+        genes_or_proteins=genes_or_proteins,
+        group=True,
+        return_parsimony_groups=return_parsimony_groups,
+    )
+
+    assert combined["pg"].tolist() == ["A", "A", "B", "C", "C"]
+    pd.testing.assert_frame_equal(
+        combined[combined["decoy"] == 0].reset_index(drop=True),
+        targets_only.reset_index(drop=True),
+    )
+    pd.testing.assert_frame_equal(
+        combined[combined["decoy"] == 1].reset_index(drop=True),
+        decoys_only.reset_index(drop=True),
+    )
+
+
+def test_heuristic_grouping_preserves_protein_fdr_with_shared_peptides():
+    """Shared peptides between decoy and target masters must not shatter decoy groups or bias protein FDR."""
+    rows = []
+    pid = 0
+    for i in range(100):
+        rows.append(
+            {
+                "precursor_idx": pid,
+                "proteins": f"A_{i}",
+                "decoy": 0,
+                "proba": 1e-4,
+                "qval": 0.001,
+            }
+        )
+        pid += 1
+        rows.append(
+            {
+                "precursor_idx": pid,
+                "proteins": f"A_{i};B_{i}",
+                "decoy": 0,
+                "proba": 1e-4,
+                "qval": 0.001,
+            }
+        )
+        pid += 1
+
+    for i in range(10):
+        rows.append(
+            {
+                "precursor_idx": pid,
+                "proteins": f"BORDER_{i}",
+                "decoy": 0,
+                "proba": 0.05,
+                "qval": 0.005,
+            }
+        )
+        pid += 1
+
+    for proteins in ["D_0", "D_0;A_0", "D_0;A_1"]:
+        rows.append(
+            {
+                "precursor_idx": pid,
+                "proteins": proteins,
+                "decoy": 1,
+                "proba": 0.03,
+                "qval": 0.004,
+            }
+        )
+        pid += 1
+
+    rows.append(
+        {
+            "precursor_idx": pid,
+            "proteins": "B_0",
+            "decoy": 1,
+            "proba": 0.40,
+            "qval": 0.009,
+        }
+    )
+
+    grouped = grouping.perform_grouping(
+        pd.DataFrame(rows), genes_or_proteins="proteins", group=True
+    )
+    scored = perform_protein_fdr(grouped, figure_path=None)
+    groups = scored.drop_duplicates(["pg", "decoy"])
+
+    assert int((groups["decoy"] == 0).sum()) == 110
+    assert sorted(groups.loc[groups["decoy"] == 1, "pg"].tolist()) == ["B_0", "D_0"]
+    assert int(((groups["decoy"] == 0) & (groups["pg_qval"] <= 0.01)).sum()) == 110
+    assert np.isclose(
+        groups.loc[groups["pg"] == "BORDER_0", "pg_qval"].iloc[0], 1.0 / 110.0
+    )
