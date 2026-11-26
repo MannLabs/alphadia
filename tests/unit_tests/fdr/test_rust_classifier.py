@@ -23,6 +23,14 @@ def _separable_data(
     return x, y
 
 
+def _data_with_a_mostly_zero_feature() -> tuple[np.ndarray, np.ndarray]:
+    """Separable data whose first feature is 0, its minimum, in 90 % of the rows."""
+    x, y = _separable_data()
+    x[:, 0] = np.abs(x[:, 0]) + 1.0
+    x[: int(0.9 * len(x)), 0] = 0.0
+    return x, y
+
+
 def _classifier(**kwargs) -> RustMLPClassifier:
     defaults = {"layers": [32, 16], "epochs": 5, "batch_size": 256, "random_state": 1}
     return RustMLPClassifier(**{**defaults, **kwargs})
@@ -212,3 +220,83 @@ def test_hyperparameter_tuning_fits_small_data():
 
     # Then: the classifier separates the data
     assert np.mean(classifier.predict(x) == y) > 0.9
+
+
+@pytest.mark.parametrize(
+    ("lr_schedule", "weight_averaging"), [("cosine", False), ("constant", True)]
+)
+def test_configured_training_changes_the_fit(lr_schedule, weight_averaging):
+    # Given: separable data and the plain (constant, last parameters) fit
+    x, y = _separable_data()
+    plain = _classifier(lr_schedule="constant", weight_averaging=False)
+    plain.fit(x, y)
+
+    # When: fitting with the configured smoothing, as FDRManager sets it
+    smoothed = _classifier(lr_schedule="constant", weight_averaging=False)
+    smoothed.configure_training(
+        lr_schedule=lr_schedule, weight_averaging=weight_averaging
+    )
+    smoothed.fit(x, y)
+
+    # Then: the network differs from the plain fit
+    assert not np.array_equal(smoothed._params, plain._params)
+
+
+def test_configure_training_keeps_unset_values_and_rejects_unknown_schedule():
+    # Given: a classifier with the cosine schedule and without averaging
+    classifier = _classifier(lr_schedule="cosine", weight_averaging=False)
+
+    # When: only the averaging is configured
+    classifier.configure_training(weight_averaging=True)
+
+    # Then: the schedule is kept, and an unknown schedule raises
+    assert (classifier.lr_schedule, classifier.weight_averaging) == ("cosine", True)
+    with pytest.raises(ValueError, match="learning rate schedule"):
+        classifier.configure_training(lr_schedule="linear")
+
+
+def test_state_dict_carries_the_training_configuration():
+    # Given: a classifier with smoothing
+    source = _classifier(lr_schedule="cosine", weight_averaging=True)
+
+    # When: loading its state with hyperparameters into a plain one
+    target = _classifier(lr_schedule="constant", weight_averaging=False)
+    target.from_state_dict(source.to_state_dict(), load_hyperparameters=True)
+
+    # Then: the training configuration is carried over
+    assert (target.lr_schedule, target.weight_averaging) == ("cosine", True)
+
+
+def test_mid_rank_ties_centres_a_feature_that_is_mostly_zero():
+    # Given: a feature that is 0 (its minimum) in 90 % of the rows
+    x, _ = _data_with_a_mostly_zero_feature()
+    x = x.astype(np.float32)
+    clamped, mid_ranked = _classifier(), _classifier(mid_rank_ties=True)
+
+    # When: the feature is transformed with the same quantiles, with and without mid-ranked ties
+    quantiles = clamped._fit_feature_transform(x, seed=0)
+    z_clamped = clamped._transform_features(x, quantiles)
+    z_mid = mid_ranked._transform_features(x, quantiles)
+
+    # Then: sklearn's rule puts the zeros at the clip value, and the mid rank puts them near the
+    # middle of their group
+    assert z_clamped[0, 0] < -5.0
+    assert abs(z_mid[0, 0]) < 0.2
+
+
+@pytest.mark.parametrize(
+    "options", [{"mid_rank_ties": True}, {"input_batch_norm": True}]
+)
+def test_options_survive_the_state_dict(options):
+    # Given: a classifier fitted with an option other than the default, on a feature with tied
+    # minima
+    x, y = _data_with_a_mostly_zero_feature()
+    classifier = _classifier(**options)
+    classifier.fit(x, y)
+
+    # When: restoring its state into a default classifier
+    restored = _classifier()
+    restored.from_state_dict(classifier.to_state_dict())
+
+    # Then: the restored classifier predicts the same
+    assert np.allclose(restored.predict_proba(x), classifier.predict_proba(x))
