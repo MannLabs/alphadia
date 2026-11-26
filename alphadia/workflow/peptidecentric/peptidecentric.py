@@ -5,8 +5,12 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.constants.keys import FdrClassifierBackend, FeatureTransform
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    Classifier,
+    RustMLPClassifier,
+)
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationGroups
@@ -28,7 +32,8 @@ def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool = False,
     feature_transform: str = FeatureTransform.NONE,
     random_state: int | None = None,
-) -> BinaryClassifierLegacyNewBatching:
+    classifier_backend: str = FdrClassifierBackend.TORCH,
+) -> Classifier:
     """Creates and returns a classifier base instance.
 
     Parameters
@@ -43,19 +48,37 @@ def _get_classifier_base(
     random_state : int | None, optional
         Random state for reproducibility. Default is None.
 
+    classifier_backend : str, optional
+        Implementation of the classifier: "torch" (default) for the torch network, or "rust" for
+        the classifier computed in alphadia-search-rs.
+
     Returns
     -------
-    BinaryClassifierLegacyNewBatching
+    Classifier
         Neural network
     """
-    return BinaryClassifierLegacyNewBatching(
-        test_size=0.001,
-        batch_size=5000,
-        learning_rate=0.001,
-        epochs=10,
-        experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
-        feature_transform=feature_transform,
-        random_state=random_state,
+    if classifier_backend == FdrClassifierBackend.RUST:
+        return RustMLPClassifier(
+            batch_size=5000,
+            learning_rate=0.001,
+            epochs=10,
+            experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
+            feature_transform=feature_transform,
+            random_state=random_state,
+        )
+    if classifier_backend == FdrClassifierBackend.TORCH:
+        return BinaryClassifierLegacyNewBatching(
+            test_size=0.001,
+            batch_size=5000,
+            learning_rate=0.001,
+            epochs=10,
+            experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
+            feature_transform=feature_transform,
+            random_state=random_state,
+        )
+    raise ValueError(
+        f"Unknown FDR classifier backend: {classifier_backend}. "
+        f"Valid options are {FdrClassifierBackend.get_values()}"
     )
 
 
@@ -122,6 +145,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
                 ],
                 feature_transform=config_fdr["feature_transform"],
                 random_state=self._random_state_fdr_classifier,
+                classifier_backend=config_fdr["classifier_backend"],
             ),
             dia_cycle=self.dia_data.cycle,
             config=self.config,

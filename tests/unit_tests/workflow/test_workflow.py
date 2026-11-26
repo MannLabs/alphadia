@@ -11,8 +11,15 @@ from alphadia_search_rs import OptimizationContext
 
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
-from alphadia.constants.keys import FeatureTransform, SearchTolerance
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.constants.keys import (
+    FdrClassifierBackend,
+    FeatureTransform,
+    SearchTolerance,
+)
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    RustMLPClassifier,
+)
 from alphadia.workflow.managers.base import BaseManager
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationManager,
@@ -437,9 +444,32 @@ def test_fdr_manager_applies_the_configured_training_to_every_fit(fdr_config, ex
         assert (classifier.lr_schedule, classifier.weight_averaging) == expected
 
 
-def test_get_classifier_base_passes_feature_transform():
-    # When: the base classifier is created with the quantile feature transform
-    classifier = _get_classifier_base(feature_transform=FeatureTransform.QUANTILE)
+@pytest.mark.parametrize(
+    ("backend_kwargs", "expected_class"),
+    [
+        ({}, BinaryClassifierLegacyNewBatching),
+        ({"classifier_backend": FdrClassifierBackend.RUST}, RustMLPClassifier),
+        (
+            {"classifier_backend": FdrClassifierBackend.TORCH},
+            BinaryClassifierLegacyNewBatching,
+        ),
+    ],
+)
+def test_get_classifier_base_creates_the_classifier_of_the_backend(
+    backend_kwargs, expected_class
+):
+    # When: the base classifier is created with the quantile feature transform and the backend of
+    # the case (no backend means the default)
+    classifier = _get_classifier_base(
+        feature_transform=FeatureTransform.QUANTILE, **backend_kwargs
+    )
 
-    # Then: the classifier applies the transform
+    # Then: it is the classifier of the backend (torch by default), and it applies the transform
+    assert isinstance(classifier, expected_class)
     assert classifier.feature_transform == FeatureTransform.QUANTILE
+
+
+def test_get_classifier_base_raises_for_unknown_backend():
+    # When / Then: an unknown backend raises
+    with pytest.raises(ValueError, match="Unknown FDR classifier backend"):
+        _get_classifier_base(classifier_backend="unknown")
