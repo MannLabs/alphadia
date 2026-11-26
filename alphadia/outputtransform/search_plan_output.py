@@ -8,6 +8,7 @@ from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia import utils
 from alphadia.constants.keys import (
+    INTERNAL_TO_OUTPUT_MAPPING,
     ConfigKeys,
     NormalizationMethods,
     SearchPlanFiles,
@@ -37,7 +38,6 @@ from alphadia.outputtransform.utils import (
     load_psm_files_from_folders,
     log_protein_fdr_summary,
     prepare_psm_dataframe,
-    read_df,
     write_table,
 )
 from alphadia.transferlearning.train import FinetuneManager
@@ -159,16 +159,12 @@ class SearchPlanOutput:
             self.config["search_output"]["normalization_method"].lower()
             != NormalizationMethods.NONE
         ):
-            quant_output_builder = QuantOutputBuilder(psm_df, self.config)
-            lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
+            lfq_results, psm_df_with_quant = QuantOutputBuilder(
+                psm_df, self.config
+            ).build(folder_list)
 
             self._write_precursor_table(psm_df_with_quant)
-            if lfq_results:
-                quant_output_builder.save_results(
-                    lfq_results,
-                    self.output_folder,
-                    file_format=self.config["search_output"]["file_format"],
-                )
+            self._write_quant_tables(lfq_results)
         else:
             logger.info("Skipping label free quantification")
             self._write_precursor_table(psm_df)
@@ -181,6 +177,15 @@ class SearchPlanOutput:
             apply_output_column_names(psm_df),
             f"{SearchPlanFiles.PRECURSORS_FILE_STEM}.{file_format}",
         )
+
+    def _write_quant_tables(self, lfq_results: dict[str, pd.DataFrame]) -> None:
+        file_format = self.config["search_output"]["file_format"]
+        for level_name, lfq_df in lfq_results.items():
+            # a plain rename, as the run columns are not part of the output mapping
+            self._write_table(
+                lfq_df.rename(columns=INTERNAL_TO_OUTPUT_MAPPING),
+                f"{level_name}{SearchPlanFiles.QUANT_MATRIX_SUFFIX}.{file_format}",
+            )
 
     def _write_table(self, df: pd.DataFrame, file_name: str) -> None:
         write_table(df, os.path.join(self.output_folder, file_name))
@@ -299,22 +304,6 @@ class SearchPlanOutput:
         log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
 
         return transferAccumulator.consensus_speclibase
-
-    def _load_precursor_table(self):
-        """Load precursor table from output folder.
-        Helper functions used by other builders.
-
-        Returns
-        -------
-
-        psm_df: pd.DataFrame
-            Precursor table
-        """
-
-        return read_df(
-            os.path.join(self.output_folder, SearchPlanFiles.PRECURSORS_FILE_STEM),
-            file_format=self.config["search_output"]["file_format"],
-        )
 
     def _build_precursor_table(
         self,

@@ -6,12 +6,10 @@ from math import isclose
 
 import numpy as np
 from scipy import linalg, stats
-from sklearn.metrics import accuracy_score, log_loss, precision_score, recall_score
+from sklearn.metrics import precision_score, recall_score
 
 from alphadia.transferlearning.metrics import (
     AbsErrorPercentileTestMetric,
-    AccuracyTestMetric,
-    CELossTestMetric,
     L1LossTestMetric,
     LinearRegressionTestMetric,
     MetricManager,
@@ -114,52 +112,6 @@ def test_L1LossTestMetric():
         results[results["metric_name"] == "l1_loss"]["value"].values[0],
         linalg.norm(test_inp["target"] - test_inp["predicted"], 1)
         / len(test_inp["target"]),
-        abs_tol=1e-3,
-    )
-
-
-def test_CELossTestMetric():
-    """
-    Test the CELossTestMetric class
-    """
-
-    # Given
-    test_inp = get_classification_test_input()
-
-    # When
-    metric = CELossTestMetric()
-    results = metric.calculate_test_metric(
-        epoch=0, test_input=test_inp, data_split="test", property_name="charge"
-    )
-    # Then
-    assert isclose(
-        results[results["metric_name"] == "ce_loss"]["value"].values[0],
-        log_loss(np.argmax(test_inp["target"], axis=1), test_inp["predicted"]),
-        abs_tol=1e-3,
-    )
-
-
-def test_AccuracyTestMetric():
-    """
-    Test the AccuracyTestMetric class
-    """
-
-    # Given
-    test_inp = get_classification_test_input()
-
-    # When
-    metric = AccuracyTestMetric()
-    results = metric.calculate_test_metric(
-        epoch=0, test_input=test_inp, data_split="test", property_name="charge"
-    )
-
-    # Then
-    assert isclose(
-        results[results["metric_name"] == "accuracy"]["value"].values[0],
-        accuracy_score(
-            np.argmax(test_inp["target"], axis=1),
-            np.argmax(test_inp["predicted"], axis=1),
-        ),
         abs_tol=1e-3,
     )
 

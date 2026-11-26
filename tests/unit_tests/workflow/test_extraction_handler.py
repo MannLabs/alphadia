@@ -24,24 +24,27 @@ SPECLIB_TO_RUST = (
     "alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_rust"
 )
 
-OPTIMIZATION_CONTEXT = OptimizationContext(
-    rt_error=120.0,
-    ms1_error=30.0,
-    ms2_error=7.5,
-    mobility_error=0.1,
-    fwhm_rt=5.0,
-    fwhm_mobility=-1.0,
-    num_candidates=3,
-    score_cutoff=0.0,
-)
+OPTIMIZATION_CONTEXT_PARAMS = {
+    "rt_error": 120.0,
+    "ms1_error": 30.0,
+    "ms2_error": 7.5,
+    "mobility_error": 0.1,
+    "fwhm_rt": 5.0,
+    "fwhm_mobility": -1.0,
+    "num_candidates": 3,
+    "score_cutoff": 0.0,
+}
+OPTIMIZATION_CONTEXT = OptimizationContext(**OPTIMIZATION_CONTEXT_PARAMS)
 
 
-def _create_handler(config, fdr_manager=None):
+def _create_handler(
+    config, fdr_manager=None, optimization_context=OPTIMIZATION_CONTEXT
+):
     """Create a handler on mock DIA data and a mock spectral library, with the library conversion patched."""
     with patch(SPECLIB_TO_RUST, return_value=MagicMock(name="speclib_rust")):
         return RustExtractionHandler(
             config,
-            OPTIMIZATION_CONTEXT,
+            optimization_context,
             fdr_manager or MagicMock(),
             MagicMock(),
             MagicMock(),
@@ -117,6 +120,27 @@ def test_score_candidates_returns_the_scored_features(
         unscored_feature_groups=["ms1_features", "detection_features"],
     )
     assert features_df is mock_to_features_df.return_value
+
+
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.parse_candidates")
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.PeakGroupSelection")
+def test_select_candidates_passes_the_rt_prior_of_the_optimization_context(
+    mock_selection, mock_parse_candidates
+):
+    # Given: a handler whose optimization context has an RT prior with scale 20 s and 5 degrees of freedom
+    handler = _create_handler(
+        {"search": {"top_k_fragments_selection": 12, "quant_window": 3}},
+        optimization_context=OptimizationContext(
+            **OPTIMIZATION_CONTEXT_PARAMS, rt_prior=(20.0, 5.0)
+        ),
+    )
+
+    # When: the handler selects the candidates
+    handler._select_candidates()
+
+    # Then: the selection uses the RT prior
+    selection_params = mock_selection.call_args.args[0]
+    assert selection_params.rt_prior == (20.0, 5.0)
 
 
 def _fdr_handler(fit_predict):

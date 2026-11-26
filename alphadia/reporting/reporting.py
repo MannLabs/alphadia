@@ -1,31 +1,18 @@
 # native imports
-import base64
 import json
 import logging
 import os
 import time
 import traceback
 import typing
-import warnings
 from datetime import datetime, timedelta
-from io import BytesIO
 from pathlib import Path
 from typing import Any
-
-# alphadia imports
-# alpha family imports
-# third party imports
-import matplotlib
-import matplotlib.figure
-import matplotlib.image
-import numpy as np
-from matplotlib.figure import Figure
 
 # global variable which tracks if any logger has been initiated
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
-from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import CustomError, GenericUserError
 
 # Add a new logging level to the default logger, level 21 is just above INFO (20)
@@ -202,7 +189,7 @@ def move_existing_file(file_path: str, suffix: str = ".bkp") -> str:
 class Backend:
     """Generic backend for logging metrics, plots and strings.
 
-    Implementations of the backend can implement the `log_figure`, `log_metric`, `log_string` and `log_data` methods.
+    Implementations of the backend can implement the `log_metric`, `log_string` and `log_event` methods.
     The subclasses implement their own logic for handling the data and writing it to a file or a database.
 
     If the backend requires a context, it can implement the `__enter__` and `__exit__` methods.
@@ -210,11 +197,6 @@ class Backend:
     """
 
     REQUIRES_CONTEXT = False
-
-    def log_figure(
-        self, name: str, figure: typing.Any, *args: Any, **kwargs: Any
-    ) -> None:
-        pass
 
     def log_metric(
         self, name: str, value: float | str, *args: Any, **kwargs: Any
@@ -224,9 +206,6 @@ class Backend:
     def log_string(
         self, value: str, verbosity: str = "info", *args: Any, **kwargs: Any
     ) -> None:
-        pass
-
-    def log_data(self, name: str, value: typing.Any, *args: Any, **kwargs: Any) -> None:
         pass
 
     def log_event(
@@ -241,72 +220,6 @@ class Backend:
         pass
 
 
-class FigureBackend(Backend):
-    def __init__(self, path=None, default_savefig_kwargs=None) -> None:
-        """Backend which logs figures to a folder.
-
-        implements the `log_figure` method.
-
-        Parameters
-        ----------
-
-        path : str, default None
-            Path to the parent folder where the figures will be saved. If None, an error will be raised.
-            The figures will be saved in a subfolder named after the class name of the backend.
-
-        default_savefig_kwargs : dict, default {"dpi":300}
-            Default arguments to pass to matplotlib.figure.Figure.savefig
-
-        """
-        if default_savefig_kwargs is None:
-            default_savefig_kwargs = {"dpi": 300}
-        self.path = path
-
-        if self.path is None:
-            raise ValueError(
-                "FigureBackend requires an output folder to be set with the path parameter."
-            )
-
-        # create figures folder if it does not exist
-        self.figures_path = os.path.join(self.path, FIGURES_FOLDER_NAME)
-        os.makedirs(self.figures_path, exist_ok=True)
-
-        self.default_savefig_kwargs = default_savefig_kwargs
-
-    def log_figure(
-        self,
-        name: str,
-        figure: Figure | np.ndarray,
-        extension: str = "png",
-        *args,
-        **kwargs,
-    ):  # TODO unused
-        """Log a figure to the figures folder.
-
-        Parameters
-        ----------
-
-        name : str
-            Name of the figure. Will be used as the filename.
-
-        figure : typing.Union[matplotlib.figure.Figure, np.ndarray]
-            Figure to log. Can be a matplotlib figure or a numpy array.
-
-        extension : str, default 'png'
-            Extension to use for the figure. Can be any extension supported by matplotlib.image.imsave
-
-        """
-
-        filename = os.path.join(self.figures_path, f"{name}.{extension}")
-
-        if isinstance(figure, matplotlib.figure.Figure):
-            figure.savefig(filename, **self.default_savefig_kwargs)  # type: ignore[arg-type]
-        elif isinstance(figure, np.ndarray):
-            matplotlib.image.imsave(filename, figure, **self.default_savefig_kwargs)  # type: ignore[arg-type]
-        else:
-            warnings.warn(f"FigureBackend does not support type {type(figure)}")
-
-
 class JSONLBackend(Backend):
     EVENTS_PATH = "events.jsonl"
     REQUIRES_CONTEXT = True
@@ -314,11 +227,9 @@ class JSONLBackend(Backend):
     def __init__(
         self,
         path=None,
-        enable_figure=True,
-        default_savefig_kwargs=None,
     ) -> None:
-        """Backend which logs metrics, plots and strings to a JSONL file.
-        It implements `log_figure`, `log_metric` , `log_string` and `log_event` methods.
+        """Backend which logs metrics, events and strings to a JSONL file.
+        It implements `log_metric` , `log_string` and `log_event` methods.
 
         Important: This backend requires a context to be used.
 
@@ -328,16 +239,8 @@ class JSONLBackend(Backend):
         path : str, default None
             Path to the parent folder where the output will be saved as `events.jsonl`. If None, an error will be raised.
 
-        default_savefig_kwargs : dict, default {"dpi":300}
-            Default arguments to pass to matplotlib.figure.Figure.savefig
-
-        enable_figure : bool, default True
-            Whether to enable logging of figures. If False, the `log_figure` method will be a no-op.
-
         """
 
-        if default_savefig_kwargs is None:
-            default_savefig_kwargs = {"dpi": 300}
         self.path = path
 
         if self.path is None:
@@ -346,8 +249,6 @@ class JSONLBackend(Backend):
             )
 
         self.events_path = os.path.join(self.path, self.EVENTS_PATH)
-        self.default_savefig_kwargs = default_savefig_kwargs
-        self.enable_figure = enable_figure
         self.entered_context = False
         self.start_time = 0
 
@@ -520,48 +421,6 @@ class JSONLBackend(Backend):
 
             f.write(json.dumps(message) + "\n")
 
-    def log_figure(self, name: str, figure: typing.Any, *args, **kwargs):
-        """Log a base64 image of a figure to the `events.jsonl` file.
-
-        Important: This method will only log figures if the backend is in a context.
-        Otherwise, it will be a no-op.
-
-        Parameters
-        ----------
-
-        name : str
-            Name of the figure.
-
-        figure : typing.Any
-            Figure to log. Can be a matplotlib figure or a numpy array.
-
-        """
-
-        if not self.entered_context or not self.enable_figure:
-            return
-
-        buffer = BytesIO()
-        if isinstance(figure, matplotlib.figure.Figure):
-            figure.savefig(buffer, **self.default_savefig_kwargs)  # type: ignore[arg-type]
-        elif isinstance(figure, np.ndarray):
-            matplotlib.image.imsave(buffer, figure, **self.default_savefig_kwargs)  # type: ignore[arg-type]
-        else:
-            warnings.warn(f"FigureBackend does not support type {type(figure)}")
-            return
-
-        base64_encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-        with open(self.events_path, "a") as f:
-            message = {
-                "absolute_time": self.absolute_time(),
-                "relative_time": self.relative_time(),
-                "type": "figure",
-                "name": name,
-                "value": base64_encoded_image,
-                "verbosity": 0,
-            }
-            f.write(json.dumps(message) + "\n")
-
 
 class LogBackend(Backend):
     def __init__(self, path: str | None = None) -> None:
@@ -590,27 +449,6 @@ class LogBackend(Backend):
             raise ValueError(f"Unknown verbosity level {verbosity}")
 
 
-class Context:
-    def __init__(self, parent: typing.Any) -> None:
-        """Helper class to allow backends to use a context manager.
-        This allows the parent class to be instantiated without context and to receive  context later.
-
-        Parameters
-        ----------
-
-        parent : typing.Any
-            The metric logger which owns this context
-
-        """
-        self.parent = parent
-
-    def __enter__(self):
-        return self.parent.__enter__()
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        return self.parent.__exit__(exc_type, exc_value, exc_traceback)
-
-
 class Pipeline:
     def __init__(
         self,
@@ -625,11 +463,8 @@ class Pipeline:
             typing.List of backends to use. Each backend must be a class inheriting from Backend.
         """
 
-        # the context will store a Context object
-        # this allows backends which require a context to be used
         if backends is None:
             backends = []
-        self.context = Context(self)
 
         # instantiate backends
         self.backends: list[Backend] = backends
@@ -644,10 +479,6 @@ class Pipeline:
             if backend.REQUIRES_CONTEXT:
                 backend.__exit__(exc_type, exc_value, exc_traceback)
 
-    def log_figure(self, name: str, figure: typing.Any, *args, **kwargs):
-        for backend in self.backends:
-            backend.log_figure(name, figure, *args, **kwargs)
-
     def log_metric(self, name: str, value: float | str, *args, **kwargs):
         for backend in self.backends:
             backend.log_metric(name, value, *args, **kwargs)
@@ -655,10 +486,6 @@ class Pipeline:
     def log_string(self, value: str, *args, verbosity="info", **kwargs):
         for backend in self.backends:
             backend.log_string(value, *args, verbosity=verbosity, **kwargs)
-
-    def log_data(self, name: str, value: typing.Any, *args, **kwargs):
-        for backend in self.backends:
-            backend.log_data(name, value, *args, **kwargs)
 
     def log_event(self, name: str, value: typing.Any, *args, **kwargs):
         for backend in self.backends:
