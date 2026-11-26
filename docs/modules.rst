@@ -6,7 +6,6 @@ Modules
 
     alphadia/calibration
     alphadia/fdr
-    alphadia/_fdrx
     alphadia/fragcomp
     alphadia/libtransform
     alphadia/outputtransform

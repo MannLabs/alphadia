@@ -22,7 +22,7 @@ from alphadia.workflow.peptidecentric.rust.extraction_handler import (
     RustExtractionHandler,
 )
 from alphadia.workflow.peptidecentric.rust.mapper import (
-    INTERFERENCE_FEATURE_GROUPS,
+    OPTIONAL_FEATURE_GROUPS,
     get_classifier_feature_columns,
 )
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
@@ -92,7 +92,7 @@ def test_rust_classifier_feature_columns_follow_the_interference_flags(tmp_path)
     # given: a rust workflow with the window share switched on, and a backend that scores both interference groups
     workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
     workflow.config["search"]["window_signal_share_features"] = True
-    interference = [c for cols in INTERFERENCE_FEATURE_GROUPS.values() for c in cols]
+    interference = [c for cols in OPTIONAL_FEATURE_GROUPS.values() for c in cols]
 
     # when
     with patch(
@@ -104,7 +104,7 @@ def test_rust_classifier_feature_columns_follow_the_interference_flags(tmp_path)
     # then: the window share enters the classifier, the fitted spread does not
     assert columns == [
         "correlation_mean",
-        *INTERFERENCE_FEATURE_GROUPS["window_signal_share_features"],
+        *OPTIONAL_FEATURE_GROUPS["window_signal_share_features"],
     ]
 
 
@@ -136,6 +136,22 @@ def test_workflow_creates_extraction_handler_of_its_backend(
     )
 
 
+@pytest.mark.parametrize("raw_data_has_ms1", [True, False])
+@patch("alphadia.workflow.peptidecentric.rust.extraction_handler.speclib_to_rust")
+def test_rust_workflow_tells_the_extraction_handler_whether_the_raw_file_has_ms1(
+    _, raw_data_has_ms1, tmp_path
+):
+    # given: a rust workflow whose raw file has, or has not, MS1 scans
+    workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
+    workflow._raw_data_has_ms1 = raw_data_has_ms1
+
+    # when
+    extraction_handler = workflow._create_extraction_handler(MagicMock())
+
+    # then
+    assert extraction_handler._raw_data_has_ms1 is raw_data_has_ms1
+
+
 @patch("alphadia.workflow.peptidecentric.optimization_handler.log_precursor_df")
 @patch("alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock")
 def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
@@ -160,6 +176,7 @@ def test_process_batch_collects_extraction_before_fdr(mock_optlock_cls, _):
     optlock = mock_optlock_cls.return_value
     optlock.features_df = pd.DataFrame({"precursor_idx": [1]})
     optlock.fragments_df = fragments_df
+    optlock.prune_qval = None
     calls = MagicMock()
     calls.attach_mock(optlock.update_with_extraction, "update_with_extraction")
     calls.attach_mock(
@@ -217,7 +234,7 @@ def test_rust_workflow_converts_dia_data(
     # given
     workflow = _create_workflow(RustPeptideCentricWorkflow, tmp_path)
     dia_data = MagicMock(
-        name="dia_data", cycle=np.zeros((1, 4)), rt_values=np.arange(3)
+        name="dia_data", cycle=np.zeros((1, 4)), rt_values=np.arange(3), has_ms1=True
     )
     mock_dia_data_to_rust.return_value = MagicMock(
         cycle=dia_data.cycle, rt_values=dia_data.rt_values
@@ -230,6 +247,8 @@ def test_rust_workflow_converts_dia_data(
     mock_set_thread_count.assert_called_once_with(THREAD_COUNT)
     mock_dia_data_to_rust.assert_called_once_with(dia_data)
     assert prepared is mock_dia_data_to_rust.return_value
+    # the converted DIA data always reports no MS1, so the workflow keeps whether the raw file has MS1 scans
+    assert workflow._raw_data_has_ms1 is True
 
 
 def test_rust_workflow_rejects_timstof_data(tmp_path):
@@ -270,3 +289,39 @@ def test_search_parameter_optimization_applies_the_calibration_result(tmp_path):
 
     # Then: the optimization manager holds the result for the main search
     assert workflow.optimization_manager.ms2_error == 9.0
+
+
+@patch("alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock")
+def test_rust_fdr_records_prune_candidates_and_returns_identifications(
+    mock_optlock_cls,
+):
+    """Test that with a pending pruning the rust FDR asks for q-values up to the prune q-value, gives them to the lock
+    and returns only the precursors up to fdr.fdr."""
+    # given
+    optlock = mock_optlock_cls.return_value
+    optlock.prune_qval = 0.1
+    extraction_handler = MagicMock()
+    precursor_df = pd.DataFrame({"precursor_idx": [1, 2, 3], "qval": [0.0, 0.05, 0.09]})
+    extraction_handler.perform_fdr_and_filter_candidates.return_value = (
+        None,
+        precursor_df,
+    )
+    handler = RustOptimizationHandler(
+        {"fdr": {"fdr": 0.01}},
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        create_extraction_handler=MagicMock(),
+    )
+
+    # when
+    result = handler._perform_fdr(extraction_handler, MagicMock())
+
+    # then
+    call = extraction_handler.perform_fdr_and_filter_candidates.call_args
+    assert call.kwargs["max_qval"] == 0.1
+    optlock.record_prune_candidates.assert_called_once_with(precursor_df)
+    assert result["precursor_idx"].tolist() == [1]
