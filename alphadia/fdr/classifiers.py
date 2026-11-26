@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.preprocessing import QuantileTransformer
+from alphadia_search_rs import fdr_quantile_fit, fdr_quantile_transform
 from torch import nn, optim
 from tqdm import tqdm
 
@@ -273,7 +273,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.network = None
         self.optimizer = None
         self._fitted = False
-        self._quantile_transformer: QuantileTransformer | None = None
+        # fitted quantiles [n_features, n_quantiles] of the quantile transform, or None for raw features
+        self._quantiles: np.ndarray | None = None
 
         self.metrics = {
             "epoch": [],
@@ -351,7 +352,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             "feature_transform": self.feature_transform,
             "lr_schedule": self.lr_schedule,
             "weight_averaging": self.weight_averaging,
-            "_quantile_transformer": self._quantile_transformer,
+            "_quantiles": self._quantiles,
         }
 
         if self._fitted:
@@ -375,7 +376,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         """
         _state_dict = deepcopy(state_dict)
 
-        self._quantile_transformer = _state_dict.pop("_quantile_transformer")
+        if "_quantile_transformer" in _state_dict:
+            raise ValueError(
+                "State dict holds a sklearn quantile transformer, which is no longer supported. "
+                "Fit the classifier again."
+            )
+        self._quantiles = _state_dict.pop("_quantiles", None)
 
         if "network_state_dict" in _state_dict:
             self.network = FeedForwardNN(
@@ -401,7 +407,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         for values in self.metrics.values():
             values.clear()
 
-    def _fit_feature_transform(self, x: np.ndarray) -> QuantileTransformer | None:
+    def _fit_feature_transform(self, x: np.ndarray) -> np.ndarray | None:
         """Fit the configured feature transform on the training data.
 
         Parameters
@@ -411,8 +417,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Returns
         -------
-        QuantileTransformer | None
-            The fitted transformer, or None if the raw features are used.
+        np.ndarray | None
+            The quantiles of the quantile transform, shape (n_features, n_quantiles),
+            or None if the raw features are used.
 
         """
         if self.feature_transform == FeatureTransform.NONE:
@@ -425,9 +432,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             )
             return None
 
-        return QuantileTransformer(
-            n_quantiles=_N_QUANTILES, output_distribution="normal", subsample=None
-        ).fit(x)
+        # the fit of sklearn's QuantileTransformer(output_distribution="normal"), computed in alphadia-search-rs
+        return fdr_quantile_fit(
+            np.ascontiguousarray(x, dtype=np.float32), n_quantiles=_N_QUANTILES
+        )
 
     def _transform_features(self, x: np.ndarray) -> np.ndarray:
         """Map every feature to a standard normal score through its empirical CDF.
@@ -447,10 +455,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             transform was fitted.
 
         """
-        if self._quantile_transformer is None:
+        if self._quantiles is None:
             return x
 
-        return self._quantile_transformer.transform(x)
+        return fdr_quantile_transform(
+            np.ascontiguousarray(x, dtype=np.float32), self._quantiles
+        )
 
     @manage_torch_threads(max_threads=2)
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements
@@ -465,7 +475,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
-        self._quantile_transformer = self._fit_feature_transform(x)
+        self._quantiles = self._fit_feature_transform(x)
         x = self._transform_features(x)
 
         if self.experimental_hyperparameter_tuning:
