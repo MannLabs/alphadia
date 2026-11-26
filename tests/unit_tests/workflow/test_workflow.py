@@ -401,6 +401,42 @@ def test_fdr_manager_continues_one_classifier_per_feature_columns(perform_fdr):
     assert first is not FDR_TEST_BASE_CLASSIFIER
 
 
+@pytest.mark.parametrize(
+    ("fdr_config", "expected"),
+    [
+        ({"lr_schedule": "cosine", "weight_averaging": True}, ("cosine", True)),
+        ({"lr_schedule": "constant", "weight_averaging": False}, ("constant", False)),
+        ({}, ("constant", False)),
+    ],
+)
+def test_fdr_manager_applies_the_configured_training_to_every_fit(fdr_config, expected):
+    # given: a classifier constructed with the previous training (constant, no averaging)
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=BinaryClassifierLegacyNewBatching(
+            test_size=0.001, batch_size=2, learning_rate=0.001, epochs=1
+        ),
+        config={"search": {"compete_for_fragments": False}, "fdr": fdr_config},
+        dia_cycle=None,
+    )
+
+    # when: two fits, as a calibration round and the final round with fewer features
+    fdr_manager.fit_predict(
+        fdr_testdata(FDR_TEST_FEATURES), decoy_strategy="precursor", competitive=False
+    )
+    fdr_manager.fit_predict(
+        fdr_testdata(FDR_TEST_FEATURES),
+        decoy_strategy="precursor",
+        competitive=False,
+        excluded_columns=["feature_b"],
+    )
+
+    # then: both classifiers trained with the configured settings, or unchanged without them
+    assert len(fdr_manager._classifiers) == 2  # noqa: PLR2004
+    for classifier in fdr_manager._classifiers.values():
+        assert (classifier.lr_schedule, classifier.weight_averaging) == expected
+
+
 def test_get_classifier_base_passes_feature_transform():
     # When: the base classifier is created with the quantile feature transform
     classifier = _get_classifier_base(feature_transform=FeatureTransform.QUANTILE)
