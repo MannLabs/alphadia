@@ -131,10 +131,13 @@ class RustExtractionHandler(ExtractionHandler):
         candidates_df: pd.DataFrame,
         precursor_fdr_df: pd.DataFrame | None,
         top_k_fragments: int | None = None,
+        *,
+        fragment_isotopes: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Quantify candidates using the Rust backend.
 
-        See superclass documentation for interface details.
+        See superclass documentation for interface details. With `fragment_isotopes`, the M+1 isotope peak of each
+        fragment adds to its intensity, except for fragments whose M+1 peak can overlap a peak of a different ion.
         """
         candidates_collection = candidates_to_rust(candidates_df, self._dia_data)
 
@@ -142,6 +145,7 @@ class RustExtractionHandler(ExtractionHandler):
         quant_params = QuantificationParameters()
         if top_k_fragments is not None:
             quant_params.update({"top_k_fragments": top_k_fragments})
+        quant_params.update({"fragment_isotopes": fragment_isotopes})
 
         peak_group_quantification = PeakGroupQuantification(quant_params)
         quantified_lib = peak_group_quantification.quantify(
