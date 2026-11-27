@@ -312,15 +312,15 @@ fdr:
   # "quantile" keeps extreme values inside the range the network was trained on.
   feature_transform: quantile
   # training of the FDR classifier, applied to every fit (the calibration rounds and the final round alike).
-  # cosine + weight averaging reduce the run-to-run variation of the IDs; "constant" + false is the previous training.
-  # learning rate schedule, "constant" or "cosine" (decays from the start value to zero over all minibatches of the fit)
-  lr_schedule: cosine
+  # learning rate schedule, "constant" or "cosine" (decays from the start value to zero over all minibatches of the fit).
+  # "cosine" gives about 3 % fewer IDs at 1 % FDR on HeLa and Astral runs, with the torch and the Rust classifier.
+  lr_schedule: constant
   # predict with the network weights averaged over the minibatches of the last epoch instead of the weights after
   # the last minibatch
   weight_averaging: true
-  # implementation of the FDR classifier: "torch" or "rust" (alphadia-search-rs).
+  # implementation of the FDR classifier: "rust" (alphadia-search-rs) or "torch".
   # "rust" trains the same network without batch norm and dropout, and is many times faster.
-  classifier_backend: torch
+  classifier_backend: rust
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

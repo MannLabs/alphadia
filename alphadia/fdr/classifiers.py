@@ -768,9 +768,9 @@ class RustMLPClassifier(Classifier):
         experimental_hyperparameter_tuning: bool = False,
         random_state: int | None = None,
         lr_schedule: str = LRSchedule.CONSTANT,
-        weight_averaging: bool = False,
+        weight_averaging: bool = True,
         input_batch_norm: bool = False,
-        mid_rank_ties: bool = False,
+        mid_rank_ties: bool = True,
     ):
         """Binary classifier for FDR estimation, computed in alphadia-search-rs.
 
@@ -808,7 +808,7 @@ class RustMLPClassifier(Classifier):
         lr_schedule : str, default="constant"
             Learning rate schedule, "constant" or "cosine" (half cosine from `learning_rate` to zero over the fit).
 
-        weight_averaging : bool, default=False
+        weight_averaging : bool, default=True
             Predict with the mean of the parameters over the minibatches of the last epoch instead of the
             parameters after the last minibatch.
 
@@ -816,7 +816,7 @@ class RustMLPClassifier(Classifier):
             Pass the input through a batch norm layer, as in the torch classifier. Training normalizes each
             minibatch and learns a scale and shift per feature. Prediction uses the running statistics.
 
-        mid_rank_ties : bool, default=False
+        mid_rank_ties : bool, default=True
             In the quantile transform, map ties at the lowest or highest quantile (e.g. a feature that is 0 in
             most rows) to the middle of their tie group, as for every other tie group. sklearn instead clamps
             them to the clip value of about -5.2 / +5.2. The clamp leaves such features far from a standard

@@ -3,9 +3,10 @@ from copy import deepcopy
 
 import numpy as np
 import pytest
+from sklearn.preprocessing import QuantileTransformer
 
 from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr.classifiers import RustMLPClassifier
+from alphadia.fdr.classifiers import _N_QUANTILES, RustMLPClassifier
 
 N_FEATURES = 12
 N_SHIFTED_FEATURES = 4
@@ -211,9 +212,15 @@ def test_unknown_feature_transform_raises():
 
 
 def test_hyperparameter_tuning_fits_small_data():
-    # Given: hyperparameter tuning. For few rows, the tuning makes the batch size smaller.
+    # Given: hyperparameter tuning and a constant learning rate. For few rows, the tuning makes the
+    # batch size smaller. The tuned rate is small, so with a cosine decay, 5 epochs on 3000 rows
+    # train too little.
     x, y = _separable_data(3000)
-    classifier = _classifier(experimental_hyperparameter_tuning=True)
+    classifier = _classifier(
+        experimental_hyperparameter_tuning=True,
+        lr_schedule="constant",
+        weight_averaging=False,
+    )
 
     # When: fitting
     classifier.fit(x, y)
@@ -255,6 +262,35 @@ def test_configure_training_keeps_unset_values_and_rejects_unknown_schedule():
         classifier.configure_training(lr_schedule="linear")
 
 
+def test_training_uses_a_constant_learning_rate_and_weight_averaging_by_default():
+    # When: creating a classifier without training options
+    classifier = _classifier()
+
+    # Then: it trains with a constant learning rate and weight averaging
+    assert (classifier.lr_schedule, classifier.weight_averaging) == ("constant", True)
+
+
+def test_quantile_transform_without_mid_rank_ties_matches_sklearn():
+    # Given: a feature that is 0, its minimum, in 90 % of the rows
+    x, _ = _data_with_a_mostly_zero_feature()
+    x = x.astype(np.float32)
+    classifier = _classifier(mid_rank_ties=False)
+
+    # When: the features are transformed by the classifier and by sklearn
+    quantiles = classifier._fit_feature_transform(x, seed=0)
+    z = classifier._transform_features(x, quantiles)
+    z_sklearn = QuantileTransformer(
+        n_quantiles=_N_QUANTILES, output_distribution="normal", subsample=None
+    ).fit_transform(x)
+
+    # Then: the tied minima get sklearn's clip value, and the other scores agree with sklearn up to
+    # the linear interpolation between the quantile knots
+    tied = x[:, 0] == 0.0
+    assert z[0, 0] < -5.0
+    np.testing.assert_allclose(z[tied, 0], z_sklearn[tied, 0], atol=1e-5)
+    assert np.mean(np.abs(z - z_sklearn)) < 1e-3
+
+
 def test_state_dict_carries_the_training_configuration():
     # Given: a classifier with smoothing
     source = _classifier(lr_schedule="cosine", weight_averaging=True)
@@ -271,7 +307,7 @@ def test_mid_rank_ties_centres_a_feature_that_is_mostly_zero():
     # Given: a feature that is 0 (its minimum) in 90 % of the rows
     x, _ = _data_with_a_mostly_zero_feature()
     x = x.astype(np.float32)
-    clamped, mid_ranked = _classifier(), _classifier(mid_rank_ties=True)
+    clamped, mid_ranked = _classifier(mid_rank_ties=False), _classifier()
 
     # When: the feature is transformed with the same quantiles, with and without mid-ranked ties
     quantiles = clamped._fit_feature_transform(x, seed=0)
@@ -285,7 +321,7 @@ def test_mid_rank_ties_centres_a_feature_that_is_mostly_zero():
 
 
 @pytest.mark.parametrize(
-    "options", [{"mid_rank_ties": True}, {"input_batch_norm": True}]
+    "options", [{"mid_rank_ties": False}, {"input_batch_norm": True}]
 )
 def test_options_survive_the_state_dict(options):
     # Given: a classifier fitted with an option other than the default, on a feature with tied
