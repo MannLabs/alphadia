@@ -6,7 +6,11 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import FeatureTransform
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    Classifier,
+    CrossFitClassifier,
+)
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationGroups
@@ -28,7 +32,8 @@ def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool = False,
     feature_transform: str = FeatureTransform.NONE,
     random_state: int | None = None,
-) -> BinaryClassifierLegacyNewBatching:
+    cross_fit_folds: int = 0,
+) -> Classifier:
     """Creates and returns a classifier base instance.
 
     Parameters
@@ -43,12 +48,16 @@ def _get_classifier_base(
     random_state : int | None, optional
         Random state for reproducibility. Default is None.
 
+    cross_fit_folds : int, optional
+        Number of folds for cross-fitting, in which every candidate is scored by a network fitted without it.
+        0 (default) fits one network and scores all candidates with it.
+
     Returns
     -------
-    BinaryClassifierLegacyNewBatching
-        Neural network
+    Classifier
+        Neural network, or the cross-fitted copies of it
     """
-    return BinaryClassifierLegacyNewBatching(
+    classifier = BinaryClassifierLegacyNewBatching(
         test_size=0.001,
         batch_size=5000,
         learning_rate=0.001,
@@ -57,6 +66,9 @@ def _get_classifier_base(
         feature_transform=feature_transform,
         random_state=random_state,
     )
+    if cross_fit_folds:
+        return CrossFitClassifier(classifier, cross_fit_folds)
+    return classifier
 
 
 class PeptideCentricWorkflow(base.WorkflowBase, ABC):
@@ -122,6 +134,7 @@ class PeptideCentricWorkflow(base.WorkflowBase, ABC):
                 ],
                 feature_transform=config_fdr["feature_transform"],
                 random_state=self._random_state_fdr_classifier,
+                cross_fit_folds=config_fdr["cross_fit_folds"],
             ),
             dia_cycle=self.dia_data.cycle,
             config=self.config,

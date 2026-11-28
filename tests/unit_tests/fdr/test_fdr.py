@@ -6,10 +6,16 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from sklearn.metrics import roc_auc_score
 
 from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr import fdr
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    Classifier,
+    CrossFitClassifier,
+    _row_folds,
+)
 from alphadia.fdr.utils import train_test_split_indices
 
 
@@ -407,6 +413,93 @@ def test_quantile_transform_state_dict_round_trip():
 
     # Then: the predictions are identical
     assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
+
+
+def _noise_data(n_samples: int = 4000, n_features: int = 30):
+    """Features that say nothing about the labels."""
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(n_samples, n_features)).astype(np.float32)
+    y = (rng.random(n_samples) < 0.5).astype(np.float64)
+    return x, y
+
+
+def test_row_folds_do_not_depend_on_the_position_of_a_row():
+    # Given: rows and a shuffled subset of them
+    x, _ = _noise_data()
+    subset = np.random.default_rng(1).permutation(len(x))[:1000]
+
+    # When: both are assigned to folds
+    folds = _row_folds(x, 4)
+    subset_folds = _row_folds(x[subset], 4)
+
+    # Then: every row keeps its fold, and all folds are used about equally
+    assert np.array_equal(subset_folds, folds[subset])
+    assert np.bincount(folds, minlength=4).min() > len(x) / 4 * 0.8
+
+
+def test_cross_fit_classifier_does_not_score_its_training_labels():
+    # Given: features without any information about the labels
+    x, y = _noise_data()
+    hyperparameters = {"batch_size": 100, "epochs": 20, "learning_rate": 0.005}
+
+    # When: one classifier scores the rows it was fitted on, and a cross-fitted one does not
+    in_sample = BinaryClassifierLegacyNewBatching(**hyperparameters)
+    in_sample.fit(x, y)
+    cross_fit = CrossFitClassifier(
+        BinaryClassifierLegacyNewBatching(**hyperparameters), n_folds=4
+    )
+    cross_fit.fit(x, y)
+
+    # Then: only the in-sample scores follow the labels
+    assert roc_auc_score(y, in_sample.predict_proba(x)[:, 1]) > 0.6
+    assert 0.42 < roc_auc_score(y, cross_fit.predict_proba(x)[:, 1]) < 0.58
+
+
+def test_cross_fit_classifier_scores_a_row_by_the_copy_fitted_without_it():
+    # Given: a fitted cross-fit classifier
+    x, y = gen_data_np(n_samples=2000)
+    classifier = CrossFitClassifier(
+        BinaryClassifierLegacyNewBatching(batch_size=100), n_folds=3
+    )
+    classifier.fit(x, y)
+
+    # When: all rows are scored
+    proba = classifier.predict_proba(x)
+
+    # Then: every row has the probabilities of the copy of its fold, and the classes follow them
+    folds = _row_folds(x, 3)
+    for fold, copy in enumerate(classifier._classifiers):
+        assert np.array_equal(
+            proba[folds == fold], copy.predict_proba(x[folds == fold])
+        )
+    assert np.array_equal(classifier.predict(x), np.argmax(proba, axis=1))
+
+
+def test_cross_fit_classifier_reset_and_state_dict_round_trip():
+    # Given: a fitted cross-fit classifier
+    x, y = gen_data_np(n_samples=2000)
+    classifier = CrossFitClassifier(
+        BinaryClassifierLegacyNewBatching(batch_size=100), n_folds=3
+    )
+    assert classifier.fitted is False
+    classifier.fit(x, y)
+    assert classifier.fitted is True
+
+    # When: the state dict is round tripped through a new classifier
+    new_classifier = CrossFitClassifier(BinaryClassifierLegacyNewBatching(), n_folds=3)
+    new_classifier.from_state_dict(classifier.to_state_dict())
+
+    # Then: the predictions are identical
+    assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
+
+    # And: a reset leaves the classifier unfitted
+    classifier.reset()
+    assert classifier.fitted is False
+
+
+def test_cross_fit_classifier_needs_two_folds():
+    with pytest.raises(ValueError, match="at least 2 folds"):
+        CrossFitClassifier(BinaryClassifierLegacyNewBatching(), n_folds=1)
 
 
 # one isolation window from 400 to 600 m/z, no mobility

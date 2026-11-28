@@ -311,6 +311,10 @@ fdr:
   # feature transform before the neural network, either "none" or "quantile".
   # "quantile" keeps extreme values inside the range the network was trained on.
   feature_transform: quantile
+  # number of folds for cross-fitting the neural network: every candidate is scored by a network that was
+  # fitted without it. 0 fits one network and scores all candidates with it, which rates the false targets
+  # it was fitted on above the decoys.
+  cross_fit_folds: 4
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

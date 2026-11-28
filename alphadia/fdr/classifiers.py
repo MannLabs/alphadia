@@ -3,6 +3,7 @@
 import logging
 import warnings
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from typing import Any
 
@@ -28,6 +29,9 @@ _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 # layer for every row, gigabytes for the 10 M+ rows of a final search.
 # TODO: find optimal value for this
 _PREDICT_ROWS_CHUNK_SIZE = 250_000
+
+_FOLD_HASH_MULTIPLIER = np.uint64(0x9E3779B97F4A7C15)
+_FOLD_HASH_SHIFT = np.uint64(40)
 
 
 class Classifier(ABC):
@@ -157,6 +161,164 @@ def _get_scaled_training_params(
     learning_rate = base_lr * np.sqrt(batch_size / max_batch)
 
     return batch_size, learning_rate
+
+
+def _row_folds(x: np.ndarray, n_folds: int) -> np.ndarray:
+    """Assign every row to one of `n_folds` folds by a hash of its values.
+
+    A row gets the same fold in every call, so a fit and a later prediction agree on it
+    without sharing an index.
+
+    Parameters
+    ----------
+    x : np.ndarray, dtype=float
+        Data of shape (n_samples, n_features).
+
+    n_folds : int
+        Number of folds.
+
+    Returns
+    -------
+    np.ndarray, dtype=int
+        Fold of every row, of shape (n_samples,).
+
+    """
+    folds = np.empty(len(x), dtype=np.int64)
+    for start in range(0, len(x), _PREDICT_ROWS_CHUNK_SIZE):
+        stop = start + _PREDICT_ROWS_CHUNK_SIZE
+        bits = np.ascontiguousarray(x[start:stop], dtype=np.float64).view(np.uint64)
+        mixed = bits.sum(axis=1, dtype=np.uint64) * _FOLD_HASH_MULTIPLIER
+        folds[start:stop] = (mixed >> _FOLD_HASH_SHIFT) % np.uint64(n_folds)
+    return folds
+
+
+class CrossFitClassifier(Classifier):
+    """Copies of a classifier, each fitted without one fold of the rows.
+
+    Every row is scored by the copy that was fitted without it. A classifier that scores
+    the rows it was fitted on rates them by their label as well as by their features. In
+    the target-decoy fit most targets are false and still labelled as targets, so
+    in-sample scores place false targets above the decoys that estimate their number, the
+    more so the more features there are.
+
+    The copies are fitted in parallel threads. They draw from torch's global random
+    generator in the order the threads run, so a fixed random state does not reproduce a
+    fit bit for bit.
+    """
+
+    def __init__(self, classifier_base: Classifier, n_folds: int):
+        """Create `n_folds` unfitted copies of `classifier_base`.
+
+        Parameters
+        ----------
+        classifier_base : Classifier
+            The classifier to copy.
+
+        n_folds : int
+            Number of folds, at least 2.
+
+        """
+        if n_folds < 2:  # noqa: PLR2004
+            raise ValueError(f"Cross-fitting needs at least 2 folds, got {n_folds}.")
+        self._classifiers = [deepcopy(classifier_base) for _ in range(n_folds)]
+
+    @property
+    def fitted(self) -> bool:
+        """Return whether all copies have been fitted."""
+        return all(classifier.fitted for classifier in self._classifiers)
+
+    @manage_torch_threads(max_threads=2)
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+        """Fit every copy on the rows outside its fold, all copies in parallel.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Training data of shape (n_samples, n_features).
+
+        y : np.ndarray, dtype=int
+            Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        """
+        folds = _row_folds(x, len(self._classifiers))
+        with ThreadPoolExecutor(max_workers=len(self._classifiers)) as executor:
+            futures = [
+                executor.submit(classifier.fit, x[folds != fold], y[folds != fold])
+                for fold, classifier in enumerate(self._classifiers)
+            ]
+            for future in futures:
+                future.result()
+
+    def reset(self) -> None:
+        """Set all copies back to an unfitted state."""
+        for classifier in self._classifiers:
+            classifier.reset()
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class of the data, every row by the copy fitted without its fold.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        y : np.ndarray, dtype=int
+            Predicted class of shape (n_samples,).
+
+        """
+        return np.argmax(self.predict_proba(x), axis=1)
+
+    @manage_torch_threads(max_threads=2)
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class probabilities, every row by the copy fitted without its fold.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        y : np.ndarray, dtype=float
+            Predicted class probabilities of shape (n_samples, n_classes).
+
+        """
+        folds = _row_folds(x, len(self._classifiers))
+        proba = np.empty((len(x), 2), dtype=np.float64)
+        for fold, classifier in enumerate(self._classifiers):
+            proba[folds == fold] = classifier.predict_proba(x[folds == fold])
+        return proba
+
+    def to_state_dict(self) -> dict:
+        """Return the state dicts of all copies.
+
+        Returns
+        -------
+        state_dict : dict
+            State dict with the state dict of every copy under "classifiers".
+
+        """
+        return {
+            "classifiers": [
+                classifier.to_state_dict() for classifier in self._classifiers
+            ]
+        }
+
+    def from_state_dict(self, state_dict: dict) -> None:
+        """Load the state dicts of all copies.
+
+        Parameters
+        ----------
+        state_dict : dict
+            State dict as returned by `to_state_dict`.
+
+        """
+        for classifier, classifier_state_dict in zip(
+            self._classifiers, state_dict["classifiers"], strict=True
+        ):
+            classifier.from_state_dict(classifier_state_dict)
 
 
 class BinaryClassifierLegacyNewBatching(Classifier):

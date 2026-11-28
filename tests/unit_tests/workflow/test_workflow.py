@@ -12,7 +12,10 @@ from alphadia_search_rs import OptimizationContext
 import alphadia
 from alphadia.calibration.estimator import CalibrationEstimator
 from alphadia.constants.keys import FeatureTransform, SearchTolerance
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.classifiers import (
+    BinaryClassifierLegacyNewBatching,
+    CrossFitClassifier,
+)
 from alphadia.workflow.managers.base import BaseManager
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationManager,
@@ -407,3 +410,14 @@ def test_get_classifier_base_passes_feature_transform():
 
     # Then: the classifier applies the transform
     assert classifier.feature_transform == FeatureTransform.QUANTILE
+
+
+def test_get_classifier_base_cross_fits_when_folds_are_given():
+    # When: the base classifier is created with and without folds
+    single = _get_classifier_base()
+    cross_fit = _get_classifier_base(cross_fit_folds=4)
+
+    # Then: only the second one is cross-fitted, with one copy per fold
+    assert isinstance(single, BinaryClassifierLegacyNewBatching)
+    assert isinstance(cross_fit, CrossFitClassifier)
+    assert len(cross_fit._classifiers) == 4
