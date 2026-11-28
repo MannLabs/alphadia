@@ -312,7 +312,7 @@ fdr:
   keep_decoys_in_mbr_library: true
   # decoy generation scheme for the search library and the MBR library: "diann_inner", "diann" or "pseudo_reverse"
   # ignored if the provided library already contains decoys
-  decoy_type: "diann_inner"
+  decoy_type: "diann"
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
@@ -346,12 +346,17 @@ search_output:
   normalization_method: varmodel_directlfq
   # Apply directLFQ normalization (only applies when normalization_method is "varmodel_directlfq" or "directlfq")
   normalize_directlfq: True
+  # varmodel_directlfq, with at least two runs: a fragment missing in a run where its precursor is quantified counts as
+  # below that run's detection limit instead of being dropped, and fragments with a poor XIC correlation in a run are
+  # down-weighted in that run. Trades replicate precision of faint precursors for ratio accuracy.
+  fragment_censoring_correction: True
 
-  # Remove each run's retention-time dependent intensity drift before label-free quantification.
-  # The correction curve of each run is centred on zero, so it only flattens how the intensity changes along the gradient.
-  # It does not shift the overall intensity of a run; differences in overall run intensity are corrected by the LFQ normalization.
-  # The ion selection uses its own thresholds, the defaults of alphadia_search_rs.IntensityDriftCorrection
-  # (correlation >= 0.8, observed in >= 3 runs, >= 500 usable ions per run), not search_output.min_correlation.
+  # Correct intensity drifts along the gradient that differ between runs (e.g. a spray that weakens late in one run),
+  # so that they do not show up as fold changes.
+  # - varmodel_directlfq: corrected along the retention time and the peptide mass
+  # - directlfq, quantselect: corrected along the retention time only
+  # The overall intensity of a run stays unchanged; that is the job of the LFQ normalization.
+  # Runs that share too few peptides with the others are skipped, with a warning.
   intensity_drift_correction: True
 
 # configuration for the optimization manager

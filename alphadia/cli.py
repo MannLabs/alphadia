@@ -6,6 +6,7 @@ Ideally the CLI module should have as little logic as possible so that the searc
 # ruff: noqa: E402 # Module level import not at top of file
 
 import argparse
+import gc
 import json
 import logging
 import os
@@ -193,8 +194,7 @@ def _get_raw_path_list_from_args_and_config(
         Command-line arguments containing file and directory
         paths, as well as a regex pattern for filtering.
     config : dict
-        Configuration dictionary that may include a list of raw paths
-        and a directory to search for files.
+        Configuration dictionary that may include a list of raw paths.
 
     Returns
     -------
@@ -203,12 +203,6 @@ def _get_raw_path_list_from_args_and_config(
 
     raw_path_list = list(config.get(ConfigKeys.RAW_PATHS, []))
     raw_path_list += list(args.file)
-
-    if (config_directory := config.get("directory")) is not None:
-        config_directory = expand_path(config_directory)
-        raw_path_list += [
-            os.path.join(config_directory, f) for f in os.listdir(config_directory)
-        ]
 
     for directory in args.directory:
         directory = expand_path(directory)
@@ -246,6 +240,17 @@ def _print_vendor_format_support() -> None:
     ):
         status = "enabled" if has_support else "disabled (requires Mono/Dotnet)"
         print(f"{vendor} support: {status}")
+
+
+def _exclude_live_objects_from_garbage_collection() -> None:
+    """Exclude the objects that are alive at the end of the search from the garbage collection.
+
+    At exit, pythonnet stops the .NET runtime that reads the Thermo raw files.
+    This stop runs many full garbage collections over all live objects.
+    After a search of one raw file, these collections took approximately 30 s.
+    The process ends after the search, so these objects need no collection.
+    """
+    gc.freeze()
 
 
 def run(*args, **kwargs):
@@ -328,6 +333,9 @@ def run(*args, **kwargs):
 
         logger.error(e)
         return exit_code
+
+    finally:
+        _exclude_live_objects_from_garbage_collection()
 
 
 if __name__ == "__main__" and os.getenv("RUN_MAIN") == "1":

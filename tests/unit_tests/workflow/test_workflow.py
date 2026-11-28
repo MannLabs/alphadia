@@ -77,12 +77,8 @@ def test_base_manager_load_version_mismatch_warns_and_loads(tmp_path):
 
 def test_calibration_manager_init():
     # initialize the calibration manager (mobility not available in the raw data)
-    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    calibration_manager = CalibrationManager(
-        path=temp_path, load_from_file=False, has_mobility=False
-    )
+    calibration_manager = CalibrationManager(has_mobility=False)
 
-    assert calibration_manager.path == temp_path
     assert calibration_manager.is_loaded_from_file is False
     assert calibration_manager.all_fitted is False
 
@@ -149,10 +145,7 @@ def calibration_testdata():
 
 
 def test_calibration_manager_fit_predict():
-    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    calibration_manager = CalibrationManager(
-        path=temp_path, load_from_file=False, has_mobility=False
-    )
+    calibration_manager = CalibrationManager(has_mobility=False)
 
     test_df = calibration_testdata()
 
@@ -174,7 +167,7 @@ def test_calibration_manager_fit_predict():
 
 
 def test_calibration_manager_save_stats():
-    calibration_manager = CalibrationManager(load_from_file=False, has_mobility=False)
+    calibration_manager = CalibrationManager(has_mobility=False)
 
     test_df = calibration_testdata()
     calibration_manager.fit(test_df, "precursor", plot=False)

@@ -5,8 +5,9 @@ from collections.abc import Iterator
 import pandas as pd
 import pyarrow.parquet as pq
 
-from alphadia.constants.keys import SearchStepFiles
+from alphadia.constants.keys import QuantificationLevelKey, SearchStepFiles
 from alphadia.outputtransform.quantification.quant_builder import (
+    DEFAULT_FEATURE_COLUMNS,
     ION_COLUMN,
     ION_HASH_COLUMNS,
     precursor_idx_from_ion,
@@ -41,7 +42,7 @@ class FragmentQuantLoader:
         constant_feature_columns: list[str] | None = None,
     ):
         self.psm_df = psm_df
-        self.columns = ["intensity", "correlation"] if columns is None else columns
+        self.columns = DEFAULT_FEATURE_COLUMNS if columns is None else columns
         self.constant_feature_columns = (
             [] if constant_feature_columns is None else constant_feature_columns
         )
@@ -55,7 +56,7 @@ class FragmentQuantLoader:
 
     def accumulate_from_folders(
         self, folder_list: list[str]
-    ) -> dict[str, pd.DataFrame] | None:
+    ) -> dict[str, pd.DataFrame]:
         """Accumulate fragment data from a list of folders.
 
         Parameters
@@ -69,14 +70,20 @@ class FragmentQuantLoader:
             Dictionary with column name as key and dataframe as value, where each dataframe
             has columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
             and the `constant_feature_columns`
-            Returns None if no fragment files are found
+
+        Raises
+        ------
+        ValueError
+            If the folder list is empty
+        FileNotFoundError
+            If a folder holds no fragment file
         """
         df_iterable = self._get_frag_df_generator(folder_list)
         return self.accumulate(df_iterable)
 
     def accumulate(
         self, df_iterable: Iterator[tuple[str, pd.DataFrame]]
-    ) -> dict[str, pd.DataFrame] | None:
+    ) -> dict[str, pd.DataFrame]:
         """Accumulate fragment data from an iterator of (run_name, dataframe) tuples.
 
         Parameters
@@ -90,14 +97,18 @@ class FragmentQuantLoader:
             Dictionary with column name as key and dataframe as value, where each dataframe
             has columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
             and the `constant_feature_columns`
-            Returns None if iterator is empty
+
+        Raises
+        ------
+        ValueError
+            If the iterator is empty
         """
         logger.info("Accumulating fragment data")
 
-        raw_name, run_df = next(df_iterable, (None, None))
-        if run_df is None:
-            logger.warning(f"No frag file found for {raw_name}")
-            return None
+        first_run = next(df_iterable, None)
+        if first_run is None:
+            raise ValueError("No fragment data to accumulate")
+        raw_name, run_df = first_run
 
         run_df = prepare_df(
             run_df,
@@ -140,7 +151,13 @@ class FragmentQuantLoader:
 
         precursor_metadata_df = self.psm_df.groupby(
             "precursor_idx", as_index=False
-        ).agg({"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"})
+        ).agg(
+            {
+                QuantificationLevelKey.PROTEIN: "first",
+                QuantificationLevelKey.PEPTIDE: "first",
+                QuantificationLevelKey.PRECURSOR: "first",
+            }
+        )
 
         return {
             col: self._add_precursor_idx(feature_df, precursor_metadata_df).merge(
@@ -168,19 +185,14 @@ class FragmentQuantLoader:
             raw_name = os.path.basename(folder)
             frag_path = os.path.join(folder, SearchStepFiles.FRAG_FILE_NAME)
 
+            # the folder list only holds runs that were searched successfully, so a missing
+            # file is an error and skipping the run would silently drop it from the quantities
             if not os.path.exists(frag_path):
-                logger.warning(f"no frag file found for {raw_name}")
-            else:
-                self._check_read_columns(frag_path)
+                raise FileNotFoundError(f"No fragment file found for {raw_name}")
+            self._check_read_columns(frag_path)
 
-                try:
-                    logger.info(f"reading frag file for {raw_name}")
-                    run_df = pd.read_parquet(frag_path, columns=self._read_columns)
-                except Exception as e:
-                    logger.warning(f"Error reading frag file for {raw_name}")
-                    logger.warning(e)
-                else:
-                    yield raw_name, run_df
+            logger.info(f"reading frag file for {raw_name}")
+            yield raw_name, pd.read_parquet(frag_path, columns=self._read_columns)
 
     def _check_read_columns(self, frag_path: str) -> None:
         """Raise if the fragment file does not contain all required columns."""

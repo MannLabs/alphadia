@@ -433,10 +433,11 @@
                     "id": "decoy_type",
                     "name": "Decoy Type",
                     "default": "diann",
-                    "description": "Scheme used to generate decoys for the search library and the MBR library. Ignored if the library already contains decoys. \n diann: mutates the second and second-to-last amino acid (DIA-NN style). \n pseudo_reverse: reverses the sequence while keeping the C-terminal amino acid.",
+                    "description": "Scheme used to generate decoys for the search library and the MBR library. Ignored if the library already contains decoys. \n diann: mutates the second and second-to-last amino acid (DIA-NN style). \n diann_inner: mutates the third and third-to-last amino acid, so the decoys keep the b2 and y2 fragments of the target. \n pseudo_reverse: reverses the sequence while keeping the C-terminal amino acid.",
                     "type": "dropdown",
                     "options": [
                         "diann",
+                        "diann_inner",
                         "pseudo_reverse"
                     ]
                 },
@@ -599,7 +600,7 @@
                     "id": "intensity_drift_correction",
                     "name": "Intensity drift correction",
                     "default": true,
-                    "description": "Remove each run's retention-time dependent intensity drift before label-free quantification. Each run's correction curve is centred on zero, so it only flattens how the intensity changes along the gradient and does not shift the overall intensity of a run. Differences in overall run intensity are corrected by the label-free quantification normalization.",
+                    "description": "Correct intensity drifts along the gradient that differ between runs (e.g. a spray that weakens late in one run), so that they do not show up as fold changes. With varmodel_directlfq the drift is corrected along the retention time and the peptide mass, with directlfq and quantselect along the retention time only. The overall intensity of a run stays unchanged; that is the job of the LFQ normalization. Runs that share too few peptides with the others are skipped, with a warning.",
                     "type": "boolean"
                 }
             ]
