@@ -457,3 +457,19 @@ def test_default_config_tolerates_removed_keys(section, removed_key, value):
 
     # then
     assert removed_key not in default_config[section]
+
+
+def test_default_config_quantifies_with_the_fragment_isotopes():
+    """Test that the main search quantification adds the M+1 isotope peak of each fragment by default."""
+    # given
+    default_config = Config(name="default")
+
+    # when
+    default_config.from_yaml(
+        os.path.join(
+            os.path.dirname(__file__), "../../../alphadia/constants/default.yaml"
+        )
+    )
+
+    # then
+    assert default_config["search"]["quant_fragment_isotopes"] is True

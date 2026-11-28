@@ -218,7 +218,7 @@ search:
   detection_features: True
 
   # add the M+1 isotope peak of each fragment to its intensity in the quantification of the main search (rust backend)
-  quant_fragment_isotopes: False
+  quant_fragment_isotopes: True
 
   # === python backend only ===
   # exclude fragments shared between multiple channels
