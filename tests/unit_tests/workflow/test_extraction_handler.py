@@ -488,3 +488,31 @@ def test_ms1_features_are_skipped_with_a_warning_when_they_cannot_be_scored(
     )
     message = reporter.log_string.call_args.args[0]
     assert message.startswith("search.ms1_features is skipped") and reason in message
+
+
+@pytest.mark.parametrize("fragment_isotopes", [False, True])
+def test_quantify_candidates_sets_the_fragment_isotopes_of_the_quantification(
+    fragment_isotopes,
+):
+    # Given: a handler whose Rust quantification is patched
+    handler = _create_handler({})
+    module = "alphadia.workflow.peptidecentric.rust.extraction_handler"
+    with (
+        patch(f"{module}.QuantificationParameters") as mock_params_cls,
+        patch(f"{module}.PeakGroupQuantification"),
+        patch(f"{module}.candidates_to_rust"),
+        patch(
+            f"{module}.parse_quantification", return_value=(MagicMock(), MagicMock())
+        ),
+        patch(f"{module}.CandidateScoring.merge_candidate_data"),
+        patch.object(handler, "add_columns_from_library"),
+    ):
+        # When: the handler quantifies candidates with or without the fragment isotopes
+        handler.quantify_candidates(
+            MagicMock(), None, fragment_isotopes=fragment_isotopes
+        )
+
+    # Then: the quantification parameters get the value
+    mock_params_cls.return_value.update.assert_any_call(
+        {"fragment_isotopes": fragment_isotopes}
+    )

@@ -20,6 +20,7 @@ from alphadia.workflow.peptidecentric.rust.mapper import (
     get_enabled_feature_groups,
     get_feature_group_columns,
     set_ms1_isotopes,
+    speclib_to_rust,
     to_features_df,
 )
 
@@ -345,3 +346,50 @@ def test_dia_data_to_rust_keeps_the_default_cycle_positions(mock_dia_data_rust):
 
     # then
     dia_data_rust.set_cycle_positions.assert_not_called()
+
+
+@patch("alphadia.workflow.peptidecentric.rust.mapper.SpecLibFlatRust")
+def test_speclib_to_rust_sets_the_elution_group_of_each_precursor(mock_speclib_rust):
+    # Given: a library with a target and its decoy in elution group 4, and a target in elution group 9
+    precursor_df = pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2],
+            "elution_group_idx": [4, 4, 9],
+            "mz_library": [500.0, 501.0, 600.0],
+            "rt_library": [10.0, 10.0, 20.0],
+            "nAA": [10, 10, 12],
+            "flat_frag_start_idx": [0, 1, 2],
+            "flat_frag_stop_idx": [1, 2, 3],
+        }
+    )
+    fragment_df = pd.DataFrame(
+        {
+            column: [1, 1, 1]
+            for column in [
+                "mz_library",
+                "intensity",
+                "cardinality",
+                "charge",
+                "loss_type",
+                "number",
+                "position",
+                "type",
+            ]
+        }
+    )
+    spectral_library = MagicMock(precursor_df=precursor_df, fragment_df=fragment_df)
+
+    # When: the library is converted to the Rust format
+    speclib_to_rust(
+        spectral_library,
+        rt_column="rt_library",
+        precursor_mz_column="mz_library",
+        fragment_mz_column="mz_library",
+    )
+
+    # Then: the Rust library gets the elution group of each precursor after its number of amino acids
+    arrays = mock_speclib_rust.from_arrays.call_args.args
+    precursor_naa, elution_group_idx = arrays[5], arrays[6]
+    np.testing.assert_array_equal(precursor_naa, [10, 10, 12])
+    np.testing.assert_array_equal(elution_group_idx, [4, 4, 9])
+    assert elution_group_idx.dtype == np.uint64

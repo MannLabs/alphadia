@@ -76,7 +76,11 @@ def speclib_to_rust(
     precursor_mz_column: str,
     fragment_mz_column: str,
 ) -> "SpecLibFlatRust":  # noqa: F821
-    """Convert a spectral library to the alphadia-search-rs format."""
+    """Convert a spectral library to the alphadia-search-rs format.
+
+    The library keeps the elution group of each precursor. The scoring compares the ions of the precursors of an
+    elution group, so that a decoy gets no isotope evidence from the peaks of its target.
+    """
 
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
@@ -88,6 +92,7 @@ def speclib_to_rust(
         precursor_df["rt_library"].values.astype(np.float32),
         precursor_df[rt_column].values.astype(np.float32),
         precursor_df["nAA"].values.astype(np.uint8),
+        precursor_df["elution_group_idx"].values.astype(np.uint64),
         precursor_df["flat_frag_start_idx"].values.astype(np.uint64),
         precursor_df["flat_frag_stop_idx"].values.astype(np.uint64),
         fragment_df["mz_library"].values.astype(np.float32),

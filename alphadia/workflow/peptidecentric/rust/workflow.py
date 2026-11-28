@@ -118,7 +118,9 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
         )
 
         precursor_df, fragments_df = extraction_handler.quantify_candidates(
-            candidates_fdr_df, precursor_fdr_df
+            candidates_fdr_df,
+            precursor_fdr_df,
+            fragment_isotopes=self.config["search"]["quant_fragment_isotopes"],
         )
 
         fragments_df = add_library_fragment_intensity(
