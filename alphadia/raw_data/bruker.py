@@ -47,6 +47,8 @@ class TimsTOFTranspose(TimsTOFBase):
 
         self.has_mobility = True
         self.has_ms1 = True
+        # the MS1 scans are never aligned to the DIA cycle (see alpharaw_wrapper.py)
+        self.cycle_positions = None
 
         self.transpose()
 

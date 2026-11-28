@@ -1,5 +1,7 @@
 """Conversion between alphaDIA and alphadia-search-rs data structures."""
 
+from collections.abc import Collection
+
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -14,8 +16,12 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatRust
 
+from alphadia.calibration.ms1_calibration import Ms1Calibration
 from alphadia.constants.keys import CalibCols
 from alphadia.raw_data import DiaData
+
+# library isotope abundances (alphabase IsotopeGenerator) scored against the MS1 isotope XICs
+MS1_ISOTOPE_COLUMNS = ["i_0", "i_1", "i_2", "i_3"]
 
 
 def set_thread_count(thread_count: int) -> None:
@@ -24,7 +30,12 @@ def set_thread_count(thread_count: int) -> None:
 
 
 def dia_data_to_rust(dia_data: DiaData) -> "DiaDataRust":  # noqa: F821
-    """Convert DIA data to the alphadia-search-rs format."""
+    """Convert DIA data to the alphadia-search-rs format.
+
+    For MS1 scans aligned to the MS2 cycle (`ms1_alignment.py`), the acquisition time of each spectrum within the cycle
+    (`cycle_positions`) is passed on, so that the MS1 features that score the MS1 scans at their own times place them
+    there.
+    """
 
     spectrum_df = dia_data.spectrum_df
     peak_df = dia_data.peak_df
@@ -39,7 +50,7 @@ def dia_data_to_rust(dia_data: DiaData) -> "DiaDataRust":  # noqa: F821
         :spectrum_df_len
     ]
 
-    return DiaDataRust.from_arrays(
+    dia_data_rust = DiaDataRust.from_arrays(
         delta_scan_idx.astype(np.int64),
         spectrum_df["isolation_lower_mz"].values.astype(np.float32),
         spectrum_df["isolation_upper_mz"].values.astype(np.float32),
@@ -51,6 +62,11 @@ def dia_data_to_rust(dia_data: DiaData) -> "DiaDataRust":  # noqa: F821
         peak_df["intensity"].values.astype(np.float32),
         dia_data.cycle.astype(np.float32),
     )
+    if dia_data.cycle_positions is not None:
+        dia_data_rust.set_cycle_positions(
+            np.asarray(dia_data.cycle_positions, np.float32).tolist()
+        )
+    return dia_data_rust
 
 
 def speclib_to_rust(
@@ -86,6 +102,40 @@ def speclib_to_rust(
     )
 
 
+def set_ms1_isotopes(
+    speclib_rust: "SpecLibFlatRust",  # noqa: F821
+    precursor_df: pd.DataFrame,
+    precursor_mz_column: str,
+    rt_column: str,
+    calibration: Ms1Calibration,
+) -> None:
+    """Give the rust library the MS1 isotopes of every precursor at its own m/z, shifted by the calibrated MS1 error.
+
+    Decoys too are scored at their own m/z and envelope: scoring them at their target's would let a classifier
+    recognise them. The expected error is evaluated at the precursor's m/z and RT. The isotopes are the leading
+    `MS1_ISOTOPE_COLUMNS` the library has.
+    """
+    isotope_columns = []
+    for column in MS1_ISOTOPE_COLUMNS:
+        if column not in precursor_df.columns:
+            break
+        isotope_columns.append(column)
+    if not isotope_columns:
+        raise ValueError(
+            f"search.ms1_features needs the library isotope abundances {MS1_ISOTOPE_COLUMNS} in the precursor table"
+        )
+    mz = precursor_df[precursor_mz_column].to_numpy(np.float64)
+    rt = precursor_df[rt_column].to_numpy(np.float64)
+    speclib_rust.set_isotopes(
+        precursor_df["precursor_idx"].to_numpy().astype(np.uint64),
+        precursor_df["charge"].to_numpy().astype(np.uint8),
+        (mz * (1 + calibration.offset_ppm(mz, rt) * 1e-6)).astype(np.float32),
+        np.ascontiguousarray(
+            precursor_df[isotope_columns].to_numpy(), dtype=np.float32
+        ),
+    )
+
+
 def get_feature_names(feature_set: FeatureSet) -> list[str]:
     """Get the names of the features alphadia-search-rs computes with `feature_set`."""
     return list(CandidateFeatureCollection.get_feature_names(feature_set))
@@ -94,6 +144,82 @@ def get_feature_names(feature_set: FeatureSet) -> list[str]:
 # The final-round classifier leaves fwhm_rt out: permuting it in offline replays of the final round moved the real
 # identifications by less than 1 %. It is still scored, because the precursor output reports it as the peak width.
 FINAL_ROUND_EXCLUDED_FEATURES = ("fwhm_rt",)
+
+# The optional features by the `search.<flag>` that adds them to the classifier. They are in FeatureSet.Full only,
+# so they only exist in the final round and never enter the calibration fits.
+OPTIONAL_FEATURE_GROUPS = {
+    # |fitted - library| of the unit-sum fragment intensities, each fragment XIC fitted to the median elution profile
+    "fitted_spread_features": (
+        "fit_intensity_abs_diff_mean",
+        "fit_intensity_abs_diff_std",
+        "fit_intensity_abs_diff_max",
+        "fit_y_intensity_abs_diff_std",
+    ),
+    # the candidate's share of its isolation window's MS2 signal at the apex, raw and against its neighbours
+    "window_signal_share_features": (
+        "apex_window_signal_frac",
+        "apex_window_signal_frac_rank",
+        "apex_window_signal_frac_zscore",
+    ),
+    # the MS1 isotope XICs of the precursor against the fragment elution profile and the library isotope abundances;
+    # scored only if the flag is set and the raw file and the library allow it (RustExtractionHandler)
+    "ms1_features": (
+        "ms1_signal_at_apex",
+        "ms1_isotope_correlation",
+        "ms1_isotope_cosine",
+        "ms1_m_minus_1_frac",
+        "ms1_log_intensity",
+        "ms1_iso_m1_err",
+        "ms1_m0_accurate_share",
+        "ms1_m1_accurate_share",
+        "ms1_fine_shape",
+        "ms1_fine_iso_corr",
+    ),
+    # fragment detection at the apex scan, for one-scan peaks at low input; scored only if the flag is set
+    "detection_features": (
+        "shadow_lib_share",
+        "det_faint_hits",
+        "det_faint_miss",
+    ),
+}
+
+
+def get_enabled_feature_groups(search_config: dict) -> list[str]:
+    """Get the optional feature groups whose `search.<group>` flag is set."""
+    return [
+        group for group in OPTIONAL_FEATURE_GROUPS if search_config.get(group, False)
+    ]
+
+
+def get_feature_group_columns(feature_groups: Collection[str]) -> list[str]:
+    """Get the feature columns of the optional `feature_groups`."""
+    unknown_groups = set(feature_groups) - set(OPTIONAL_FEATURE_GROUPS)
+    if unknown_groups:
+        raise ValueError(f"Unknown optional feature groups: {unknown_groups}")
+    return [
+        column
+        for group in OPTIONAL_FEATURE_GROUPS
+        if group in feature_groups
+        for column in OPTIONAL_FEATURE_GROUPS[group]
+    ]
+
+
+def get_classifier_feature_columns(
+    feature_groups: Collection[str] = (),
+) -> list[str]:
+    """Get the feature columns the FDR classifier is trained on.
+
+    The full feature set; the FDR manager uses only the columns present, so calibration rounds use the core subset.
+    The optional features are left out unless their group is in `feature_groups`.
+    """
+    excluded = set(get_feature_group_columns(OPTIONAL_FEATURE_GROUPS)) - set(
+        get_feature_group_columns(feature_groups)
+    )
+    return [
+        column
+        for column in get_feature_names(FeatureSet.Full)
+        if column not in excluded
+    ]
 
 
 def parse_candidates(
@@ -170,11 +296,22 @@ def candidates_to_rust(
 
 
 def to_features_df(
-    candidate_features: CandidateFeatureCollection, spectral_library: SpecLibFlat
+    candidate_features: CandidateFeatureCollection,
+    spectral_library: SpecLibFlat,
+    *,
+    unscored_feature_groups: Collection[str] = (),
 ) -> pd.DataFrame:
-    """Convert alphadia-search-rs candidate features into a DataFrame."""
+    """Convert alphadia-search-rs candidate features into a DataFrame.
 
-    features_dict = candidate_features.to_dict_arrays()
+    The columns of the `unscored_feature_groups` (`OPTIONAL_FEATURE_GROUPS`) hold the missing values and are dropped,
+    so that the classifier never sees them, also when their flag is set but the file cannot score them.
+    """
+    dropped = set(get_feature_group_columns(unscored_feature_groups))
+    features_dict = {
+        name: values
+        for name, values in candidate_features.to_dict_arrays().items()
+        if name not in dropped
+    }
 
     features_df = pd.DataFrame(features_dict)
 

@@ -6,6 +6,7 @@ import os
 import h5py
 import numpy as np
 
+from alphadia.constants.keys import ExtractionBackend
 from alphadia.exceptions import NotValidDiaDataError
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import (
@@ -79,6 +80,11 @@ class RawFileManager(BaseManager):
 
         """
         file_extension = os.path.splitext(dia_data_path)[1]
+        # the MS1 features (rust backend only) need the MS1 scans, also those acquired on their own clock
+        align_ms1 = (
+            self._config["search"]["ms1_features"]
+            and self._config["search"]["extraction_backend"] == ExtractionBackend.RUST
+        )
 
         if file_extension.lower() == ".d":
             raw_data_type = "bruker"
@@ -92,7 +98,7 @@ class RawFileManager(BaseManager):
                 dia_data = TimsTOFTranspose(dia_data_path)
             else:
                 raw_data_type = "alpharaw"
-                dia_data = AlphaRawBase(dia_data_path)
+                dia_data = AlphaRawBase(dia_data_path, align_ms1=align_ms1)
 
         elif file_extension.lower() == ".raw":
             raw_data_type = "thermo"
@@ -100,17 +106,18 @@ class RawFileManager(BaseManager):
             dia_data = Thermo(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
+                align_ms1=align_ms1,
             )
 
         elif file_extension.lower() == ".mzml":
             raw_data_type = "mzml"
 
-            dia_data = MzML(dia_data_path)
+            dia_data = MzML(dia_data_path, align_ms1=align_ms1)
 
         elif file_extension.lower() == ".wiff":
             raw_data_type = "sciex"
 
-            dia_data = Sciex(dia_data_path)
+            dia_data = Sciex(dia_data_path, align_ms1=align_ms1)
 
         else:
             raise ValueError(

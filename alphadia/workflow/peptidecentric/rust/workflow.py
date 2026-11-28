@@ -10,13 +10,15 @@ from alphadia_search_rs import FeatureSet
 from alphadia.exceptions import GenericUserError
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.bruker import TimsTOFTranspose
+from alphadia.workflow.config import Config
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 from alphadia.workflow.peptidecentric.rust.extraction_handler import (
     RustExtractionHandler,
 )
 from alphadia.workflow.peptidecentric.rust.mapper import (
     dia_data_to_rust,
-    get_feature_names,
+    get_classifier_feature_columns,
+    get_enabled_feature_groups,
     set_thread_count,
 )
 from alphadia.workflow.peptidecentric.rust.optimization_handler import (
@@ -37,8 +39,22 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
 
     OPTIMIZATION_HANDLER_CLASS = RustOptimizationHandler
 
+    def __init__(
+        self,
+        instance_name: str,
+        config: Config,
+        quant_path: str | None = None,
+        random_state: int | None = None,
+    ) -> None:
+        super().__init__(instance_name, config, quant_path, random_state)
+        # Whether the raw file has MS1 scans, set by `_convert_dia_data`: the converted alphadia-search-rs DIA data
+        # always reports has_ms1 False.
+        self._raw_data_has_ms1: bool = False
+
     def _classifier_feature_columns(self) -> list[str]:
-        return get_feature_names(FeatureSet.Full)
+        return get_classifier_feature_columns(
+            get_enabled_feature_groups(self.config["search"])
+        )
 
     def _create_extraction_handler(
         self, spectral_library: SpecLibFlat
@@ -51,6 +67,7 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
             self._create_column_name_handler(),
             self.dia_data,
             spectral_library,
+            raw_data_has_ms1=self._raw_data_has_ms1,
         )
 
     def _convert_dia_data(self, dia_data: DiaData) -> DiaDataRust:
@@ -66,6 +83,7 @@ class RustPeptideCentricWorkflow(PeptideCentricWorkflow):
         set_thread_count(self.config["general"]["thread_count"])
 
         dia_data_rust = dia_data_to_rust(dia_data)
+        self._raw_data_has_ms1 = dia_data.has_ms1
 
         # TODO: remove these asserts
         assert dia_data.cycle.shape[1] == dia_data_rust.cycle.shape[1]
