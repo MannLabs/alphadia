@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from sklearn.preprocessing import QuantileTransformer
 
 from alphadia.constants.keys import FeatureTransform
 from alphadia.fdr import fdr
@@ -380,10 +381,10 @@ def test_fit_feature_transform_falls_back_to_raw_features_for_few_rows():
     x, _ = gen_data_np(n_samples=100)
 
     # When: the transform is fitted
-    transformer = classifier._fit_feature_transform(x)
+    quantiles = classifier._fit_feature_transform(x)
 
-    # Then: no transformer is fitted, so the raw features are used
-    assert transformer is None
+    # Then: no quantiles are fitted, so the raw features are used
+    assert quantiles is None
 
 
 def test_classifier_raises_for_unknown_transform():
@@ -399,7 +400,7 @@ def test_quantile_transform_state_dict_round_trip():
         batch_size=100, feature_transform=FeatureTransform.QUANTILE
     )
     classifier.fit(x, y)
-    assert classifier._quantile_transformer is not None
+    assert classifier._quantiles is not None
 
     # When: the state dict is round tripped through a new classifier
     new_classifier = BinaryClassifierLegacyNewBatching()
@@ -407,6 +408,38 @@ def test_quantile_transform_state_dict_round_trip():
 
     # Then: the predictions are identical
     assert np.array_equal(new_classifier.predict_proba(x), classifier.predict_proba(x))
+
+
+def test_quantile_transform_matches_sklearn():
+    # Given: heavy-tailed data (normal features and one log-normal feature) and a classifier with
+    # the quantile transform
+    x = np.random.default_rng(0).normal(size=(3000, 10))
+    x[:, -1] = np.exp(x[:, -1])
+    classifier = BinaryClassifierLegacyNewBatching(
+        feature_transform=FeatureTransform.QUANTILE
+    )
+
+    # When: the quantile transform is fitted and applied
+    classifier._quantiles = classifier._fit_feature_transform(x)
+    transformed = classifier._transform_features(x)
+
+    # Then: the features agree with sklearn's QuantileTransformer
+    expected = QuantileTransformer(
+        n_quantiles=1001, output_distribution="normal", subsample=None
+    ).fit_transform(x.astype(np.float32))
+    assert np.abs(transformed - expected).mean() < 1e-3
+    assert np.abs(transformed - expected).max() < 0.05
+
+
+def test_from_state_dict_rejects_a_stored_sklearn_quantile_transformer():
+    # Given: a state dict that holds a sklearn quantile transformer
+    state_dict = BinaryClassifierLegacyNewBatching().to_state_dict()
+    del state_dict["_quantiles"]
+    state_dict["_quantile_transformer"] = QuantileTransformer()
+
+    # When / Then: loading the state dict raises
+    with pytest.raises(ValueError, match="sklearn quantile transformer"):
+        BinaryClassifierLegacyNewBatching().from_state_dict(state_dict)
 
 
 # one isolation window from 400 to 600 m/z, no mobility
@@ -527,3 +560,92 @@ def test_perform_fdr_trains_on_the_best_candidate_if_asked(train_on_best_candida
     else:
         assert len(fitted_precursors) == len(idxs_train)
     assert set(result["precursor_idx"]) == set(psm_df["precursor_idx"])
+
+
+def _classifier_data(n: int = 6000, seed: int = 0):
+    rng = np.random.default_rng(seed)
+    y = rng.integers(0, 2, n).astype(float)
+    x = rng.normal(size=(n, 5)) + y[:, None] * 0.3
+    return x, y
+
+
+def _fit_predict(seed: int, **kwargs) -> np.ndarray:
+    x, y = _classifier_data()
+    classifier = BinaryClassifierLegacyNewBatching(
+        batch_size=500, epochs=3, learning_rate=0.01, random_state=seed, **kwargs
+    )
+    classifier.fit(x, y)
+    return classifier.predict_proba(x)[:, 1]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"lr_schedule": "cosine"},
+        {"weight_averaging": True},
+        {"lr_schedule": "cosine", "weight_averaging": True},
+    ],
+)
+def test_classifier_schedule_and_weight_averaging_are_deterministic(kwargs):
+    a = _fit_predict(42, **kwargs)
+    b = _fit_predict(42, **kwargs)
+
+    np.testing.assert_array_equal(a, b)
+    # and they change the fit
+    assert not np.array_equal(a, _fit_predict(42))
+
+
+def test_classifier_defaults_are_constant_and_unaveraged():
+    classifier = BinaryClassifierLegacyNewBatching()
+    assert classifier.lr_schedule == "constant"
+    assert classifier.weight_averaging is False
+
+    # configuring the defaults explicitly gives the same fit
+    x, y = _classifier_data()
+    configured = BinaryClassifierLegacyNewBatching(
+        batch_size=500, epochs=3, learning_rate=0.01, random_state=42
+    )
+    configured.configure_training(lr_schedule="constant", weight_averaging=False)
+    configured.fit(x, y)
+    np.testing.assert_array_equal(configured.predict_proba(x)[:, 1], _fit_predict(42))
+
+
+def test_classifier_cosine_schedule_decays_learning_rate_to_zero():
+    x, y = _classifier_data()
+    classifier = BinaryClassifierLegacyNewBatching(
+        batch_size=500, epochs=2, learning_rate=0.01, lr_schedule="cosine"
+    )
+    learning_rates = []
+    original_step = torch.optim.Adam.step
+
+    def recording_step(self, *args, **kwargs):
+        learning_rates.append(self.param_groups[0]["lr"])
+        return original_step(self, *args, **kwargs)
+
+    with patch.object(torch.optim.Adam, "step", recording_step):
+        classifier.fit(x, y)
+
+    assert learning_rates[0] == pytest.approx(0.01)
+    assert learning_rates[-1] < 0.01 * 0.01
+    assert all(np.diff(learning_rates) <= 1e-12)
+
+
+def test_classifier_weight_averaging_averages_last_epoch_states():
+    from alphadia.fdr.classifiers import _update_average_state
+
+    states = [
+        {"w": torch.tensor([1.0, 2.0]), "n": torch.tensor(1)},
+        {"w": torch.tensor([3.0, 6.0]), "n": torch.tensor(2)},
+    ]
+    averaged, count = None, 0
+    for state in states:
+        averaged, count = _update_average_state(averaged, count, state)
+
+    assert count == 2
+    torch.testing.assert_close(averaged["w"], torch.tensor([2.0, 4.0]))
+    assert int(averaged["n"]) == 2
+
+
+def test_classifier_rejects_unknown_schedule():
+    with pytest.raises(ValueError, match="learning rate schedule"):
+        BinaryClassifierLegacyNewBatching(lr_schedule="linear")

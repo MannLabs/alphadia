@@ -9,7 +9,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.preprocessing import QuantileTransformer
+from alphadia_search_rs import (
+    fdr_mlp_fit,
+    fdr_mlp_predict,
+    fdr_quantile_fit,
+    fdr_quantile_transform,
+)
 from torch import nn, optim
 from tqdm import tqdm
 
@@ -28,6 +33,19 @@ _MIN_ROWS_FOR_QUANTILE_TRANSFORM = 2000
 # layer for every row, gigabytes for the 10 M+ rows of a final search.
 # TODO: find optimal value for this
 _PREDICT_ROWS_CHUNK_SIZE = 250_000
+
+
+class LRSchedule:
+    """Learning rate schedules of `BinaryClassifierLegacyNewBatching` and `RustMLPClassifier`."""
+
+    CONSTANT = "constant"
+    # decays the learning rate along a half cosine from its start value to zero over all minibatches of the fit
+    COSINE = "cosine"
+
+    @classmethod
+    def get_values(cls) -> list[str]:
+        """All valid schedule names."""
+        return [cls.CONSTANT, cls.COSINE]
 
 
 class Classifier(ABC):
@@ -177,6 +195,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         *,
         experimental_hyperparameter_tuning: bool = False,
         random_state: int | None = None,
+        lr_schedule: str = LRSchedule.CONSTANT,
+        weight_averaging: bool = False,
         **kwargs,  # TODO: needed?
     ):
         """Binary Classifier using a feed forward neural network.
@@ -220,6 +240,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         random_state : int, optional
             Random seed for reproducibility of torch, numpy, and train-test-split.
 
+        lr_schedule : str, default="constant"
+            Learning rate schedule, "constant" or "cosine" (half cosine from `learning_rate` to zero over the fit).
+
+        weight_averaging : bool, default=False
+            Predict with the average of the network weights over the minibatches of the last epoch instead of the
+            weights after the last minibatch.
+
         **kwargs : dict
             Keyword arguments. Will raise a warning if used.
 
@@ -244,11 +271,15 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.metric_interval = metric_interval
         self.feature_transform = feature_transform
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
+        self.configure_training(
+            lr_schedule=lr_schedule, weight_averaging=weight_averaging
+        )
 
         self.network = None
         self.optimizer = None
         self._fitted = False
-        self._quantile_transformer: QuantileTransformer | None = None
+        # fitted quantiles [n_features, n_quantiles] of the quantile transform, or None for raw features
+        self._quantiles: np.ndarray | None = None
 
         self.metrics = {
             "epoch": [],
@@ -275,6 +306,33 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         """Return whether the classifier has been fitted."""
         return self._fitted
 
+    def configure_training(
+        self, *, lr_schedule: str | None = None, weight_averaging: bool | None = None
+    ) -> None:
+        """Set the learning rate schedule and the weight averaging of the next fits; None leaves a setting as is."""
+        if lr_schedule is not None:
+            if lr_schedule not in LRSchedule.get_values():
+                raise ValueError(
+                    f"Unknown learning rate schedule: {lr_schedule}. "
+                    f"Valid options are {LRSchedule.get_values()}"
+                )
+            self.lr_schedule = lr_schedule
+        if weight_averaging is not None:
+            self.weight_averaging = weight_averaging
+
+    def _lr_scheduler(
+        self, optimizer: optim.Optimizer, num_steps: int
+    ) -> optim.lr_scheduler.LRScheduler:
+        """The learning rate scheduler of a fit with `num_steps` minibatches, stepped once per minibatch.
+
+        The constant schedule multiplies the learning rate by 1.0, i.e. leaves it unchanged.
+        """
+        if getattr(self, "lr_schedule", LRSchedule.CONSTANT) == LRSchedule.COSINE:
+            return optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=max(1, num_steps), eta_min=0.0
+            )
+        return optim.lr_scheduler.LambdaLR(optimizer, lambda _: 1.0)
+
     def to_state_dict(self) -> dict:
         """Save the state of the classifier as a dictionary.
 
@@ -297,7 +355,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             "metric_interval": self.metric_interval,
             "metrics": self.metrics,
             "feature_transform": self.feature_transform,
-            "_quantile_transformer": self._quantile_transformer,
+            "lr_schedule": self.lr_schedule,
+            "weight_averaging": self.weight_averaging,
+            "_quantiles": self._quantiles,
         }
 
         if self._fitted:
@@ -321,7 +381,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         """
         _state_dict = deepcopy(state_dict)
 
-        self._quantile_transformer = _state_dict.pop("_quantile_transformer")
+        if "_quantile_transformer" in _state_dict:
+            raise ValueError(
+                "State dict holds a sklearn quantile transformer, which is no longer supported. "
+                "Fit the classifier again."
+            )
+        self._quantiles = _state_dict.pop("_quantiles", None)
 
         if "network_state_dict" in _state_dict:
             self.network = FeedForwardNN(
@@ -347,7 +412,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         for values in self.metrics.values():
             values.clear()
 
-    def _fit_feature_transform(self, x: np.ndarray) -> QuantileTransformer | None:
+    def _fit_feature_transform(self, x: np.ndarray) -> np.ndarray | None:
         """Fit the configured feature transform on the training data.
 
         Parameters
@@ -357,8 +422,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Returns
         -------
-        QuantileTransformer | None
-            The fitted transformer, or None if the raw features are used.
+        np.ndarray | None
+            The quantiles of the quantile transform, shape (n_features, n_quantiles),
+            or None if the raw features are used.
 
         """
         if self.feature_transform == FeatureTransform.NONE:
@@ -371,9 +437,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             )
             return None
 
-        return QuantileTransformer(
-            n_quantiles=_N_QUANTILES, output_distribution="normal", subsample=None
-        ).fit(x)
+        # the fit of sklearn's QuantileTransformer(output_distribution="normal"), computed in alphadia-search-rs
+        return fdr_quantile_fit(
+            np.ascontiguousarray(x, dtype=np.float32), n_quantiles=_N_QUANTILES
+        )
 
     def _transform_features(self, x: np.ndarray) -> np.ndarray:
         """Map every feature to a standard normal score through its empirical CDF.
@@ -393,10 +460,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             transform was fitted.
 
         """
-        if self._quantile_transformer is None:
+        if self._quantiles is None:
             return x
 
-        return self._quantile_transformer.transform(x)
+        return fdr_quantile_transform(
+            np.ascontiguousarray(x, dtype=np.float32), self._quantiles
+        )
 
     @manage_torch_threads(max_threads=2)
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements
@@ -411,7 +480,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
-        self._quantile_transformer = self._fit_feature_transform(x)
+        self._quantiles = self._fit_feature_transform(x)
         x = self._transform_features(x)
 
         if self.experimental_hyperparameter_tuning:
@@ -474,6 +543,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         batch_count = 0
 
+        scheduler = self._lr_scheduler(optimizer, num_batches * self.epochs)
+        # Running mean of the network state over the minibatches of the last epoch. Without it the
+        # last minibatches alone decide where the decision boundary in the thin 1% tail ends up.
+        averaged_state: dict[str, torch.Tensor] | None = None
+        num_averaged = 0
+        average_weights = getattr(self, "weight_averaging", False)
+
         for epoch in tqdm(range(self.epochs)):
             # shuffle batches
             order = self._np_rng.permutation(num_batches)
@@ -491,6 +567,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 self.network.zero_grad()
                 loss_value.backward()
                 optimizer.step()
+                scheduler.step()
+
+                if average_weights and epoch == self.epochs - 1:
+                    averaged_state, num_averaged = _update_average_state(
+                        averaged_state, num_averaged, self.network.state_dict()
+                    )
 
                 if batch_count % self.metric_interval == 0:
                     self.network.eval()
@@ -518,6 +600,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                     self.network.train()
 
                 batch_count += 1
+
+        if averaged_state is not None:
+            logger.info(
+                f"Using the network weights averaged over the last {num_averaged:,} minibatches"
+            )
+            self.network.load_state_dict(averaged_state)
 
         self._fitted = True
 
@@ -594,6 +682,27 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         return output
 
 
+def _update_average_state(
+    averaged_state: dict[str, torch.Tensor] | None,
+    num_averaged: int,
+    state: dict[str, torch.Tensor],
+) -> tuple[dict[str, torch.Tensor], int]:
+    """Add one network state to the running mean of the states.
+
+    Floating point tensors (weights, biases, batch norm running statistics) are averaged,
+    integer ones (the batch norm batch counter) take the latest value.
+    """
+    num_averaged += 1
+    if averaged_state is None:
+        return {key: value.detach().clone() for key, value in state.items()}, 1
+    for key, value in state.items():
+        if value.is_floating_point():
+            averaged_state[key] += (value.detach() - averaged_state[key]) / num_averaged
+        else:
+            averaged_state[key] = value.detach().clone()
+    return averaged_state, num_averaged
+
+
 class FeedForwardNN(nn.Module):
     """A simple feed forward neural network for FDR estimation."""
 
@@ -630,3 +739,322 @@ class FeedForwardNN(nn.Module):
     def forward(self, x: Any) -> Any:  # noqa: ANN401
         """Forward pass through the network, returning the logit of each sample."""
         return self.fc_layers(x).squeeze(1)
+
+
+class RustMLPClassifier(Classifier):
+    """Binary classifier for FDR estimation, computed in alphadia-search-rs.
+
+    The task and the training are those of `BinaryClassifierLegacyNewBatching`: fully connected
+    ReLU layers with one output logit, BCE-with-logits loss and Adam, on quantile-transformed
+    features. By default it has no batch norm, because the quantile transform already
+    standardises the input. It has no dropout. The feature transform and the training run in
+    Rust on the alphadia-search-rs thread pool.
+
+    All state is in numpy arrays (quantiles and the flat network parameters), so the
+    classifier pickles and deep-copies like a plain Python object. A second `fit` continues
+    from the current parameters, as in the torch classifier.
+    """
+
+    def __init__(  # noqa: PLR0913 # Too many arguments
+        self,
+        layers: list[int] | None = None,
+        epochs: int = 10,
+        batch_size: int = 5000,
+        learning_rate: float = 0.001,
+        weight_decay: float = 0.00001,
+        feature_transform: str = FeatureTransform.QUANTILE,
+        quantile_subsample: int | None = None,
+        *,
+        experimental_hyperparameter_tuning: bool = False,
+        random_state: int | None = None,
+        lr_schedule: str = LRSchedule.CONSTANT,
+        weight_averaging: bool = True,
+        input_batch_norm: bool = False,
+        mid_rank_ties: bool = True,
+    ):
+        """Binary classifier for FDR estimation, computed in alphadia-search-rs.
+
+        Parameters
+        ----------
+        layers : list[int], default=[128, 64, 32]
+            Hidden layer sizes.
+
+        epochs : int, default=10
+            Number of passes over the training data.
+
+        batch_size : int, default=5000
+            Rows per optimizer step.
+
+        learning_rate : float, default=0.001
+            Adam learning rate.
+
+        weight_decay : float, default=0.00001
+            L2 penalty added to the gradient.
+
+        feature_transform : str, default="quantile"
+            Transform applied to the features before they enter the network,
+            either "none" or "quantile".
+
+        quantile_subsample : int, optional
+            Fit the quantile transform on this many random rows instead of all rows.
+
+        experimental_hyperparameter_tuning : bool, default=False
+            Scale batch size and learning rate with the number of rows, as the torch
+            classifier does.
+
+        random_state : int, optional
+            Seed for the weight initialisation, row order and quantile subsample.
+
+        lr_schedule : str, default="constant"
+            Learning rate schedule, "constant" or "cosine" (half cosine from `learning_rate` to zero over the fit).
+
+        weight_averaging : bool, default=True
+            Predict with the mean of the parameters over the minibatches of the last epoch instead of the
+            parameters after the last minibatch.
+
+        input_batch_norm : bool, default=False
+            Pass the input through a batch norm layer, as in the torch classifier. Training normalizes each
+            minibatch and learns a scale and shift per feature. Prediction uses the running statistics.
+
+        mid_rank_ties : bool, default=True
+            In the quantile transform, map ties at the lowest or highest quantile (e.g. a feature that is 0 in
+            most rows) to the middle of their tie group, as for every other tie group. sklearn instead clamps
+            them to the clip value of about -5.2 / +5.2. The clamp leaves such features far from a standard
+            normal. On final-round features of HeLa and Astral runs, the mid rank gives 2.4-6 % more
+            identifications at 1 % FDR.
+
+        """
+        if feature_transform not in FeatureTransform.get_values():
+            raise ValueError(
+                f"Unknown feature transform: {feature_transform}. "
+                f"Valid options are {FeatureTransform.get_values()}"
+            )
+        self.layers = [128, 64, 32] if layers is None else list(layers)
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.feature_transform = feature_transform
+        self.quantile_subsample = quantile_subsample
+        self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
+        self.input_batch_norm = input_batch_norm
+        self.mid_rank_ties = mid_rank_ties
+        self.lr_schedule = LRSchedule.CONSTANT
+        self.weight_averaging = False
+        self.configure_training(
+            lr_schedule=lr_schedule, weight_averaging=weight_averaging
+        )
+
+        self.input_dim: int | None = None
+        self._params: np.ndarray | None = None
+        self._quantiles: np.ndarray | None = None
+        self._np_rng = np.random.default_rng(seed=random_state)
+
+    @property
+    def fitted(self) -> bool:
+        """Return whether the classifier has been fitted."""
+        return self._params is not None
+
+    def configure_training(
+        self, *, lr_schedule: str | None = None, weight_averaging: bool | None = None
+    ) -> None:
+        """Set the learning rate schedule and the weight averaging of the next fits. None keeps a setting."""
+        if lr_schedule is not None:
+            if lr_schedule not in LRSchedule.get_values():
+                raise ValueError(
+                    f"Unknown learning rate schedule: {lr_schedule}. "
+                    f"Valid options are {LRSchedule.get_values()}"
+                )
+            self.lr_schedule = lr_schedule
+        if weight_averaging is not None:
+            self.weight_averaging = weight_averaging
+
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+        """Fit the classifier to the data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Training data of shape (n_samples, n_features).
+
+        y : np.ndarray, dtype=int
+            Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        """
+        x = np.ascontiguousarray(x, dtype=np.float32)
+        if y.ndim == 2:  # noqa: PLR2004
+            y = y[:, 1]
+        y = np.ascontiguousarray(y, dtype=np.float32)
+        seed = int(self._np_rng.integers(0, 2**31))
+
+        quantiles = self._fit_feature_transform(x, seed)
+        x = self._transform_features(x, quantiles)
+
+        batch_size, learning_rate = self.batch_size, self.learning_rate
+        if self.experimental_hyperparameter_tuning:
+            batch_size, learning_rate = _get_scaled_training_params(x)
+
+        params = self._params
+        if params is not None and self.input_dim != x.shape[1]:
+            warnings.warn(
+                "Input dimension of network has changed. Network has been reinitialized."
+            )
+            params = None
+
+        params = fdr_mlp_fit(
+            x,
+            y,
+            hidden_layers=self.layers,
+            epochs=self.epochs,
+            batch_size=int(batch_size),
+            learning_rate=float(learning_rate),
+            weight_decay=self.weight_decay,
+            seed=seed,
+            params=params,
+            cosine_schedule=self.lr_schedule == LRSchedule.COSINE,
+            average_last_epoch=self.weight_averaging,
+            input_batch_norm=self.input_batch_norm,
+        )
+        # the transform and the network change together, so a failed fit leaves the classifier unchanged
+        self._quantiles, self._params, self.input_dim = quantiles, params, x.shape[1]
+
+    def reset(self) -> None:
+        """Set the classifier back to an unfitted state. The next fit starts from new random weights."""
+        self._params = None
+        self._quantiles = None
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class of the data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        y : np.ndarray, dtype=int
+            Predicted class of shape (n_samples,).
+
+        """
+        return (self._predict_logit(x) > 0).astype(int)
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class probabilities of the data.
+
+        Parameters
+        ----------
+        x : np.ndarray, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        y : np.ndarray, dtype=float
+            Predicted class probabilities of shape (n_samples, n_classes).
+
+        """
+        logit = self._predict_logit(x).astype(np.float64)
+        # in float64, the sigmoid keeps the ranking of logits far beyond the point where float32 rounds to 1
+        proba = 1 / (1 + np.exp(-logit))
+        return np.stack([1 - proba, proba], axis=1)
+
+    def to_state_dict(self) -> dict:
+        """Return the state of the classifier as a dictionary of plain values and numpy arrays."""
+        return {
+            "_fitted": self.fitted,
+            "input_dim": self.input_dim,
+            "layers": self.layers,
+            "epochs": self.epochs,
+            "batch_size": self.batch_size,
+            "learning_rate": self.learning_rate,
+            "weight_decay": self.weight_decay,
+            "feature_transform": self.feature_transform,
+            "quantile_subsample": self.quantile_subsample,
+            "lr_schedule": self.lr_schedule,
+            "weight_averaging": self.weight_averaging,
+            "input_batch_norm": self.input_batch_norm,
+            "mid_rank_ties": self.mid_rank_ties,
+            "params": None if self._params is None else self._params.copy(),
+            "quantiles": None if self._quantiles is None else self._quantiles.copy(),
+        }
+
+    def from_state_dict(
+        self, state_dict: dict, *, load_hyperparameters: bool = False
+    ) -> None:
+        """Load the state of the classifier from a dictionary written by `to_state_dict`.
+
+        Parameters
+        ----------
+        state_dict : dict
+            Dictionary containing the state of the classifier.
+
+        load_hyperparameters : bool, default=False
+            Whether to load hyperparameters from the state dict.
+
+        """
+        if "params" not in state_dict:
+            raise ValueError(
+                "State dict was not written by RustMLPClassifier, it has no 'params'."
+            )
+        self.input_dim = state_dict["input_dim"]
+        self.layers = list(state_dict["layers"])
+        # the parameter vector holds the batch norm block, so its layout is part of the state
+        self.input_batch_norm = state_dict.get("input_batch_norm", False)
+        # the network was trained on the transform with this setting
+        self.mid_rank_ties = state_dict.get("mid_rank_ties", False)
+        self._params = state_dict["params"]
+        self._quantiles = state_dict["quantiles"]
+        if load_hyperparameters:
+            for key in (
+                "epochs",
+                "batch_size",
+                "learning_rate",
+                "weight_decay",
+                "feature_transform",
+                "quantile_subsample",
+                "lr_schedule",
+                "weight_averaging",
+            ):
+                if key in state_dict:
+                    setattr(self, key, state_dict[key])
+
+    def _fit_feature_transform(self, x: np.ndarray, seed: int) -> np.ndarray | None:
+        """Fit the configured feature transform. Return the quantiles, or None for raw features."""
+        if self.feature_transform == FeatureTransform.NONE:
+            return None
+
+        if len(x) < _MIN_ROWS_FOR_QUANTILE_TRANSFORM:
+            logger.warning(
+                f"Only {len(x):,} rows available for the quantile feature transform "
+                f"(minimum {_MIN_ROWS_FOR_QUANTILE_TRANSFORM:,}), using the raw features instead."
+            )
+            return None
+
+        return fdr_quantile_fit(
+            x, n_quantiles=_N_QUANTILES, subsample=self.quantile_subsample, seed=seed
+        )
+
+    def _transform_features(
+        self, x: np.ndarray, quantiles: np.ndarray | None
+    ) -> np.ndarray:
+        """Map every feature to a standard normal score with `quantiles`, or return x if `quantiles` is None."""
+        if quantiles is None:
+            return x
+        return fdr_quantile_transform(x, quantiles, mid_rank_bounds=self.mid_rank_ties)
+
+    def _predict_logit(self, x: np.ndarray) -> np.ndarray:
+        if not self.fitted:
+            raise ValueError("Classifier has not been fitted yet.")
+        if x.ndim != 2 or x.shape[1] != self.input_dim:  # noqa: PLR2004
+            raise ValueError(
+                f"Input data must have shape (n_samples, {self.input_dim}), got {x.shape}."
+            )
+        x = self._transform_features(
+            np.ascontiguousarray(x, dtype=np.float32), self._quantiles
+        )
+        return fdr_mlp_predict(
+            x,
+            hidden_layers=self.layers,
+            params=self._params,
+            input_batch_norm=self.input_batch_norm,
+        )
